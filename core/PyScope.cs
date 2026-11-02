@@ -461,9 +461,10 @@ namespace SharpPy
             _normalScopes.Add(globalScope);
 
             // Global 스코프에 __builtins__ 참조 추가 (Python과 동일) - moduleDict가 이미 포함할 수 있음
+            // exec_code_in_module: only __main__ holds the module, other modules hold its dict.
             if (!moduleDict.ContainsKey("__builtins__"))
             {
-                globalScope.SetVariable("__builtins__", _builtinModule);
+                globalScope.SetVariable("__builtins__", moduleName == "__main__" ? _builtinModule : _builtinModule.GetAttribute("__dict__"));
             }
 
             SharpPyConfig.DebugWriteInternal($"🏗️ 모듈용 LEGB 시스템 초기화: {moduleName}");

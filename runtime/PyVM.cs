@@ -7151,7 +7151,7 @@ namespace SharpPy
                 // This makes the TypeVar objects accessible via function.__type_params__
                 // Performance: Eliminated LINQ - manual array to List conversion
                 pyFunc.TypeParams = new List<PyObject>(paramTuple.Items);
-                pyFunc.Attributes["__type_params__"] = paramTuple;
+                pyFunc.SetAttribute("__type_params__", paramTuple);
                 return pyFunc;
             }
 
@@ -7626,7 +7626,7 @@ namespace SharpPy
                     // Create minimal frame for simple function - CPython 3.12: include parent frame
                     // CPython 3.12: Get defaults from func.__defaults__ attribute
                     PyTuple defaults = null;
-                    if (pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+                    if (pyFunc.GetDefaults() is PyTuple defaultsTuple)
                     {
                         defaults = defaultsTuple;
                     }
@@ -7696,7 +7696,7 @@ namespace SharpPy
                     // Create minimal frame for simple function - CPython 3.12: include parent frame
                     // CPython 3.12: Get defaults from func.__defaults__ attribute
                     PyTuple defaults = null;
-                    if (pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+                    if (pyFunc.GetDefaults() is PyTuple defaultsTuple)
                     {
                         defaults = defaultsTuple;
                     }
@@ -8043,7 +8043,7 @@ namespace SharpPy
 
                 // CPython 3.12: Get defaults and kwdefaults from function attributes
                 PyTuple defaults = null;
-                if (pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+                if (pyFunc.GetDefaults() is PyTuple defaultsTuple)
                 {
                     defaults = defaultsTuple;
                 }

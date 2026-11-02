@@ -595,7 +595,7 @@ namespace SharpPy
         public virtual void SetAttribute(string name, PyObject value)
         {
             if (name == "__class__")
-                throw PyAttributeError.Create($"can't set attribute '{name}'");
+                throw PyTypeError.Create(value is PyType ? "__class__ assignment only supported for mutable types or ModuleType subclasses" : $"__class__ must be set to a class, not '{value.GetTypeName()}' object");
 
             PySetAttribute(name, value);
         }

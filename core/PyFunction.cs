@@ -9,7 +9,7 @@ namespace SharpPy
 // Python의 function 타입
 public partial class PyFunction : PyObject, IDescriptor
 {
-    public string Name { get; }
+    public string Name { get; private set; }
     // func_qualname (Objects/funcobject.c:705). It starts as co_qualname and moves independently of
     // __name__ once something assigns it, which is what functools.wraps relies on.
     private string _qualName;
@@ -37,6 +37,12 @@ public partial class PyFunction : PyObject, IDescriptor
     private PyDict? _dictCache = null;
     private PyDict? _globalsCache = null;
     private PyObject? _module;
+    private PyObject? _defaults;
+    private PyObject? _kwdefaults;
+    private PyObject? _typeParams;
+    private PyObject? _doc;
+    private bool _docWasSet;
+    private PyDict? _assignedDict;
 
     public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null, PyCell[] closure = null, PyCodeObject codeObject = null)
     {
@@ -48,37 +54,8 @@ public partial class PyFunction : PyObject, IDescriptor
         Closure = closure ?? new PyCell[0];
         CodeObject = codeObject;
 
-        // __type_params__ 속성 설정
         if (TypeParams != null && TypeParams.Count > 0)
-        {
-            // Performance: Eliminated LINQ (ToArray) - direct copy + TupleCache
-            var typeParamsArray = new PyObject[TypeParams.Count];
-            for (int i = 0; i < TypeParams.Count; i++)
-            {
-                typeParamsArray[i] = TypeParams[i];
-            }
-            Attributes["__type_params__"] = TupleCache.GetOrCreate(typeParamsArray);
-        }
-        else
-        {
-            Attributes["__type_params__"] = PyTuple.Empty;
-        }
-
-        // Closure 정보를 속성으로 노출
-        if (Closure.Length > 0)
-        {
-            // Performance: Eliminated LINQ (Cast + ToArray) - direct copy + TupleCache
-            var closureObjects = new PyObject[Closure.Length];
-            for (int i = 0; i < Closure.Length; i++)
-            {
-                closureObjects[i] = Closure[i];
-            }
-            Attributes["__closure__"] = TupleCache.GetOrCreate(closureObjects);
-        }
-        else
-        {
-            Attributes["__closure__"] = PyNone.Instance;
-        }
+            _typeParams = TupleCache.GetOrCreate(TypeParams.ToArray());
 
         // CPython 호환: function type descriptor 초기화
         InitializeFunctionDescriptors();
@@ -91,7 +68,7 @@ public partial class PyFunction : PyObject, IDescriptor
     {
         var funcType = PyType.FunctionType;
 
-        // __name__ getset descriptor
+        // func_get_name and func_set_name
         funcType.TypeDict["__name__"] = new PyGetSetDescriptor(
             "__name__",
             funcType,
@@ -99,7 +76,13 @@ public partial class PyFunction : PyObject, IDescriptor
                 if (self is PyFunction func)
                     return new PyString(func.Name);
                 throw PyTypeError.Create("descriptor '__name__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-            }
+            },
+            setter: (self, value) => {
+                if (value is not PyString text)
+                    throw PyTypeError.Create("__name__ must be set to a string object");
+                ((PyFunction)self).Name = text.Value;
+            },
+            deleter: self => throw PyTypeError.Create("__name__ must be set to a string object")
         );
 
         // __qualname__ getset (Objects/funcobject.c:705, getter :529, setter :535). "Not legal to
@@ -165,25 +148,28 @@ public partial class PyFunction : PyObject, IDescriptor
             setter: (self, value) => ((PyFunction)self)._module = value
         );
 
-        // __doc__ getset descriptor
-        // CPython 3.12: __doc__ is the first constant in co_consts if it's a string
-        // See Python/funcobject.c:func_get_doc
+        // func_doc: a member, set from the code's first constant
         funcType.TypeDict["__doc__"] = new PyGetSetDescriptor(
             "__doc__",
             funcType,
             getter: self => {
-                if (self is PyFunction func)
-                {
-                    // CPython 3.12: docstring is first constant if it's a string
-                    if (func.CodeObject != null &&
-                        func.CodeObject.Constants.Count > 0 &&
-                        func.CodeObject.Constants[0] is PyString docString)
-                    {
-                        return docString;
-                    }
-                    return PyNone.Instance;
-                }
-                throw PyTypeError.Create("descriptor '__doc__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                if (self is not PyFunction func)
+                    throw PyTypeError.Create("descriptor '__doc__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                if (func._docWasSet)
+                    return func._doc ?? PyNone.Instance;
+                if (func.CodeObject != null && func.CodeObject.Constants.Count > 0 && func.CodeObject.Constants[0] is PyString docString)
+                    return docString;
+                return PyNone.Instance;
+            },
+            setter: (self, value) => {
+                var func = (PyFunction)self;
+                func._docWasSet = true;
+                func._doc = value;
+            },
+            deleter: self => {
+                var func = (PyFunction)self;
+                func._docWasSet = true;
+                func._doc = null;
             }
         );
 
@@ -200,10 +186,11 @@ public partial class PyFunction : PyObject, IDescriptor
                 // func_set_code: a code of the same closure size, and nothing else.
                 if (self is not PyFunction func || value is not PyCodeObject code)
                     throw PyTypeError.Create("__code__ must be set to a code object");
-                if ((func.CodeObject?.FreeVars.Count ?? 0) != code.FreeVars.Count)
-                    throw PyValueError.Create("__code__ has the wrong number of free vars");
+                if (func.Closure.Length != code.FreeVars.Count)
+                    throw PyValueError.Create($"{func.Name}() requires a code object with {func.Closure.Length} free vars, not {code.FreeVars.Count}");
                 func.CodeObject = code;
-            }
+            },
+            deleter: self => throw PyTypeError.Create("__code__ must be set to a code object")
         );
 
         // __closure__ getset descriptor
@@ -211,9 +198,13 @@ public partial class PyFunction : PyObject, IDescriptor
             "__closure__",
             funcType,
             getter: self => {
-                if (self is PyFunction func)
-                    return func.Attributes["__closure__"];
-                throw PyTypeError.Create("descriptor '__closure__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                if (self is not PyFunction func)
+                    throw PyTypeError.Create("descriptor '__closure__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                if (func.Closure.Length == 0)
+                    return PyNone.Instance;
+                var cells = new PyObject[func.Closure.Length];
+                Array.Copy(func.Closure, cells, cells.Length);
+                return TupleCache.GetOrCreate(cells);
             }
         );
 
@@ -239,57 +230,83 @@ public partial class PyFunction : PyObject, IDescriptor
             }
         );
 
-        // __defaults__ getset descriptor - CPython 3.12
+        // func_builtins
+        funcType.TypeDict["__builtins__"] = new PyGetSetDescriptor(
+            "__builtins__",
+            funcType,
+            getter: self => {
+                var func = (PyFunction)self;
+                PyObject builtins = null;
+                func.GlobalsDict?.TryGetValue("__builtins__", out builtins);
+                builtins ??= PyImportSystem.Import("builtins");
+                return builtins is PyModule ? builtins.GetAttribute("__dict__") : builtins;
+            }
+        );
+
+        // func_get_defaults and func_set_defaults
         funcType.TypeDict["__defaults__"] = new PyGetSetDescriptor(
             "__defaults__",
             funcType,
             getter: self => {
                 if (self is PyFunction func)
-                {
-                    if (func.Attributes.TryGetValue("__defaults__", out var defaults))
-                        return defaults;
-                    return PyNone.Instance;
-                }
+                    return func._defaults ?? PyNone.Instance;
                 throw PyTypeError.Create("descriptor '__defaults__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             },
             setter: (self, value) => {
-                if (self is PyFunction func)
-                {
-                    // CPython 3.12: None is converted to NULL (we use None directly)
-                    if (value == PyNone.Instance)
-                    {
-                        func.Attributes.Remove("__defaults__");
-                        return;
-                    }
-                    // CPython 3.12: __defaults__ must be a tuple
-                    if (!(value is PyTuple))
-                        throw PyTypeError.Create("__defaults__ must be set to a tuple object");
-                    func.Attributes["__defaults__"] = value;
-                    return;
-                }
-                throw PyTypeError.Create("descriptor '__defaults__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-            }
+                if (value is PyNone)
+                    ((PyFunction)self)._defaults = null;
+                else if (value is PyTuple)
+                    ((PyFunction)self)._defaults = value;
+                else
+                    throw PyTypeError.Create("__defaults__ must be set to a tuple object");
+            },
+            deleter: self => ((PyFunction)self)._defaults = null
         );
 
-        // __dict__ getset descriptor
-        // CPython 3.12: func.__dict__ is func.__dict__ must be True
+        // func_get_kwdefaults and func_set_kwdefaults
+        funcType.TypeDict["__kwdefaults__"] = new PyGetSetDescriptor(
+            "__kwdefaults__",
+            funcType,
+            getter: self => ((PyFunction)self)._kwdefaults ?? PyNone.Instance,
+            setter: (self, value) => {
+                if (value is PyNone)
+                    ((PyFunction)self)._kwdefaults = null;
+                else if (value is PyDict)
+                    ((PyFunction)self)._kwdefaults = value;
+                else
+                    throw PyTypeError.Create("__kwdefaults__ must be set to a dict object");
+            },
+            deleter: self => ((PyFunction)self)._kwdefaults = null
+        );
+
+        // func_get_type_params and func_set_type_params
+        funcType.TypeDict["__type_params__"] = new PyGetSetDescriptor(
+            "__type_params__",
+            funcType,
+            getter: self => ((PyFunction)self)._typeParams ?? PyTuple.Empty,
+            setter: (self, value) => {
+                if (value is not PyTuple)
+                    throw PyTypeError.Create("__type_params__ must be set to a tuple");
+                ((PyFunction)self)._typeParams = value;
+            },
+            deleter: self => throw PyTypeError.Create("__type_params__ must be set to a tuple")
+        );
+
+        // PyObject_GenericGetDict and PyObject_GenericSetDict
         funcType.TypeDict["__dict__"] = new PyGetSetDescriptor(
             "__dict__",
             funcType,
             getter: self => {
-                if (self is PyFunction func)
-                {
-                    // Lazy-initialize and cache the synchronized dict wrapper
-                    // This ensures func.__dict__ returns the same object every time
-                    // AND modifications to the dict are reflected in Attributes
-                    if (func._dictCache == null)
-                    {
-                        func._dictCache = new PyFunctionAttrDict(func.Attributes);
-                    }
-                    return func._dictCache;
-                }
-                throw PyTypeError.Create("descriptor '__dict__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-            }
+                if (self is not PyFunction func)
+                    throw PyTypeError.Create("descriptor '__dict__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                return func._assignedDict ?? (func._dictCache ??= new PyFunctionAttrDict(func.Attributes));
+            },
+            setter: (self, value) => {
+                if (value is not PyDict dict)
+                    throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
+                ((PyFunction)self)._assignedDict = dict;
+            },
+            deleter: self => throw PyTypeError.Create("cannot delete __dict__")
         );
 
         // __call__ getset descriptor (함수 자체를 반환)
@@ -423,16 +440,11 @@ public partial class PyFunction : PyObject, IDescriptor
     /// </summary>
     internal PyTuple GetDefaults()
     {
-        if (Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
-        {
-            return defaultsTuple;
-        }
-        return null;
+        return _defaults as PyTuple;
     }
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    internal PyDict GetKeywordDefaults() => CodeObject?.KwonlyArgCount > 0 &&
-        Attributes.TryGetValue("__kwdefaults__", out var value) && value is PyDict defaults ? defaults : null;
+    internal PyDict GetKeywordDefaults() => CodeObject?.KwonlyArgCount > 0 ? _kwdefaults as PyDict : null;
 
     /// <summary>
     /// async generator 객체 생성 - PEP 525 호환
@@ -618,7 +630,6 @@ public partial class PyFunction : PyObject, IDescriptor
     // Function attributes 접근 - CPython 호환: descriptor 테이블 사용
     public override PyObject GetAttribute(string name)
     {
-        if (name == "__kwdefaults__") return Attributes.GetValueOrDefault(name) ?? PyNone.Instance;
         // CPython 3.12: Objects/funcobject.c:358-390 (func_getattro)
         // Expose __get__ for descriptor protocol
         if (name == "__get__")
@@ -636,52 +647,46 @@ public partial class PyFunction : PyObject, IDescriptor
             });
         }
 
-        // CPython 3.12: 먼저 function의 instance dictionary (Attributes) 확인
-        if (Attributes.TryGetValue(name, out PyObject value))
+        // PyObject_GenericGetAttr: a getset of the type comes before the instance's dict.
+        if (PyType.FunctionType.TypeDict.TryGetValue(name, out var slot) && slot is PyGetSetDescriptor getset)
+            return getset.Get(this, PyType.FunctionType);
+        if (_assignedDict != null)
+        {
+            if (_assignedDict.TryGetStoredValue(new PyString(name), out var stored))
+                return stored;
+        }
+        else if (Attributes.TryGetValue(name, out PyObject value))
             return value;
 
-        // 그 다음 descriptor 테이블 조회
-        try
-        {
-            return GenericGetAttribute(name);
-        }
-        catch (PythonException)
-        {
-            throw;
-        }
+        return GenericGetAttribute(name);
     }
     
+    // PyObject_GenericSetAttr: a data descriptor takes the assignment and may refuse it.
     public override void SetAttribute(string name, PyObject value)
     {
-        // PyObject_GenericSetAttr consults the MRO before the object's dict, so a descriptor with a
-        // setting slot takes the assignment. Only those are routed here: the read-only descriptors
-        // SharpPy registers today (name, doc, module) keep the dictionary behaviour they already had,
-        // where CPython gives them a setter - that difference is recorded in the L2.4 report.
-        if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is PyGetSetDescriptor writable
-            && writable.HasSetter)
-        {
-            writable.Set(this, value);
-            return;
-        }
-        if (name == "__kwdefaults__")
-        {
-            if (value == PyNone.Instance) { Attributes.Remove(name); return; }
-            if (value is not PyDict) throw PyTypeError.Create("__kwdefaults__ must be set to a dict object");
-        }
-        Attributes[name] = value;
+        if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is PyGetSetDescriptor getset)
+            getset.Set(this, value);
+        else if (_assignedDict != null)
+            _assignedDict.SetItem(new PyString(name), value);
+        else
+            Attributes[name] = value;
     }
 
     public override void DelAttribute(string name)
     {
-        if (name == "__kwdefaults__") { Attributes.Remove(name); return; }
-        // descr_delete on a getset is the same slot as descr_set with NULL (Objects/descrobject.c),
-        // so deletion goes through the descriptor and its refusal, not through the dict.
+        // descr_delete on a getset is the same slot as descr_set with NULL (Objects/descrobject.c)
         if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is PyGetSetDescriptor getset)
         {
             getset.Delete(this);
             return;
         }
-        base.DelAttribute(name);
+        if (_assignedDict != null)
+        {
+            _assignedDict.DelItem(new PyString(name));
+            return;
+        }
+        if (!Attributes.Remove(name))
+            throw PyAttributeError.Create($"'function' object has no attribute '{name}'");
     }
 
     // CPython repr(func)/method uses __qualname__, not the bare code name: repr is
@@ -1303,7 +1308,7 @@ public static class PEP692CallHelper
 /// </summary>
 public class PyTypedDict : PyObject
 {
-    public string Name { get; }
+    public string Name { get; private set; }
     public HashSet<string> RequiredKeys { get; } = new HashSet<string>();
     public HashSet<string> OptionalKeys { get; } = new HashSet<string>();
     public Dictionary<string, PyObject> KeyTypes { get; } = new Dictionary<string, PyObject>();

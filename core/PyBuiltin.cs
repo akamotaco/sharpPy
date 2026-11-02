@@ -179,6 +179,9 @@ namespace SharpPy
         // m_module: the module that holds this function
         internal string OwnerModule = "builtins";
 
+        // A method of a class: its name goes before this one in __qualname__.
+        internal string OwnerClass;
+
         // CPython builtin_function_repr for an unbound (module-level) builtin:
         // <built-in function NAME>. repr()/str() route through ToRepr/ToStr, not the
         // C# ToString(), so these must be overridden explicitly.
@@ -1821,7 +1824,7 @@ namespace SharpPy
                 // builtins), __doc__, and, crucially, the ordinary object attributes
                 // (__class__, __dir__, ...). Previously every other name threw, so
                 // len.__class__ raised AttributeError.
-                "__qualname__" => new PyString(Name),
+                "__qualname__" => new PyString(OwnerClass != null ? $"{OwnerClass}.{Name}" : Name),
                 "__call__" => this,
                 "__module__" => new PyString(OwnerModule),
                 "__text_signature__" => PyNone.Instance,

@@ -21,6 +21,8 @@ namespace SharpPy
             _name = name;
             _ownerType = ownerType;
             _callable = callable;
+            if (callable is PyBuiltinFunction function)
+                function.OwnerClass = ownerType.Name;
         }
 
         /// <summary>
@@ -75,9 +77,10 @@ namespace SharpPy
         // classmethod는 non-data descriptor (no __set__)
         public bool IsDataDescriptor() => false;
 
-        // CPython: builtin classmethods (dict.fromkeys, int.from_bytes) surface as
-        // builtin_function_or_method; user classmethods use a different class.
-        public override string GetTypeName() => "builtin_function_or_method";
-        public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
+        public override PyObject GetAttribute(string name) =>
+            PyMethodDescriptor.DescriptorAttribute(name, _ownerType, _name) ?? base.GetAttribute(name);
+
+        public override string GetTypeName() => "classmethod_descriptor";
+        public override PyType GetPyType() => PyType.ClassMethodDescriptorType;
     }
 }

@@ -70,6 +70,18 @@ namespace SharpPy
             throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
         }
 
+        // descr_members and descr_getset: what every descriptor of a type says about itself.
+        internal static PyObject DescriptorAttribute(string name, PyType owner, string descriptorName) => name switch
+        {
+            "__name__" => new PyString(descriptorName),
+            "__qualname__" => new PyString(owner != null ? $"{owner.Name}.{descriptorName}" : descriptorName),
+            "__objclass__" => owner,
+            _ => null,
+        };
+
+        public override PyObject GetAttribute(string name) =>
+            DescriptorAttribute(name, OwnerType, Name) ?? base.GetAttribute(name);
+
         public bool IsDataDescriptor() => false;
 
         // Method descriptor는 직접 호출 불가 (unbound)
@@ -162,8 +174,6 @@ namespace SharpPy
         public override PyObject GetAttribute(string name) => name switch
         {
             "__self__" => OwnerType,
-            "__name__" => new PyString(Name),
-            "__qualname__" => new PyString($"{OwnerType.Name}.{Name}"),
             _ => base.GetAttribute(name),
         };
 
@@ -184,6 +194,8 @@ namespace SharpPy
 
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
         public override string GetTypeName() => "builtin_function_or_method";
+
+        internal string QualifiedName => $"{MethodDescriptor.OwnerType.Name}.{MethodDescriptor.Name}";
 
         /// <summary>
         /// The same CPython object as PyBuiltinBoundMethod above, so the same slot: two bound
@@ -234,6 +246,8 @@ namespace SharpPy
                     return MethodDescriptor;
                 case "__name__":
                     return new PyString(MethodDescriptor.Name);
+                case "__qualname__":
+                    return new PyString(QualifiedName);
                 default:
                     return base.GetAttribute(name);
             }
@@ -282,6 +296,9 @@ namespace SharpPy
         internal bool HasSetter => _setter != null;
 
         public override PyType GetPyType() => PyType.GetSetDescriptorType;
+
+        public override PyObject GetAttribute(string name) =>
+            PyMethodDescriptor.DescriptorAttribute(name, OwnerType, Name) ?? base.GetAttribute(name);
         public override string GetTypeName() => "getset_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)
@@ -439,6 +456,9 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => PyType.WrapperDescriptorType;
+
+        public override PyObject GetAttribute(string name) =>
+            PyMethodDescriptor.DescriptorAttribute(name, OwnerType, Name) ?? base.GetAttribute(name);
         public override string GetTypeName() => "wrapper_descriptor";
 
         // CPython wrapper_descriptor_repr: <slot wrapper 'NAME' of 'TYPE' objects>
@@ -526,7 +546,9 @@ namespace SharpPy
                 case "__func__":
                     return WrapperDescriptor;
                 case "__name__":
-                    return new PyString(WrapperDescriptor.Name);
+                case "__qualname__":
+                case "__objclass__":
+                    return WrapperDescriptor.GetAttribute(name);
                 default:
                     return base.GetAttribute(name);
             }

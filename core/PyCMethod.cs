@@ -58,6 +58,14 @@ namespace SharpPy
             return (int)(self ^ (self >> 32)) ^ (int)_callable.GetPythonHash();
         }
 
+        // m_self is the class, the rest is the function's.
+        public override PyObject GetAttribute(string name) => name switch
+        {
+            "__self__" => _boundClass,
+            "__name__" or "__qualname__" => _callable.GetAttribute(name),
+            _ => base.GetAttribute(name),
+        };
+
         public override string GetTypeName() => "builtin_function_or_method";
         // CPython: builtin classmethods (dict.fromkeys) are seen as PyCFunction.
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;

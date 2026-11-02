@@ -36,6 +36,44 @@ namespace SharpPy
         
         public override PyType GetPyType() => PyType.CellType;
 
+        // cell_new
+        internal static void InstallNew()
+        {
+            var type = PyType.CellType;
+            type.ConstructedByNewSlot = true;
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
+            {
+                if (args.Length > 1)
+                    throw PyTypeError.Create($"cell expected at most 1 argument, got {args.Length}");
+                return new PyCell(args.Length == 1 ? args[0] : null);
+            });
+        }
+
+        // cell_richcompare: by the contents, and an empty cell is below any other.
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if (other is not PyCell cell)
+                return PyNotImplemented.Instance;
+            if (HasValue && cell.HasValue)
+                return _value.RichCompare(cell._value, op);
+            int left = HasValue ? 1 : 0, right = cell.HasValue ? 1 : 0;
+            return PyBool.FromBool(op switch
+            {
+                CompareOp.EQ => left == right,
+                CompareOp.NE => left != right,
+                CompareOp.LT => left < right,
+                CompareOp.LE => left <= right,
+                CompareOp.GT => left > right,
+                _ => left >= right,
+            });
+        }
+
+        public override void DelAttribute(string name)
+        {
+            if (name == "cell_contents") _value = null;
+            else base.DelAttribute(name);
+        }
+
         // cell_getsetlist (Objects/cellobject.c): cell_contents.
         public override PyObject GetAttribute(string name)
         {

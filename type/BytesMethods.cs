@@ -1147,7 +1147,7 @@ namespace SharpPy
                 if (kwargs != null && kwargs.Length() != 0)
                     throw PyTypeError.Create($"{type.Name}.maketrans() takes no keyword arguments");
                 return MakeTrans(args);
-            });
+            }, type);
         }
     }
 }

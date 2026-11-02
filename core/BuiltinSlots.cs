@@ -24,6 +24,17 @@ namespace SharpPy
             PyGenericAlias.Install();
             PySlotWrappers.Install();
             PyTextWrapper.Install();
+            // float___getformat___impl
+            PyType.FloatType.TypeDict["__getformat__"] = new PyClassMethodDescriptor("__getformat__", PyType.FloatType,
+                new PyBuiltinFunction("__getformat__", (args, kwargs) =>
+                {
+                    if (args.Length != 2 || args[1] is not PyString kind)
+                        throw PyTypeError.Create("__getformat__() argument must be str");
+                    if (kind.Value != "double" && kind.Value != "float")
+                        throw PyValueError.Create("__getformat__() argument 1 must be 'double' or 'float'");
+                    return new PyString(System.BitConverter.IsLittleEndian ? "IEEE, little-endian" : "IEEE, big-endian");
+                }));
+            PyCell.InstallNew();
             PyUnicodeError.InstallNew();
             PyType.MappingProxyType.ConstructedByNewSlot = true;
             // ellipsis_reduce, notimplemented_reduce

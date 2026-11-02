@@ -2022,7 +2022,7 @@ namespace SharpPy
             // visible through GenericGetAttribute/MRO for builtin instances too.
             objectType.TypeDict["__class__"] = new PyGetSetDescriptor("__class__", objectType,
                 self => self.GetPyType(),
-                (self, value) => throw PyAttributeError.Create("can't set attribute '__class__'"));
+                (self, value) => throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses"));
 
             // object.__format__(format_spec) - CPython 3.12: Objects/typeobject.c:6257 (object___format__)
             // Default implementation: if format_spec is empty, return str(self), else raise TypeError
