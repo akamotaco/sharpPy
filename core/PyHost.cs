@@ -88,6 +88,15 @@ namespace SharpPy
             }
         }
 
+        /// <summary>Put a bundle first on sys.path. A missing file is an error here, not at the first import.</summary>
+        public static void UseBundle(string path)
+        {
+            if (PyBundle.Open(path) == null)
+                throw new System.IO.FileNotFoundException("no such bundle", path);
+            var sys = PyImportSystem.Import("sys");
+            ((PyList)sys.ModuleDict["path"]).Insert(0, new PyString(path));
+        }
+
         /// <summary>Py_FinalizeEx: threading joins what is no daemon, then atexit and finalizers run.</summary>
         public static void Shutdown()
         {

@@ -83,6 +83,11 @@ namespace Godot_IO
         }
         
         // 파일 내용 읽기
+        public static byte[] ReadAllBytes(string path)
+        {
+            return IsGodotPath(path) ? Godot.FileAccess.GetFileAsBytes(path) : System.IO.File.ReadAllBytes(path);
+        }
+
         public static string ReadAllText(string path)
         {
             using (var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read))

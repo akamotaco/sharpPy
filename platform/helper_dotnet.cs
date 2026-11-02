@@ -69,6 +69,11 @@ namespace DotNet_IO
         }
         
         // 추가 유틸리티 메서드 - ModuleSystem에서 필요
+        public static byte[] ReadAllBytes(string path)
+        {
+            return File.ReadAllBytes(path);
+        }
+
         public static string ReadAllText(string path)
         {
             return File.ReadAllText(path);

@@ -103,6 +103,9 @@ public class PyModule : PyObject
     // CPython builtins (sys, math, ...) have no __file__ and repr as "(built-in)".
     public bool HasSourceFile { get; internal set; }
 
+    // The bundle this module came from: its submodules are looked up there.
+    internal PyBundle Bundle { get; set; }
+
     // CPython 3.12 requirement: module.__dict__ is module.__dict__ must be True
     // Cache the PyDict wrapper to ensure identity consistency
     private PyDict _cachedDict;
@@ -114,14 +117,14 @@ public class PyModule : PyObject
         ModuleDict = new PyNamespace();
         All = new List<string>();
 
-        InitializeBuiltinAttributes();
+        InitializeBuiltinAttributes(fileName != null);
     }
     
-    private void InitializeBuiltinAttributes()
+    private void InitializeBuiltinAttributes(bool hasFile)
     {
         ModuleDict["__name__"] = new PyString(Name);
         // A builtin module has no __file__.
-        if (!string.IsNullOrEmpty(FileName) && !FileName.StartsWith("<"))
+        if (hasFile && !string.IsNullOrEmpty(FileName) && !FileName.StartsWith("<"))
             ModuleDict["__file__"] = new PyString(FileName);
         ModuleDict["__doc__"] = new PyString($"Module {Name}");
 
@@ -300,6 +303,13 @@ public class PyModule : PyObject
     }
 
     // 모듈 실행 (소스 코드 실행) - 전체 Python 인터프리터 파이프라인 사용
+    /// <summary>Run code that is already compiled: a module out of a bundle.</summary>
+    internal void ExecuteCode(PyCodeObject code)
+    {
+        PyVM.Instance.ExecuteModule(code, CreateModuleGlobalScope());
+        IsInitialized = true;
+    }
+
     public void Execute(string sourceCode)
     {
 #if DEBUG_MODULE_LOG
@@ -696,7 +706,10 @@ public class PyModule : PyObject
         private static PyModule SearchSubmodule(PyModule parentModule, string submoduleName, string fullName)
         {
             if (parentModule == null) return null;
-            
+
+            if (parentModule.Bundle != null)
+                return parentModule.Bundle.Contains(fullName) ? LoadModuleFromBundle(parentModule.Bundle, fullName) : null;
+
             // 네임스페이스 패키지인 경우 특별 처리
             if (parentModule is PyNamespaceModule namespacePackage)
             {
@@ -747,6 +760,14 @@ public class PyModule : PyObject
             {
                 if (!(pathObj is PyString pathStr)) continue;
                 var searchPath = pathStr.Value;
+
+                if (PyBundle.IsBundlePath(searchPath))
+                {
+                    var bundle = PyBundle.Open(searchPath);
+                    if (bundle != null && bundle.Contains(moduleName))
+                        return LoadModuleFromBundle(bundle, moduleName);
+                    continue;
+                }
 
                 // .py 파일 검색
                 var pyFile = IOHelper.CombinePath(searchPath, moduleName + ".py");
@@ -803,6 +824,29 @@ public class PyModule : PyObject
             SharpPy.Modules.SysModule.CreateSysPath();
 
         // 파일에서 모듈 로드
+        // zipimporter.load_module: the paths lie inside the archive.
+        private static PyModule LoadModuleFromBundle(PyBundle bundle, string moduleName)
+        {
+            string relative = moduleName.Replace('.', '/');
+            bool isPackage = bundle.IsPackage(moduleName);
+            var module = new PyModule(moduleName, $"{bundle.Path}/{relative}{(isPackage ? "/__init__.py" : ".py")}");
+            module.HasSourceFile = true;
+            module.Bundle = bundle;
+            if (isPackage)
+                module.ModuleDict["__path__"] = new PyList(new[] { new PyString($"{bundle.Path}/{relative}") });
+            SetModule(moduleName, module);
+            try
+            {
+                module.ExecuteCode(bundle.Code(moduleName));
+                return module;
+            }
+            catch (System.Exception)
+            {
+                RemoveModule(moduleName);
+                throw;
+            }
+        }
+
         public static PyModule LoadModuleFromFile(string moduleName, string filePath, string packageDir = null)
         {
             try

@@ -149,9 +149,19 @@ M2가 M3보다 먼저인 이유는 위험이 가장 큰 부분이 바이트에�
 | 단계 | 상태 |
 |---|---|
 | M1~M3 | 완료. `FromTables` 단일 경로, `test_marshal` 48/48 |
-| M4 | 미착수. Godot 내보내기 방식 결정 후 진행 |
+| M4 | `.pyc` 낱개 대신 묶음(`.spk`)으로 구현. 아래 "묶음" 참고 |
 | T1~T3 | 완료. `test_thread` 22/22, `test_queue` 54/54, `test_threading` 160/162 |
 | T4 | `tools/thread_stress.py`로 14개 스레드 경합 시험, C# 예외 유출 없음 |
 | T5 | `PyHost`(`Enter`, `CallOnMain`, `RunMainQueue`, `Shutdown`)와 `sharppy` 모듈. Windows Godot 헤드리스에서 확인, Android 미확인 |
 
 호스트는 Python을 부를 때 `PyHost.Enter`를 쓰고, 프레임마다 `PyHost.RunMainQueue`를 부른다. GODOT 빌드는 가장 바깥 호출이 끝날 때 GIL을 놓는다.
+
+## 묶음
+
+코드 데이터는 `marshal` 그대로이고 포장만 SharpPy 형식이다. 머리말에 표시 `SPKB`, 형식 버전, Python 매직 3531을 두어 맞지 않으면 `ImportError`로 멈춘다. 모듈별 소스 해시도 색인에 들어 있으나, 읽을 때는 검사하지 않는다.
+
+- 만들기: `python tools/make_bundle.py --output game.spk --path Lib main.py`. 바이트코드의 `IMPORT_NAME`을 따라가 쓰이는 모듈만 담는다. 이름이 실행 중에 정해지는 import는 `--include`로 지정한다. `--top-level`은 함수 안의 import를 따라가지 않는다.
+- 쓰기: `PyHost.UseBundle("res://python/game.spk")` 또는 `sys.path`에 경로를 넣는다. 묶음보다 앞선 경로에 소스가 있으면 소스가 이긴다.
+- Godot: `godot/addons/sharppy_bundle`을 켜면 내보낼 때 묶음을 만들어 넣고 `.py`를 뺀다. `make_bundle.py`를 그 폴더에 복사하거나 `sharppy/bundle/tool`로 지정한다. `sharppy/bundle/scripts`에 시작 스크립트를, `sharppy/bundle/runner`에 실행할 Python 또는 `dotnet sharppy.dll`을 준다.
+
+측정값(Windows, 표본 import, 새 프로세스): 소스 1473~1499ms, 묶음 371~384ms (Godot 헤드리스).

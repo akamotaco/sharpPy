@@ -51,6 +51,14 @@ namespace SharpPy.Modules
             return writer.ToArray();
         }
 
+        /// <summary>One object out of part of a buffer, with no source lookup: a bundle's module.</summary>
+        internal static PyObject Read(byte[] data, int offset, int length)
+        {
+            var part = new byte[length];
+            Array.Copy(data, offset, part, 0, length);
+            return new Reader(part) { FindSources = false }.ReadObject();
+        }
+
         // marshal_dumps_impl
         private static PyObject Dumps(PyObject[] args)
         {
@@ -656,9 +664,13 @@ namespace SharpPy.Modules
 
             private readonly Dictionary<string, List<string>> _sources = new();
 
+            internal bool FindSources { get; init; } = true;
+
             // A .pyc keeps no source: the lines come from the file, as linecache finds them.
             private List<string> SourceOf(string fileName)
             {
+                if (!FindSources)
+                    return null;
                 if (_sources.TryGetValue(fileName, out var lines))
                     return lines;
                 try
