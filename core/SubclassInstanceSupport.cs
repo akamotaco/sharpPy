@@ -189,6 +189,8 @@ namespace SharpPy
                 }
             }
 
+            if (!instanceType.InstancesHaveDict())
+                throw PyAttributeError.Create($"'{instanceType.Name}' object has no attribute '{name}'");
             PyGlobalsDict.Store(instanceDict, name, value);
         }
     }

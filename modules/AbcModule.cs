@@ -4,732 +4,294 @@ using System.Collections.Generic;
 namespace SharpPy.Modules
 {
     /// <summary>
-    /// CPython 3.12 _abc module - C# implementation of ABC (Abstract Base Class) support
-    /// Corresponds to CPython's Modules/_abc.c
-    /// Purpose: Provides core ABC functionality outside Python object model to avoid circular dependencies
+    /// _abc (Modules/_abc.c): the registry and the two caches are sets of weak references, kept
+    /// on an _abc_data object the class holds in _abc_impl.
     /// </summary>
     public static class AbcModule
     {
-        // Global cache invalidation counter (corresponds to abc_invalidation_counter in C)
-        private static ulong _cacheInvalidationCounter = 0;
+        private static ulong _invalidationCounter;
 
-        /// <summary>
-        /// Create the _abc module
-        /// CPython: Modules/_abc.c:813-888
-        /// </summary>
         public static PyModule CreateAbcModule()
         {
+            WeakrefModule.RegisterWeakRefType();
             var module = new PyModule("_abc", "Module contains faster C# implementation of abc.ABCMeta");
-
-            // Core ABC functions
-            module.ModuleDict["_abc_init"] = new PyBuiltinFunction("_abc_init", AbcInit);
-            module.ModuleDict["_abc_register"] = new PyBuiltinFunction("_abc_register", AbcRegister);
-            module.ModuleDict["_abc_instancecheck"] = new PyBuiltinFunction("_abc_instancecheck", AbcInstanceCheck);
-            module.ModuleDict["_abc_subclasscheck"] = new PyBuiltinFunction("_abc_subclasscheck", AbcSubclassCheck);
-            module.ModuleDict["get_cache_token"] = new PyBuiltinFunction("get_cache_token", GetCacheToken);
-            module.ModuleDict["_get_dump"] = new PyBuiltinFunction("_get_dump", GetDump);
-            module.ModuleDict["_reset_registry"] = new PyBuiltinFunction("_reset_registry", ResetRegistry);
-            module.ModuleDict["_reset_caches"] = new PyBuiltinFunction("_reset_caches", ResetCaches);
-            // collections.abc structural primitive (see MethodSupports/TypeProvides).
-            module.ModuleDict["_method_supports"] = new PyBuiltinFunction("_method_supports", MethodSupports);
-
+            void Function(string name, int count, Func<PyObject[], PyObject> body) =>
+                module.ModuleDict[name] = new PyBuiltinFunction(name, args =>
+                {
+                    if (args.Length != count)
+                        throw PyTypeError.Create($"{name} expected {count} arguments, got {args.Length}");
+                    return body(args);
+                });
+            Function("get_cache_token", 0, args => new PyInt((long)_invalidationCounter));
+            Function("_abc_init", 1, args => Init(args[0]));
+            Function("_abc_register", 2, args => Register(args[0], args[1]));
+            Function("_abc_instancecheck", 2, args => InstanceCheck(args[0], args[1]));
+            Function("_abc_subclasscheck", 2, args => SubclassCheck(args[0], args[1]));
+            Function("_get_dump", 1, args =>
+            {
+                var impl = Impl(args[0]);
+                return new PyTuple(new PyObject[]
+                {
+                    Copy(impl.Registry), Copy(impl.Cache), Copy(impl.NegativeCache), new PyInt((long)impl.NegativeVersion),
+                });
+            });
+            Function("_reset_registry", 1, args =>
+            {
+                Impl(args[0]).Registry?.Clear();
+                return PyNone.Instance;
+            });
+            Function("_reset_caches", 1, args =>
+            {
+                var impl = Impl(args[0]);
+                impl.Cache?.Clear();
+                impl.NegativeCache?.Clear();
+                return PyNone.Instance;
+            });
             return module;
         }
 
-        /// <summary>
-        /// Internal ABC helper for class set-up. Should be never used outside abc module.
-        /// CPython: Modules/_abc.c:431-482 (_abc__abc_init)
-        /// </summary>
-        private static PyObject AbcInit(PyObject[] args, PyDict kwargs)
+        private static PyObject Copy(PySet set) => set == null ? PyNone.Instance : new PySet(set.Items);
+
+        // _get_impl
+        private static AbcData Impl(PyObject self) => self.GetAttribute("_abc_impl") as AbcData
+            ?? throw PyTypeError.Create("_abc_impl is set to a wrong type");
+
+        private static PyObject NewRef(PyObject target, PyObject callback = null) =>
+            PyType.WeakRefType.Call(callback == null ? new[] { target } : new[] { target, callback }, null);
+
+        // _in_weak_set
+        private static bool InWeakSet(PySet set, PyObject target)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"_abc_init() takes exactly 1 argument ({args.Length} given)");
+            if (set == null || set.Length() == 0) return false;
+            try
+            {
+                return set.Contains(NewRef(target)).Value;
+            }
+            catch (PythonException error) when (error.PyException is PyTypeError)
+            {
+                return false;
+            }
+        }
 
-            var cls = args[0];
+        // _add_to_weak_set: the callback takes a dead reference out of the set.
+        private static void AddToWeakSet(ref PySet set, PyObject target)
+        {
+            set ??= new PySet();
+            var owner = set;
+            set.Add(NewRef(target, new PyBuiltinFunction("_destroy", args =>
+            {
+                owner.Discard(args[0]);
+                return PyNone.Instance;
+            })));
+        }
 
-            // Compute and set __abstractmethods__
-            if (!ComputeAbstractMethods(cls))
-                throw PyRuntimeError.Create("Failed to compute abstract methods");
+        // _PyObject_IsAbstract
+        private static bool IsAbstract(PyObject value)
+        {
+            try
+            {
+                return value.GetAttribute("__isabstractmethod__").IsTrue();
+            }
+            catch (PythonException error) when (error.PyException is PyAttributeError)
+            {
+                return false;
+            }
+        }
 
-            // __abc_tpflags__ & COLLECTION_FLAGS become the flags of the class.
-            if (cls is PyClass abc && abc.ClassDict.TryGetValue("__abc_tpflags__", out var flags))
+        private static PyObject AttributeOrNull(PyObject target, PyObject name)
+        {
+            try
+            {
+                return target.GetAttribute(((PyString)name).Value);
+            }
+            catch (PythonException error) when (error.PyException is PyAttributeError)
+            {
+                return null;
+            }
+        }
+
+        private static IEnumerable<PyObject> Iterate(PyObject iterable)
+        {
+            var iterator = iterable.GetIterator();
+            while (true)
+            {
+                PyObject item;
+                try { item = iterator.Next(); }
+                catch (PythonException error) when (error.PyException is PyStopIteration) { yield break; }
+                yield return item;
+            }
+        }
+
+        // compute_abstract_methods
+        private static void ComputeAbstractMethods(PyObject self)
+        {
+            var abstracts = new PySet();
+            var items = self.GetAttribute("__dict__").GetAttribute("items").Call(Array.Empty<PyObject>(), null);
+            foreach (var item in new List<PyObject>(Iterate(items)))
+            {
+                var pair = item.AsTuple();
+                if (pair.Length() != 2)
+                    throw PyTypeError.Create("items() returned item which size is not 2");
+                if (IsAbstract(pair.Items[1]))
+                    abstracts.Add(pair.Items[0]);
+            }
+            if (self.GetAttribute("__bases__") is not PyTuple bases)
+                throw PyTypeError.Create("__bases__ is not tuple");
+            foreach (var entry in bases.Items)
+            {
+                var inherited = AttributeOrNull(entry, new PyString("__abstractmethods__"));
+                if (inherited == null) continue;
+                foreach (var key in Iterate(inherited))
+                {
+                    var value = AttributeOrNull(self, key);
+                    if (value != null && IsAbstract(value))
+                        abstracts.Add(key);
+                }
+            }
+            self.SetAttribute("__abstractmethods__", new PyFrozenSet(abstracts.Items));
+        }
+
+        // _abc__abc_init
+        private static PyObject Init(PyObject self)
+        {
+            ComputeAbstractMethods(self);
+            self.SetAttribute("_abc_impl", new AbcData());
+            if (self is PyClass cls && cls.ClassDict.TryGetValue("__abc_tpflags__", out var flags))
             {
                 if (flags is PyInt value)
                 {
                     int bits = value.ToInt() & PyType.COLLECTION_FLAGS;
                     if (bits == PyType.COLLECTION_FLAGS)
                         throw PyTypeError.Create("__abc_tpflags__ cannot be both Py_TPFLAGS_SEQUENCE and Py_TPFLAGS_MAPPING");
-                    abc.CollectionFlags |= bits;
+                    cls.CollectionFlags |= bits;
                 }
-                abc.ClassDict.Remove("__abc_tpflags__");
+                cls.ClassDict.Remove("__abc_tpflags__");
             }
-
-            // Create and attach _abc_impl data structure
-            var abcData = new AbcData();
-            try
-            {
-                cls.SetAttribute("_abc_impl", abcData);
-            }
-            catch (Exception ex)
-            {
-                throw PyRuntimeError.Create($"Failed to set _abc_impl: {ex.Message}");
-            }
-
             return PyNone.Instance;
         }
 
-        /// <summary>
-        /// Internal ABC helper for registering virtual subclasses
-        /// CPython: Modules/_abc.c:520-567 (_abc__abc_register_impl)
-        /// </summary>
-        private static PyObject AbcRegister(PyObject[] args, PyDict kwargs)
+        // _abc__abc_register_impl
+        private static PyObject Register(PyObject self, PyObject subclass)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"_abc_register() takes exactly 2 arguments ({args.Length} given)");
-
-            var cls = args[0];
-            var subclass = args[1];
-
-            // Get _abc_impl data
-            var abcData = GetAbcData(cls);
-            if (abcData == null)
-                throw PyTypeError.Create("_abc_impl is not set or is set to a wrong type");
-
-            // Check if subclass is a class (PyClass or PyType)
-            if (!(subclass is PyClass) && !(subclass is PyType))
+            if (subclass is not PyType registered)
                 throw PyTypeError.Create("Can only register classes");
-
-            // Add to registry
-            if (abcData.Registry == null)
-                abcData.Registry = new PySet();
-
-            abcData.Registry.Add(subclass);
-
-            // A class registered with a collection ABC matches as that collection.
-            if (subclass is PyType registered && cls is PyType abcType && (abcType.CollectionFlags & PyType.COLLECTION_FLAGS) != 0)
-                registered.SetCollectionFlagRecursive(abcType.CollectionFlags & PyType.COLLECTION_FLAGS);
-
-            // CPython ABCMeta.register() makes the virtual subclass visible to every
-            // ancestor ABC too (verified: MutableSet.register(X) => isinstance(x, Set /
-            // Collection / Sized / Iterable / Container) all True). Reproduce that by
-            // adding the subclass to each ancestor's registry as well.
-            var ancMro = GetMRO(cls);
-            if (ancMro != null)
-            {
-                foreach (var anc in ancMro)
-                {
-                    if (ReferenceEquals(anc, cls)) continue;
-                    var ad = GetAbcData(anc);
-                    if (ad != null)
-                    {
-                        if (ad.Registry == null) ad.Registry = new PySet();
-                        ad.Registry.Add(subclass);
-                    }
-                }
-            }
-
-            // Invalidate caches
-            _cacheInvalidationCounter++;
-
+            if (PyAbstract.IsSubclass(subclass, self))
+                return subclass;
+            // Tested after "already a subclass": X.register(X) is a no-op.
+            if (PyAbstract.IsSubclass(self, subclass))
+                throw PyRuntimeError.Create("Refusing to create an inheritance cycle");
+            var impl = Impl(self);
+            AddToWeakSet(ref impl.Registry, subclass);
+            _invalidationCounter++;
+            if (self is PyType type && (type.CollectionFlags & PyType.COLLECTION_FLAGS) != 0)
+                registered.SetCollectionFlagRecursive(type.CollectionFlags & PyType.COLLECTION_FLAGS);
             return subclass;
         }
 
-        /// <summary>
-        /// Internal ABC helper for instance checks
-        /// CPython: Modules/_abc.c:580-653 (_abc__abc_instancecheck_impl)
-        /// </summary>
-        private static PyObject AbcInstanceCheck(PyObject[] args, PyDict kwargs)
+        private static PyObject AskSubclassCheck(PyObject self, PyObject subclass) =>
+            self.GetAttribute("__subclasscheck__").Call(new[] { subclass }, null);
+
+        // _abc__abc_instancecheck_impl
+        private static PyObject InstanceCheck(PyObject self, PyObject instance)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"_abc_instancecheck() takes exactly 2 arguments ({args.Length} given)");
+            var impl = Impl(self);
+            var subclass = instance.GetAttribute("__class__");
+            if (InWeakSet(impl.Cache, subclass))
+                return PyBool.True;
+            var subtype = instance.GetPyType();
+            if (ReferenceEquals(subtype, subclass))
+            {
+                if (impl.NegativeVersion == _invalidationCounter && InWeakSet(impl.NegativeCache, subclass))
+                    return PyBool.False;
+                return AskSubclassCheck(self, subclass);
+            }
+            var result = AskSubclassCheck(self, subclass);
+            return result.IsTrue() ? result : AskSubclassCheck(self, subtype);
+        }
 
-            var cls = args[0];
-            var instance = args[1];
+        // subclasscheck_check_registry
+        private static bool CheckRegistry(AbcData impl, PyObject subclass)
+        {
+            if (InWeakSet(impl.Registry, subclass))
+                return true;
+            if (impl.Registry == null)
+                return false;
+            foreach (var entry in new List<PyObject>(impl.Registry.Items))
+            {
+                var target = ((PyWeakRef)entry).Referent;
+                if (target != null && PyAbstract.IsSubclass(subclass, target))
+                {
+                    AddToWeakSet(ref impl.Cache, subclass);
+                    return true;
+                }
+            }
+            return false;
+        }
 
-            // Get _abc_impl data
-            var abcData = GetAbcData(cls);
-            if (abcData == null)
-                throw PyTypeError.Create("_abc_impl is not set or is set to a wrong type");
+        // _abc__abc_subclasscheck_impl
+        private static PyObject SubclassCheck(PyObject self, PyObject subclass)
+        {
+            if (subclass is not PyType type)
+                throw PyTypeError.Create("issubclass() arg 1 must be a class");
+            var impl = Impl(self);
+            if (InWeakSet(impl.Cache, subclass))
+                return PyBool.True;
+            if (impl.NegativeVersion < _invalidationCounter)
+            {
+                impl.NegativeCache?.Clear();
+                impl.NegativeVersion = _invalidationCounter;
+            }
+            else if (InWeakSet(impl.NegativeCache, subclass))
+            {
+                return PyBool.False;
+            }
 
-            // Get instance type
-            var instanceType = instance.GetPyType();
+            var ok = self.GetAttribute("__subclasshook__").Call(new[] { subclass }, null);
+            if (ReferenceEquals(ok, PyBool.True))
+            {
+                AddToWeakSet(ref impl.Cache, subclass);
+                return PyBool.True;
+            }
+            if (ReferenceEquals(ok, PyBool.False))
+            {
+                AddToWeakSet(ref impl.NegativeCache, subclass);
+                return PyBool.False;
+            }
+            if (ok is not PyNotImplemented)
+                throw PyAssertionError.Create("__subclasshook__ must return either False, True, or NotImplemented");
 
-            // Check cache first
-            if (abcData.Cache != null && abcData.Cache.Contains(instanceType).Value)
+            foreach (var entry in type.MRO)
+                if (ReferenceEquals(entry, self))
+                {
+                    AddToWeakSet(ref impl.Cache, subclass);
+                    return PyBool.True;
+                }
+
+            if (CheckRegistry(impl, subclass))
                 return PyBool.True;
 
-            // Check negative cache
-            if (abcData.NegativeCache != null &&
-                abcData.NegativeCacheVersion == _cacheInvalidationCounter &&
-                abcData.NegativeCache.Contains(instanceType).Value)
-                return PyBool.False;
-
-            // Check if instance type is subclass of cls
-            var result = AbcSubclassCheckInternal(cls, instanceType, abcData);
-
-            if (result)
-            {
-                // Add to cache
-                if (abcData.Cache == null)
-                    abcData.Cache = new PySet();
-                abcData.Cache.Add(instanceType);
-            }
-            else
-            {
-                // Add to negative cache
-                if (abcData.NegativeCache == null)
+            var subclasses = self.GetAttribute("__subclasses__").Call(Array.Empty<PyObject>(), null);
+            if (subclasses is not PyList list)
+                throw PyTypeError.Create("__subclasses__() must return a list");
+            foreach (var entry in new List<PyObject>(list.Items))
+                if (PyAbstract.IsSubclass(subclass, entry))
                 {
-                    abcData.NegativeCache = new PySet();
-                    abcData.NegativeCacheVersion = _cacheInvalidationCounter;
-                }
-                abcData.NegativeCache.Add(instanceType);
-            }
-
-            return PyBool.FromBool(result);
-        }
-
-        /// <summary>
-        /// Internal ABC helper for subclass checks
-        /// CPython: Modules/_abc.c:666-758 (_abc__abc_subclasscheck_impl)
-        /// </summary>
-        private static PyObject AbcSubclassCheck(PyObject[] args, PyDict kwargs)
-        {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"_abc_subclasscheck() takes exactly 2 arguments ({args.Length} given)");
-
-            var cls = args[0];
-            var subclass = args[1];
-
-            // CPython accepts any class, including built-in/native types (PyType).
-            // The old guard rejected native types; the caller swallowed the TypeError and
-            // fell through to a plain MRO check that missed the virtual-subclass registry.
-            if (!(subclass is PyClass) && !(subclass is PyType))
-                throw PyTypeError.Create("issubclass() arg 1 must be a class");
-
-            // Get _abc_impl data
-            var abcData = GetAbcData(cls);
-            if (abcData == null)
-                throw PyTypeError.Create("_abc_impl is not set or is set to a wrong type");
-
-            var result = AbcSubclassCheckInternal(cls, subclass, abcData);
-            return PyBool.FromBool(result);
-        }
-
-        /// <summary>
-        /// Get cache token for invalidation tracking
-        /// CPython: Modules/_abc.c:760-767 (_abc_get_cache_token)
-        /// </summary>
-        private static PyObject GetCacheToken(PyObject[] args, PyDict kwargs)
-        {
-            return new PyInt((long)_cacheInvalidationCounter);
-        }
-
-        /// <summary>
-        /// Get debug dump of ABC data (for testing)
-        /// CPython: Modules/_abc.c:769-811 (_abc__get_dump)
-        /// </summary>
-        private static PyObject GetDump(PyObject[] args, PyDict kwargs)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"_get_dump() takes exactly 1 argument ({args.Length} given)");
-
-            var cls = args[0];
-            var abcData = GetAbcData(cls);
-            if (abcData == null)
-                return PyNone.Instance;
-
-            var result = new PyDict();
-            result.SetItem(new PyString("_abc_registry"), (PyObject)abcData.Registry ?? PyNone.Instance);
-            result.SetItem(new PyString("_abc_cache"), (PyObject)abcData.Cache ?? PyNone.Instance);
-            result.SetItem(new PyString("_abc_negative_cache"), (PyObject)abcData.NegativeCache ?? PyNone.Instance);
-            result.SetItem(new PyString("_abc_negative_cache_version"), new PyInt((long)abcData.NegativeCacheVersion));
-
-            return result;
-        }
-
-        /// <summary>
-        /// Reset registry (for testing)
-        /// CPython: Modules/_abc.c:217-236 (_abc__reset_registry)
-        /// </summary>
-        private static PyObject ResetRegistry(PyObject[] args, PyDict kwargs)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"_reset_registry() takes exactly 1 argument ({args.Length} given)");
-
-            var cls = args[0];
-            var abcData = GetAbcData(cls);
-            if (abcData != null)
-            {
-                abcData.Registry = null;
-                _cacheInvalidationCounter++;
-            }
-
-            return PyNone.Instance;
-        }
-
-        /// <summary>
-        /// Reset caches (for testing)
-        /// CPython: Modules/_abc.c:239-262 (_abc__reset_caches)
-        /// </summary>
-        private static PyObject ResetCaches(PyObject[] args, PyDict kwargs)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"_reset_caches() takes exactly 1 argument ({args.Length} given)");
-
-            var cls = args[0];
-            var abcData = GetAbcData(cls);
-            if (abcData != null)
-            {
-                abcData.Cache = null;
-                abcData.NegativeCache = null;
-                abcData.NegativeCacheVersion = _cacheInvalidationCounter;
-            }
-
-            return PyNone.Instance;
-        }
-
-        // ============ Helper Methods ============
-
-        /// <summary>
-        /// Compute and set __abstractmethods__ for a class
-        /// CPython: Modules/_abc.c:264-420 (compute_abstract_methods)
-        /// </summary>
-        private static bool ComputeAbstractMethods(PyObject cls)
-        {
-            try
-            {
-                var abstractMethods = new PySet();
-
-                // Get class dict
-                var classDict = GetClassDict(cls);
-                if (classDict == null)
-                    return false;
-
-                // Iterate through class dict to find abstract methods
-                foreach (var kvp in classDict)
-                {
-                    var name = kvp.Key;
-                    var value = kvp.Value;
-
-                    // Check if method has __isabstractmethod__ attribute set to True
-                    try
-                    {
-                        var isAbstract = value.GetAttribute("__isabstractmethod__");
-                        if (isAbstract != null && isAbstract.PyBoolValue())
-                        {
-                            abstractMethods.Add(new PyString(name));
-                        }
-                    }
-                    catch
-                    {
-                        // No __isabstractmethod__ attribute, skip
-                        continue;
-                    }
+                    AddToWeakSet(ref impl.Cache, subclass);
+                    return PyBool.True;
                 }
 
-                // Also collect abstract methods from base classes
-                var bases = GetBases(cls);
-#if DEBUG
-                Console.WriteLine($"[ComputeAbstractMethods] Class: {cls}, Bases count: {bases?.Count ?? 0}");
-#endif
-                if (bases != null)
-                {
-                    foreach (var baseCls in bases)
-                    {
-#if DEBUG
-                        Console.WriteLine($"[ComputeAbstractMethods] Processing base class: {baseCls}");
-#endif
-                        try
-                        {
-                            var baseAbstractMethods = baseCls.GetAttribute("__abstractmethods__");
-#if DEBUG
-                            Console.WriteLine($"[ComputeAbstractMethods] Base __abstractmethods__: {baseAbstractMethods}");
-#endif
-                            if (baseAbstractMethods != null && baseAbstractMethods != PyNone.Instance)
-                            {
-                                // Add methods from base that are still abstract in this class
-                                var iterator = baseAbstractMethods.GetIterator();
-                                while (true)
-                                {
-                                    try
-                                    {
-                                        var methodName = iterator.Next();
-                                        var methodNameStr = ((PyString)methodName).Value;
-#if DEBUG
-                                        Console.WriteLine($"[ComputeAbstractMethods] Checking method '{methodNameStr}' from base");
-#endif
-
-                                        // CPython 3.12: Use attribute lookup (MRO search) to find method
-                                        // Reference: Modules/_abc.c:378-399
-                                        // if (_PyObject_LookupAttr(self, key, &value) < 0)
-                                        try
-                                        {
-                                            var value = cls.GetAttribute(methodNameStr);
-#if DEBUG
-                                            Console.WriteLine($"[ComputeAbstractMethods] cls.GetAttribute('{methodNameStr}') returned: {value?.GetType().Name}");
-#endif
-                                            if (value != null && value != PyNone.Instance)
-                                            {
-                                                // Method found via MRO - check if still abstract
-                                                try
-                                                {
-                                                    var isStillAbstract = value.GetAttribute("__isabstractmethod__");
-#if DEBUG
-                                                    Console.WriteLine($"[ComputeAbstractMethods] __isabstractmethod__: {isStillAbstract}");
-#endif
-                                                    if (isStillAbstract != null && isStillAbstract.PyBoolValue())
-                                                    {
-#if DEBUG
-                                                        Console.WriteLine($"[ComputeAbstractMethods] ✓ Adding '{methodNameStr}' to abstract methods");
-#endif
-                                                        // Still abstract - add it
-                                                        abstractMethods.Add(methodName);
-                                                    }
-#if DEBUG
-                                                    else
-                                                    {
-                                                        Console.WriteLine($"[ComputeAbstractMethods] ✗ NOT adding '{methodNameStr}' - concrete implementation");
-                                                    }
-#endif
-                                                    // else: Concrete implementation found - don't add
-                                                }
-                                                catch
-                                                {
-#if DEBUG
-                                                    Console.WriteLine($"[ComputeAbstractMethods] ✗ NOT adding '{methodNameStr}' - no __isabstractmethod__ attribute");
-#endif
-                                                    // No __isabstractmethod__ attribute - it's concrete
-                                                    // Don't add to abstract methods
-                                                }
-                                            }
-                                            // else: Method not found - skip (CPython behavior at line 384-387)
-                                        }
-                                        catch (Exception ex)
-                                        {
-#if DEBUG
-                                            Console.WriteLine($"[ComputeAbstractMethods] Exception during lookup: {ex.Message}");
-#endif
-                                            // Error during attribute lookup - skip this method
-                                        }
-                                    }
-                                    catch (System.Exception ex) when (ex is PyStopIteration)
-                                    {
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-#if DEBUG
-                            Console.WriteLine($"[ComputeAbstractMethods] Base class exception: {ex.Message}");
-#endif
-                            // Base class doesn't have __abstractmethods__
-                            continue;
-                        }
-                    }
-                }
-
-                // Create frozenset from abstract methods
-                var frozenAbstractMethods = new PyFrozenSet(abstractMethods.Items);
-                cls.SetAttribute("__abstractmethods__", frozenAbstractMethods);
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            AddToWeakSet(ref impl.NegativeCache, subclass);
+            return PyBool.False;
         }
 
-        /// <summary>
-        /// Internal subclass check logic
-        /// CPython: Modules/_abc.c:666-758 (_abc__abc_subclasscheck_impl)
-        /// </summary>
-        private static bool AbcSubclassCheckInternal(PyObject cls, PyObject subclass, AbcData abcData)
+        private sealed class AbcData : PyObject
         {
-#if DEBUG
-            Console.WriteLine($"[AbcSubclassCheckInternal] Checking if {subclass} is subclass of {cls}");
-#endif
+            internal PySet Registry;
+            internal PySet Cache;
+            internal PySet NegativeCache;
+            internal ulong NegativeVersion = _invalidationCounter;
 
-            // Check registry first
-            if (abcData.Registry != null && abcData.Registry.Contains(subclass).Value)
-            {
-#if DEBUG
-                Console.WriteLine($"[AbcSubclassCheckInternal] Found in registry");
-#endif
-                return true;
-            }
-
-            // CPython Modules/_abc.c check(): call the optional __subclasshook__
-            // classmethod once on cls. True -> subclass, False -> definitively not,
-            // NotImplemented/None/absent -> declined, fall through to the MRO test.
-            try
-            {
-                var hook = cls.GetAttribute("__subclasshook__");
-                if (hook != null && hook != PyNone.Instance)
-                {
-                    var hr = hook.Call(new PyObject[] { subclass }, null);
-                    if (hr is PyBool hookBool)
-                        return hookBool.Value;
-                }
-            }
-            catch (Exception)
-            {
-                // No __subclasshook__ (e.g. plain types) or the lookup failed: decline.
-            }
-
-            // Check if subclass is a direct or indirect subclass using MRO
-            try
-            {
-                // Use Python's issubclass logic
-                // CPython: Modules/_abc.c lines 719-735
-                // CPython uses pointer comparison: for (i = 0; i < n; i++) { if (PyTuple_GET_ITEM(mro, i) == cls)
-                var mro = GetMRO(subclass);
-#if DEBUG
-                Console.WriteLine($"[AbcSubclassCheckInternal] MRO count: {mro?.Count ?? 0}");
-#endif
-                if (mro != null)
-                {
-                    for (int i = 0; i < mro.Count; i++)
-                    {
-                        var baseClass = mro[i];
-#if DEBUG
-                        Console.WriteLine($"  [AbcSubclassCheckInternal] MRO[{i}]: {baseClass}, ReferenceEquals={ReferenceEquals(baseClass, cls)}");
-#endif
-                        // Use ReferenceEquals for pointer comparison like CPython
-                        // This is critical for ABC metaclass checks to work correctly
-                        if (ReferenceEquals(baseClass, cls))
-                        {
-#if DEBUG
-                            Console.WriteLine($"[AbcSubclassCheckInternal] MATCH! Returning true");
-#endif
-                            return true;
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-#if DEBUG
-                Console.WriteLine($"[AbcSubclassCheckInternal] Exception: {ex.Message}");
-#endif
-                // MRO not available or error
-            }
-
-#if DEBUG
-            Console.WriteLine($"[AbcSubclassCheckInternal] No match, returning false");
-#endif
-            return false;
-        }
-
-        /// <summary>
-        /// Get _abc_impl data from class
-        /// CPython: Modules/_abc.c:114-129 (abc_data_of)
-        /// </summary>
-        private static AbcData GetAbcData(PyObject cls)
-        {
-            try
-            {
-                var impl = cls.GetAttribute("_abc_impl");
-                return impl as AbcData;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get class dictionary
-        /// </summary>
-        private static Dictionary<string, PyObject> GetClassDict(PyObject cls)
-        {
-            if (cls is PyClass pyClass)
-                return pyClass.ClassDict;
-            return null;
-        }
-
-        /// <summary>
-        /// Get base classes
-        /// </summary>
-        private static List<PyObject> GetBases(PyObject cls)
-        {
-            try
-            {
-                var bases = cls.GetAttribute("__bases__");
-                if (bases is PyTuple tuple)
-                {
-                    var result = new List<PyObject>();
-                    foreach (var item in tuple.Items)
-                        result.Add(item);
-                    return result;
-                }
-            }
-            catch
-            {
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// Get MRO (Method Resolution Order)
-        /// </summary>
-        private static List<PyObject> GetMRO(PyObject cls)
-        {
-            try
-            {
-                var mro = cls.GetAttribute("__mro__");
-                if (mro is PyTuple tuple)
-                {
-                    var result = new List<PyObject>();
-                    foreach (var item in tuple.Items)
-                        result.Add(item);
-                    return result;
-                }
-            }
-            catch
-            {
-            }
-            return null;
-        }
-
-        // --- collections.abc structural support primitive --------------------
-        // CPython decides "does class C implement dunder X" by probing type.__dict__
-        // along the MRO, because every protocol slot IS a slot-wrapper object that
-        // lives in a __dict__ (inherited from `object`). In C# SharpPy implements
-        // those operations as CLR behaviour on PyObject subclasses instead, and most
-        // are NOT mirrored into type.__dict__ (e.g. str.__hash__, dict.__len__ are
-        // absent, hasattr(str, '__hash__') is False). So the pure-Python
-        // _check_methods (`name in B.__dict__`) cannot be trusted here. This native
-        // helper is the C#/CLR translation of CPython's per-type slot table: it
-        // reports whether instances of C actually support the operation. The
-        // CPython "absent" and "__dict__[name] is None" (unhashable list) cases both
-        // collapse to NotImplemented in _check_methods, so both map to false here.
-        private static PyObject MethodSupports(PyObject[] args, PyDict kwargs)
-        {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"_method_supports() takes exactly 2 arguments ({args.Length} given)");
-            if (args[1] is not PyString nameStr)
-                throw PyTypeError.Create("_method_supports() argument 2 must be str");
-            return PyBool.FromBool(TypeProvides(args[0], nameStr.Value));
-        }
-
-        private static bool TypeProvides(PyObject C, string name)
-        {
-            var mro = GetMRO(C);
-            if (mro == null)
-                return false;
-            foreach (var B in mro)
-            {
-                var d = OwnDict(B);
-                if (d != null && d.TryGetValue(name, out var v))
-                    return v is not PyNone;   // explicitly declared (None => unsupported)
-                int tri = NativeBuiltinState(B, name);
-                if (tri > 0) return true;
-                if (tri == 0) return false;   // builtin declares this unsupported
-            }
-            return false;
-        }
-
-        private static Dictionary<string, PyObject> OwnDict(PyObject B)
-        {
-            if (B is PyClass pc) return pc.ClassDict;
-            if (B is PyType bt) return bt.TypeDict;
-            return null;
-        }
-
-        // Protocol capabilities for the well-known native builtin types, measured
-        // against CPython 3.12 slot tables (type.__dict__ presence/None). Only exact
-        // native types (a PyType that is not a user PyClass) consult this table.
-        private static readonly Dictionary<string, string[]> _nativeCaps = new()
-        {
-            ["object"] = new[] { "__hash__" },
-            ["type"] = new[] { "__hash__", "__call__" },
-            ["int"] = new[] { "__hash__" },
-            ["float"] = new[] { "__hash__" },
-            ["complex"] = new[] { "__hash__" },
-            ["bool"] = new[] { "__hash__" },
-            ["NoneType"] = new[] { "__hash__" },
-            ["function"] = new[] { "__hash__", "__call__" },
-            ["builtin_function_or_method"] = new[] { "__hash__", "__call__" },
-            ["method"] = new[] { "__hash__", "__call__" },
-            ["method-wrapper"] = new[] { "__hash__", "__call__" },
-            ["str"] = new[] { "__hash__", "__iter__", "__len__", "__contains__", "__getitem__" },
-            ["bytes"] = new[] { "__hash__", "__iter__", "__len__", "__contains__", "__getitem__" },
-            ["tuple"] = new[] { "__hash__", "__iter__", "__len__", "__contains__", "__getitem__" },
-            ["frozenset"] = new[] { "__hash__", "__iter__", "__len__", "__contains__" },
-            ["range"] = new[] { "__hash__", "__iter__", "__len__", "__contains__", "__getitem__", "__reversed__" },
-            ["memoryview"] = new[] { "__hash__", "__iter__", "__len__", "__getitem__", "__setitem__", "__delitem__" },
-            ["generator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["iterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            // Specific iterator families (type(it).__name__); all hashable iterators
-            // support __iter__ + __next__, so Iterator/Iterable structural checks stay True.
-            ["list_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["tuple_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["str_ascii_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["str_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["set_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["dict_keyiterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["dict_reversekeyiterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["dict_valueiterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["dict_itemiterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["range_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["bytes_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["list_reverseiterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["reversed"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["enumerate"] = new[] { "__hash__", "__iter__", "__next__" },
-            ["empty_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
-            // dict views are reversible; keys/items set __hash__=None, values stays
-            // hashable (inherits object.__hash__). Membership in Set/Container comes
-            // from register(), so __contains__ is only listed where the slot exists.
-            ["dict_keys"] = new[] { "__iter__", "__len__", "__contains__", "__reversed__" },
-            ["dict_items"] = new[] { "__iter__", "__len__", "__contains__", "__reversed__" },
-            ["dict_values"] = new[] { "__hash__", "__iter__", "__len__", "__reversed__" },
-            // Mutable / unhashable builtins (no __hash__):
-            ["list"] = new[] { "__iter__", "__len__", "__contains__", "__getitem__", "__reversed__", "__setitem__", "__delitem__" },
-            ["dict"] = new[] { "__iter__", "__len__", "__contains__", "__getitem__", "__reversed__", "__setitem__", "__delitem__" },
-            ["set"] = new[] { "__iter__", "__len__", "__contains__" },
-            ["bytearray"] = new[] { "__iter__", "__len__", "__contains__", "__getitem__", "__setitem__", "__delitem__" },
-        };
-        private static readonly HashSet<string> _nativeUnhashable = new()
-            { "list", "dict", "set", "bytearray", "dict_keys", "dict_items" };
-
-        // 1 = supported, 0 = explicitly unsupported, -1 = defer to the rest of the MRO.
-        private static int NativeBuiltinState(PyObject B, string name)
-        {
-            if (B is not PyType bt || B is PyClass)
-                return -1;
-            if (!_nativeCaps.TryGetValue(bt.Name, out var caps))
-                return -1;
-            foreach (var c in caps)
-                if (c == name) return 1;
-            if (name == "__hash__" && _nativeUnhashable.Contains(bt.Name))
-                return 0;
-            return -1;
-        }
-
-        /// <summary>
-        /// Internal data structure for ABC state
-        /// Corresponds to _abc_data in CPython (Modules/_abc.c:37-43)
-        /// </summary>
-        private class AbcData : PyObject
-        {
-            public PySet Registry { get; set; }              // _abc_registry
-            public PySet Cache { get; set; }                 // _abc_cache
-            public PySet NegativeCache { get; set; }         // _abc_negative_cache
-            public ulong NegativeCacheVersion { get; set; }  // _abc_negative_cache_version
-
-            public AbcData()
-            {
-                Registry = null;
-                Cache = null;
-                NegativeCache = null;
-                NegativeCacheVersion = _cacheInvalidationCounter;
-            }
-
-            public override PyType GetPyType() => PyType.ObjectType;
-            public override string ToString() => "<_abc_data>";
+            public override string GetTypeName() => "_abc_data";
         }
     }
 }

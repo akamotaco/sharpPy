@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 namespace SharpPy
 {
     #region Descriptor Protocol
@@ -11,448 +12,257 @@ public interface IDescriptor
     bool IsDataDescriptor(); // __set__ 또는 __delete__가 있으면 data descriptor
 }
 
-    // Python의 property 구현
-    public class PyProperty : PyObject, IDescriptor
+    /// <summary>
+    /// property (Objects/descrobject.c): tp_new allocates, property_init fills, and getter, setter
+    /// and deleter build a new object through type(self), so a subclass stays a subclass.
+    /// </summary>
+    public class PyProperty : PyObject, IDescriptor, IDictBackedInstance
     {
-        protected readonly PyObject? _getter;
-        protected readonly PyObject? _setter;
-        protected readonly PyObject? _deleter;
-        protected PyObject? _doc;
-        // CPython 3.12: propertyobject.prop_name - bound by __set_name__ at class
-        // creation (Objects/descrobject.c property_set_name).
-        protected string? _name;
+        private PyObject? _get;
+        private PyObject? _set;
+        private PyObject? _del;
+        private PyObject? _doc;
+        private PyObject? _name;
+        private bool _getterDoc;
+        private static bool _installed;
 
-        public PyProperty(PyObject? getter = null, PyObject? setter = null, PyObject? deleter = null, PyObject? doc = null)
+        public Dictionary<string, PyObject> InstanceDict { get; } = new();
+
+        public PyProperty() => InitializePropertyDescriptors();
+
+        // A property made by native code: PyDescr with C functions.
+        public PyProperty(PyObject getter, PyObject? setter = null) : this()
         {
-            _getter = getter;
-            _setter = setter;
-            _deleter = deleter;
-            _doc = doc;
-
-            // CPython 호환: property type descriptor 초기화
-            InitializePropertyDescriptors();
+            _get = getter;
+            _set = setter;
         }
 
-        /// <summary>
-        /// CPython 호환: property 타입의 descriptor 테이블 초기화
-        /// </summary>
+        private static PyObject? OrNull(PyObject? value) => value is PyNone ? null : value;
+
+        // property_init_impl
+        private void Initialize(PyObject[] args, PyDict? kwargs)
+        {
+            if (args.Length > 4)
+                throw PyTypeError.Create($"property expected at most 4 arguments, got {args.Length}");
+            var names = new[] { "fget", "fset", "fdel", "doc" };
+            var given = new PyObject?[4];
+            Array.Copy(args, given, args.Length);
+            if (kwargs != null)
+                foreach (var entry in kwargs.GetInternalDict())
+                {
+                    int index = entry.Key is PyString key ? Array.IndexOf(names, key.Value) : -1;
+                    if (index < 0)
+                        throw PyTypeError.Create($"property() got an unexpected keyword argument {entry.Key.ToRepr().Value}");
+                    if (index < args.Length)
+                        throw PyTypeError.Create($"argument for property() given by name ('{names[index]}') and position ({index + 1})");
+                    given[index] = entry.Value;
+                }
+            _get = OrNull(given[0]);
+            _set = OrNull(given[1]);
+            _del = OrNull(given[2]);
+            _doc = null;
+            _name = null;
+            _getterDoc = false;
+            PyObject? doc = OrNull(given[3]);
+            if (doc == null && _get != null)
+            {
+                try
+                {
+                    doc = OrNull(_get.GetAttribute("__doc__"));
+                }
+                catch (PythonException error) when (error.PyException is PyAttributeError)
+                {
+                }
+                _getterDoc = doc != null;
+            }
+            if (ReferenceEquals(GetPyType(), PyType.PropertyType))
+            {
+                _doc = doc;
+                return;
+            }
+            // A subclass's own __doc__ would shadow the member: it goes in the instance.
+            try
+            {
+                SetAttribute("__doc__", doc ?? PyNone.Instance);
+            }
+            catch (PythonException error) when (!_getterDoc && error.PyException is PyAttributeError)
+            {
+            }
+        }
+
+        // property_copy
+        private PyObject Copy(PyObject? get, PyObject? set, PyObject? del)
+        {
+            get = OrNull(get) ?? _get ?? PyNone.Instance;
+            set = OrNull(set) ?? _set ?? PyNone.Instance;
+            del = OrNull(del) ?? _del ?? PyNone.Instance;
+            PyObject doc = _getterDoc && get is not PyNone ? PyNone.Instance : _doc ?? PyNone.Instance;
+            var created = GetPyType().Call(new[] { get, set, del, doc }, null);
+            if (created is PyProperty copy)
+                copy._name = _name;
+            return created;
+        }
+
+        private static PyProperty Self(PyObject self, string name) => self as PyProperty ?? throw PyTypeError.Create(
+            $"descriptor '{name}' for 'property' objects doesn't apply to a '{self.GetTypeName()}' object");
+
+        private static void Member(string name, Func<PyProperty, PyObject?> read) =>
+            PyType.PropertyType.TypeDict[name] = new PyMemberDescriptor(name, PyType.PropertyType,
+                self => read(Self(self, name)) ?? PyNone.Instance, readOnly: true);
+
+        private static void Copier(string name, Func<PyProperty, PyObject, PyObject> copy) =>
+            PyType.PropertyType.TypeDict[name] = new PyMethodDescriptor(name, PyType.PropertyType,
+                (self, args, kwargs) => copy(Self(self, name), args[0]), minArgs: 1, maxArgs: 1);
+
+        /// <summary>The slots of the type, reachable by name.</summary>
         internal static void InitializePropertyDescriptors()
         {
-            var propType = PyType.PropertyType;
-            // property_set_name (Objects/descrobject.c), found on the type by type_new_set_names.
-            propType.TypeDict["__set_name__"] = new PyMethodDescriptor("__set_name__", propType, (self, args, kwargs) =>
+            if (_installed) return;
+            _installed = true;
+            var type = PyType.PropertyType;
+            type.ConstructedByNewSlot = true;
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
             {
-                if (args[1] is PyString text) ((PyProperty)self)._name = text.Value;
-                return PyNone.Instance;
-            }, minArgs: 2, maxArgs: 2);
-
-            // setter 메서드 descriptor
-            propType.TypeDict["setter"] = new PyMethodDescriptor(
-                "setter",
-                propType,
-                (self, args, kwargs) => {
-                    if (self is not PyProperty prop)
-                        throw PyTypeError.Create("descriptor 'setter' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 PyProperty.setter called with {args.Length} args");
-                    #endif
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"setter() takes exactly one argument ({args.Length} given)");
-                    if (!args[0].IsCallable())
-                        throw PyTypeError.Create("setter() argument must be callable");
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → Creating new PyProperty with setter: {args[0].GetTypeName()}");
-                    #endif
-                    var newProperty = new PyProperty(prop._getter, args[0], prop._deleter, prop._doc);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → New property: getter={newProperty._getter?.GetTypeName()}, setter={newProperty._setter?.GetTypeName()}, deleter={newProperty._deleter?.GetTypeName()}");
-                    #endif
-                    return newProperty;
-                },
-                minArgs: 1,
-                maxArgs: 1
-            );
-
-            // deleter 메서드 descriptor
-            propType.TypeDict["deleter"] = new PyMethodDescriptor(
-                "deleter",
-                propType,
-                (self, args, kwargs) => {
-                    if (self is not PyProperty prop)
-                        throw PyTypeError.Create("descriptor 'deleter' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 PyProperty.deleter called with {args.Length} args");
-                    #endif
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"deleter() takes exactly one argument ({args.Length} given)");
-                    if (!args[0].IsCallable())
-                        throw PyTypeError.Create("deleter() argument must be callable");
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → Creating new PyProperty with deleter: {args[0].GetTypeName()}");
-                    #endif
-                    var newProperty = new PyProperty(prop._getter, prop._setter, args[0], prop._doc);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → New property: getter={newProperty._getter?.GetTypeName()}, setter={newProperty._setter?.GetTypeName()}, deleter={newProperty._deleter?.GetTypeName()}");
-                    #endif
-                    return newProperty;
-                },
-                minArgs: 1,
-                maxArgs: 1
-            );
-
-            // getter 메서드 descriptor
-            propType.TypeDict["getter"] = new PyMethodDescriptor(
-                "getter",
-                propType,
-                (self, args, kwargs) => {
-                    if (self is not PyProperty prop)
-                        throw PyTypeError.Create("descriptor 'getter' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"getter() takes exactly one argument ({args.Length} given)");
-                    if (!args[0].IsCallable())
-                        throw PyTypeError.Create("getter() argument must be callable");
-
-                    return new PyProperty(args[0], prop._setter, prop._deleter, prop._doc);
-                },
-                minArgs: 1,
-                maxArgs: 1
-            );
-
-            // fget getset descriptor
-            // property_get___isabstractmethod__: abstract when any of its functions is.
-            propType.TypeDict["__isabstractmethod__"] = new PyGetSetDescriptor("__isabstractmethod__", propType,
-                self =>
-                {
-                    foreach (var part in new[] { "fget", "fset", "fdel" })
-                    {
-                        var function = self.GetAttribute(part);
-                        if (function is PyNone) continue;
-                        try
-                        {
-                            if (function.GetAttribute("__isabstractmethod__").IsTrue()) return PyBool.True;
-                        }
-                        catch (PythonException e) when (e.PyException is PyAttributeError) { }
-                    }
-                    return PyBool.False;
-                });
-
-            // A Python subclass of property: the same object, under its class.
-            propType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", propType, (cls, args, kwargs) =>
-            {
-                var created = (PyObject)PyType.PropertyType.Call(args, kwargs);
-                created.SetCustomType((PyType)cls);
+                var created = new PyProperty();
+                if (!ReferenceEquals(cls, PyType.PropertyType))
+                    created.SetCustomType((PyType)cls);
                 return created;
             }, 0, int.MaxValue, acceptsKwargs: true);
-            propType.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", propType,
-                (self, args, kwargs) => PyNone.Instance);
-
-            propType.TypeDict["fget"] = new PyMemberDescriptor(
-                "fget",
-                propType,
-                getter: self => {
-                    if (self is PyProperty prop)
-                        return prop._getter ?? (PyObject)PyNone.Instance;
-                    throw PyTypeError.Create("descriptor 'fget' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
+            {
+                Self(self, "__init__").Initialize(args, kwargs);
+                return PyNone.Instance;
+            }, 0, int.MaxValue);
+            type.TypeDict["__set_name__"] = new PyMethodDescriptor("__set_name__", type, (self, args, kwargs) =>
+            {
+                if (args.Length != 2)
+                    throw PyTypeError.Create($"__set_name__() takes 2 positional arguments but {args.Length} were given");
+                Self(self, "__set_name__")._name = args[1];
+                return PyNone.Instance;
+            }, minArgs: 0, maxArgs: int.MaxValue);
+            Copier("getter", (self, function) => self.Copy(function, null, null));
+            Copier("setter", (self, function) => self.Copy(null, function, null));
+            Copier("deleter", (self, function) => self.Copy(null, null, function));
+            Member("fget", self => self._get);
+            Member("fset", self => self._set);
+            Member("fdel", self => self._del);
+            type.TypeDict["__doc__"] = new PyMemberDescriptor("__doc__", type,
+                self => Self(self, "__doc__")._doc ?? PyNone.Instance,
+                (self, value) => Self(self, "__doc__")._doc = value);
+            type.TypeDict["__isabstractmethod__"] = new PyGetSetDescriptor("__isabstractmethod__", type, self =>
+            {
+                foreach (var part in new[] { "fget", "fset", "fdel" })
+                {
+                    var function = self.GetAttribute(part);
+                    if (function is PyNone) continue;
+                    try
+                    {
+                        if (function.GetAttribute("__isabstractmethod__").IsTrue()) return PyBool.True;
+                    }
+                    catch (PythonException e) when (e.PyException is PyAttributeError) { }
                 }
-            );
-
-            // fset getset descriptor
-            propType.TypeDict["fset"] = new PyMemberDescriptor(
-                "fset",
-                propType,
-                getter: self => {
-                    if (self is PyProperty prop)
-                        return prop._setter ?? (PyObject)PyNone.Instance;
-                    throw PyTypeError.Create("descriptor 'fset' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                }
-            );
-
-            // fdel getset descriptor
-            propType.TypeDict["fdel"] = new PyMemberDescriptor(
-                "fdel",
-                propType,
-                getter: self => {
-                    if (self is PyProperty prop)
-                        return prop._deleter ?? (PyObject)PyNone.Instance;
-                    throw PyTypeError.Create("descriptor 'fdel' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                }
-            );
-
-            // CPython 3.12 호환: Descriptor protocol methods
-            // Objects/descrobject.c:1979-1980 property type definition
-            // tp_descr_get = property_descr_get
-            // tp_descr_set = property_descr_set
-            // Python code sees these as __get__, __set__, __delete__ methods
-
-            // __get__ method descriptor - CPython: property_descr_get
-            propType.TypeDict["__get__"] = new PyMethodDescriptor(
-                "__get__",
-                propType,
-                (self, args, kwargs) => {
-                    if (self is not PyProperty prop)
-                        throw PyTypeError.Create("descriptor '__get__' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-
-                    // __get__(self, instance, owner=None)
-                    if (args.Length < 1 || args.Length > 2)
-                        throw PyTypeError.Create($"__get__() takes 2 or 3 positional arguments but {args.Length + 1} were given");
-
-                    PyObject instance = args[0];
-                    PyType owner = args.Length > 1 && args[1] is PyType ownerType ? ownerType : null;
-
-                    // CPython behavior: if instance is None, return the property object itself
-                    if (instance is PyNone)
-                        return prop;
-
-                    return prop.PropertyGet(instance, owner);
-                },
-                minArgs: 1,
-                maxArgs: 2
-            );
-
-            // __set__ method descriptor - CPython: property_descr_set (for setting)
-            propType.TypeDict["__set__"] = new PyMethodDescriptor(
-                "__set__",
-                propType,
-                (self, args, kwargs) => {
-                    if (self is not PyProperty prop)
-                        throw PyTypeError.Create("descriptor '__set__' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-
-                    // __set__(self, instance, value)
-                    if (args.Length != 2)
-                        throw PyTypeError.Create($"__set__() takes exactly 2 arguments ({args.Length} given)");
-
-                    PyObject instance = args[0];
-                    PyObject value = args[1];
-
-                    prop.Set(instance, value);
-                    return PyNone.Instance;
-                },
-                minArgs: 2,
-                maxArgs: 2
-            );
-
-            // __delete__ method descriptor - CPython: property_descr_set (for deleting)
-            propType.TypeDict["__delete__"] = new PyMethodDescriptor(
-                "__delete__",
-                propType,
-                (self, args, kwargs) => {
-                    if (self is not PyProperty prop)
-                        throw PyTypeError.Create("descriptor '__delete__' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-
-                    // __delete__(self, instance)
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"__delete__() takes exactly 1 argument ({args.Length} given)");
-
-                    PyObject instance = args[0];
-
-                    prop.Delete(instance);
-                    return PyNone.Instance;
-                },
-                minArgs: 1,
-                maxArgs: 1
-            );
+                return PyBool.False;
+            });
+            type.TypeDict["__get__"] = new PyWrapperDescriptor("__get__", type, (self, args, kwargs) =>
+            {
+                var target = args[0] is PyNone ? null : args[0];
+                if (target == null && (args.Length < 2 || args[1] is PyNone))
+                    throw PyTypeError.Create("__get__(None, None) is invalid");
+                return Self(self, "__get__").DescriptorGet(target);
+            }, 1, 2);
+            type.TypeDict["__set__"] = new PyWrapperDescriptor("__set__", type, (self, args, kwargs) =>
+            {
+                Self(self, "__set__").DescriptorSet(args[0], args[1]);
+                return PyNone.Instance;
+            }, 2, 2);
+            type.TypeDict["__delete__"] = new PyWrapperDescriptor("__delete__", type, (self, args, kwargs) =>
+            {
+                Self(self, "__delete__").DescriptorSet(args[0], null);
+                return PyNone.Instance;
+            }, 1, 1);
         }
+
+        private static string? QualifiedName(PyObject? instance) =>
+            (instance?.GetPyType().GetAttribute("__qualname__") as PyString)?.Value;
+
+        // The three messages of property_descr_get and property_descr_set.
+        private Exception Missing(PyObject? instance, string what)
+        {
+            var qualified = QualifiedName(instance);
+            var owner = new PyString(qualified ?? "").ToRepr().Value;
+            if (_name != null && qualified != null)
+                return PyAttributeError.Create($"property {_name.ToRepr().Value} of {owner} object has no {what}");
+            return PyAttributeError.Create(qualified != null ? $"property of {owner} object has no {what}" : $"property has no {what}");
+        }
+
+        // property_descr_get
+        private PyObject DescriptorGet(PyObject? instance)
+        {
+            if (instance == null || instance is PyNone)
+                return this;
+            if (_get == null)
+                throw Missing(instance, "getter");
+            return _get.Call(new[] { instance }, null);
+        }
+
+        // property_descr_set
+        private void DescriptorSet(PyObject instance, PyObject? value)
+        {
+            var function = value == null ? _del : _set;
+            if (function == null)
+                throw Missing(instance, value == null ? "deleter" : "setter");
+            function.Call(value == null ? new[] { instance } : new[] { instance, value }, null);
+        }
+
+        // A subclass that declares a slot's method replaces the slot.
+        private PyObject? Declared(string name) => _customType != null ? LookupUserSpecial(name) : null;
 
         public PyObject Get(PyObject instance, PyType owner)
         {
-            // A subclass that declares __get__ replaces tp_descr_get.
-            var declared = _customType != null ? LookupUserSpecial("__get__") : null;
+            var declared = Declared("__get__");
             return declared != null
                 ? BindSpecialMethod(declared).Call(new[] { instance ?? PyNone.Instance, owner }, null)
-                : PropertyGet(instance, owner);
-        }
-
-        private PyObject PropertyGet(PyObject instance, PyType owner)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 PyProperty.Get called: instance={instance?.GetType().Name}, owner={owner?.Name}");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"   → getter={_getter?.GetTypeName()}, setter={_setter?.GetTypeName()}, deleter={_deleter?.GetTypeName()}");
-            #endif
-
-            if (_getter == null)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   ❌ No getter available - throwing AttributeError");
-                #endif
-                throw PyAttributeError.Create("unreadable attribute");
-            }
-
-            if (instance == null)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   → Returning property object itself (class-level access)");
-                #endif
-                return this; // 클래스에서 접근할 때는 property 객체 자체 반환
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"   → Calling getter with instance: {instance.GetType().Name}");
-            #endif
-
-            if (!_getter.IsCallable())
-            {
-                throw PyTypeError.Create($"property getter is not callable");
-            }
-
-            try
-            {
-                var result = _getter.Call(new PyObject[] { instance }, null);
-                #if DEBUG_LOG
-                Console.WriteLine($"   ✅ Getter returned: {result?.ToString()}");
-                #endif
-                return result;
-            }
-            catch (Exception ex)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   ❌ Getter failed: {ex.Message}");
-                #endif
-                throw;
-            }
+                : DescriptorGet(instance);
         }
 
         public void Set(PyObject instance, PyObject value)
         {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 PyProperty.Set called: instance={instance?.GetType().Name}, value={value}");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"   → setter={_setter?.GetTypeName()}");
-            #endif
-
-            if (_setter == null)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   ❌ No setter available - throwing AttributeError");
-                #endif
-                // CPython 3.12: "property 'x' of 'Props' object has no setter"
-                var qual = instance?.GetPyType()?.Name ?? instance?.GetTypeName() ?? "object";
-                throw _name != null
-                    ? PyAttributeError.Create($"property '{_name}' of '{qual}' object has no setter")
-                    : PyAttributeError.Create($"property of '{qual}' object has no setter");
-            }
-
-            if (!_setter.IsCallable())
-            {
-                throw PyTypeError.Create($"property setter is not callable");
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"   → Calling setter with value: {value}");
-            #endif
-            try
-            {
-                _setter.Call(new PyObject[] { instance, value }, null);
-                #if DEBUG_LOG
-                Console.WriteLine($"   ✅ Setter completed successfully");
-                #endif
-            }
-            catch (Exception ex)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   ❌ Setter failed: {ex.Message}");
-                #endif
-                throw;
-            }
+            var declared = Declared("__set__");
+            if (declared != null) BindSpecialMethod(declared).Call(new[] { instance, value }, null);
+            else DescriptorSet(instance, value);
         }
 
         public void Delete(PyObject instance)
         {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 PyProperty.Delete called: instance={instance?.GetType().Name}");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"   → deleter={_deleter?.GetTypeName()}");
-            #endif
-
-            if (_deleter == null)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   ❌ No deleter available - throwing AttributeError");
-                #endif
-                // CPython 3.12: "property 'x' of 'Props' object has no deleter"
-                var qual = instance?.GetPyType()?.Name ?? instance?.GetTypeName() ?? "object";
-                throw _name != null
-                    ? PyAttributeError.Create($"property '{_name}' of '{qual}' object has no deleter")
-                    : PyAttributeError.Create($"property of '{qual}' object has no deleter");
-            }
-
-            if (!_deleter.IsCallable())
-            {
-                throw PyTypeError.Create($"property deleter is not callable");
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"   → Calling deleter");
-            #endif
-            try
-            {
-                _deleter.Call(new PyObject[] { instance }, null);
-                #if DEBUG_LOG
-                Console.WriteLine($"   ✅ Deleter completed successfully");
-                #endif
-            }
-            catch (Exception ex)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   ❌ Deleter failed: {ex.Message}");
-                #endif
-                throw;
-            }
+            var declared = Declared("__delete__");
+            if (declared != null) BindSpecialMethod(declared).Call(new[] { instance }, null);
+            else DescriptorSet(instance, null);
         }
 
-        // CPython 3.12 호환: property는 항상 data descriptor임 (tp_descr_set이 항상 존재)
-        // property_descr_set 함수는 setter가 없을 때도 존재하며, 호출 시 AttributeError 발생
-        // Reference: Objects/descrobject.c:1630 property_descr_set, line 1980 tp_descr_set
+        // tp_descr_set exists whether or not a setter was given.
         public bool IsDataDescriptor() => true;
 
-        // Property decorator chaining methods - CPython 호환: descriptor 테이블 사용
-        public override PyObject LookupAttribute(string name)
-        {
-            // LookupAttribute bypasses GetAttribute via GenericGetAttribute; keep
-            // __set_name__ discoverable for type_new_set_names.
-            if (name == "__set_name__")
-            {
-                return GetAttribute(name);
-            }
-            return base.LookupAttribute(name);
-        }
+        public override PyObject LookupAttribute(string name) =>
+            name == "__set_name__" ? GetAttribute(name) : base.LookupAttribute(name);
 
-        // {"__doc__", T_OBJECT, offsetof(propertyobject, prop_doc), 0}: a writable member.
         public override void SetAttribute(string name, PyObject value)
         {
-            if (name == "__doc__") _doc = value;
-            else base.SetAttribute(name, value);
+            if (_customType is PyClass cls)
+                SubclassInstanceSupport.SetAttribute(this, cls, InstanceDict, name, value);
+            else if (name == "__doc__")
+                _doc = value;
+            else
+                base.SetAttribute(name, value);
         }
 
         public override PyObject GetAttribute(string name)
         {
-            // property_init: __doc__ is the doc argument, or the getter's.
-            if (name == "__doc__")
-            {
-                if (_doc != null) return _doc;
-                try
-                {
-                    return _getter?.GetAttribute("__doc__") ?? PyNone.Instance;
-                }
-                catch (PythonException e) when (e.PyException is PyAttributeError)
-                {
-                    return PyNone.Instance;
-                }
-            }
-
-            // CPython 3.12 호환: GenericGetAttribute를 통해 descriptor 테이블 조회
-            return GenericGetAttribute(name);
+            if (_customType is PyClass cls)
+                return SubclassInstanceSupport.GetAttribute(this, cls, InstanceDict, name, GenericGetAttribute);
+            return name == "__doc__" ? _doc ?? PyNone.Instance : GenericGetAttribute(name);
         }
 
-        public override string GetTypeName() => "property";
+        public override string GetTypeName() => GetPyType().Name;
         public override PyType GetPyType() => _customType ?? PyType.PropertyType;
         public override string ToString() => "<property object>";
     }

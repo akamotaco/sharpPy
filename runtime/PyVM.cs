@@ -330,7 +330,7 @@ namespace SharpPy
                 {
                     // CPython: a parameter bound positionally may not also be a keyword
                     // (ceval.c duplicate positional check; co_name prefix, measured).
-                    if (keywordArgs != null && keywordArgs.ContainsKey(paramName))
+                    if (paramIndex >= code.PosonlyArgCount && keywordArgs != null && keywordArgs.ContainsKey(paramName))
                         throw PyTypeError.Create($"{CallName(code)}() got multiple values for argument '{paramName}'");
                     // Bind positional argument
                     LocalsPlus[paramIndex] = positionalArgs[posArgIndex];
@@ -341,7 +341,7 @@ namespace SharpPy
                     Console.WriteLine($"  → {paramName} = {positionalArgs[posArgIndex - 1]} (위치 인수)");
 #endif
                 }
-                else if (keywordArgs != null && keywordArgs.ContainsKey(paramName))
+                else if (keywordArgs != null && (paramIndex >= code.PosonlyArgCount || !hasVarKeywords) && keywordArgs.ContainsKey(paramName))
                 {
                     // CPython 3.12: Check if this is a positional-only parameter
                     // Positional-only parameters cannot be passed as keyword arguments
@@ -436,6 +436,8 @@ namespace SharpPy
                                 break;
                             }
                         }
+                        // positional_only_passed_as_keyword, before the unknown name.
+                        PyVM.RefusePositionalOnly(code, keywordArgs);
                         if (!matchesParam)
                             throw PyTypeError.Create($"{CallName(code)}() got an unexpected keyword argument '{kwName}'");
                     }
@@ -568,6 +570,7 @@ namespace SharpPy
                     unexpectedKey = key;
                     break;
                 }
+                PyVM.RefusePositionalOnly(code, keywordArgs);
                 throw PyTypeError.Create($"{CallName(code)}() got an unexpected keyword argument '{unexpectedKey}'");
             }
         }
@@ -6062,6 +6065,17 @@ namespace SharpPy
 
         // A class has slot_nb_* when __op__ or __rop__ was written in Python somewhere in its MRO.
         // update_one_slot, Objects/typeobject.c.
+        // positional_only_passed_as_keyword
+        internal static void RefusePositionalOnly(PyCodeObject code, IDictionary<string, PyObject> keywords)
+        {
+            var names = new List<string>();
+            for (int index = 0; index < code.PosonlyArgCount; index++)
+                if (keywords.ContainsKey(code.VarNames[index]))
+                    names.Add(code.VarNames[index]);
+            if (names.Count > 0)
+                throw PyTypeError.Create($"{code.Name}() got some positional-only arguments passed as keyword arguments: '{string.Join(", ", names)}'");
+        }
+
         private static bool HasNumberSlot(PyType type, string name, string reflected)
         {
             if (type is not PyClass)

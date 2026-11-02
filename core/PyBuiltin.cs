@@ -2394,18 +2394,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"property expected at most 4 arguments ({args.Length} given)");
             }
 
-            PyObject? fget = args.Length > 0 ? args[0] : null;
-            PyObject? fset = args.Length > 1 ? args[1] : null;
-            PyObject? fdel = args.Length > 2 ? args[2] : null;
-            PyObject? doc = args.Length > 3 ? args[3] : null;
-
-            // Allow None for any argument
-            if (fget == PyNone.Instance) fget = null;
-            if (fset == PyNone.Instance) fset = null;
-            if (fdel == PyNone.Instance) fdel = null;
-            if (doc == PyNone.Instance) doc = null;
-
-            return new PyProperty(fget, fset, fdel, doc);
+            return PyType.PropertyType.Call(args, kwargs);
         }
 
         // CPython 3.12: Objects/funcobject.c:1055-1068 (cm_init)

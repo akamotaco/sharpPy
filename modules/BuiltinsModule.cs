@@ -519,7 +519,7 @@ namespace SharpPy.Modules
             return false;
         }
 
-        private static PyObject IsSubclass(PyObject[] args)
+        internal static PyObject IsSubclass(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"issubclass() takes exactly 2 arguments ({args.Length} given)");

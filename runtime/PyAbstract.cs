@@ -83,6 +83,10 @@ namespace SharpPy
                 $"unsupported operand type(s) for ** or pow(): '{v.GetTypeName()}', '{w.GetTypeName()}', '{z.GetTypeName()}'");
         }
 
+        // PyObject_IsSubclass
+        internal static bool IsSubclass(PyObject derived, PyObject cls) =>
+            SharpPy.Modules.BuiltinsModule.IsSubclass(new[] { derived, cls }).IsTrue();
+
         internal static PyObject GetItem(PyObject target, PyObject key)
         {
             if (target is PyType type)

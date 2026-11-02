@@ -1031,18 +1031,6 @@ namespace SharpPy
                 return new PyMethod(args[1], args[0]);
             }
 
-            if (this == PropertyType)
-            {
-                // property([fget[, fset[, fdel[, doc]]]])
-                PyObject Field(int position, string name) => args.Length > position ? args[position]
-                    : kwargs != null && kwargs.TryGetStoredValue(new PyString(name), out var given) ? given : null;
-                PyObject getter = Field(0, "fget");
-                PyObject setter = Field(1, "fset");
-                PyObject deleter = Field(2, "fdel");
-                PyObject doc = Field(3, "doc");
-                return new PyProperty(getter, setter, deleter, doc);
-            }
-
             // 일반 타입 호출 - 인스턴스 생성
             return CreateInstance(args, kwargs);
         }
