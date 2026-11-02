@@ -2147,7 +2147,7 @@ namespace SharpPy
             {
                 "tb_frame" => Frame,
                 "tb_next" => (PyObject?)Next ?? PyNone.Instance,
-                "tb_lasti" => new PyInt(LastI),
+                "tb_lasti" => new PyInt(LastI * 2),
                 "tb_lineno" => new PyInt(LineNo),
                 _ => base.GetAttribute(name)
             };

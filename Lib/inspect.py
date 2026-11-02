@@ -142,13 +142,18 @@ __all__ = [
 
 
 import abc
+import ast
+import dis
 import collections.abc
 import enum
+import importlib.machinery
 import itertools
 import linecache
 import os
 import re
 import sys
+import tokenize
+import token
 import types
 import functools
 import builtins
@@ -159,11 +164,10 @@ from weakref import ref as make_weakref
 
 # Create constants for the compiler flags in Include/code.h
 # We try to get them from dis to avoid duplication
-# SharpPy has no dis, ast or tokenize: what needs source text or bytecode is not available here. The flag values
-# below are dis.COMPILER_FLAG_NAMES.
-CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS = 1, 2, 4, 8
-CO_NESTED, CO_GENERATOR, CO_NOFREE, CO_COROUTINE = 16, 32, 64, 128
-CO_ITERABLE_COROUTINE, CO_ASYNC_GENERATOR = 256, 512
+mod_dict = globals()
+for k, v in dis.COMPILER_FLAG_NAMES.items():
+    mod_dict["CO_" + v] = k
+del k, v, mod_dict
 
 # See Include/object.h
 TPFLAGS_IS_ABSTRACT = 1 << 20
@@ -1032,7 +1036,7 @@ class ClassFoundException(Exception):
     pass
 
 
-class _ClassFinder:
+class _ClassFinder(ast.NodeVisitor):
 
     def __init__(self, qualname):
         self.stack = []

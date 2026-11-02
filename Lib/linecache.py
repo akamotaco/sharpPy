@@ -8,6 +8,7 @@ that name.
 import functools
 import sys
 import os
+import tokenize
 
 __all__ = ["getline", "clearcache", "checkcache", "lazycache"]
 
@@ -137,7 +138,7 @@ def updatecache(filename, module_globals=None):
     except ValueError:  # may be raised by os.stat()
         return []
     try:
-        with open(fullname, 'r', encoding='utf-8') as fp:
+        with tokenize.open(fullname) as fp:
             lines = fp.readlines()
     except (OSError, UnicodeDecodeError, SyntaxError):
         return []

@@ -141,6 +141,13 @@ public partial class PyFunction : PyObject, IDescriptor
             deleter: self => ((PyFunction)self)._annotations = null
         );
 
+        // func_descr_get
+        funcType.TypeDict["__get__"] = new PyWrapperDescriptor("__get__", funcType, (self, args, kwargs) =>
+        {
+            var function = (PyFunction)self;
+            return args.Length > 0 && args[0] is not PyNone ? new PyMethod(args[0], function) : function;
+        });
+
         // __module__ getset descriptor
         funcType.TypeDict["__module__"] = new PyGetSetDescriptor(
             "__module__",
@@ -622,7 +629,10 @@ public partial class PyFunction : PyObject, IDescriptor
                 // __get__(self, obj, type=None)
                 PyObject instance = args.Length > 0 ? args[0] : null;
                 PyType owner = args.Length > 1 && args[1] is PyType t ? t : null;
-                return Get(instance, owner);
+                // func_descr_get: anything but None binds, a class too.
+                if (instance != null && instance is not PyNone)
+                    return new PyMethod(instance, this);
+                return Get(null, owner);
             });
         }
 

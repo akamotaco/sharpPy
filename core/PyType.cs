@@ -4069,30 +4069,13 @@ namespace SharpPy
 
                 // CPython 3.12: Objects/descrobject.c:1237 - Check if mapping is a mapping
                 // We accept PyDict or any object with dict-like interface
-                if (mappingObj is PyDict pyDict)
-                {
-                    // Convert PyDict to Dictionary<string, PyObject>
-                    var dict = new Dictionary<string, PyObject>();
-                    foreach (var kvp in pyDict.InternalDict)
-                    {
-                        if (kvp.Key is PyString keyStr)
-                        {
-                            dict[keyStr.Value] = kvp.Value;
-                        }
-                    }
-                    return new PyMappingProxy(dict);
-                }
-                else if (mappingObj is PyMappingProxy existingProxy)
-                {
-                    // If already a mappingproxy, return it as-is
+                if (mappingObj is PyMappingProxy existingProxy)
                     return existingProxy;
-                }
-                else
-                {
-                    // For other mapping-like objects, we'd need to iterate and extract items
-                    // For now, throw an error
-                    throw PyTypeError.Create($"mappingproxy() argument must be a mapping, not '{mappingObj.GetTypeName()}'");
-                }
+                // mappingproxy_check_mapping
+                if (mappingObj is PyList or PyTuple || mappingObj.LookupSpecialMethodUncached("__getitem__") == null &&
+                    mappingObj is not PyDict)
+                    throw PyTypeError.Create($"mappingproxy() argument must be a mapping, not {mappingObj.GetTypeName()}");
+                return new PyMappingWrapper(mappingObj);
             });
 
             // mappingproxy.__getitem__(key)

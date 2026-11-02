@@ -168,6 +168,10 @@ namespace SharpPy.Generated
         /// <summary>On ENDMARKER: tok->parenstack, what was left open at the end of the source.</summary>
         public string Metadata { get; set; }
 
+        // where the token is in the tokenizer's buffer, for tokenize
+        public int StartIndex { get; set; } = -1;
+        public int EndIndex { get; set; } = -1;
+
         public int Line { get; set; }
         public int Column { get; set; }
         public int EndLine { get; set; }
@@ -330,19 +334,20 @@ namespace SharpPy.Generated
             c >= 0 && c < 128 && c2 >= 0 && c2 < 128 && c3 >= 0 && c3 < 128 ? Operator(c << 14 | c2 << 7 | c3) : PyToken.Type.OP;
 
         // _PyTokenizer_FromUTF8
-        public Tokenizer(string source, bool execInput = true, bool extraTokens = false, string filename = "<string>")
+        public Tokenizer(string source, bool execInput = true, bool extraTokens = false, string filename = "<string>", bool preserveCrlf = false)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
-            _str = TranslateNewlines(source, execInput);
+            _str = TranslateNewlines(source, execInput, preserveCrlf);
             _filename = filename;
             _extraTokens = extraTokens;
             ReportWarnings = !extraTokens;
             _modeStack[0] = new Mode();
         }
 
-        private static string TranslateNewlines(string s, bool execInput)
+        private static string TranslateNewlines(string s, bool execInput, bool preserveCrlf)
         {
-            s = s.Replace("\r\n", "\n").Replace('\r', '\n');
+            if (!preserveCrlf)
+                s = s.Replace("\r\n", "\n").Replace('\r', '\n');
             return execInput && s.Length > 0 && s[s.Length - 1] != '\n' ? s + "\n" : s;
         }
 
@@ -823,6 +828,8 @@ namespace SharpPy.Generated
             {
                 Level = Level,
                 Metadata = _metadata,
+                StartIndex = _pStart,
+                EndIndex = _pEnd,
             };
         }
 

@@ -11,7 +11,7 @@ namespace SharpPy
         private readonly Dictionary<string, PyObject> _mapping;
 
         // Internal property to access the count without triggering recursion in __len__
-        internal int InternalCount => _mapping.Count;
+        internal virtual int InternalCount => _mapping.Count;
 
         public PyMappingProxy(Dictionary<string, PyObject> mapping)
         {
@@ -169,4 +169,36 @@ namespace SharpPy
 
         #endregion
     }
+
+    /// <summary>mappingproxy(mapping) of Objects/descrobject.c: a read-only view of any mapping.</summary>
+    public sealed class PyMappingWrapper : PyMappingProxy
+    {
+        private readonly PyObject _wrapped;
+
+        public PyMappingWrapper(PyObject mapping) : base(new Dictionary<string, PyObject>()) => _wrapped = mapping;
+
+        internal override int InternalCount => _wrapped.Length();
+
+        public override int Length() => _wrapped.Length();
+
+        public override PyObject GetIterator() => _wrapped.GetIterator();
+
+        public override PyObject GetItem(PyObject key) => _wrapped.GetItem(key);
+
+        public override PyBool Contains(PyObject item) => _wrapped.Contains(item);
+
+        public override PyObject RichCompare(PyObject other, CompareOp op) =>
+            _wrapped.RichCompare(other is PyMappingWrapper wrapper ? wrapper._wrapped : other, op);
+
+        public override PyString AsString() => _wrapped.AsString();
+
+        public override PyString ToRepr() => new PyString($"mappingproxy({_wrapped.ToRepr().Value})");
+
+        public override PyObject GetAttribute(string name) => name switch
+        {
+            "keys" or "values" or "items" or "get" or "copy" or "__reversed__" => _wrapped.GetAttribute(name),
+            _ => base.GetAttribute(name),
+        };
+    }
+
 }

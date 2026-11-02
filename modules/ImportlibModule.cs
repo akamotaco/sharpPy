@@ -17,7 +17,7 @@ namespace SharpPy.Modules
     {
         public static PyModule CreateImportlibModule()
         {
-            var module = new PyModule("importlib");
+            var module = new PyModule("_importlib_native");
 
             module.ModuleDict["import_module"] = new PyBuiltinFunction("import_module", (args, kwargs) =>
             {

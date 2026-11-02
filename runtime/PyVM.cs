@@ -14,6 +14,9 @@ namespace SharpPy
         public PyScopeChain ScopeChain { get; }       // 기존 LEGB 시스템 활용!
         public PyObject[] LocalsPlus { get; }  // CPython 3.12 style: Direct array for local variables
         private PyDict _localsDict;
+        // _PyInterpreterFrame.prev_instr: the instruction being run, in code units
+        public int LastInstruction;
+
         public int InstructionPointer { get; set; }
 
         // CPython 3.12: Frame chain for proper call stack tracking
@@ -734,7 +737,7 @@ namespace SharpPy
                     : PyNone.Instance,
 
                 // f_lasti: instruction index (for traceback)
-                "f_lasti" => new PyInt(Math.Max(0, InstructionPointer - 1)),
+                "f_lasti" => new PyInt(LastInstruction * 2),
 
                 // CPython 3.12: f_trace, f_trace_lines, f_trace_opcodes (not implemented yet)
                 "f_trace" => PyNone.Instance,
@@ -1314,6 +1317,8 @@ namespace SharpPy
                         );
                         extendedArg = 0; // Reset for next instruction
                     }
+
+                    frame.LastInstruction = frame.InstructionPointer;
 
                     // CPython-style error location tracking: Update current execution location
                     // First try from LineNumberTable (more accurate), then from instruction
@@ -7742,8 +7747,7 @@ namespace SharpPy
             }
 
             // 2. Calculate lasti - CPython uses "next_instr-1" (ceval.c:941)
-            // InstructionPointer points to NEXT instruction after exception, so subtract 1
-            var lasti = Math.Max(0, frame.InstructionPointer - 1);
+            var lasti = frame.LastInstruction;
 
             // CPython 3.12: Check if this frame is already in the traceback chain
             // This prevents duplicate entries when exception propagates through same frame multiple times

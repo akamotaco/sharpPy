@@ -23,6 +23,7 @@ namespace SharpPy
             InstallText();
             PyGenericAlias.Install();
             PySlotWrappers.Install();
+            PyTextWrapper.Install();
             // ellipsis_reduce, notimplemented_reduce
             Method(PyType.EllipsisType, "__reduce__", (self, args) => new PyString("Ellipsis"));
             Method(PyNotImplemented.Instance.GetPyType(), "__reduce__", (self, args) => new PyString("NotImplemented"));

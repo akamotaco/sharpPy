@@ -665,6 +665,19 @@ namespace SharpPy
                 "co_linetable" => new PyBytes(Tables.LineTable),
                 "co_exceptiontable" => new PyBytes(Tables.ExceptionTable),
                 "co_lines" => new PyBuiltinFunction("co_lines", CoLinesMethod),
+                "_varname_from_oparg" => new PyBuiltinFunction("_varname_from_oparg", args =>
+                {
+                    // co_localsplusnames: the locals, the cells that are not arguments, the free variables.
+                    var names = new List<string>(VarNames);
+                    foreach (var cell in CellVars)
+                        if (!names.Contains(cell))
+                            names.Add(cell);
+                    names.AddRange(FreeVars);
+                    int index = args[0].ToInt();
+                    if (index < 0 || index >= names.Count)
+                        throw PyIndexError.Create("tuple index out of range");
+                    return new PyString(names[index]);
+                }),
                 "co_lnotab" => PyNone.Instance, // Line number table - deprecated in 3.12
                 "co_positions" => new PyBuiltinFunction("co_positions", CoPositionsMethod),
                 _ => base.GetAttribute(name)
