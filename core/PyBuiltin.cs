@@ -2238,6 +2238,31 @@ namespace SharpPy
             return new PyGenericType($"set[{key}]", PyType.SetType, typeArgs);
         }
 
+        private static PyObject OpenWithOpener(PyObject file, PyObject opener, string mode, string encoding,
+            string errors, string newline, int buffering, bool closefd)
+        {
+            const int O_WRONLY = 1, O_RDWR = 2, O_APPEND = 8, O_NOINHERIT = 128, O_CREAT = 256, O_TRUNC = 512, O_EXCL = 1024, O_BINARY = 32768;
+            int flags = mode.Contains('+') ? O_RDWR : mode.Contains('r') ? 0 : O_WRONLY;
+            if (mode.Contains('w')) flags |= O_CREAT | O_TRUNC;
+            if (mode.Contains('x')) flags |= O_CREAT | O_EXCL;
+            if (mode.Contains('a')) flags |= O_CREAT | O_APPEND;
+            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+                flags |= O_NOINHERIT | O_BINARY;
+            var answer = opener.Call(new[] { file, new PyInt(flags) }, null);
+            if (answer is not PyInt)
+                throw PyTypeError.Create("expected integer from opener");
+            int descriptor = TryGetFileDescriptor(answer);
+            return new PyFileContextManager(descriptor, mode, encoding, errors, newline, buffering, closefd, file);
+        }
+
+        private static int TryGetFileDescriptor(PyObject value)
+        {
+            var number = PyObject.TryGetIndex(value).Value;
+            if (number < 0)
+                throw PyValueError.Create("negative file descriptor");
+            return (int)number;
+        }
+
         private static PyObject CallOpen(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length is 1 or 2 && (kwargs == null || kwargs.Length() == 0) &&
@@ -2278,8 +2303,13 @@ namespace SharpPy
             }
             string encoding = Text(3), errors = Text(4), newline = Text(5);
             bool closefd = values[6] == null || values[6].PyBoolValue();
-            if (values[7] != null && values[7] is not PyNone) throw PyNotImplementedError.Create("file descriptor openers are not supported");
+            // _io_FileIO___init___impl: the opener makes the descriptor from the name and the flags.
+            if (values[7] != null && values[7] is not PyNone)
+                return OpenWithOpener(values[0], values[7], mode, encoding, errors, newline, buffering, closefd);
             PyObject path = values[0];
+            // _io_open_impl: an integer is a descriptor, and closefd says who closes it.
+            if (path is PyInt or PyBool or PyIntSubclass)
+                return new PyFileContextManager(TryGetFileDescriptor(path), mode, encoding, errors, newline, buffering, closefd);
             if (path is not PyString && path is not PyBytes)
             {
                 var method = path.LookupSpecialMethodUncached("__fspath__");

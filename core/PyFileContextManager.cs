@@ -41,6 +41,21 @@ public class PyFileContextManager : PyContextManager
 
     public PyFileContextManager(string filename, string mode = "r", string? encoding = null,
         string? errors = null, string? newline = null, int buffering = -1, bool closefd = true)
+        : this(filename, null, mode, encoding, errors, newline, buffering, closefd)
+    {
+    }
+
+    // open(fd)
+    internal PyFileContextManager(int descriptor, string mode, string? encoding, string? errors, string? newline, int buffering, bool closefd, PyObject? name = null)
+        : this(descriptor.ToString(), new PyDescriptorStream(descriptor, closefd), mode, encoding, errors, newline, buffering, closefd)
+    {
+        _name = name ?? new PyInt(descriptor);
+    }
+
+    private PyObject? _name;
+
+    private PyFileContextManager(string filename, Stream? existing, string mode, string? encoding,
+        string? errors, string? newline, int buffering, bool closefd)
     {
         this.filename = filename;
         this.mode = mode;
@@ -67,7 +82,7 @@ public class PyFileContextManager : PyContextManager
         if (binary && encoding != null) throw PyValueError.Create("binary mode doesn't take an encoding argument");
         if (binary && errors != null) throw PyValueError.Create("binary mode doesn't take an errors argument");
         if (binary && newline != null) throw PyValueError.Create("binary mode doesn't take a newline argument");
-        if (!closefd) throw PyValueError.Create("Cannot use closefd=False with file name");
+        if (!closefd && existing == null) throw PyValueError.Create("Cannot use closefd=False with file name");
         readable = operation == 'r' || update;
         writable = operation != 'r' || update;
         append = operation == 'a';
@@ -77,7 +92,7 @@ public class PyFileContextManager : PyContextManager
             if (Godot_IO.Helper.IsGodotPath(filename)) stream = new GodotFileStream(filename, operation, update);
             else
 #endif
-                stream = new FileStream(filename,
+                stream = existing ?? new FileStream(filename,
                     operation == 'r' ? FileMode.Open : operation == 'w' ? FileMode.Create : operation == 'x' ? FileMode.CreateNew : FileMode.OpenOrCreate,
                     readable && writable ? FileAccess.ReadWrite : readable ? FileAccess.Read : FileAccess.Write,
                     FileShare.ReadWrite, !binary && !writable ? 1 : 4096);
@@ -99,7 +114,12 @@ public class PyFileContextManager : PyContextManager
                     else
                     {
                         try { codec = Encoding.GetEncoding(normalizedEncoding ?? "utf-8"); }
-                        catch (ArgumentException) { throw PyLookupError.Create("unknown encoding: " + encoding); }
+                        catch (ArgumentException)
+                        {
+                            // A codec only the registry knows: _PyCodec_Lookup raises LookupError.
+                            PyImportSystem.Import("codecs").GetAttribute("lookup").Call(new PyObject[] { new PyString(encoding!) }, null);
+                            codec = new PyCodecEncoding(encoding!, errors ?? "strict");
+                        }
                     }
                     if (codec.CodePage == 65001) codec = new UTF8Encoding(false);
                     else codec = (Encoding)codec.Clone();
@@ -418,10 +438,16 @@ public class PyFileContextManager : PyContextManager
         return new PyInt(target);
     }
 
+    public override void SetAttribute(string name, PyObject value)
+    {
+        if (name == "name") _name = value;
+        else base.SetAttribute(name, value);
+    }
+
     public override PyObject GetAttribute(string name)
     {
         if (name == "closed") return PyBool.FromBool(closed);
-        if (name == "name") return new PyString(filename);
+        if (name == "name") return _name ?? new PyString(filename);
         if (name == "mode") return new PyString(mode);
         if (name == "readable") return new PyBoundMethodDescriptor(this, ReadableMethod);
         if (name == "writable") return new PyBoundMethodDescriptor(this, WritableMethod);
@@ -441,15 +467,15 @@ public class PyFileContextManager : PyContextManager
     private static System.Collections.Generic.Dictionary<string, PyMethodDescriptor> CreateMethods()
     {
         var methods = new System.Collections.Generic.Dictionary<string, PyMethodDescriptor>();
-        foreach (string name in new[] { "read", "readline", "readlines", "write", "writelines", "close", "flush", "seek", "tell", "truncate" })
+        foreach (string name in new[] { "fileno", "readinto", "read", "readline", "readlines", "write", "writelines", "close", "flush", "seek", "tell", "truncate" })
             methods[name] = new PyMethodDescriptor(name, PyType.ObjectType,
                 (self, args, kwargs) => ((PyFileContextManager)self).Invoke(name, args));
         return methods;
     }
     private PyObject Invoke(string name, PyObject[] args)
     {
-        int minimum = name is "write" or "seek" or "writelines" ? 1 : 0;
-        int maximum = name == "seek" ? 2 : name is "write" or "read" or "readline" or "writelines" or "truncate" ? 1 : 0;
+        int minimum = name is "write" or "seek" or "writelines" or "readinto" ? 1 : 0;
+        int maximum = name == "seek" ? 2 : name is "write" or "read" or "readline" or "writelines" or "truncate" or "readinto" ? 1 : 0;
         if (args.Length < minimum || args.Length > maximum) throw PyTypeError.Create($"{name}() takes {maximum} argument{(maximum == 1 ? "" : "s")} ({args.Length} given)");
         if (name == "read" || name == "readline") return Read(Size(args.Length == 0 ? null : args[0]), name == "readline");
         if (name == "readlines") return ReadLines();
@@ -457,6 +483,21 @@ public class PyFileContextManager : PyContextManager
         if (name == "writelines") { CheckClosed(); WriteLines(args[0]); return PyNone.Instance; }
         if (name == "close") { Close(); return PyNone.Instance; }
         if (name == "flush") { Flush(); return PyNone.Instance; }
+        if (name == "readinto")
+        {
+            // _buffered_readinto: as much as the buffer holds.
+            var data = (PyBytes)Read(args[0].Length(), false);
+            args[0].SetItem(new PySlice(PyNone.Instance, new PyInt(data.Value.Length)), data);
+            return new PyInt(data.Value.Length);
+        }
+        if (name == "fileno")
+        {
+            CheckClosed();
+            Flush();
+            if (stream is not PyDescriptorStream)
+                stream = new PyDescriptorStream(PyFileDescriptors.Add(stream!), true);
+            return new PyInt(((PyDescriptorStream)stream).Descriptor);
+        }
         if (name == "truncate") return Truncate(args.Length == 0 ? null : args[0]);
         CheckClosed();
         Flush();
@@ -502,4 +543,49 @@ public class PyFileContextManager : PyContextManager
         catch (IOException ex) { throw FileError(ex); }
     }
 
+}
+
+/// <summary>A text encoding the codec registry provides and .NET does not.</summary>
+internal sealed class PyCodecEncoding : System.Text.Encoding
+{
+    private readonly string _name;
+    private readonly string _errors;
+
+    internal PyCodecEncoding(string name, string errors)
+    {
+        _name = name;
+        _errors = errors;
+    }
+
+    private byte[] Encode(string text) => ((PyBytes)new PyString(text).GetAttribute("encode")
+        .Call(new PyObject[] { new PyString(_name), new PyString(_errors) }, null)).Value;
+
+    private string Decode(byte[] bytes, int index, int count)
+    {
+        var part = new byte[count];
+        System.Array.Copy(bytes, index, part, 0, count);
+        return ((PyString)new PyBytes(part).GetAttribute("decode")
+            .Call(new PyObject[] { new PyString(_name), new PyString(_errors) }, null)).Value;
+    }
+
+    public override int GetByteCount(char[] chars, int index, int count) => Encode(new string(chars, index, count)).Length;
+
+    public override int GetBytes(char[] chars, int charIndex, int charCount, byte[] bytes, int byteIndex)
+    {
+        var encoded = Encode(new string(chars, charIndex, charCount));
+        System.Array.Copy(encoded, 0, bytes, byteIndex, encoded.Length);
+        return encoded.Length;
+    }
+
+    public override int GetCharCount(byte[] bytes, int index, int count) => Decode(bytes, index, count).Length;
+
+    public override int GetChars(byte[] bytes, int byteIndex, int byteCount, char[] chars, int charIndex)
+    {
+        var decoded = Decode(bytes, byteIndex, byteCount);
+        decoded.CopyTo(0, chars, charIndex, decoded.Length);
+        return decoded.Length;
+    }
+
+    public override int GetMaxByteCount(int charCount) => charCount * 4;
+    public override int GetMaxCharCount(int byteCount) => byteCount * 2;
 }

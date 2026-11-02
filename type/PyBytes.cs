@@ -761,7 +761,7 @@ namespace SharpPy
                     {
                         if (!TryGetIntArg(arg, out var di))
                         {
-                            throw PyTypeError.Create($"%d format: a real number is required, not {arg.GetTypeName()}");
+                            throw PyTypeError.Create($"%{conv} format: a real number is required, not {arg.GetTypeName()}");
                         }
                         text = di.ToString(System.Globalization.CultureInfo.InvariantCulture);
                         isNumeric = true;

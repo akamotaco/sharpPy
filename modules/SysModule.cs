@@ -135,6 +135,8 @@ namespace SharpPy.Modules
                 return PyNone.Instance;
             });
             module.ModuleDict["setrecursionlimit"] = new PySysFunction("setrecursionlimit");
+            module.ModuleDict["getfilesystemencodeerrors"] = new PyBuiltinFunction("getfilesystemencodeerrors", args =>
+                new PyString(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "surrogatepass" : "surrogateescape"));
             module.ModuleDict["intern"] = new PySysFunction("intern");
             module.ModuleDict["flags"] = new PySysFlags();
             module.ModuleDict["warnoptions"] = new PyList();
@@ -171,8 +173,7 @@ namespace SharpPy.Modules
                 new PyString("_collections"),
                 new PyString("_functools"),
                 new PyString("_random"),
-                new PyString("nt"),       // OS interface (Windows/Linux/Mac)
-                new PyString("posix"),    // Alias for nt in SharpPy
+                new PyString(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "nt" : "posix"),
             };
             return new PyTuple(names.ToArray());
         }

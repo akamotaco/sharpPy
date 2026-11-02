@@ -33,6 +33,42 @@ namespace SharpPy.Modules
             module.ModuleDict["X_OK"] = new PyInt(1);  // Execute permission
 
             // Core functions (CPython: posixmodule.c)
+            // os.py reads which functions take dir_fd and the like from here.
+            foreach (var (name, value) in new[]
+            {
+                ("O_RDONLY", 0), ("O_WRONLY", 1), ("O_RDWR", 2), ("O_APPEND", 8), ("O_RANDOM", 16),
+                ("O_SEQUENTIAL", 32), ("O_TEMPORARY", 64), ("O_NOINHERIT", 128), ("O_CREAT", 256),
+                ("O_TRUNC", 512), ("O_EXCL", 1024), ("O_SHORT_LIVED", 4096), ("O_TEXT", 16384),
+                ("O_BINARY", 32768), ("TMP_MAX", 2147483647),
+            })
+                module.ModuleDict[name] = new PyInt(value);
+            module.ModuleDict["_have_functions"] = new PyList(new List<PyObject>
+            {
+                new PyString("HAVE_FTRUNCATE"), new PyString("HAVE_LSTAT"), new PyString("MS_WINDOWS"),
+            });
+            module.ModuleDict["stat_result"] = PyStatResult.Type;
+            module.ModuleDict["DirEntry"] = PyDirEntry.Type;
+            module.ModuleDict["lstat"] = new PyBuiltinFunction("lstat", Stat);
+            module.ModuleDict["scandir"] = new PyBuiltinFunction("scandir", Scandir);
+            module.ModuleDict["replace"] = new PyBuiltinFunction("replace", Replace);
+            module.ModuleDict["chmod"] = new PyBuiltinFunction("chmod", Chmod);
+            module.ModuleDict["utime"] = new PyBuiltinFunction("utime", Utime);
+            module.ModuleDict["strerror"] = new PyBuiltinFunction("strerror", Strerror);
+            module.ModuleDict["cpu_count"] = new PyBuiltinFunction("cpu_count", args => new PyInt(Environment.ProcessorCount));
+            module.ModuleDict["_exit"] = new PyBuiltinFunction("_exit", args =>
+            {
+                Environment.Exit(args[0].ToInt());
+                return PyNone.Instance;
+            });
+            module.ModuleDict["open"] = new PyBuiltinFunction("open", Open);
+            module.ModuleDict["close"] = new PyBuiltinFunction("close", Close);
+            module.ModuleDict["read"] = new PyBuiltinFunction("read", Read);
+            module.ModuleDict["write"] = new PyBuiltinFunction("write", Write);
+            module.ModuleDict["lseek"] = new PyBuiltinFunction("lseek", Lseek);
+            module.ModuleDict["fsync"] = new PyBuiltinFunction("fsync", Fsync);
+            module.ModuleDict["ftruncate"] = new PyBuiltinFunction("ftruncate", Ftruncate);
+            module.ModuleDict["isatty"] = new PyBuiltinFunction("isatty", Isatty);
+            module.ModuleDict["fstat"] = new PyBuiltinFunction("fstat", Fstat);
             module.ModuleDict["getcwd"] = new PyBuiltinFunction("getcwd", Getcwd);
             module.ModuleDict["chdir"] = new PyBuiltinFunction("chdir", Chdir);
             module.ModuleDict["listdir"] = new PyBuiltinFunction("listdir", Listdir);
@@ -82,7 +118,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"chdir() takes exactly 1 argument ({args.Length} given)");
 
-            string path = args[0].ToStr().Value;
+            string path = PathOf(args[0]);
             try
             {
                 Directory.SetCurrentDirectory(path);
@@ -90,11 +126,11 @@ namespace SharpPy.Modules
             }
             catch (DirectoryNotFoundException)
             {
-                throw PyOSError.Create($"[Errno 2] No such file or directory: '{path}'");
+                throw WindowsOr(3, path);
             }
             catch (Exception ex)
             {
-                throw PyOSError.Create($"[Errno 1] {ex.Message}");
+                throw Failed(ex, path);
             }
         }
 
@@ -102,10 +138,12 @@ namespace SharpPy.Modules
         // CPython: posixmodule.c os_listdir_impl
         private static PyObject Listdir(PyObject[] args)
         {
-            string path = args.Length > 0 ? args[0].ToStr().Value : ".";
+            string path = args.Length > 0 && args[0] is not PyNone ? PathOf(args[0]) : ".";
 
             try
             {
+                if (IOHelper.FileExists(path))
+                    throw WindowsOr(267, path);
                 var entries = IOHelper.GetFileSystemEntries(path);
                 var result = new List<PyObject>();
                 foreach (var entry in entries)
@@ -114,13 +152,17 @@ namespace SharpPy.Modules
                 }
                 return new PyList(result);
             }
+            catch (PythonException)
+            {
+                throw;
+            }
             catch (DirectoryNotFoundException)
             {
-                throw PyOSError.Create($"[Errno 2] No such file or directory: '{path}'");
+                throw WindowsOr(3, path);
             }
             catch (Exception ex)
             {
-                throw PyOSError.Create($"[Errno 1] {ex.Message}");
+                throw Failed(ex, path);
             }
         }
 
@@ -131,21 +173,27 @@ namespace SharpPy.Modules
             if (args.Length < 1)
                 throw PyTypeError.Create("mkdir() missing required argument: 'path' (pos 1)");
 
-            string path = args[0].ToStr().Value;
+            string path = PathOf(args[0]);
             // Note: .NET doesn't support Unix-style mode parameter
 
             try
             {
+                // CreateDirectoryW makes one level and refuses what exists.
+                if (IOHelper.DirExists(path) || IOHelper.FileExists(path))
+                    throw WindowsOr(183, path);
+                string parent = Path.GetDirectoryName(Path.GetFullPath(path));
+                if (parent != null && !IOHelper.DirExists(parent))
+                    throw WindowsOr(3, path);
                 IOHelper.CreateDirectory(path);
                 return PyNone.Instance;
             }
-            catch (IOException ex)
+            catch (PythonException)
             {
-                throw PyOSError.Create($"[Errno 17] File exists: '{path}'");
+                throw;
             }
             catch (Exception ex)
             {
-                throw PyOSError.Create($"[Errno 1] {ex.Message}");
+                throw Failed(ex, path);
             }
         }
 
@@ -156,7 +204,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"rmdir() takes exactly 1 argument ({args.Length} given)");
 
-            string path = args[0].ToStr().Value;
+            string path = PathOf(args[0]);
             int attempt = 0;
             while (true)
             try
@@ -167,15 +215,15 @@ namespace SharpPy.Modules
             catch (Exception ex) when (RetryAfterRelease(ex, ref attempt)) { }
             catch (DirectoryNotFoundException)
             {
-                throw PyOSError.Create($"[Errno 2] No such file or directory: '{path}'");
+                throw WindowsOr(3, path);
             }
             catch (IOException)
             {
-                throw PyOSError.Create($"[Errno 39] Directory not empty: '{path}'");
+                throw WindowsOr(145, path);
             }
             catch (Exception ex)
             {
-                throw PyOSError.Create($"[Errno 1] {ex.Message}");
+                throw Failed(ex, path);
             }
         }
 
@@ -186,7 +234,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"remove() takes exactly 1 argument ({args.Length} given)");
 
-            string path = args[0].ToStr().Value;
+            string path = PathOf(args[0]);
             int attempt = 0;
             while (true)
             try
@@ -237,6 +285,204 @@ namespace SharpPy.Modules
             return PyResourceBus.ReleaseUnreferenced(forceCollection: true) > 0;
         }
 
+        // win32_error: what .NET threw, as the code GetLastError held.
+        private static PythonException Failed(Exception error, string path)
+        {
+            int code = error switch
+            {
+                FileNotFoundException => 2,
+                DirectoryNotFoundException => 3,
+                UnauthorizedAccessException => 5,
+                IOException when (error.HResult & 0xffff) != 0 => error.HResult & 0xffff,
+                _ => 5,
+            };
+            return WindowsOr(code, path);
+        }
+
+        private static int Descriptor(PyObject value) =>
+            (int)(PyObject.TryGetIndex(value)?.Value ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer"));
+
+        // path_converter
+        private static string PathOf(PyObject value)
+        {
+            var path = Fspath(new[] { value });
+            return path is PyBytes bytes ? System.Text.Encoding.UTF8.GetString(bytes.Value) : ((PyString)path).Value;
+        }
+
+        internal static PyObject StatPath(string path) => Stat(new PyObject[] { new PyString(path) });
+
+        // os_scandir_impl
+        private static PyObject Scandir(PyObject[] args)
+        {
+            string path = args.Length > 0 && args[0] is not PyNone ? PathOf(args[0]) : ".";
+            try
+            {
+                if (IOHelper.FileExists(path))
+                    throw WindowsOr(267, path);
+                var entries = new List<PyDirEntry>();
+                string separator = path.EndsWith("/") || path.EndsWith("\\") ? "" : Path.DirectorySeparatorChar.ToString();
+                foreach (var entry in IOHelper.GetFileSystemEntries(path))
+                {
+                    string name = IOHelper.GetFileName(entry);
+                    entries.Add(new PyDirEntry(name, path + separator + name));
+                }
+                return new PyScandirIterator(entries);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                throw Failed(error, path);
+            }
+        }
+
+        // os_replace_impl: the destination goes.
+        private static PyObject Replace(PyObject[] args)
+        {
+            string source = PathOf(args[0]), target = PathOf(args[1]);
+            try
+            {
+                if (IOHelper.DirExists(source))
+                    Directory.Move(source, target);
+                else if (IOHelper.FileExists(source))
+                    File.Move(source, target, true);
+                else
+                    throw WindowsOr(2, source, target);
+                return PyNone.Instance;
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                throw Failed(error, source);
+            }
+        }
+
+        // win32_chmod: the one bit Windows has.
+        private static PyObject Chmod(PyObject[] args)
+        {
+            string path = PathOf(args[0]);
+            if (!IOHelper.FileExists(path) && !IOHelper.DirExists(path))
+                throw WindowsOr(2, path);
+            var attributes = File.GetAttributes(path);
+            bool writable = (args[1].ToInt() & 0x80) != 0;
+            File.SetAttributes(path, writable ? attributes & ~FileAttributes.ReadOnly : attributes | FileAttributes.ReadOnly);
+            return PyNone.Instance;
+        }
+
+        private static PyObject Utime(PyObject[] args)
+        {
+            string path = PathOf(args[0]);
+            if (!IOHelper.FileExists(path) && !IOHelper.DirExists(path))
+                throw WindowsOr(2, path);
+            var now = DateTime.Now;
+            var access = now;
+            var modified = now;
+            if (args.Length > 1 && args[1] is PyTuple times)
+            {
+                access = DateTime.UnixEpoch.AddSeconds(times.Items[0].AsFloat().Value).ToLocalTime();
+                modified = DateTime.UnixEpoch.AddSeconds(times.Items[1].AsFloat().Value).ToLocalTime();
+            }
+            File.SetLastAccessTime(path, access);
+            File.SetLastWriteTime(path, modified);
+            return PyNone.Instance;
+        }
+
+        // The C runtime's strerror, for the numbers errno.c names on Windows.
+        private static PyObject Strerror(PyObject[] args) => new PyString(args[0].ToInt() switch
+        {
+            1 => "Operation not permitted",
+            2 => "No such file or directory",
+            5 => "Input/output error",
+            9 => "Bad file descriptor",
+            13 => "Permission denied",
+            17 => "File exists",
+            20 => "Not a directory",
+            21 => "Is a directory",
+            22 => "Invalid argument",
+            int other => $"Unknown error {other}",
+        });
+
+        // os_open_impl
+        private static PyObject Open(PyObject[] args, PyDict kwargs)
+        {
+            if (args.Length < 2)
+                throw PyTypeError.Create($"open() missing required argument '{(args.Length == 0 ? "path" : "flags")}' (pos {args.Length + 1})");
+            string path = PathOf(args[0]);
+            try
+            {
+                return new PyInt(PyFileDescriptors.Open(path, Descriptor(args[1])));
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                throw Failed(error, path);
+            }
+        }
+
+        private static PyObject Close(PyObject[] args)
+        {
+            PyFileDescriptors.Close(Descriptor(args[0]));
+            return PyNone.Instance;
+        }
+
+        // os_read_impl
+        private static PyObject Read(PyObject[] args)
+        {
+            int length = Descriptor(args[1]);
+            if (length < 0)
+                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(22), new PyString("Invalid argument") }, null));
+            var buffer = new byte[length];
+            int count = PyFileDescriptors.Get(Descriptor(args[0])).Read(buffer, 0, length);
+            Array.Resize(ref buffer, count);
+            return new PyBytes(buffer);
+        }
+
+        // os_write_impl
+        private static PyObject Write(PyObject[] args)
+        {
+            var stream = PyFileDescriptors.Get(Descriptor(args[0]));
+            var data = BytesMethods.Buffer(args[1]);
+            stream.Write(data, 0, data.Length);
+            stream.Flush();
+            return new PyInt(data.Length);
+        }
+
+        private static PyObject Lseek(PyObject[] args)
+        {
+            var origin = Descriptor(args[2]) switch { 0 => SeekOrigin.Begin, 1 => SeekOrigin.Current, _ => SeekOrigin.End };
+            return new PyInt(PyFileDescriptors.Get(Descriptor(args[0])).Seek((long)PyObject.TryGetIndex(args[1]).Value, origin));
+        }
+
+        private static PyObject Fsync(PyObject[] args)
+        {
+            PyFileDescriptors.Get(Descriptor(args[0])).Flush();
+            return PyNone.Instance;
+        }
+
+        private static PyObject Ftruncate(PyObject[] args)
+        {
+            PyFileDescriptors.Get(Descriptor(args[0])).SetLength((long)PyObject.TryGetIndex(args[1]).Value);
+            return PyNone.Instance;
+        }
+
+        private static PyObject Isatty(PyObject[] args)
+        {
+            int fd = Descriptor(args[0]);
+            return PyBool.FromBool(fd switch
+            {
+                0 => !Console.IsInputRedirected,
+                1 => !Console.IsOutputRedirected,
+                2 => !Console.IsErrorRedirected,
+                _ => false,
+            });
+        }
+
+        private static PyObject Fstat(PyObject[] args)
+        {
+            if (PyFileDescriptors.Get(Descriptor(args[0])) is FileStream file)
+            {
+                file.Flush();
+                return Stat(new PyObject[] { new PyString(file.Name) });
+            }
+            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(9), new PyString("Bad file descriptor") }, null));
+        }
+
         // Host-shaped error text: Windows CPython uses "[WinError n] <localized>",
         // Godot builds keep the existing POSIX-style [Errno n] surface.
         internal static PythonException WindowsOr(int winCode, string path, string path2 = null)
@@ -265,8 +511,8 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"rename() takes exactly 2 arguments ({args.Length} given)");
 
-            string src = args[0].ToStr().Value;
-            string dst = args[1].ToStr().Value;
+            string src = PathOf(args[0]);
+            string dst = PathOf(args[1]);
             int attempt = 0;
             while (true)
             try
@@ -304,7 +550,7 @@ namespace SharpPy.Modules
             if (args.Length < 1)
                 throw PyTypeError.Create("stat() missing required argument: 'path' (pos 1)");
 
-            string path = args[0].ToStr().Value;
+            string path = PathOf(args[0]);
             try
             {
                 FileSystemInfo info;
@@ -333,11 +579,11 @@ namespace SharpPy.Modules
             }
             catch (FileNotFoundException)
             {
-                throw PyOSError.Create($"[Errno 2] No such file or directory: '{path}'");
+                throw WindowsOr(2, path);
             }
             catch (Exception ex)
             {
-                throw PyOSError.Create($"[Errno 1] {ex.Message}");
+                throw Failed(ex, path);
             }
         }
 
@@ -348,7 +594,7 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"access() takes exactly 2 arguments ({args.Length} given)");
 
-            string path = args[0].ToStr().Value;
+            string path = PathOf(args[0]);
             int mode = args[1].ToInt();
 
             try
@@ -432,20 +678,33 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"fspath() takes exactly 1 argument ({args.Length} given)");
 
-            // For now, just convert to string (proper implementation would check __fspath__)
-            return new PyString(args[0].ToStr().Value);
+            // PyOS_FSPath
+            var path = args[0];
+            if (path is PyString || path is PyBytes)
+                return path;
+            var method = path.LookupSpecialMethodUncached("__fspath__");
+            if (method == null)
+                throw PyTypeError.Create($"expected str, bytes or os.PathLike object, not {path.GetTypeName()}");
+            var answer = path.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+            if (answer is PyString || answer is PyBytes)
+                return answer;
+            throw PyTypeError.Create($"expected {path.GetTypeName()}.__fspath__() to return str or bytes, not {answer.GetTypeName()}");
         }
 
         #endregion
 
         #region Helper Functions
 
+        // convertenviron: str on Windows, bytes elsewhere.
         private static PyDict CreateEnvironDict()
         {
             var environ = new PyDict();
+            bool windows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
             foreach (System.Collections.DictionaryEntry entry in Environment.GetEnvironmentVariables())
             {
-                environ.SetItem(new PyString((string)entry.Key), new PyString((string)entry.Value));
+                string name = (string)entry.Key, value = (string)entry.Value;
+                environ.SetItem(windows ? new PyString(name) : new PyBytes(System.Text.Encoding.UTF8.GetBytes(name)),
+                    windows ? new PyString(value) : new PyBytes(System.Text.Encoding.UTF8.GetBytes(value)));
             }
             return environ;
         }
@@ -503,7 +762,9 @@ namespace SharpPy.Modules
         internal PyStatResult(int mode, long size, double mtime)
         { _mode = mode; _size = size; _mtime = mtime; }
 
-        public override PyType GetPyType() => PyType.ObjectType;
+        internal static readonly PyType Type = new PyType("stat_result", new[] { PyType.ObjectType });
+
+        public override PyType GetPyType() => Type;
         public override string GetTypeName() => "stat_result";
 
         public override PyObject GetAttribute(string name)
