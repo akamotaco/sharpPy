@@ -330,18 +330,6 @@ namespace SharpPy
         public override PyObject GetIterator() => new PyList(new PyObject[]
             { new PyGenericAlias(Origin, Args, _type, starred: true) }).GetIterator();
 
-        // _Py_union_type_or
-        public override PyObject BitwiseOr(PyObject other)
-        {
-            if (other is PyUnionType otherUnion)
-            {
-                var combinedArgs = new PyObject[1 + otherUnion.Args.Length];
-                combinedArgs[0] = this;
-                for (int i = 0; i < otherUnion.Args.Length; i++)
-                    combinedArgs[1 + i] = otherUnion.Args[i];
-                return new PyUnionType(combinedArgs);
-            }
-            return new PyUnionType(new PyObject[] { this, other });
-        }
+        public override PyObject BitwiseOr(PyObject other) => PyUnionType.Or(this, other);
     }
 }

@@ -172,7 +172,7 @@ namespace SharpPy
 
             // type_get_type_params: () for a class that has none in its dict.
             typeClass.ClassDict["__type_params__"] = new PyGetSetDescriptor("__type_params__", typeClass,
-                self => self is PyClass cls && cls.ClassDict.TryGetValue("__type_params__", out var parameters) ? parameters : PyTuple.Empty,
+                self => ReferenceEquals(self, Instance) ? PyTuple.Empty : self is PyClass cls && cls.ClassDict.TryGetValue("__type_params__", out var parameters) ? parameters : PyTuple.Empty,
                 (self, value) =>
                 {
                     if (self is not PyClass cls) throw PyTypeError.Create($"cannot set '__type_params__' attribute of immutable type '{self}'");
@@ -354,6 +354,9 @@ namespace SharpPy
 
             var created = new PyClass(name.Value, baseTypes, dict) { Metaclass = metatype };
             if (classCell is PyCell cell) cell.Value = created;
+            // type_new_set_classdictcell: annotation scopes read the type's own dict from now on.
+            if (created.ClassDict.Remove("__classdictcell__", out var dictCell) && dictCell is PyCell classDictCell)
+                classDictCell.Value = new PyMappingProxy(created.ClassDict);
             AddInstanceDescriptors(created);
 
             // mro_internal: a metaclass may answer another order.
@@ -558,6 +561,7 @@ namespace SharpPy
                 WeakOffset = addWeak ? -32 : parent.WeakOffset,
                 Gc = true,
                 Slots = slots,
+                NoInstances = false,
             };
         }
 

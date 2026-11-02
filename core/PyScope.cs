@@ -306,28 +306,7 @@ namespace SharpPy
         /// <summary>
         /// Union type operator support: int | str -> Union[int, str]
         /// </summary>
-        public override PyObject BitwiseOr(PyObject other)
-        {
-            // Support Union operator for builtin types
-            if (other is PyBuiltinType otherBuiltinType)
-            {
-                return new PyUnionType(new PyObject[] { this, otherBuiltinType });
-            }
-            else if (other is PyType otherType)
-            {
-                return new PyUnionType(new PyObject[] { this, otherType });
-            }
-            else if (other is PyUnionType unionType)
-            {
-                // Type | Union -> extend Union
-                var newTypes = new List<PyObject> { this };
-                newTypes.AddRange(unionType.Args);
-                return new PyUnionType(newTypes.ToArray());
-            }
-
-            // Fall back to base implementation for non-type objects
-            return base.BitwiseOr(other);
-        }
+        public override PyObject BitwiseOr(PyObject other) => PyUnionType.Or(this, other);
     }
 
     // 일반 스코프 (G, E, L만)

@@ -479,7 +479,7 @@ public partial class PyFunction : PyObject, IDescriptor
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
 
         // async generator enumerator 생성
-        return new SharpPy.Core.PyAsyncGenerator(frame, vm, Name);
+        return new SharpPy.Core.PyAsyncGenerator(frame, vm, Name, QualName);
     }
 
     /// <summary>
@@ -508,7 +508,7 @@ public partial class PyFunction : PyObject, IDescriptor
             : new PyFrame(CodeObject, args, scope, Closure, null, defaults, GetKeywordDefaults());
         frame.IsCoroutine = true;  // CPython 3.12: coroutine frame 표시
 
-        return new SharpPy.Core.PyCoroutine(frame, vm, Name);
+        return new SharpPy.Core.PyCoroutine(frame, vm, Name, QualName);
     }
 
     /// <summary>
@@ -577,7 +577,7 @@ public partial class PyFunction : PyObject, IDescriptor
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
 
         // CPython 3.12 완전 호환 PyGenerator 사용
-        return new PyGenerator(frame, vm, Name);
+        return new PyGenerator(frame, vm, Name) { Qualname = new PyString(QualName) };
     }
     
     // Function은 항상 호출 가능

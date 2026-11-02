@@ -1512,7 +1512,7 @@ namespace SharpPy
             if (exceptionEntry.Lasti)
             {
                 // Push current instruction pointer as lasti (PyLong)
-                var lastiValue = new PyInt(frame.InstructionPointer);
+                var lastiValue = new PyInt(frame.LastInstruction);
                 frame.ValueStack.Push(lastiValue);
                 #if DEBUG_LOG
                 Console.WriteLine($"🔧 Exception handled: pushed lasti={frame.InstructionPointer} to stack");
@@ -3337,7 +3337,9 @@ namespace SharpPy
                 case ByteCodeOp.GET_AWAITABLE:
                     // CPython 3.12 GET_AWAITABLE 구현
                     var awaitableObj = frame.ValueStack.Pop();
-                    var awaitable = GetAwaitable(awaitableObj);
+                    var awaitable = GetAwaitable(awaitableObj, argument);
+                    if (awaitable is SharpPy.Core.PyCoroutine { YieldFrom: not null })
+                        throw PyRuntimeError.Create("coroutine is being awaited already");
                     frame.ValueStack.Push(awaitable);
                     break;
 
@@ -3848,8 +3850,13 @@ namespace SharpPy
                     var yieldFromIterable = frame.ValueStack.Pop();
                     PyObject yieldFromIter;
 
-                    // Check if it's a generator or coroutine - use as-is
-                    if (yieldFromIterable is PyGenerator)
+                    if (yieldFromIterable is SharpPy.Core.PyCoroutine)
+                    {
+                        if ((frame.Code.Flags & (PyCodeObject.CO_COROUTINE | PyCodeObject.CO_ITERABLE_COROUTINE)) == 0)
+                            throw PyTypeError.Create("cannot 'yield from' a coroutine object in a non-coroutine generator");
+                        yieldFromIter = yieldFromIterable;
+                    }
+                    else if (yieldFromIterable is PyGenerator)
                     {
                         yieldFromIter = yieldFromIterable;
                     }
@@ -4683,7 +4690,7 @@ namespace SharpPy
                         {
                             1 => formatValue.ToStr(), // !s
                             2 => formatValue.ToRepr(), // !r
-                            3 => formatValue.ToRepr(), // !a (simplified as repr)
+                            3 => new PyString(PyString.AsciiEscape(formatValue.ToRepr().Value)), // !a
                             _ => formatValue // No conversion, use original value
                         };
                         formattedString = ApplyFormatting(converted, formatSpec.ToStr().Value);
@@ -5351,6 +5358,15 @@ namespace SharpPy
                     frame.ValueStack.Push(frame.ClassLocalsDict ?? frame.GetAttribute("f_locals"));
                     break;
 
+                case ByteCodeOp.LOAD_FROM_DICT_OR_GLOBALS:
+                    var globalsMapping = frame.ValueStack.Pop();
+                    var mappedName = frame.Code.Names[argument];
+                    frame.ValueStack.Push(LookupNamespaceMapping(globalsMapping, new PyString(mappedName))
+                        ?? (frame.Globals.TryGetValue(mappedName, out var mappedGlobal) ? mappedGlobal : null)
+                        ?? frame.ScopeChain.BuiltinModule.GetBuiltin(mappedName)
+                        ?? throw CreateNameErrorWithSuggestion(mappedName, frame));
+                    break;
+
                 case ByteCodeOp.LOAD_FROM_DICT_OR_DEREF:
                     var closureMapping = frame.ValueStack.Pop();
                     var closureOperand = frame.ResolveDerefOperand(argument);
@@ -5547,7 +5563,9 @@ namespace SharpPy
 
                         // None uses the iterator protocol, including Python-defined
                         // iterators. A non-None value requires send; its errors propagate.
-                        if (sendValue is PyNone)
+                        if (receiver is SharpPy.Core.PyCoroutine awaited)
+                            sendResult = awaited.Send(sendValue);
+                        else if (sendValue is PyNone)
                             sendResult = receiver.Next();
                         else if (receiver is PyGenerator gen)
                             sendResult = gen.Send(sendValue);
@@ -6652,14 +6670,9 @@ namespace SharpPy
                 new[] { typing.GetAttribute("Generic"), new PyTuple(parameters.ToArray()) }, null);
         }
 
-        /// <summary>
-        /// Create a TypeAlias for PEP 613 type aliases
-        /// </summary>
-        private PyObject CreateTypeAlias(PyObject nameObj)
-        {
-            var name = nameObj.ToStr();
-            return new PyString($"TypeAlias('{name}')");
-        }
+        // _Py_make_typealias
+        private PyObject CreateTypeAlias(PyObject args) =>
+            PyImportSystem.Import("_typing").GetAttribute("TypeAliasType").GetAttribute("_make").Call(((PyTuple)args).Items, null);
 
         /// <summary>
         /// Execute intrinsic function with 2 arguments (CPython 3.12)
@@ -7050,15 +7063,21 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 GET_AWAITABLE 구현 - PEP 492 호환
         /// </summary>
-        private PyObject GetAwaitable(PyObject obj)
+        private PyObject GetAwaitable(PyObject obj, int where = 0)
         {
-            if (obj is SharpPy.Core.PyCoroutine coroutine) return coroutine.GetAwaiter();
-            if (obj is PyGenerator generator && generator.IsIterableCoroutine) return generator;
+            // _PyCoro_GetAwaitableIter: a coroutine is its own iterator.
+            if (obj is SharpPy.Core.PyCoroutine || obj is PyGenerator { IsIterableCoroutine: true })
+                return obj;
             var method = obj.LookupSpecialMethodUncached("__await__");
             if (method == null)
+            {
+                // format_awaitable_error
+                if (where is 1 or 2)
+                    throw PyTypeError.Create($"'async with' received an object from {(where == 1 ? "__aenter__" : "__aexit__")} that does not implement __await__: {obj.GetTypeName()}");
                 throw PyTypeError.Create($"object {obj.GetTypeName()} can't be used in 'await' expression");
+            }
             var result = obj.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-            if (result is SharpPy.Core.PyCoroutine || result is PyGenerator gen && gen.IsIterableCoroutine)
+            if (result is SharpPy.Core.PyCoroutine || result is PyGenerator { IsIterableCoroutine: true })
                 throw PyTypeError.Create("__await__() returned a coroutine");
             if (result is not PyIterator && result.LookupSpecialMethodUncached("__next__") == null)
                 throw PyTypeError.Create($"__await__() returned non-iterator of type '{result.GetTypeName()}'");

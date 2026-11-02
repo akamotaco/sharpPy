@@ -39,6 +39,7 @@ namespace SharpPy
                     if (self is not PyGenerator generator)
                         throw PyTypeError.Create($"descriptor 'throw' requires a 'generator' object but received a '{self.GetTypeName()}'");
 
+                    if (args.Length > 1) PyWarnings.DeprecatedThrow();
                     var excType = args[0];
                     var value = args.Length > 1 ? args[1] : null;
                     var traceback = args.Length > 2 ? args[2] : null;
@@ -66,11 +67,13 @@ namespace SharpPy
             genType.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", genType,
                 self => new PyString(((PyGenerator)self).Name), (self, value) =>
                     ((PyGenerator)self).Name = value is PyString text ? text.Value
-                        : throw PyTypeError.Create("__name__ must be set to a string object"));
+                        : throw PyTypeError.Create("__name__ must be set to a string object"),
+                deleter: self => throw PyTypeError.Create("__name__ must be set to a string object"));
             genType.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", genType,
                 self => ((PyGenerator)self).Qualname, (self, value) =>
                     ((PyGenerator)self).Qualname = value is PyString ? value
-                        : throw PyTypeError.Create("__qualname__ must be set to a string object"));
+                        : throw PyTypeError.Create("__qualname__ must be set to a string object"),
+                deleter: self => throw PyTypeError.Create("__qualname__ must be set to a string object"));
             genType.TypeDict["gi_suspended"] = new PyGetSetDescriptor("gi_suspended", genType,
                 self => PyBool.FromBool(((PyGenerator)self)._frame.State == PyFrame.FrameState.Suspended && !((PyGenerator)self)._finished));
             genType.TypeDict["gi_code"] = new PyGetSetDescriptor("gi_code", genType,
@@ -80,7 +83,7 @@ namespace SharpPy
             genType.TypeDict["gi_frame"] = new PyGetSetDescriptor("gi_frame", genType,
                 self => ((PyGenerator)self)._finished ? PyNone.Instance : (PyObject)((PyGenerator)self)._frame);
             genType.TypeDict["gi_yieldfrom"] = new PyGetSetDescriptor("gi_yieldfrom", genType,
-                self => PyNone.Instance);
+                self => ((PyGenerator)self).GetYieldFromReceiver() ?? PyNone.Instance);
 
             // __iter__ and __next__ are inherited from PyIterator
         }
@@ -394,14 +397,17 @@ namespace SharpPy
             return Next();
         }
 
-        private PyObject GetYieldFromReceiver()
+        private PyObject GetYieldFromReceiver() => YieldFromReceiver(_frame, _started, _finished);
+
+        // _PyGen_yf
+        internal static PyObject YieldFromReceiver(PyFrame frame, bool started, bool finished)
         {
-            if (!_started || _finished) return null;
-            int resumeIndex = _frame.InstructionPointer + 1;
-            return resumeIndex < _frame.Code.Instructions.Count &&
-                _frame.Code.Instructions[resumeIndex].OpCode == ByteCodeOp.RESUME &&
-                _frame.Code.Instructions[resumeIndex].Argument >= 2
-                ? _frame.ValueStack.Peek() : null;
+            if (!started || finished || frame.State != PyFrame.FrameState.Suspended) return null;
+            int resumeIndex = frame.InstructionPointer + 1;
+            return resumeIndex < frame.Code.Instructions.Count &&
+                frame.Code.Instructions[resumeIndex].OpCode == ByteCodeOp.RESUME &&
+                frame.Code.Instructions[resumeIndex].Argument >= 2
+                ? frame.ValueStack.Peek() : null;
         }
 
         private PythonException CloseReceiver(PyObject receiver)

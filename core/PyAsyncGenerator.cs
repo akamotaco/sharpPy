@@ -41,12 +41,12 @@ namespace SharpPy.Core
                 });
         }
 
-        public PyAsyncGenerator(PyFrame frame, PyVM vm, string name = "<async_generator>")
+        public PyAsyncGenerator(PyFrame frame, PyVM vm, string name = "<async_generator>", string qualname = null)
         {
             _frame = frame;
             _generator = new PyGenerator(frame, vm, name);
             Name = name;
-            Qualname = new PyString(name);
+            Qualname = new PyString(qualname ?? frame.Code.QualName ?? name);
         }
         public override PyType GetPyType() => PyType.AsyncGeneratorType;
         public override string GetTypeName() => "async_generator";

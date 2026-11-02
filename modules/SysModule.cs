@@ -27,6 +27,16 @@ namespace SharpPy.Modules
 
             // sys.path - 모듈 검색 경로 리스트
             var sysPath = CreateSysPath();
+            module.ModuleDict["get_coroutine_origin_tracking_depth"] = new PyBuiltinFunction("get_coroutine_origin_tracking_depth",
+                args => new PyInt(SharpPy.Core.PyCoroutine.OriginDepth));
+            module.ModuleDict["set_coroutine_origin_tracking_depth"] = new PyBuiltinFunction("set_coroutine_origin_tracking_depth", args =>
+            {
+                int depth = PyObject.TryGetIndex(args[0])?.ToInt() ?? throw PyTypeError.Create(
+                    $"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
+                if (depth < 0) throw PyValueError.Create("depth must be >= 0");
+                SharpPy.Core.PyCoroutine.OriginDepth = depth;
+                return PyNone.Instance;
+            });
             module.ModuleDict["path"] = sysPath;
 
             // CPython 3.12: Python/sysmodule.c:3716 - sys.modules is PyDict

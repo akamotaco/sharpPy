@@ -64,12 +64,16 @@ namespace SharpPy
             PyByteArray.InstallNew();
             InstallFrameAttributes(PyType.CoroutineType, "cr", self => ((SharpPy.Core.PyCoroutine)self).Frame, self => ((SharpPy.Core.PyCoroutine)self).IsFinished);
             InstallFrameAttributes(PyType.AsyncGeneratorType, "ag", self => ((SharpPy.Core.PyAsyncGenerator)self).Frame, self => false);
-            PyType.CoroutineType.TypeDict["cr_origin"] = new PyGetSetDescriptor("cr_origin", PyType.CoroutineType, self => PyNone.Instance);
+            PyType.CoroutineType.TypeDict["cr_origin"] = new PyGetSetDescriptor("cr_origin", PyType.CoroutineType,
+                self => ((SharpPy.Core.PyCoroutine)self).Origin);
+            PyType.CoroutineType.TypeDict["cr_await"] = new PyGetSetDescriptor("cr_await", PyType.CoroutineType,
+                self => ((SharpPy.Core.PyCoroutine)self).YieldFrom ?? PyNone.Instance);
             PyCallableWrapper.Install(PyType.ClassMethodType, "classmethod");
             PyCallableWrapper.Install(PyType.StaticMethodType, "staticmethod");
             Slot(PyType.TypeType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
             Slot(PyType.GenericAliasType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
             Slot(PyType.UnionType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
+            Slot(PyType.UnionType, "__or__", (self, args) => PyUnionType.Or(self, args[0]));
             InstallContainers();
             InstallViews();
             InstallIterators();
@@ -187,21 +191,7 @@ namespace SharpPy
             (self as PyStrSubclass)?.GetStrValue() ?? PyNativeStorage.Unwrap(self);
 
         // _Py_union_type_or with the operands as written: None | int.
-        private static PyObject UnionOnTheRight(PyObject self, PyObject left)
-        {
-            if (left is not (PyNone or PyType or PyGenericAlias or PyUnionType))
-                return PyNotImplemented.Instance;
-            var parts = new List<PyObject>();
-            if (left is PyUnionType leftUnion)
-                parts.AddRange(leftUnion.Args);
-            else
-                parts.Add(left is PyNone ? PyNone.Instance.GetPyType() : left);
-            if (self is PyUnionType union)
-                parts.AddRange(union.Args);
-            else
-                parts.Add(self);
-            return new PyUnionType(parts.ToArray());
-        }
+        private static PyObject UnionOnTheRight(PyObject self, PyObject left) => PyUnionType.Or(left, self);
 
         // gen_getframe, gen_getrunning, gen_getsuspended and their cr_ and ag_ twins
         private static void InstallFrameAttributes(PyType type, string prefix, Func<PyObject, PyFrame> frame, Func<PyObject, bool> finished)

@@ -8,6 +8,11 @@ SharpPy implements these as pure Python stubs to support CPython 3.12's typing.p
 """
 
 # CPython 3.12: Modules/_typingmodule.c
+import sys
+from types import GenericAlias
+
+_union_type_or = type(int | str).__or__
+
 
 def _idfunc(x):
     """Identity function used by NewType.__call__.
@@ -103,7 +108,7 @@ class ParamSpecArgs:
 
     CPython 3.12: Objects/typevarobject.c (paramspecattrobject)
     """
-    __slots__ = ('__origin__',)
+    __slots__ = ('__origin__', '__weakref__')
 
     def __init__(self, origin):
         self.__origin__ = origin
@@ -127,7 +132,7 @@ class ParamSpecKwargs:
 
     CPython 3.12: Objects/typevarobject.c (paramspecattrobject)
     """
-    __slots__ = ('__origin__',)
+    __slots__ = ('__origin__', '__weakref__')
 
     def __init__(self, origin):
         self.__origin__ = origin
@@ -248,34 +253,87 @@ class TypeVarTuple:
 
 
 class TypeAliasType:
-    """Type alias.
+    """Type alias. CPython 3.12: Objects/typevarobject.c."""
 
-    CPython 3.12: Objects/typevarobject.c (typealiasobject)
+    __slots__ = ('_name', '_type_params', '_compute_value', '_value', '_module')
 
-    Type aliases are created through the type statement::
+    def __init__(self, name, value, *, type_params=None):
+        if type_params is not None and not isinstance(type_params, tuple):
+            raise TypeError("type_params must be a tuple")
+        self._alloc(name, type_params, None, (value,), sys._getframe(1).f_globals.get('__name__'))
 
-        type Alias = int
-    """
+    def _alloc(self, name, type_params, compute_value, value, module):
+        object.__setattr__(self, '_name', name)
+        object.__setattr__(self, '_type_params', type_params or None)
+        object.__setattr__(self, '_compute_value', compute_value)
+        object.__setattr__(self, '_value', value)
+        object.__setattr__(self, '_module', module)
 
-    def __init__(self, name, value, *, type_params=()):
-        self.__name__ = name
-        self.__value__ = value
-        self.__type_params__ = type_params
-        self.__module__ = None
+    @classmethod
+    def _make(cls, name, type_params, compute_value):
+        self = cls.__new__(cls)
+        self._alloc(name, type_params, compute_value, None, None)
+        return self
+
+    def __init_subclass__(cls, **kwargs):
+        raise TypeError("type 'typing.TypeAliasType' is not an acceptable base type")
+
+    def __setattr__(self, name, value):
+        if name in ('__name__', '__value__', '__type_params__', '__parameters__'):
+            raise AttributeError(f"attribute '{name}' of 'typing.TypeAliasType' objects is not writable")
+        raise AttributeError(f"'typing.TypeAliasType' object has no attribute '{name}'")
+
+    @property
+    def __name__(self):
+        return self._name
+
+    @property
+    def __value__(self):
+        if self._value is None:
+            object.__setattr__(self, '_value', (self._compute_value(),))
+        return self._value[0]
+
+    @property
+    def __type_params__(self):
+        return self._type_params or ()
+
+    @property
+    def __parameters__(self):
+        result = []
+        for parameter in self._type_params or ():
+            if isinstance(parameter, TypeVarTuple):
+                result.extend(parameter)
+            else:
+                result.append(parameter)
+        return tuple(result)
+
+    def __getattribute__(self, name):
+        if name == '__module__':
+            module = object.__getattribute__(self, '_module')
+            if module is not None:
+                return module
+            return getattr(object.__getattribute__(self, '_compute_value'), '__module__', None)
+        return object.__getattribute__(self, name)
 
     def __repr__(self):
-        return self.__name__
+        return self._name
 
     def __reduce__(self):
-        return self.__name__
+        return self._name
 
-    def __hash__(self):
-        return hash(self.__name__)
+    def __getitem__(self, args):
+        if self._type_params is None:
+            raise TypeError("Only generic type aliases are subscriptable")
+        return GenericAlias(self, args)
 
-    def __eq__(self, other):
-        if isinstance(other, TypeAliasType):
-            return self.__name__ == other.__name__ and self.__value__ == other.__value__
-        return NotImplemented
+    def __or__(self, other):
+        return _union_type_or(self, other)
+
+    def __ror__(self, other):
+        return _union_type_or(other, self)
+
+
+TypeAliasType.__module__ = 'typing'
 
 
 class Generic:

@@ -6,10 +6,10 @@ namespace SharpPy
     /// What tp_basicsize, tp_itemsize, tp_dictoffset and tp_weaklistoffset say about a type's
     /// instances. Nothing is laid out by these numbers here: they are the input of the decisions
     /// CPython takes from them (best_base, type_new_slots, compatible_for_assignment).
-    /// Slots is ht_slots, null for a type without __slots__.
+    /// Slots is ht_slots, null for a type without __slots__. NoInstances is DISALLOW_INSTANTIATION.
     /// </summary>
     internal sealed record TypeLayout(int BasicSize, int ItemSize, int DictOffset, int WeakOffset, bool Gc,
-                                      string[] Slots = null);
+                                      string[] Slots = null, bool NoInstances = false);
 
     internal static partial class TypeLayouts
     {
@@ -19,7 +19,7 @@ namespace SharpPy
             if (Table.TryGetValue(type.Name, out var layout))
                 return layout;
             var parent = type.BaseTypes.FirstOrDefault()?.Layout ?? Table["object"];
-            return parent with { BasicSize = parent.BasicSize + 16 };
+            return parent with { BasicSize = parent.BasicSize + 16, NoInstances = false };
         }
     }
 }

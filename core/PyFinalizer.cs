@@ -466,6 +466,23 @@ namespace SharpPy
             // A suspended generator has a different debt: _PyGen_Finalize (Objects/genobject.c:70)
             // closes it, which is what runs the try/finally it is sitting in. The report names the
             // generator, as CPython does ("Exception ignored in: <generator object stubborn at 0x..>").
+            if (target is SharpPy.Core.PyCoroutine coroutine)
+            {
+                var savedCoroutine = PyVM.SnapshotExceptionStates();
+                try
+                {
+                    coroutine.Finalize();
+                }
+                catch (PythonException ex)
+                {
+                    ReportIgnored(Describe(coroutine), ex);
+                }
+                finally
+                {
+                    PyVM.RestoreExceptionStates(savedCoroutine);
+                }
+                return;
+            }
             if (target is PyGenerator generator)
             {
                 var savedGenerator = PyVM.SnapshotExceptionStates();

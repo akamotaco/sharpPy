@@ -39,43 +39,53 @@ namespace SharpPy
             return string.Join(" | ", argStrings);
         }
 
-        /// <summary>
-        /// Implement Union | Union logic
-        /// </summary>
-        public override PyObject BitwiseOr(PyObject other)
-        {
-            // _Py_union_type_or: None stands for type(None).
-            if (other is PyNone) other = PyNone.Instance.GetPyType();
-            if (other is PyUnionType otherUnion)
-            {
-                // Flatten nested unions: (int | str) | (float | bool) → int | str | float | bool
-                // Performance: Eliminated LINQ - manual array construction instead of ToArray
-                var combinedArgs = new PyObject[Args.Length + otherUnion.Args.Length];
-                for (int i = 0; i < Args.Length; i++)
-                {
-                    combinedArgs[i] = Args[i];
-                }
-                for (int i = 0; i < otherUnion.Args.Length; i++)
-                {
-                    combinedArgs[Args.Length + i] = otherUnion.Args[i];
-                }
-                return new PyUnionType(combinedArgs);
-            }
-            else if (other is PyType || other is PyBuiltinType)
-            {
-                // Union | Type → extend union
-                // Performance: Eliminated LINQ - manual array construction instead of ToArray
-                var combinedArgs = new PyObject[Args.Length + 1];
-                for (int i = 0; i < Args.Length; i++)
-                {
-                    combinedArgs[i] = Args[i];
-                }
-                combinedArgs[Args.Length] = other;
-                return new PyUnionType(combinedArgs);
-            }
+        public override PyObject BitwiseOr(PyObject other) => Or(this, other);
 
-            return base.BitwiseOr(other);
+        // is_unionable
+        private static bool IsUnionable(PyObject value) =>
+            value is PyNone or PyType or PyBuiltinType or PyGenericAlias or PyUnionType ||
+            value.GetPyType().Name == "TypeAliasType";
+
+        private static void Append(List<PyObject> parts, PyObject value)
+        {
+            if (value is PyUnionType union)
+            {
+                foreach (var item in union.Args) Append(parts, item);
+                return;
+            }
+            if (value is PyNone) value = value.GetPyType();
+            // dedup_and_flatten_args: a generic alias is the same by value, the rest by identity.
+            foreach (var seen in parts)
+                if (ReferenceEquals(seen, value) || (seen is PyGenericAlias && value is PyGenericAlias &&
+                    seen.RichCompare(value, CompareOp.EQ).IsTrue()))
+                    return;
+            parts.Add(value);
         }
+
+        /// <summary>_Py_union_type_or</summary>
+        internal static PyObject Or(PyObject left, PyObject right)
+        {
+            if (!IsUnionable(left) || !IsUnionable(right))
+                return PyNotImplemented.Instance;
+            var parts = new List<PyObject>();
+            Append(parts, left);
+            Append(parts, right);
+            return parts.Count == 1 ? parts[0] : new PyUnionType(parts.ToArray());
+        }
+
+        // union_richcompare: as sets of their members.
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if (other is not PyUnionType union || (op != CompareOp.EQ && op != CompareOp.NE))
+                return PyNotImplemented.Instance;
+            bool equal = new PySet(Args).RichCompare(new PySet(union.Args), CompareOp.EQ).IsTrue();
+            return PyBool.FromBool(equal == (op == CompareOp.EQ));
+        }
+
+        // union_hash: hash(frozenset(args))
+        public override int ToHash() => new PyFrozenSet(Args).ToHash();
+
+        internal override long GetPythonHash() => new PyFrozenSet(Args).GetPythonHash();
 
         /// <summary>
         /// Check if a value is an instance of any type in this union

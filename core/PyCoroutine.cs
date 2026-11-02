@@ -5,29 +5,6 @@ using System.Collections.Concurrent;
 namespace SharpPy.Core
 {
     /// <summary>
-    /// Global coroutine tracking for CPython 3.12 compatibility warnings
-    /// </summary>
-    public static class CoroutineTracker
-    {
-        private static readonly ConcurrentBag<WeakReference<PyCoroutine>> _activeCoroutines = new();
-
-        public static void RegisterCoroutine(PyCoroutine coroutine)
-        {
-            _activeCoroutines.Add(new WeakReference<PyCoroutine>(coroutine));
-        }
-
-        public static void CheckForUnawaitedCoroutines()
-        {
-            foreach (var weakRef in _activeCoroutines)
-            {
-                if (weakRef.TryGetTarget(out var coroutine) && !coroutine.IsFinished)
-                {
-                    Console.Error.WriteLine($"sys:1: RuntimeWarning: coroutine '{coroutine.Name}' was never awaited");
-                }
-            }
-        }
-    }
-    /// <summary>
     /// CPython 3.12 Native Coroutine - PEP 492 구현
     /// Generator와 구별되는 별도 타입으로 __await__ 메서드만 구현
     /// </summary>
@@ -43,6 +20,14 @@ namespace SharpPy.Core
             var corType = PyType.CoroutineType;
 
             // send method descriptor
+            corType.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", corType,
+                self => new PyString(((PyCoroutine)self).Name), (self, value) =>
+                    ((PyCoroutine)self).Name = value is PyString text ? text.Value
+                        : throw PyTypeError.Create("__name__ must be set to a string object"));
+            corType.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", corType,
+                self => ((PyCoroutine)self).Qualname, (self, value) =>
+                    ((PyCoroutine)self).Qualname = value is PyString ? value
+                        : throw PyTypeError.Create("__qualname__ must be set to a string object"));
             corType.TypeDict["send"] = new PyMethodDescriptor(
                 "send", corType,
                 (self, args, kwargs) => {
@@ -123,9 +108,10 @@ namespace SharpPy.Core
         private readonly PyVM _vm;
         private bool _started = false;
         private bool _finished = false;
-        private bool _warningShown = false;
+        private PyGuard _guard;
 
-        public string Name { get; }
+        public string Name { get; set; }
+        public PyObject Qualname { get; set; }
         public CoroutineState State { get; private set; } = CoroutineState.Created;
         public bool IsFinished => _finished;
         internal PyFrame Frame => _frame;
@@ -141,8 +127,9 @@ namespace SharpPy.Core
             Closed       // CR_CLOSED
         }
         
-        public PyCoroutine(PyFrame frame, PyVM vm, string name)
+        public PyCoroutine(PyFrame frame, PyVM vm, string name, string qualname = null)
         {
+            Qualname = new PyString(qualname ?? frame?.Code.QualName ?? name);
             _frame = frame ?? throw new ArgumentNullException(nameof(frame));
             _vm = vm ?? throw new ArgumentNullException(nameof(vm));
             Name = name;
@@ -151,23 +138,49 @@ namespace SharpPy.Core
             _frame.IsGenerator = true; // 내부적으로는 generator 메커니즘 사용
             _frame.IsCoroutine = true; // 하지만 coroutine으로 마킹
 
-            // Register for CPython 3.12 compatibility warnings
-            CoroutineTracker.RegisterCoroutine(this);
+            if (OriginDepth > 0)
+                Origin = ComputeOrigin();
+            _guard = PyFinalizer.Attach(this);
         }
 
-        /// <summary>
-        /// CPython 3.12 style finalizer - warn if coroutine was never awaited
-        /// </summary>
-        ~PyCoroutine()
+        /// <summary>_PyGen_yf: what this coroutine is awaiting.</summary>
+        internal PyObject YieldFrom => PyGenerator.YieldFromReceiver(_frame, _started, _finished);
+
+        internal PyObject Origin { get; } = PyNone.Instance;
+
+        internal static int OriginDepth;
+
+        // compute_cr_origin
+        private static PyObject ComputeOrigin()
         {
-            if (!_finished && !_warningShown)
+            var entries = new List<PyObject>();
+            PyObject frame = PyVM.CurrentFrame;
+            while (frame is PyFrame current && entries.Count < OriginDepth)
             {
-                _warningShown = true;
-                // CPython 3.12에서와 동일한 경고 메시지
-                Console.Error.WriteLine($"sys:1: RuntimeWarning: coroutine '{Name}' was never awaited");
+                entries.Add(new PyTuple(new PyObject[]
+                {
+                    new PyString(current.Code.FileName), current.GetAttribute("f_lineno"), new PyString(current.Code.Name),
+                }));
+                frame = current.GetAttribute("f_back");
             }
+            return new PyTuple(entries.ToArray());
         }
-        
+
+        // _PyGen_Finalize: a coroutine that never ran says so, one that did is closed.
+        internal void Finalize()
+        {
+            if (_finished)
+                return;
+            if (!_started)
+            {
+                _finished = true;
+                var warnings = PyImportSystem.Import("warnings");
+                warnings.GetAttribute("_warn_unawaited_coroutine").Call(new PyObject[] { this }, null);
+                return;
+            }
+            Close();
+        }
+
         /// <summary>
         /// PEP 492: Native coroutine은 __await__ 메서드만 구현
         /// __iter__, __next__ 메서드는 구현하지 않음
@@ -365,10 +378,15 @@ namespace SharpPy.Core
             State = CoroutineState.Closed;
             _finished = true;
             _frame.State = PyFrame.FrameState.Completed;
+            PyFinalizer.Detach(_guard);
+            _guard = null;
         }
 
         // Note: GetAttribute is inherited from PyObject, which uses GenericGetAttribute
         // All coroutine methods (send, throw, close, __await__) are registered as descriptors in PyType.CoroutineType
+
+        public override PyString ToRepr() =>
+            new PyString($"<coroutine object {Qualname.ToClrString()} at 0x{PyObjectId.Of(this):x}>");
 
         public override string ToString()
         {

@@ -533,7 +533,7 @@ namespace SharpPy
         public static readonly PyType ResourceWarningType = new PyType("ResourceWarning", new[] { WarningType });
 
         // Typing system types (PEP 484, 585, 612, 646, 695)
-        public static readonly PyType UnionType = new PyType("Union", new[] { ObjectType });
+        public static readonly PyType UnionType = new PyType("UnionType", new[] { ObjectType }, "types");
         public static readonly PyType TypeVarType = new PyType("TypeVar", new[] { ObjectType });
         public static readonly PyType MemberDescriptorType = new PyType("member_descriptor", new[] { ObjectType });
         public static readonly PyType GetSetDescriptorType = new PyType("getset_descriptor", new[] { ObjectType });
@@ -1000,6 +1000,8 @@ namespace SharpPy
 
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
+            if (Layout.NoInstances)
+                throw PyTypeError.Create($"cannot create '{Name}' instances");
             if (ConstructedByNewSlot)
             {
                 var slotArgs = new PyObject[args.Length + 1];
@@ -1773,6 +1775,9 @@ namespace SharpPy
         /// <summary>_common_reduce: protocol 2 and up is reduce_newobj; below that, copyreg._reduce_ex.</summary>
         private static PyObject CommonReduce(PyObject self, int protocol)
         {
+            // reduce_newobj: a type without tp_new has nothing to rebuild with.
+            if (self.GetPyType().Layout.NoInstances)
+                throw PyTypeError.Create($"cannot pickle '{self.GetPyType().Name}' object");
             var copyreg = PyImportSystem.Import("copyreg");
             if (protocol < 2)
                 return copyreg.GetAttribute("_reduce_ex").Call(new[] { self, new PyInt(protocol) }, null);
@@ -4044,38 +4049,7 @@ namespace SharpPy
         /// <summary>
         /// Union type operator support: int | str -> Union[int, str]
         /// </summary>
-        public override PyObject BitwiseOr(PyObject other)
-        {
-            // Both operands should be types for Union
-            if (other is PyType otherType)
-            {
-                return new PyUnionType(new PyObject[] { this, otherType });
-            }
-            // _Py_union_type_or: None stands for type(None).
-            if (other is PyNone)
-            {
-                return new PyUnionType(new PyObject[] { this, PyNone.Instance.GetPyType() });
-            }
-            else if (other is PyUnionType unionType)
-            {
-                // Type | Union -> extend Union
-                // Performance: Eliminated LINQ - manual array construction instead of ToArray
-                var newTypes = new PyObject[1 + unionType.Args.Length];
-                newTypes[0] = this;
-                for (int i = 0; i < unionType.Args.Length; i++)
-                {
-                    newTypes[i + 1] = unionType.Args[i];
-                }
-                return new PyUnionType(newTypes);
-            }
-            else if (other is PyBuiltinType builtinType)
-            {
-                return new PyUnionType(new PyObject[] { this, builtinType });
-            }
-
-            // Fall back to base implementation for non-type objects
-            return base.BitwiseOr(other);
-        }
+        public override PyObject BitwiseOr(PyObject other) => PyUnionType.Or(this, other);
 
         #endregion
 

@@ -120,7 +120,6 @@ namespace SharpPy
             finally
             {
                 // CPython 3.12 compatibility: Check for unawaited coroutines before exit
-                CoroutineTracker.CheckForUnawaitedCoroutines();
             }
         }
 
