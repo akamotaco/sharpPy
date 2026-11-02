@@ -37,6 +37,8 @@ public partial class PyFunction : PyObject, IDescriptor
     private PyDict? _dictCache = null;
     private PyDict? _globalsCache = null;
     private PyObject? _module;
+    private PyTuple? _closureTuple;
+    private PyCell[]? _closureSource;
     private PyObject? _defaults;
     private PyObject? _kwdefaults;
     private PyObject? _typeParams;
@@ -202,9 +204,15 @@ public partial class PyFunction : PyObject, IDescriptor
                     throw PyTypeError.Create("descriptor '__closure__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                 if (func.Closure.Length == 0)
                     return PyNone.Instance;
-                var cells = new PyObject[func.Closure.Length];
-                Array.Copy(func.Closure, cells, cells.Length);
-                return TupleCache.GetOrCreate(cells);
+                // func_closure is one tuple: the attribute hands out the same object.
+                if (func._closureTuple == null || !ReferenceEquals(func._closureSource, func.Closure))
+                {
+                    var cells = new PyObject[func.Closure.Length];
+                    Array.Copy(func.Closure, cells, cells.Length);
+                    func._closureTuple = new PyTuple(cells);
+                    func._closureSource = func.Closure;
+                }
+                return func._closureTuple;
             }
         );
 

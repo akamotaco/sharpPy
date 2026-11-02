@@ -1924,6 +1924,9 @@ namespace SharpPy
                     break;
                 int width = PairWidth(Value, unit);
                 sb.Append(Value, unit, width);
+                // The last character needs no walk to the place after it.
+                if (n == count - 1)
+                    break;
 
                 int next = cp + step;
                 if (next == cp)

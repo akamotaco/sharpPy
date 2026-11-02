@@ -390,11 +390,8 @@ namespace SharpPy
             }
             else if (EngineOnlyText.Contains(canonical))
             {
-                // CPython implements this codec in Lib/encodings/<name>.py on top of a primitive
-                // codec, so _codecs has no utf_8_sig_encode to hand out. The closure below is the
-                // same shape: it asks this interpreter's own encoder/decoder for the canonical name.
-                encode = EngineFunction(canonical, "encode");
-                decode = EngineFunction(canonical, "decode");
+                // Lib/encodings/<name>.py is CPython's and builds on the primitive codecs.
+                return null;
             }
             else if (TextCodecFunctions.TryGetValue(canonical, out string[] names))
             {
