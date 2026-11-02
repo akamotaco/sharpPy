@@ -67,6 +67,18 @@ def check_impl_detail(**guards):
     return guards.get("cpython", True) is True
 
 
+class TestFailed(Exception):
+    """Test failed."""
+
+
+def has_no_debug_ranges():
+    return False
+
+
+def requires_debug_ranges(reason='requires co_positions / debug_ranges'):
+    return unittest.skipIf(has_no_debug_ranges(), reason)
+
+
 def sortdict(dict):
     items = sorted(dict.items())
     reprpairs = ["%r: %r" % pair for pair in items]

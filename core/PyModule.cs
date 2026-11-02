@@ -512,6 +512,7 @@ public class PyModule : PyObject
             ["_hashes"] = () => SharpPy.Modules._HashesModule.CreateHashlibModule(),
             ["_struct"] = () => SharpPy.Modules._StructModule.CreateStructModule(),
             ["errno"] = () => SharpPy.Modules.ErrnoModule.CreateErrnoModule(),
+            ["marshal"] = () => SharpPy.Modules.MarshalModule.CreateMarshalModule(),
             ["_weakref"] = () => SharpPy.Modules.WeakrefModule.CreateWeakrefModule(),
 
             // OS 인터페이스 C 모듈 (cross-platform)

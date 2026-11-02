@@ -205,8 +205,6 @@ namespace SharpPy
             return codeName == "<module>";
         }
 
-        // SharpPy gives lambdas unique internal names (lambda_N); CPython error text
-        // uses "<lambda>" (nested-qualname fidelity is a separate pending item).
         /// <summary>The name argument errors use. CPython reports func_qualname, which an assignment to
         /// __qualname__ moves away from the code object; dataclasses does that for every method it builds.</summary>
         [ThreadStatic] internal static string CallingQualName;
@@ -216,14 +214,6 @@ namespace SharpPy
         internal static string BindErrorName(string codeName)
         {
             if (string.IsNullOrEmpty(codeName))
-                return "<lambda>";
-            // A real qualname ("<lambda>.<locals>.<lambda>", "f.<locals>.g") is already
-            // correct; only SharpPy's internal unique-lambda names need mapping.
-            if (codeName.Contains(".<locals>.", StringComparison.Ordinal))
-                return codeName;
-            if (codeName == "<lambda>")
-                return codeName;
-            if (codeName.StartsWith("<lambda_", StringComparison.Ordinal) || codeName.StartsWith("lambda_", StringComparison.Ordinal))
                 return "<lambda>";
             return codeName;
         }
@@ -242,9 +232,6 @@ namespace SharpPy
                 PyBuiltinFunction bf when !string.IsNullOrEmpty(bf.Name) => bf.Name,
                 _ => f.GetTypeName()
             };
-            if (!name.Contains(".<locals>.", StringComparison.Ordinal) &&
-                (name.StartsWith("<lambda_", StringComparison.Ordinal) || name.StartsWith("lambda_", StringComparison.Ordinal)))
-                return "<lambda>";
             return name;
         }
 
@@ -755,7 +742,7 @@ namespace SharpPy
                 "f_back" => ParentFrame != null ? ParentFrame : PyNone.Instance,
 
                 // f_lineno: current line number in Python source code
-                "f_lineno" => new PyInt(CurrentLineNumber >= 0 ? CurrentLineNumber : Code.GetFirstLineNo()),
+                "f_lineno" => CurrentLineNumber >= 0 ? new PyInt(CurrentLineNumber) : LastInstruction > 0 ? (PyObject)PyNone.Instance : new PyInt(Code.GetFirstLineNo()),
 
                 // f_locals: local namespace dictionary
                 "f_locals" => BuildLocalsDict(),
@@ -1361,8 +1348,9 @@ namespace SharpPy
                     {
                         frame.CurrentLineNumber = lineFromTable;
                     }
-                    else if (instruction.LineNumber > 0)
+                    else
                     {
+                        // An instruction with no location has no line: PyCode_Addr2Line gives -1.
                         frame.CurrentLineNumber = instruction.LineNumber;
                     }
                     if (instruction.ColumnOffset >= 0)
@@ -5834,7 +5822,8 @@ namespace SharpPy
                     throw new InvalidOperationException("EXTENDED_ARG should be handled in the main execution loop");
 
                 default:
-                    throw PyNotImplementedError.Create($"OpCode {opcode} not implemented");
+                    // unknown_opcode
+                    throw PySystemError.Create($"{frame.Code.FileName}:{frame.CurrentLineNumber}: unknown opcode {(int)opcode}");
             }
 
             return null;

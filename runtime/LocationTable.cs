@@ -201,6 +201,52 @@ namespace SharpPy
             return (value & 1) != 0 ? -(value >> 1) : value >> 1;
         }
 
+        /// <summary>The instructions of co_code: one per code unit, as the assembler leaves them.</summary>
+        internal static List<ByteCodeInstruction> ReadInstructions(byte[] code, byte[] lineTable, int firstLineNo)
+        {
+            var positions = Read(lineTable, firstLineNo);
+            var instructions = new List<ByteCodeInstruction>(code.Length / 2);
+            for (int i = 0; i < code.Length / 2; i++)
+            {
+                var position = i < positions.Count ? positions[i] : new SourcePosition(-1, -1, -1, -1);
+                instructions.Add(new ByteCodeInstruction((ByteCodeOp)code[i * 2], code[i * 2 + 1], position.Line,
+                    position.Column, new EndPosition(position.EndLine, position.EndColumn)));
+            }
+            return instructions;
+        }
+
+        // parse_varint of Python/ceval.c: big-endian groups of six bits.
+        private static int ReadExceptionItem(byte[] table, ref int index)
+        {
+            int value = table[index] & 63;
+            while ((table[index++] & 64) != 0)
+                value = (value << 6) | (table[index] & 63);
+            return value;
+        }
+
+        /// <summary>co_exceptiontable: the entries, with offsets in bytes as the VM reads them.</summary>
+        internal static List<ExceptionTableEntry> ReadExceptionTable(byte[] table)
+        {
+            var entries = new List<ExceptionTableEntry>();
+            int index = 0;
+            while (index < table.Length)
+            {
+                int start = ReadExceptionItem(table, ref index);
+                int size = ReadExceptionItem(table, ref index);
+                int handler = ReadExceptionItem(table, ref index);
+                int depthAndLasti = ReadExceptionItem(table, ref index);
+                entries.Add(new ExceptionTableEntry(0, 0, 0, 0, false)
+                {
+                    StartOffset = start * 2,
+                    EndOffset = (start + size) * 2,
+                    HandlerOffset = handler * 2,
+                    Depth = depthAndLasti >> 1,
+                    Lasti = (depthAndLasti & 1) != 0,
+                });
+            }
+            return entries;
+        }
+
         /// <summary>_PyCode_InitAddressRange and advance_with_locations: one position for each code unit.</summary>
         public static List<SourcePosition> Read(byte[] table, int firstLineNo)
         {

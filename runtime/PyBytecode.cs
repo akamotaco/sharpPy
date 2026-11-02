@@ -601,7 +601,15 @@ namespace SharpPy
         public override string GetTypeName() => "code";
 
         // CPython: type(code).__name__ == 'code'
-        private static readonly PyType CodePyType = new PyType("code", new[] { PyType.ObjectType });
+        private static readonly PyType CodePyType = MakeCodeType();
+
+        private static PyType MakeCodeType()
+        {
+            var type = new PyType("code", new[] { PyType.ObjectType });
+            type.ConstructedByNewSlot = true;
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, CodeNew, 0, int.MaxValue, acceptsKwargs: true);
+            return type;
+        }
         public override PyType GetPyType() => CodePyType;
 
         // CPython: code object attributes are read-only (Objects/codeobject.c).
@@ -609,31 +617,228 @@ namespace SharpPy
             => throw PyAttributeError.Create("readonly attribute");
 
         // CPython 3.12 호환: co_* 속성들 지원
-        // code.replace (Objects/clinic/codeobject.c.h). The instructions here are objects rather than a bytes
-        // value, so only the header fields can be swapped; types.coroutine is the caller that needs it.
+        /// <summary>
+        /// _PyCode_New: a code object from the tables, the one way in for marshal, code.replace and
+        /// types.CodeType. co_argcount here does not count keyword-only arguments, as in Python.
+        /// </summary>
+        internal static PyCodeObject FromTables(int argCount, int posonlyArgCount, int kwonlyArgCount, int stackSize,
+            int flags, byte[] code, List<PyObject> constants, List<string> names, List<string> varNames,
+            List<string> freeVars, List<string> cellVars, string fileName, string name, string qualName,
+            int firstLineNo, byte[] lineTable, byte[] exceptionTable, List<string> sourceLines = null)
+        {
+            if (code.Length % 2 != 0)
+                throw PyValueError.Create("code: co_code is malformed");
+            var result = new PyCodeObject(name, LocationTable.ReadInstructions(code, lineTable, firstLineNo), constants, names,
+                varNames, argCount + kwonlyArgCount, posonlyArgCount, kwonlyArgCount, freeVars, cellVars, null, null, flags,
+                fileName, sourceLines, false, null, LocationTable.ReadExceptionTable(exceptionTable))
+            {
+                QualName = qualName,
+                FirstLineNo = firstLineNo,
+                StackSize = stackSize,
+                Tables = new AssembledTables { Code = code, LineTable = lineTable, ExceptionTable = exceptionTable },
+            };
+#if CODE_TABLE_CHECK
+            if (!result.Tables.Code.AsSpan().SequenceEqual(LocationTable.CodeBytes(result.Instructions)) ||
+                !result.Tables.LineTable.AsSpan().SequenceEqual(LocationTable.LineBytes(result.Instructions, firstLineNo)) ||
+                !result.Tables.ExceptionTable.AsSpan().SequenceEqual(LocationTable.ExceptionBytes(result.ExceptionTable)))
+                throw PyValueError.Create("tables differ after rebuilding: " + name);
+#endif
+            return result;
+        }
+
+        private static List<string> NameList(PyObject value, string field)
+        {
+            if (value is not PyTuple tuple)
+                throw PyTypeError.Create($"{field} must be a tuple");
+            var names = new List<string>(tuple.Items.Length);
+            foreach (var item in tuple.Items)
+                names.Add(item is PyString text ? text.Value : throw PyTypeError.Create("name tuples must contain only strings, not '" + item.GetTypeName() + "'"));
+            return names;
+        }
+
+        private static byte[] BytesField(PyObject value, string field) =>
+            value is PyBytes bytes ? bytes.Value : throw PyTypeError.Create($"{field} must be bytes, not {value.GetTypeName()}");
+
+        // _PyCode_ConstantKey: 1 and 1.0 are different constants, and so are 0.0 and -0.0.
+        private static bool SameConstant(PyObject a, PyObject b)
+        {
+            if (a.GetType() != b.GetType())
+                return false;
+            switch (a)
+            {
+                case PyFloat x:
+                    return BitConverter.DoubleToInt64Bits(x.Value) == BitConverter.DoubleToInt64Bits(((PyFloat)b).Value);
+                case PyComplex x:
+                    var y = (PyComplex)b;
+                    return BitConverter.DoubleToInt64Bits(x.Real) == BitConverter.DoubleToInt64Bits(y.Real) &&
+                        BitConverter.DoubleToInt64Bits(x.Imag) == BitConverter.DoubleToInt64Bits(y.Imag);
+                case PyTuple x:
+                    var items = ((PyTuple)b).Items;
+                    if (x.Items.Length != items.Length)
+                        return false;
+                    for (int i = 0; i < items.Length; i++)
+                        if (!SameConstant(x.Items[i], items[i]))
+                            return false;
+                    return true;
+                default:
+                    return CompareBool(a, b, CompareOp.EQ);
+            }
+        }
+
+        // code_richcompare
+        private bool SameCode(PyCodeObject other)
+        {
+            if (ReferenceEquals(this, other))
+                return true;
+            if (Name != other.Name || ArgCount != other.ArgCount || PosonlyArgCount != other.PosonlyArgCount ||
+                KwonlyArgCount != other.KwonlyArgCount || Flags != other.Flags || GetFirstLineNo() != other.GetFirstLineNo() ||
+                !Tables.Code.AsSpan().SequenceEqual(other.Tables.Code) || Constants.Count != other.Constants.Count ||
+                !Names.SequenceEqual(other.Names) || !VarNames.SequenceEqual(other.VarNames) ||
+                !CellVars.SequenceEqual(other.CellVars) || !FreeVars.SequenceEqual(other.FreeVars) ||
+                !Tables.LineTable.AsSpan().SequenceEqual(other.Tables.LineTable) ||
+                !Tables.ExceptionTable.AsSpan().SequenceEqual(other.Tables.ExceptionTable))
+                return false;
+            for (int i = 0; i < Constants.Count; i++)
+                if (!SameConstant(Constants[i], other.Constants[i]))
+                    return false;
+            return true;
+        }
+
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if (other is not PyCodeObject code || (op != CompareOp.EQ && op != CompareOp.NE))
+                return PyNotImplemented.Instance;
+            return PyBool.FromBool(SameCode(code) == (op == CompareOp.EQ));
+        }
+
+        // code_hash: of what code_richcompare compares.
+        public override int ToHash()
+        {
+            var hash = new HashCode();
+            hash.Add(Name);
+            hash.Add(ArgCount);
+            hash.Add(PosonlyArgCount);
+            hash.Add(KwonlyArgCount);
+            hash.Add(Flags);
+            hash.Add(GetFirstLineNo());
+            hash.Add(Constants.Count);
+            hash.AddBytes(Tables.Code);
+            return hash.ToHashCode();
+        }
+
+        // emit_delta
+        private static void EmitDelta(List<byte> table, int byteDelta, int lineDelta)
+        {
+            if (byteDelta == 0 && lineDelta == 0)
+                return;
+            for (; byteDelta > 255; byteDelta -= 255)
+            {
+                table.Add(255);
+                table.Add(0);
+            }
+            for (; lineDelta > 127; lineDelta -= 127, byteDelta = 0)
+            {
+                table.Add((byte)byteDelta);
+                table.Add(127);
+            }
+            for (; lineDelta < -128; lineDelta += 128, byteDelta = 0)
+            {
+                table.Add((byte)byteDelta);
+                table.Add(128);
+            }
+            table.Add((byte)byteDelta);
+            table.Add((byte)(sbyte)lineDelta);
+        }
+
+        // code_getlnotab and decode_linetable
+        private PyObject LineNumberNotes()
+        {
+            PyWarnings.Deprecated("co_lnotab is deprecated, use co_lines instead.");
+            var table = new List<byte>();
+            int line = GetFirstLineNo(), offset = 0, unit = 0;
+            foreach (var position in LocationTable.Read(Tables.LineTable, GetFirstLineNo()))
+            {
+                if (position.Line >= 0 && position.Line != line)
+                {
+                    EmitDelta(table, unit * 2 - offset, position.Line - line);
+                    offset = unit * 2;
+                    line = position.Line;
+                }
+                unit++;
+            }
+            return new PyBytes(table.ToArray());
+        }
+
+        // code_replace_impl
         private PyObject Replace(PyObject[] args, PyDict kwargs)
         {
             if (args.Length != 0) throw PyTypeError.Create("replace() takes no positional arguments");
-            int flags = Flags;
-            string name = Name;
-            string? qualName = QualName;
+            int argCount = ArgCount - KwonlyArgCount, posonly = PosonlyArgCount, kwonly = KwonlyArgCount;
+            int stackSize = StackSize, flags = Flags, firstLineNo = GetFirstLineNo();
+            var code = Tables.Code;
+            var lineTable = Tables.LineTable;
+            var exceptionTable = Tables.ExceptionTable;
+            var constants = Constants;
+            var names = Names;
+            var varNames = VarNames;
+            var freeVars = FreeVars;
+            var cellVars = CellVars;
+            string fileName = FileName, name = Name, qualName = QualName;
+            int nlocals = -1;
             if (kwargs != null)
             {
                 foreach (var key in kwargs.Keys().Items)
                 {
                     var value = kwargs.GetItem(key);
-                    switch (((PyString)key).Value)
+                    string field = ((PyString)key).Value;
+                    switch (field)
                     {
+                        case "co_argcount": argCount = value.ToInt(); break;
+                        case "co_posonlyargcount": posonly = value.ToInt(); break;
+                        case "co_kwonlyargcount": kwonly = value.ToInt(); break;
+                        case "co_nlocals": nlocals = value.ToInt(); break;
+                        case "co_stacksize": stackSize = value.ToInt(); break;
                         case "co_flags": flags = value.ToInt(); break;
+                        case "co_firstlineno": firstLineNo = value.ToInt(); break;
+                        case "co_code": code = BytesField(value, field); break;
+                        case "co_linetable": lineTable = BytesField(value, field); break;
+                        case "co_exceptiontable": exceptionTable = BytesField(value, field); break;
+                        case "co_consts":
+                            constants = new List<PyObject>(value is PyTuple values ? values.Items : throw PyTypeError.Create("co_consts must be a tuple"));
+                            break;
+                        case "co_names": names = NameList(value, field); break;
+                        case "co_varnames": varNames = NameList(value, field); break;
+                        case "co_freevars": freeVars = NameList(value, field); break;
+                        case "co_cellvars": cellVars = NameList(value, field); break;
+                        case "co_filename": fileName = ((PyString)value).Value; break;
                         case "co_name": name = ((PyString)value).Value; break;
                         case "co_qualname": qualName = ((PyString)value).Value; break;
-                        default: throw PyValueError.Create($"code.replace() does not support {((PyString)key).Value}");
+                        default: throw PyTypeError.Create($"replace() got an unexpected keyword argument '{field}'");
                     }
                 }
             }
-            return new PyCodeObject(name, Instructions, Constants, Names, VarNames, ArgCount, PosonlyArgCount,
-                KwonlyArgCount, FreeVars, CellVars, DefaultValues, KwDefaults, flags, FileName, SourceLines,
-                IsOptimized, LineNumberTable, ExceptionTable) { QualName = qualName, FirstLineNo = FirstLineNo, Tables = Tables, StackSize = StackSize };
+            if (nlocals >= 0 && nlocals != varNames.Count)
+                throw PyValueError.Create("code: co_nlocals != len(co_varnames)");
+            return FromTables(argCount, posonly, kwonly, stackSize, flags, code, constants, names, varNames, freeVars,
+                cellVars, fileName, name, qualName, firstLineNo, lineTable, exceptionTable, SourceLines);
+        }
+
+        // code_new_impl
+        private static PyObject CodeNew(PyObject cls, PyObject[] args, PyDict kwargs)
+        {
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("code() takes no keyword arguments");
+            if (args.Length < 16 || args.Length > 18)
+                throw PyTypeError.Create($"code expected at least 16 arguments, got {args.Length}");
+            var varNames = NameList(args[9], "varnames");
+            if (args[3].ToInt() != varNames.Count)
+                throw PyValueError.Create("code: co_nlocals != len(co_varnames)");
+            return FromTables(args[0].ToInt(), args[1].ToInt(), args[2].ToInt(), args[4].ToInt(), args[5].ToInt(),
+                BytesField(args[6], "code"), new List<PyObject>(((PyTuple)args[7]).Items), NameList(args[8], "names"), varNames,
+                args.Length > 16 ? NameList(args[16], "freevars") : new List<string>(),
+                args.Length > 17 ? NameList(args[17], "cellvars") : new List<string>(),
+                ((PyString)args[10]).Value, ((PyString)args[11]).Value, ((PyString)args[12]).Value, args[13].ToInt(),
+                BytesField(args[14], "linetable"), BytesField(args[15], "exceptiontable"));
         }
 
         public override PyObject GetAttribute(string name)
@@ -678,7 +883,7 @@ namespace SharpPy
                         throw PyIndexError.Create("tuple index out of range");
                     return new PyString(names[index]);
                 }),
-                "co_lnotab" => PyNone.Instance, // Line number table - deprecated in 3.12
+                "co_lnotab" => LineNumberNotes(),
                 "co_positions" => new PyBuiltinFunction("co_positions", CoPositionsMethod),
                 _ => base.GetAttribute(name)
             };

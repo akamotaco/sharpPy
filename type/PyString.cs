@@ -2749,12 +2749,19 @@ namespace SharpPy
                     }
                     case 'c':
                     {
-                        if (value is PyInt ci && ci.Value >= 0 && ci.Value <= 0x10FFFF)
-                            body = char.ConvertFromUtf32((int)ci.Value);
-                        else if (value is PyString cs && cs.Value.Length == 1)
-                            body = cs.Value;
-                        else
+                        // formatchar
+                        if (value is PyString or PyStrSubclass)
+                        {
+                            if (value.Length() != 1)
+                                throw PyTypeError.Create("%c requires int or char");
+                            body = value.AsString().Value;
+                            break;
+                        }
+                        var code = PyInt.TryLongSelf(value, out var whole) ? whole.Value : PyObject.TryGetIndex(value)?.Value ??
                             throw PyTypeError.Create("%c requires int or char");
+                        if (code < 0 || code > 0x10FFFF)
+                            throw PyOverflowError.Create("%c arg not in range(0x110000)");
+                        body = code < 0x10000 ? ((char)(int)code).ToString() : char.ConvertFromUtf32((int)code);
                         break;
                     }
                     case 'f':
@@ -2837,7 +2844,9 @@ namespace SharpPy
                 }
             }
 
-            if (positional && ai < args.Length)
+            // PyUnicode_Format: ctx.dict is a mapping that is no tuple or str.
+            if ((positional && ai < args.Length) || (!positional && !singleUsed &&
+                (arg is PyString or PyStrSubclass || arg.LookupSpecialMethodUncached("__getitem__") == null)))
                 throw PyTypeError.Create("not all arguments converted during string formatting");
             return sb.ToString();
         }

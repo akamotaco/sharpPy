@@ -115,6 +115,7 @@ namespace SharpPy.Modules
 
             // CPython 3.12: sys.builtin_module_names (tuple of builtin C module names)
             module.ModuleDict["builtin_module_names"] = CreateBuiltinModuleNames();
+            module.ModuleDict["maxunicode"] = new PyInt(0x10FFFF);
 
             // CPython 3.12: sys.implementation (namespace with interpreter details)
             module.ModuleDict["implementation"] = CreateImplementation();
@@ -491,15 +492,28 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"intern() takes exactly one argument ({args.Length} given)");
             if (args[0] is not PyString s)
                 throw PyTypeError.Create($"intern() argument must be str, not {args[0].GetTypeName()}");
+            return Intern(s);
+        }
+
+        // PyUnicode_InternInPlace
+        internal static PyString Intern(PyString text)
+        {
             lock (InternTable)
             {
-                if (!InternTable.TryGetValue(s.Value, out var canon))
+                if (!InternTable.TryGetValue(text.Value, out var canon))
                 {
-                    canon = s;
-                    InternTable[s.Value] = canon;
+                    canon = text;
+                    InternTable[text.Value] = canon;
                 }
                 return canon;
             }
+        }
+
+        // PyUnicode_CHECK_INTERNED
+        internal static bool IsInterned(PyString text)
+        {
+            lock (InternTable)
+                return InternTable.TryGetValue(text.Value, out var canon) && ReferenceEquals(canon, text);
         }
 
         /// <summary>
