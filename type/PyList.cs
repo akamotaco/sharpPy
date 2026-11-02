@@ -743,9 +743,12 @@ namespace SharpPy
 
                 if (step == 1)
                 {
-                    // Simple slice assignment: replace items[start:stop] with valueList
+                    // list_ass_slice: an empty slice is an insertion point, and a list can be its own value.
+                    if (stop < start)
+                        stop = start;
+                    var inserted = ReferenceEquals(this, valueList) ? _items.ToArray() : valueList.Items;
                     _items.RemoveRange(start, stop - start);
-                    _items.InsertRange(start, valueList.Items);
+                    _items.InsertRange(start, inserted);
                 }
                 else
                 {

@@ -731,6 +731,8 @@ namespace SharpPy
                                 throw PyTypeError.Create($"%b requires a bytes-like object, or an object that implements __bytes__, not '{arg.GetTypeName()}'");
                             }
                         }
+                        if (precision >= 0 && text.Length > precision)
+                            text = text.Substring(0, precision);
                         break;
                     }
                     case 'c':
