@@ -2,7 +2,6 @@ import re
 import sys
 import copy
 import types
-import inspect
 import keyword
 import functools
 import itertools
@@ -918,6 +917,22 @@ _hash_action = {(False, False, False, False): None,
 # version of this table.
 
 
+# SharpPy: the text inspect.signature(cls) gives for a generated __init__.
+def _init_text(cls):
+    parts = []
+    for f in getattr(cls, _FIELDS).values():
+        if f._field_type is _FIELD_CLASSVAR or not f.init:
+            continue
+        kind = f.type.__name__ if isinstance(f.type, type) else repr(f.type).replace('typing.', '')
+        if f.default is not MISSING:
+            parts.append(f'{f.name}: {kind} = {f.default!r}')
+        elif f.default_factory is not MISSING:
+            parts.append(f'{f.name}: {kind} = <factory>')
+        else:
+            parts.append(f'{f.name}: {kind}')
+    return '(' + ', '.join(parts) + ')'
+
+
 def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
                    match_args, kw_only, slots, weakref_slot):
     # Now that dicts retain insertion order, there's no reason to use
@@ -967,7 +982,8 @@ def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
     # actual default value.  Pseudo-fields ClassVars and InitVars are
     # included, despite the fact that they're not real fields.  That's
     # dealt with later.
-    cls_annotations = inspect.get_annotations(cls)
+    # SharpPy: inspect needs ast and dis; this is inspect.get_annotations for a class.
+    cls_annotations = dict(cls.__dict__.get('__annotations__') or {})
 
     # Now find fields in our class.  While doing so, validate some
     # things, and set the default values (as class attributes) where
@@ -1131,7 +1147,8 @@ def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
         try:
             # In some cases fetching a signature is not possible.
             # But, we surely should not fail in this case.
-            text_sig = str(inspect.signature(cls)).replace(' -> None', '')
+            # SharpPy: inspect.signature needs ast and dis; the text comes from the fields.
+            text_sig = _init_text(cls)
         except (TypeError, ValueError):
             text_sig = ''
         cls.__doc__ = (cls.__name__ + text_sig)
