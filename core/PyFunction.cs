@@ -68,11 +68,69 @@ public partial class PyFunction : PyObject, IDescriptor
     /// <summary>
     /// CPython 호환: function 타입의 descriptor 테이블 초기화
     /// </summary>
+    // func_new_impl(type, code, globals, name=None, argdefs=None, closure=None)
+    private static PyObject FunctionNew(PyObject cls, PyObject[] args, PyDict kwargs)
+    {
+        string[] names = { "code", "globals", "name", "argdefs", "closure" };
+        if (args.Length > names.Length)
+            throw PyTypeError.Create($"function() takes at most 5 arguments ({args.Length} given)");
+        var given = new PyObject[names.Length];
+        Array.Copy(args, given, args.Length);
+        if (kwargs != null)
+            foreach (var entry in kwargs.InternalDict)
+            {
+                int position = Array.IndexOf(names, (entry.Key as PyString)?.Value);
+                if (position < 0)
+                    throw PyTypeError.Create($"function() got an unexpected keyword argument '{entry.Key.AsString().Value}'");
+                if (given[position] != null)
+                    throw PyTypeError.Create($"argument for function() given by name ('{names[position]}') and position ({position + 1})");
+                given[position] = entry.Value;
+            }
+        for (int i = 0; i < 2; i++)
+            if (given[i] == null)
+                throw PyTypeError.Create($"function() missing required argument '{names[i]}' (pos {i + 1})");
+        if (given[0] is not PyCodeObject code)
+            throw PyTypeError.Create($"function() argument 'code' must be code, not {given[0].GetTypeName()}");
+        if (given[1] is not PyDict globals)
+            throw PyTypeError.Create($"function() argument 'globals' must be dict, not {given[1].GetTypeName()}");
+        var name = given[2] ?? PyNone.Instance;
+        var defaults = given[3] ?? PyNone.Instance;
+        var closure = given[4] ?? PyNone.Instance;
+        if (name is not PyNone && name is not PyString)
+            throw PyTypeError.Create("arg 3 (name) must be None or string");
+        if (defaults is not PyNone && defaults is not PyTuple)
+            throw PyTypeError.Create("arg 4 (defaults) must be None or tuple");
+        if (closure is not PyTuple)
+        {
+            if (code.FreeVars.Count != 0 && closure is PyNone)
+                throw PyTypeError.Create("arg 5 (closure) must be tuple");
+            if (closure is not PyNone)
+                throw PyTypeError.Create("arg 5 (closure) must be None or tuple");
+        }
+        var cells = (closure as PyTuple)?.Items ?? Array.Empty<PyObject>();
+        if (code.FreeVars.Count != cells.Length)
+            throw PyValueError.Create($"{code.Name} requires closure of length {code.FreeVars.Count}, not {cells.Length}");
+        var closureCells = new PyCell[cells.Length];
+        for (int i = 0; i < cells.Length; i++)
+            closureCells[i] = cells[i] as PyCell ??
+                throw PyTypeError.Create($"arg 5 (closure) expected cell, found {cells[i].GetTypeName()}");
+
+        var function = new PyFunction(name is PyString text ? text.Value : code.Name, null, null, null, closureCells, code);
+        function.GlobalsDict = PyVM.ScopeOver(globals).GlobalScope.Variables;
+        function._globalsCache = globals;
+        if (defaults is not PyNone)
+            function.SetAttribute("__defaults__", defaults);
+        return function;
+    }
+
     private static void InitializeFunctionDescriptors()
     {
         var funcType = PyType.FunctionType;
 
         // func_get_name and func_set_name
+        funcType.ConstructedByNewSlot = true;
+        funcType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", funcType, FunctionNew, 0, int.MaxValue, acceptsKwargs: true);
+
         funcType.TypeDict["__name__"] = new PyGetSetDescriptor(
             "__name__",
             funcType,

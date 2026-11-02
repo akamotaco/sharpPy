@@ -215,10 +215,12 @@ namespace SharpPy.Core
             PyObject result;
             try
             {
+                _frame.ParentFrame = SharpPy.PyVM.CurrentFrame;
                 result = _vm.ExecuteFrame(_frame) ?? PyNone.Instance;
             }
             catch (PyYieldException yieldEx)
             {
+                _frame.ParentFrame = null;
                 _frame.State = PyFrame.FrameState.Suspended;
                 State = CoroutineState.Suspended;
                 return yieldEx.Value ?? PyNone.Instance;

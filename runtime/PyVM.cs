@@ -1172,6 +1172,8 @@ namespace SharpPy
         public static int HostRecursionLimit { get; set; } = 64;
         private int _hostFrames;
 
+        internal int FrameDepth => _frameStack.Count;
+
         private void CheckRecursionLimit()
         {
             if (_frameStack.Count >= Modules.PySysFunction.RecursionLimit)

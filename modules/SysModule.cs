@@ -475,7 +475,12 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
             if (idx.Value <= 0)
                 throw PyValueError.Create("recursion limit must be greater than zero");
-            RecursionLimitValue = (int)Math.Min((long)idx.Value, (long)int.MaxValue);
+            int limit = (int)Math.Min((long)idx.Value, (long)int.MaxValue);
+            // sys_setrecursionlimit_impl: the limit may not fall below the depth in use.
+            int depth = PyVM.Instance.FrameDepth;
+            if (depth >= limit)
+                throw PyRecursionError.Create($"cannot set the recursion limit to {limit} at the recursion depth {depth}: the limit is too low");
+            RecursionLimitValue = limit;
             return PyNone.Instance;
         }
 

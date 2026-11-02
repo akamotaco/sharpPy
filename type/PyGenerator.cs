@@ -223,6 +223,9 @@ namespace SharpPy
                 }
 
                 // 프레임 실행 (yield까지 또는 끝까지)
+                // f_back is who resumed the frame, for as long as it runs.
+                _frame.ParentFrame = _resumedBy ?? PyVM.CurrentFrame;
+                _resumedBy = null;
                 var result = _vm.ExecuteFrame(_frame);
 
                 // 정상 완료된 경우 (return 또는 end of function)
@@ -240,6 +243,7 @@ namespace SharpPy
                 Console.WriteLine($"🔄 Native Generator: Yielded {yieldEx.Value} at instruction {_frame.InstructionPointer}");
                 #endif
                 
+                _frame.ParentFrame = null;
                 // sent value 초기화 (다음 호출까지 기본값)
                 _sentValue = PyNone.Instance;
                 
@@ -371,10 +375,15 @@ namespace SharpPy
                         var savedState = _frame.State;
                         _frame.State = PyFrame.FrameState.Executing;
                         PythonException delegateError;
+                        // _gen_throw: the delegating frame stands on the stack while the inner one runs.
+                        _frame.ParentFrame = _resumedBy ?? PyVM.CurrentFrame;
                         try
                         {
                             if (nativeGenerator)
+                            {
+                                ((PyGenerator)receiver)._resumedBy = _frame;
                                 return ((PyGenerator)receiver).Throw(excType, value, traceback);
+                            }
                             var args = traceback != null ? new[] { excType, value ?? PyNone.Instance, traceback } :
                                 value != null ? new[] { excType, value } : new[] { excType };
                             return method.Call(args, null);
@@ -396,6 +405,8 @@ namespace SharpPy
             _thrownException = thrownException;
             return Next();
         }
+
+        private PyFrame _resumedBy;
 
         private PyObject GetYieldFromReceiver() => YieldFromReceiver(_frame, _started, _finished);
 
