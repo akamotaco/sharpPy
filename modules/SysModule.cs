@@ -430,7 +430,12 @@ namespace SharpPy.Modules
         {
             if (args.Length != 3)
                 throw PyTypeError.Create($"excepthook expected 3 arguments, got {args.Length}");
-            Console.Error.WriteLine($"{args[0].GetAttribute("__name__").ToStr().Value}: {args[1].ToStr().Value}");
+            // PyErr_Display. The format is traceback.py's, as the C writer's is (and is in 3.13).
+            var stderr = PyImportSystem.Import("sys").GetAttribute("stderr");
+            var print = PyImportSystem.Import("traceback").GetAttribute("print_exception");
+            var keywords = new PyDict();
+            keywords.SetItem(new PyString("file"), stderr);
+            print.Call(new[] { args[0], args[1], args[2] }, keywords);
             return PyNone.Instance;
         }
 

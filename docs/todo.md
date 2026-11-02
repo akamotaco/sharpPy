@@ -13,7 +13,7 @@
 
 | 검증 | 값 | 재현 |
 |---|---|---|
-| CPython 언어 테스트 | 2452 / 2890 통과 | `python tools/run_cpython_tests.py` |
+| CPython 언어 테스트 | 2567 / 2890 통과 | `python tools/run_cpython_tests.py` |
 | AST (Lib/*.py) | 5550 / 5550 문장, 위치 포함 5550 | `python tools/compare_ast.py --dotnet <dotnet> [--attributes] <files>` |
 | AST (프로브) | 6397 / 6397 문장 | `python tools/compare_ast.py --dotnet <dotnet> --attributes` |
 | 바이트코드 (Lib/*.py) | 코드 객체 8039개 전부 `co_code`, `co_linetable`(열 번호 포함), `co_exceptiontable`, `co_stacksize` 바이트 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level raw <files>` |
@@ -85,7 +85,6 @@
 - 5-0. 라이브러리 복사: `encodings`, `pickle`, `warnings`, `_collections_abc`, `dis`, `opcode`, `inspect`, `dataclasses`, `tokenize`, `linecache`, `tracemalloc`, `abc`, `types`, `keyword`, `io`, `stat`, `colorsys`, `collections.abc`는 CPython 원본이다. `_warnings`는 `Lib/_warnings.py`, `_tracemalloc`는 추적 없는 스텁이다. `collections/__init__.py`, `os.py`, `pathlib.py`, `hashlib.py`, `shutil.py`, `asyncio`는 아직 수정본이다.
 - 5-1. `importlib`: `Lib/importlib/`는 네이티브 import 위의 얇은 패키지다. `machinery`의 클래스는 이름만 있다.
 - 5-1a. `TextIOWrapper`를 직접 호출하면 `core/PyTextWrapper.cs`가 버퍼를 한 번에 읽는다. `open()`의 경로와 합칠 대상이다.
-- 5-1b. 최상위 예외 출력(`runtime/PyInterpreter.cs`)은 `sys.excepthook`과 다른 경로이고, 임포트된 모듈의 원문을 찾지 못한다. `traceback.py`가 쓰는 표는 이제 맞으므로 `PyErr_Display` 경로로 합친다.
 - 5-2. `os.open` 20건, `tempfile` 없음.
 - 5-4. `weakref` 프록시, `bytearray %`.
 - 5-5. 그 밖의 라이브러리 목록은 P0-83. 필요성이 확인된 것만 한다.

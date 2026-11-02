@@ -351,6 +351,34 @@ namespace SharpPy
         /// </summary>
         private void PrintPythonStyleTraceback(Exception e)
         {
+            // PyErr_PrintEx: sys.excepthook reports, and a failing hook is reported in its turn.
+            if (e is PythonException { PyException: not null } raised)
+            {
+                var exception = raised.PyException;
+                var arguments = new PyObject[]
+                {
+                    exception.GetPyType(), exception, (PyObject)exception.__traceback__ ?? PyNone.Instance,
+                };
+                try
+                {
+                    var sys = PyImportSystem.Import("sys");
+                    sys.SetAttribute("last_exc", exception);
+                    sys.SetAttribute("last_type", arguments[0]);
+                    sys.SetAttribute("last_value", exception);
+                    sys.SetAttribute("last_traceback", arguments[2]);
+                    sys.GetAttribute("excepthook").Call(arguments, null);
+                    return;
+                }
+                catch (PythonException failure)
+                {
+                    if (PySystemExit.Matches(failure.PyException))
+                        throw;
+                    Console.Error.WriteLine("Error in sys.excepthook:");
+                    Console.Error.WriteLine($"{failure.PyException.GetTypeName()}: {failure.PyException.AsString().Value}");
+                    Console.Error.WriteLine();
+                    Console.Error.WriteLine("Original exception was:");
+                }
+            }
             Console.Error.WriteLine("Traceback (most recent call last):");
 
             // CPython 3.12: Use traceback chain from exception if available

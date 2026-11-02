@@ -1764,6 +1764,38 @@ namespace SharpPy
         private protected readonly PyObject[] Fields = new PyObject[5];
         private static readonly string[] FieldNames = { "encoding", "object", "start", "end", "reason" };
 
+        [ThreadStatic] internal static bool AllocatingBlank;
+
+        // BaseException_new: tp_new only allocates, tp_init reads the arguments.
+        internal static void InstallNew()
+        {
+            foreach (var type in new[] { PyType.UnicodeEncodeErrorType, PyType.UnicodeDecodeErrorType, PyType.UnicodeTranslateErrorType })
+            {
+                var owner = type;
+                var inherited = PyType.BaseExceptionType.TypeDict["__new__"];
+                owner.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", owner, (cls, args, kwargs) =>
+                {
+                    // A subclass allocates as every exception class does.
+                    if (!ReferenceEquals(cls, owner))
+                    {
+                        var forwarded = new PyObject[args.Length + 1];
+                        forwarded[0] = cls;
+                        Array.Copy(args, 0, forwarded, 1, args.Length);
+                        return inherited.Call(forwarded, kwargs);
+                    }
+                    AllocatingBlank = true;
+                    try
+                    {
+                        return ((PyType)cls).Call(new PyObject[0], null);
+                    }
+                    finally
+                    {
+                        AllocatingBlank = false;
+                    }
+                }, acceptsKwargs: true);
+            }
+        }
+
         internal PyUnicodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyUnicodeError(string message = "") : base(message) { }
@@ -1771,6 +1803,9 @@ namespace SharpPy
         /// <summary>UnicodeDecodeError_init and UnicodeEncodeError_init: "UOnnU" or "UUnnU".</summary>
         private protected void ReadFields(PyObject[] args, int first)
         {
+            // klass.__new__(klass) has run no __init__ yet: an object with nothing set.
+            if (args.Length == 0 && AllocatingBlank)
+                return;
             if (args.Length != 5 - first)
                 throw PyTypeError.Create($"function takes exactly {5 - first} arguments ({args.Length} given)");
             Array.Copy(args, 0, Fields, first, args.Length);
@@ -1780,7 +1815,15 @@ namespace SharpPy
         private protected int End => Fields[3].ToInt();
         private protected string Encoding => Fields[0].ToStr().Value;
         private protected string Reason => Fields[4].ToStr().Value;
-        private protected bool OneItem => Start < Fields[1].Length() && End == Start + 1;
+        // The bounds UnicodeEncodeError_str and the others test before they read one item.
+        private protected bool OneItem
+        {
+            get
+            {
+                int length = Fields[1].Length();
+                return Start >= 0 && Start < length && End >= 0 && End <= length && End == Start + 1;
+            }
+        }
 
         /// <summary>The character at start as UnicodeEncodeError_str writes it.</summary>
         private protected string BadCharacter()
@@ -1825,7 +1868,7 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.UnicodeDecodeErrorType;
 
         // UnicodeDecodeError_str (Objects/exceptions.c:3012).
-        public override PyString AsString() => new PyString(OneItem
+        public override PyString AsString() => new PyString(Fields[1] == null ? "" : OneItem
             ? $"'{Encoding}' codec can't decode byte 0x{((PyBytes)Fields[1]).Value[Start]:x2} in position {Start}: {Reason}"
             : $"'{Encoding}' codec can't decode bytes in position {Start}-{End - 1}: {Reason}");
 
@@ -1849,7 +1892,7 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.UnicodeEncodeErrorType;
 
         // UnicodeEncodeError_str (Objects/exceptions.c:2891).
-        public override PyString AsString() => new PyString(OneItem
+        public override PyString AsString() => new PyString(Fields[1] == null ? "" : OneItem
             ? $"'{Encoding}' codec can't encode character '{BadCharacter()}' in position {Start}: {Reason}"
             : $"'{Encoding}' codec can't encode characters in position {Start}-{End - 1}: {Reason}");
 
@@ -1869,7 +1912,7 @@ namespace SharpPy
         public override string GetTypeName() => "UnicodeTranslateError";
         public override PyType GetPyType() => PyType.UnicodeTranslateErrorType;
 
-        public override PyString AsString() => new PyString(OneItem
+        public override PyString AsString() => new PyString(Fields[1] == null ? "" : OneItem
             ? $"can't translate character '{BadCharacter()}' in position {Start}: {Reason}"
             : $"can't translate characters in position {Start}-{End - 1}: {Reason}");
     }
