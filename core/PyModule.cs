@@ -517,6 +517,7 @@ public class PyModule : PyObject
             ["marshal"] = () => SharpPy.Modules.MarshalModule.CreateMarshalModule(),
             ["_queue"] = () => SharpPy.Modules._QueueModule.CreateQueueModule(),
             ["_signal"] = () => SharpPy.Modules._SignalModule.CreateSignalModule(),
+            ["sharppy"] = () => SharpPy.Modules.SharpPyModule.CreateSharpPyModule(),
             ["_weakref"] = () => SharpPy.Modules.WeakrefModule.CreateWeakrefModule(),
 
             // OS 인터페이스 C 모듈 (cross-platform)

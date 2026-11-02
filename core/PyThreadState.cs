@@ -30,6 +30,7 @@ namespace SharpPy
     {
         private static readonly object Gate = new();
         private static bool _held;
+        private static PyThreadState _holder;
         private static int _waiters;
         private static long _switchNumber;
         private static volatile bool _dropRequest;
@@ -74,6 +75,17 @@ namespace SharpPy
 
         internal static PyThreadState Current => _current;
 
+        internal static bool HeldByThisThread => _current != null && ReferenceEquals(_holder, _current);
+
+        /// <summary>A host thread that has never run Python: PyGILState_Ensure makes its state.</summary>
+        internal static PyThreadState AttachNew()
+        {
+            var state = new PyThreadState();
+            Register(state);
+            _current = state;
+            return state;
+        }
+
         internal static double SwitchInterval
         {
             get => _intervalMilliseconds / 1000.0;
@@ -88,6 +100,7 @@ namespace SharpPy
             _current = PyVM.Instance.BoundState;
             Register(_current);
             _held = true;
+            _holder = _current;
             Enabled = true;
         }
 
@@ -113,6 +126,7 @@ namespace SharpPy
                 }
                 _waiters--;
                 _held = true;
+                _holder = state;
                 _dropRequest = false;
                 _switchNumber++;
                 Monitor.PulseAll(Gate);
@@ -127,6 +141,7 @@ namespace SharpPy
             lock (Gate)
             {
                 _held = false;
+                _holder = null;
                 Monitor.PulseAll(Gate);
             }
         }

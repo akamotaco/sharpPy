@@ -1250,7 +1250,10 @@ namespace SharpPy
             PyFinalizer.Drain();
             PyGil.YieldIfRequested();
             if (PyGil.InterruptPending && BoundState.IsMain)
+            {
                 Modules._SignalModule.RunPending();
+                PyHost.DrainMainQueue();
+            }
         }
 
         private void CheckRecursionLimit()

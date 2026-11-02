@@ -74,7 +74,11 @@ namespace SharpPy.Modules
         }
 
         // A worker gets a stack the parser's and the VM's recursion can use.
+#if GODOT
+        private const int DefaultStackBytes = 16 * 1024 * 1024;
+#else
         private const int DefaultStackBytes = 64 * 1024 * 1024;
+#endif
         private static int _stackBytes;
         private static int _running = 1;
 

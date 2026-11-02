@@ -143,3 +143,15 @@ M2가 M3보다 먼저인 이유는 위험이 가장 큰 부분이 바이트에�
 - **단일 스레드 성능.** 스레드 상태 교체 설계의 전제이므로 T1에서 측정한다.
 - **임베드 환경 교착.** 호스트가 C# 락을 쥔 채 Python을 호출하면 GIL과 교착할 수 있다. 호스트 진입 규칙으로 문서화하고 T5에서 시험한다.
 - **Android 런타임.** Godot 4의 Android C#은 실험적 지원이다. 스레드 스택 크기와 `posix` 분기를 실기기로 확인해야 하며, 이 저장소에서는 아직 측정한 적이 없다.
+
+## 구현 상태
+
+| 단계 | 상태 |
+|---|---|
+| M1~M3 | 완료. `FromTables` 단일 경로, `test_marshal` 48/48 |
+| M4 | 미착수. Godot 내보내기 방식 결정 후 진행 |
+| T1~T3 | 완료. `test_thread` 22/22, `test_queue` 54/54, `test_threading` 160/162 |
+| T4 | `tools/thread_stress.py`로 14개 스레드 경합 시험, C# 예외 유출 없음 |
+| T5 | `PyHost`(`Enter`, `CallOnMain`, `RunMainQueue`, `Shutdown`)와 `sharppy` 모듈. Windows Godot 헤드리스에서 확인, Android 미확인 |
+
+호스트는 Python을 부를 때 `PyHost.Enter`를 쓰고, 프레임마다 `PyHost.RunMainQueue`를 부른다. GODOT 빌드는 가장 바깥 호출이 끝날 때 GIL을 놓는다.
