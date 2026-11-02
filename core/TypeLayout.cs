@@ -1,0 +1,25 @@
+using System.Linq;
+
+namespace SharpPy
+{
+    /// <summary>
+    /// What tp_basicsize, tp_itemsize, tp_dictoffset and tp_weaklistoffset say about a type's
+    /// instances. Nothing is laid out by these numbers here: they are the input of the decisions
+    /// CPython takes from them (best_base, type_new_slots, compatible_for_assignment).
+    /// Slots is ht_slots, null for a type without __slots__.
+    /// </summary>
+    internal sealed record TypeLayout(int BasicSize, int ItemSize, int DictOffset, int WeakOffset, bool Gc,
+                                      string[] Slots = null);
+
+    internal static partial class TypeLayouts
+    {
+        // A type of SharpPy's own that CPython does not have adds to its base, like any C type with fields.
+        internal static TypeLayout Of(PyType type)
+        {
+            if (Table.TryGetValue(type.Name, out var layout))
+                return layout;
+            var parent = type.BaseTypes.FirstOrDefault()?.Layout ?? Table["object"];
+            return parent with { BasicSize = parent.BasicSize + 16 };
+        }
+    }
+}

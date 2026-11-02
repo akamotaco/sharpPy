@@ -20,10 +20,12 @@ namespace SharpPy
     /// Python-level class dict - handled the way <see cref="PyTupleSubclass"/> and
     /// <see cref="PyBytesSubclass"/> already handle it, through <see cref="SubclassInstanceSupport"/>.
     /// </summary>
-    public class PyListSubclass : PyList, IDictBackedInstance
+    public class PyListSubclass : PyList, IDictBackedInstance, IHeapInstance
     {
         /// <summary>ob_type: the user class, not list.</summary>
-        public PyClass InstanceType { get; }
+        public PyClass InstanceType { get; private set; }
+
+        public void ChangeClass(PyClass target) => InstanceType = target;
 
         /// <summary>
         /// The instance __dict__ a heap type adds after the base layout

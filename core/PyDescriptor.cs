@@ -399,7 +399,7 @@ namespace SharpPy
         {
             if (_readonly || _setter == null)
             {
-                throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
+                throw PyAttributeError.Create("readonly attribute");
             }
 
             _setter(instance, value);
@@ -414,12 +414,13 @@ namespace SharpPy
         public void Delete(PyObject instance)
         {
             if (_readonly || _setter == null)
-                throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
+                throw PyAttributeError.Create("readonly attribute");
             if (_deleter != null) _deleter(instance);
             else _setter(instance, PyNone.Instance);
         }
 
-        public bool IsDataDescriptor() => !_readonly && _setter != null;
+        // A member has tp_descr_set whether or not it can be written.
+        public bool IsDataDescriptor() => true;
 
         public override string ToString() => $"<member '{Name}' of '{OwnerType.Name}' objects>";
         public override PyString ToRepr() => new PyString(ToString());

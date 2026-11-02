@@ -10,9 +10,11 @@ namespace SharpPy
     /// returned a plain bytes object: type(B(b"xy")).__name__ was 'bytes', and every declared dunder
     /// (__len__, __add__, __contains__, __iter__, __getitem__, __eq__, __hash__, __repr__) was ignored.
     /// </summary>
-    public class PyBytesSubclass : PyBytes, IDictBackedInstance
+    public class PyBytesSubclass : PyBytes, IDictBackedInstance, IHeapInstance
     {
-        public PyClass InstanceType { get; }
+        public PyClass InstanceType { get; private set; }
+
+        public void ChangeClass(PyClass target) => InstanceType = target;
         public Dictionary<string, PyObject> InstanceDict { get; }
         public PyObject[] ConstructorArgs { get; set; }
 

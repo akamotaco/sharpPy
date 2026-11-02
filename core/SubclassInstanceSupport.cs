@@ -3,6 +3,12 @@ using System.Collections.Generic;
 
 namespace SharpPy
 {
+    /// <summary>An instance of a Python class over a builtin value: __class__ can change.</summary>
+    internal interface IHeapInstance
+    {
+        void ChangeClass(PyClass target);
+    }
+
     /// <summary>
     /// Attribute access for instances of a builtin type that a Python class derives from
     /// (str/bytes/tuple/int/float subclasses). Their class dicts hold user descriptors and functions,
@@ -37,6 +43,17 @@ namespace SharpPy
         /// declares __repr__ replaces the slot. CPython also insists the declared function returned
         /// a str, and says so when it did not.
         /// </summary>
+        // object_set_class
+        internal static PyClass ClassAssignment(PyClass current, PyObject value)
+        {
+            if (value is not PyType target)
+                throw PyTypeError.Create($"__class__ must be set to a class, not '{value.GetTypeName()}' object");
+            if (target is not PyClass heapTarget || target is PyTypeMetaclass)
+                throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses");
+            PyTypeMetaclass.CheckAssignment(current, heapTarget, "__class__");
+            return heapTarget;
+        }
+
         // PyNumber_Long: nb_int, then nb_index, and the result is an int.
         internal static PyInt Int(PyObject self)
         {
@@ -144,10 +161,15 @@ namespace SharpPy
         internal static void SetAttribute(PyObject self, PyClass instanceType,
             Dictionary<string, PyObject> instanceDict, string name, PyObject value)
         {
+            if (name == "__class__" && self is IHeapInstance heap)
+            {
+                heap.ChangeClass(ClassAssignment(instanceType, value));
+                return;
+            }
             // object_set_dict: the storage stays, __dict__ is a live view of it.
             if (name == "__dict__")
             {
-                var replacement = value as PyDict
+                var replacement = PyNativeStorage.ForDict(value)
                     ?? throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
                 var copy = new List<KeyValuePair<PyObject, PyObject>>(replacement.InternalDict);
                 instanceDict.Clear();

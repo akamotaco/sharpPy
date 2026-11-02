@@ -151,7 +151,7 @@ public interface IDescriptor
             propType.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", propType,
                 (self, args, kwargs) => PyNone.Instance);
 
-            propType.TypeDict["fget"] = new PyGetSetDescriptor(
+            propType.TypeDict["fget"] = new PyMemberDescriptor(
                 "fget",
                 propType,
                 getter: self => {
@@ -162,7 +162,7 @@ public interface IDescriptor
             );
 
             // fset getset descriptor
-            propType.TypeDict["fset"] = new PyGetSetDescriptor(
+            propType.TypeDict["fset"] = new PyMemberDescriptor(
                 "fset",
                 propType,
                 getter: self => {
@@ -173,7 +173,7 @@ public interface IDescriptor
             );
 
             // fdel getset descriptor
-            propType.TypeDict["fdel"] = new PyGetSetDescriptor(
+            propType.TypeDict["fdel"] = new PyMemberDescriptor(
                 "fdel",
                 propType,
                 getter: self => {

@@ -17,13 +17,15 @@ namespace SharpPy
     /// already had this shape (PyIntSubclass, PyStrSubclass); without it a "float subclass" was
     /// an ordinary object with no value at all.
     /// </summary>
-    public class PyFloatSubclass : PyObject, IDictBackedInstance
+    public class PyFloatSubclass : PyObject, IDictBackedInstance, IHeapInstance
     {
         // CPython float_subtype_new: ob_fval copied from the converted temporary.
         private readonly PyFloat _floatValue;
 
         // ob_type - the subclass itself.
-        private readonly PyClass _class;
+        private PyClass _class;
+
+        public void ChangeClass(PyClass target) => _class = target;
 
         // float subclasses get an instance __dict__ (tp_alloc with the subclass's basicsize).
         public Dictionary<string, PyObject> InstanceDict { get; }

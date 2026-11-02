@@ -743,9 +743,11 @@ namespace SharpPy
     }
 
     /// <summary>A Python class deriving from complex: the value of complex, its own type and __dict__.</summary>
-    public sealed class PyComplexSubclass : PyComplex, IDictBackedInstance
+    public sealed class PyComplexSubclass : PyComplex, IDictBackedInstance, IHeapInstance
     {
-        private readonly PyClass _class;
+        private PyClass _class;
+
+        public void ChangeClass(PyClass target) => _class = target;
 
         public PyComplexSubclass(PyClass cls, double real, double imag) : base(real, imag) => _class = cls;
 

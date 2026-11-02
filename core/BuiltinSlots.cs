@@ -73,18 +73,21 @@ namespace SharpPy
             InstallViews();
             InstallIterators();
             PyType.ModuleType.ConstructedByNewSlot = true;
-            PyType.ModuleType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", PyType.ModuleType, (cls, args, kwargs) =>
+            PyType.ModuleType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", PyType.ModuleType,
+                (cls, args, kwargs) => PyModule.Allocate((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
+            PyType.ModuleType.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", PyType.ModuleType, (self, args, kwargs) =>
             {
-                if (args.Length < 1 || args[0] is not PyString name)
-                    throw PyTypeError.Create("module() argument 'name' must be str");
-                var module = new PyModule(name.Value);
-                // module_init: these five, no __file__.
-                module.ModuleDict.Remove("__file__");
-                module.ModuleDict["__doc__"] = args.Length > 1 ? args[1] : PyNone.Instance;
-                foreach (var key in new[] { "__package__", "__loader__", "__spec__" })
-                    module.ModuleDict[key] = PyNone.Instance;
-                return module;
-            }, 0, int.MaxValue, acceptsKwargs: true);
+                var name = args.Length > 0 ? args[0] : kwargs?.GetItem(new PyString("name"));
+                if (name == null)
+                    throw PyTypeError.Create("module() missing required argument 'name' (pos 1)");
+                if (name is not PyString text)
+                    throw PyTypeError.Create($"module() argument 'name' must be str, not {name.GetTypeName()}");
+                PyObject doc = args.Length > 1 ? args[1] : null;
+                if (doc == null && kwargs != null && kwargs.ContainsKey(new PyString("doc")))
+                    doc = kwargs.GetItem(new PyString("doc"));
+                ((PyModule)self).Initialize(text.Value, doc ?? PyNone.Instance);
+                return PyNone.Instance;
+            }, 0, int.MaxValue);
         }
 
         private static void Slot(PyType type, string name, Func<PyObject, PyObject[], PyObject> operation)

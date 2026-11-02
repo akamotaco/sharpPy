@@ -587,6 +587,16 @@ namespace SharpPy
         public string Name { get; private set; }
         public PyType[] BaseTypes { get; private set; }
 
+        private PyType _tpBase;
+        private TypeLayout _builtinLayout;
+
+        /// <summary>tp_base: best_base of a class, the base of a builtin.</summary>
+        internal PyType TpBase => _tpBase ??= this is PyClass && this is not PyTypeMetaclass
+            ? PyTypeMetaclass.BestBase(BaseTypes)
+            : BaseTypes.Length > 0 ? BaseTypes[0] : null;
+
+        internal virtual TypeLayout Layout => _builtinLayout ??= TypeLayouts.Of(this);
+
         /// <summary>type_set_bases (Objects/typeobject.c): new bases, then a new MRO, here and in
         /// every subclass, as mro_hierarchy does.</summary>
         // type_set_bases: a failing mro() takes the whole hierarchy back.
@@ -594,8 +604,10 @@ namespace SharpPy
         {
             var oldBases = BaseTypes;
             var undo = new List<(PyType, List<PyType>)>();
+            var oldTpBase = TpBase;
             foreach (var oldBase in oldBases) oldBase.RemoveSubclass(this);
             BaseTypes = bases;
+            _tpBase = null;
             foreach (var newBase in bases) newBase.AddSubclass(this);
             try
             {
@@ -605,6 +617,7 @@ namespace SharpPy
             {
                 foreach (var newBase in bases) newBase.RemoveSubclass(this);
                 BaseTypes = oldBases;
+                _tpBase = oldTpBase;
                 foreach (var oldBase in oldBases) oldBase.AddSubclass(this);
                 foreach (var (type, mro) in undo) type.SetMro(mro);
                 _cachedBasesTuple = null;
@@ -1968,9 +1981,11 @@ namespace SharpPy
                         return instance.GetAttributeGeneric(nameStr.Value);
                     }
 
-                    // A metaclass's own __getattribute__ may be what called this.
+                    // A metaclass's or a module subclass's own __getattribute__ may be what called this.
                     if (self is PyClass cls)
                         return cls.TypeGetAttribute(nameStr.Value);
+                    if (self is PyModule module)
+                        return module.ModuleGetAttro(nameStr.Value);
 
                     // Fallback for non-PyClassInstance objects
                     return self.GetAttribute(nameStr.Value);
@@ -2003,7 +2018,10 @@ namespace SharpPy
                     {
                         // For other types (built-in types), use SetAttribute directly
                         // These don't have user-defined __setattr__ so no recursion issue
-                        self.SetAttribute(nameStr.Value, args[1]);
+                        if (self is PyModule module)
+                            module.ModuleSetAttro(nameStr.Value, args[1]);
+                        else
+                            self.SetAttribute(nameStr.Value, args[1]);
                     }
                     return PyNone.Instance;
                 },
@@ -2034,7 +2052,10 @@ namespace SharpPy
                     {
                         // For other types (built-in types), use DelAttribute directly
                         // These don't have user-defined __delattr__ so no recursion issue
-                        self.DelAttribute(nameStr.Value);
+                        if (self is PyModule module)
+                            module.ModuleDelAttro(nameStr.Value);
+                        else
+                            self.DelAttribute(nameStr.Value);
                     }
                     return PyNone.Instance;
                 },

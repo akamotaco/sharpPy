@@ -14,7 +14,7 @@ namespace SharpPy
     ///
     /// SharpPy에서는 PyInt의 모든 동작을 위임하면서 추가 속성을 지원
     /// </summary>
-    public class PyIntSubclass : PyObject, IDictBackedInstance
+    public class PyIntSubclass : PyObject, IDictBackedInstance, IHeapInstance
     {
         // CPython: Objects/longobject.c:5671-5674
         // newobj->long_value.lv_tag = tmp->long_value.lv_tag;
@@ -27,7 +27,9 @@ namespace SharpPy
         public Dictionary<string, PyObject> InstanceDict { get; }
 
         // CPython: ob_type 필드 - 서브클래스 타입
-        private readonly PyClass _class;
+        private PyClass _class;
+
+        public void ChangeClass(PyClass target) => _class = target;
 
         public PyIntSubclass(PyClass cls, long value)
         {

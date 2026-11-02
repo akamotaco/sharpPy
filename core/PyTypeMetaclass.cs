@@ -198,6 +198,13 @@ namespace SharpPy
                 self is PyClass cls ? cls.TypeCall(args, kwargs) : self.Call(args, kwargs));
 
             // tp_flags as far as Python can see them: Py_TPFLAGS_HEAPTYPE, _BASETYPE, _IS_ABSTRACT.
+            foreach (var (name, read) in new (string, Func<TypeLayout, int>)[]
+            {
+                ("__basicsize__", layout => layout.BasicSize), ("__itemsize__", layout => layout.ItemSize),
+                ("__dictoffset__", layout => layout.DictOffset), ("__weakrefoffset__", layout => layout.WeakOffset),
+            })
+                typeClass.ClassDict[name] = new PyMemberDescriptor(name, typeClass, self => new PyInt(read(((PyType)self).Layout)), readOnly: true);
+
             typeClass.ClassDict["__flags__"] = new PyGetSetDescriptor("__flags__", typeClass, self =>
             {
                 var type = (PyType)self;
@@ -330,7 +337,7 @@ namespace SharpPy
             foreach (var entry in ns.InternalDict)
                 if (entry.Key is PyString key)
                     dict[key.Value] = entry.Value;
-            var slotNames = CheckSlots(dict, baseTypes);
+            CheckSlots(dict, baseTypes);
 
             // type_new_set_attrs
             if (!dict.ContainsKey("__module__") && PyVM.CurrentFrame?.Globals.TryGetValue("__name__", out var module) == true)
@@ -347,7 +354,7 @@ namespace SharpPy
 
             var created = new PyClass(name.Value, baseTypes, dict) { Metaclass = metatype };
             if (classCell is PyCell cell) cell.Value = created;
-            AddInstanceDescriptors(created, baseTypes, slotNames);
+            AddInstanceDescriptors(created);
 
             // mro_internal: a metaclass may answer another order.
             if (MroInvoke(created) is { } order)
@@ -382,36 +389,13 @@ namespace SharpPy
             return found is IDescriptor descriptor ? descriptor.Get(self, self.GetPyType()) : found;
         }
 
-        // Exceptions that add C fields to PyBaseExceptionObject; the rest share its layout.
-        private static readonly HashSet<string> ExceptionsWithFields = new()
-        {
-            "BaseException", "BaseExceptionGroup", "StopIteration", "SystemExit", "ImportError", "OSError", "SyntaxError",
-            "AttributeError", "NameError", "UnicodeEncodeError", "UnicodeDecodeError", "UnicodeTranslateError",
-        };
-
-        /// <summary>solid_base: the nearest type that adds to the instance layout.</summary>
+        /// <summary>solid_base: the nearest type whose instances differ in shape from its base's.</summary>
         private static PyType SolidBase(PyType type)
         {
-            if (ReferenceEquals(type, PyType.ObjectType)) return type;
-            if (!(type is PyClass _) || type is PyTypeMetaclass)
-            {
-                bool isException = false;
-                foreach (var ancestor in type.MRO)
-                    if (ancestor.Name == "BaseException") isException = true;
-                if (!isException || ExceptionsWithFields.Contains(type.Name)) return type;
-            }
-            else if (type is PyClass cls && cls.ClassDict.TryGetValue("__slots__", out var slots) && slots.Length() != 0)
-            {
-                return type;
-            }
-            return BestBase(type.BaseTypes.ToArray());
-        }
-
-        private static PyType BuiltinLayout(PyClass type)
-        {
-            foreach (var ancestor in type.MRO)
-                if (!(ancestor is PyClass _) || ancestor is PyTypeMetaclass) return SolidBase(ancestor);
-            return PyType.ObjectType;
+            var parent = type.TpBase;
+            var solid = parent != null ? SolidBase(parent) : PyType.ObjectType;
+            return type.Layout.BasicSize != solid.Layout.BasicSize || type.Layout.ItemSize != solid.Layout.ItemSize
+                ? type : solid;
         }
 
         /// <summary>mro_invoke and mro_check: what a metaclass's mro() answers, null without one.</summary>
@@ -465,47 +449,120 @@ namespace SharpPy
             foreach (var entry in bases)
                 if (ReferenceEquals(entry, type) || entry.IsSubclassOf(type) || BaseChainReaches(entry, type))
                     throw PyTypeError.Create("a __bases__ item causes an inheritance cycle");
-            foreach (var entry in bases)
-                if (!entry.HasFeature(PyTypeFlags.BaseType))
-                    throw PyTypeError.Create($"type '{entry.Name}' is not an acceptable base type");
-            var newBase = BestBase(bases);
-            var oldBase = BestBase(type.BaseTypes.ToArray());
-            if (!ReferenceEquals(newBase, oldBase))
-                throw PyTypeError.Create($"__bases__ assignment: '{newBase.Name}' object layout differs from '{oldBase.Name}'");
+            CheckAssignment(type.TpBase, BestBase(bases), "__bases__");
         }
 
-        /// <summary>compatible_for_assignment: the two classes lay their instances out alike.</summary>
-        internal static void CheckClassAssignment(PyClass current, PyClass target)
+        private static bool CompatibleWithTpBase(PyType child)
         {
-            // same_slots_added: the slots they do not share carry the same names.
-            var slots = new[] { new SortedSet<string>(StringComparer.Ordinal), new SortedSet<string>(StringComparer.Ordinal) };
-            foreach (var (one, other, names) in new[] { (current, target, slots[0]), (target, current, slots[1]) })
-                foreach (var ancestor in one.MRO)
-                    if (ancestor is PyClass cls && !other.IsSubclassOf(ancestor))
-                        foreach (var entry in cls.ClassDict)
-                            if (entry.Value is PyMemberDescriptor) names.Add(entry.Key);
-            bool sameSlots = current.InstancesHaveDict() == target.InstancesHaveDict() && slots[0].SetEquals(slots[1]);
-            if (!sameSlots || !ReferenceEquals(BuiltinLayout(current), BuiltinLayout(target)))
-                throw PyTypeError.Create($"__class__ assignment: '{target.Name}' object layout differs from '{current.Name}'");
+            var parent = child.TpBase;
+            return parent != null && child is PyClass && child is not PyTypeMetaclass &&
+                child.Layout.BasicSize == parent.Layout.BasicSize && child.Layout.ItemSize == parent.Layout.ItemSize &&
+                child.Layout.DictOffset == parent.Layout.DictOffset && child.Layout.WeakOffset == parent.Layout.WeakOffset &&
+                child.Layout.Gc == parent.Layout.Gc;
         }
 
-        /// <summary>best_base: the solid base of the bases, one layout that extends all the others.</summary>
-        private static PyType BestBase(PyType[] bases)
+        private static bool SameSlotsAdded(PyType a, PyType b)
         {
+            int size = a.TpBase.Layout.BasicSize;
+            if (a.Layout.DictOffset == size && b.Layout.DictOffset == size) size += 8;
+            if (a.Layout.WeakOffset == size && b.Layout.WeakOffset == size) size += 8;
+            if (a is not SharpPy.PyClass || b is not SharpPy.PyClass) return false;
+            var slotsA = a.Layout.Slots;
+            var slotsB = b.Layout.Slots;
+            if (slotsA != null && slotsB != null)
+            {
+                if (!slotsA.SequenceEqual(slotsB)) return false;
+                size += 8 * slotsA.Length;
+            }
+            return size == a.Layout.BasicSize && size == b.Layout.BasicSize;
+        }
+
+        private static bool HasPreheader(PyType type) => type.Layout.DictOffset == -1 || type.Layout.WeakOffset == -32;
+
+        // tp_free: PyObject_GC_Del for whatever is collected, PyObject_Free otherwise.
+        private static bool FreedByGc(PyType type) => type is PyClass && type is not PyTypeMetaclass || type.Layout.Gc;
+
+        /// <summary>compatible_for_assignment: the highest supertypes each one matches are compatible.</summary>
+        internal static void CheckAssignment(PyType oldTo, PyType newTo, string attribute)
+        {
+            if (FreedByGc(newTo) != FreedByGc(oldTo))
+                throw PyTypeError.Create($"{attribute} assignment: '{newTo.Name}' deallocator differs from '{oldTo.Name}'");
+            var newBase = newTo;
+            var oldBase = oldTo;
+            while (CompatibleWithTpBase(newBase)) newBase = newBase.TpBase;
+            while (CompatibleWithTpBase(oldBase)) oldBase = oldBase.TpBase;
+            bool differs = !ReferenceEquals(newBase, oldBase) &&
+                (!ReferenceEquals(newBase.TpBase, oldBase.TpBase) || !SameSlotsAdded(newBase, oldBase));
+            if (differs || HasPreheader(oldTo) != HasPreheader(newTo))
+                throw PyTypeError.Create($"{attribute} assignment: '{newTo.Name}' object layout differs from '{oldTo.Name}'");
+        }
+
+        /// <summary>best_base: the base whose solid base extends all the others'.</summary>
+        internal static PyType BestBase(PyType[] bases)
+        {
+            PyType primary = null;
             PyType winner = null;
             foreach (var candidate in bases)
             {
+                if (!candidate.HasFeature(PyTypeFlags.BaseType))
+                    throw PyTypeError.Create($"type '{candidate.Name}' is not an acceptable base type");
                 var solid = SolidBase(candidate);
-                if (winner == null) winner = solid;
-                else if (ReferenceEquals(winner, solid) || winner.IsSubclassOf(solid)) { }
-                else if (solid.IsSubclassOf(winner)) winner = solid;
-                else throw PyTypeError.Create("multiple bases have instance lay-out conflict");
+                if (winner == null || (!ReferenceEquals(winner, solid) && !winner.IsSubclassOf(solid) && solid.IsSubclassOf(winner)))
+                {
+                    winner = solid;
+                    primary = candidate;
+                }
+                else if (!ReferenceEquals(winner, solid) && !winner.IsSubclassOf(solid))
+                    throw PyTypeError.Create("multiple bases have instance lay-out conflict");
             }
-            return winner;
+            return primary;
+        }
+
+        // _Py_Mangle as type_new_copy_slots applies it.
+        private static string SlotAttribute(PyClass type, string slot) =>
+            slot.StartsWith("__") && !slot.EndsWith("__") ? "_" + type.Name.TrimStart('_') + slot : slot;
+
+        /// <summary>type_new_slots and type_new_descriptors: what a new class adds to its tp_base.</summary>
+        internal static TypeLayout NewLayout(PyClass type)
+        {
+            var primary = type.TpBase;
+            var parent = primary.Layout;
+            bool mayAddDict = parent.DictOffset == 0;
+            bool mayAddWeak = parent.WeakOffset == 0 && parent.ItemSize == 0;
+            bool addDict = false, addWeak = false;
+            string[] slots = null;
+            if (!type.ClassDict.TryGetValue("__slots__", out var declared))
+            {
+                addDict = mayAddDict;
+                addWeak = mayAddWeak;
+            }
+            else
+            {
+                var names = SharpPy.PyClass.EnumerateSlotNames(declared).ToList();
+                addDict = mayAddDict && names.Contains("__dict__");
+                addWeak = mayAddWeak && names.Contains("__weakref__");
+                slots = names.Where(name => name is not ("__dict__" or "__weakref__"))
+                    .Select(name => SlotAttribute(type, name)).OrderBy(name => name, StringComparer.Ordinal).ToArray();
+                // type_new_slots_bases: a secondary base may provide them.
+                foreach (var entry in type.BaseTypes)
+                {
+                    if (ReferenceEquals(entry, primary)) continue;
+                    addDict |= mayAddDict && entry.Layout.DictOffset != 0;
+                    addWeak |= mayAddWeak && entry.Layout.WeakOffset != 0;
+                }
+            }
+            return parent with
+            {
+                BasicSize = parent.BasicSize + 8 * (slots?.Length ?? 0),
+                DictOffset = addDict ? -1 : parent.DictOffset,
+                WeakOffset = addWeak ? -32 : parent.WeakOffset,
+                Gc = true,
+                Slots = slots,
+            };
         }
 
         // subtype_setdict: a metatype's base has a __dict__ getset, the class keeps type's.
-        private static void RefuseTypeDict(PyObject self)
+        private static void RefuseBuiltinDict(PyObject self)
         {
             if (self is PyType)
                 throw PyAttributeError.Create("attribute '__dict__' of 'type' objects is not writable");
@@ -515,43 +572,32 @@ namespace SharpPy
 
         /// <summary>type_new_slots and type_new_descriptors: the getsets of a class whose instances
         /// get a __dict__ or a weak reference list that no base gives them.</summary>
-        private static void AddInstanceDescriptors(PyClass created, PyType[] bases, List<string> slotNames)
+        private static void AddInstanceDescriptors(PyClass created)
         {
-            bool hasDict = false, hasWeakList = false;
-            foreach (var type in bases)
-                foreach (var ancestor in type.MRO)
-                {
-                    if (ReferenceEquals(ancestor, Instance) || ancestor.Name == "BaseException") hasDict = true;
-                    if (ReferenceEquals(ancestor, Instance)) hasWeakList = true;
-                    if (ancestor is PyClass cls && cls.ClassDict.ContainsKey("__dict__")) hasDict = true;
-                    if (ancestor is PyClass weak && weak.ClassDict.ContainsKey("__weakref__")) hasWeakList = true;
-                    // Variable-size instances keep no weak reference list.
-                    if (ReferenceEquals(ancestor, PyType.IntType) || ReferenceEquals(ancestor, PyType.TupleType) || ReferenceEquals(ancestor, PyType.BytesType))
-                        hasWeakList = true;
-                }
-            if (!hasDict && (slotNames == null || slotNames.Contains("__dict__")))
+            var parent = created.TpBase.Layout;
+            var own = created.Layout;
+            if (parent.DictOffset == 0 && own.DictOffset != 0)
                 created.ClassDict["__dict__"] = new PyGetSetDescriptor("__dict__", created,
                     self => self is PyType type ? ((IDescriptor)PyType.TypeType.TypeDict["__dict__"]).Get(type, Instance) : self.GetAttribute("__dict__"),
                     (self, value) =>
                     {
-                        RefuseTypeDict(self);
-                        self.SetAttribute("__dict__", value);
+                        RefuseBuiltinDict(self);
+                        if (self is PyClassInstance instance) instance.SetDict(value);
+                        else self.SetAttribute("__dict__", value);
                     },
                     deleter: self =>
                     {
-                        RefuseTypeDict(self);
+                        RefuseBuiltinDict(self);
                         if (self.GetPyType().IsSubclassOf(PyType.BaseExceptionType))
                             throw PyTypeError.Create("cannot delete __dict__");
-                        self.SetAttribute("__dict__", new PyDict());
+                        if (self is PyClassInstance instance) instance.DropDict();
+                        else ((IDictBackedInstance)self).InstanceDict.Clear();
                     });
-            if (!hasWeakList && (slotNames == null || slotNames.Contains("__weakref__")))
+            if (parent.WeakOffset == 0 && own.WeakOffset != 0)
                 created.ClassDict["__weakref__"] = new PyGetSetDescriptor("__weakref__", created, self => PyNone.Instance);
-            if (slotNames == null) return;
-            foreach (var slot in slotNames)
+            if (own.Slots == null) return;
+            foreach (var stored in own.Slots)
             {
-                if (slot is "__dict__" or "__weakref__") continue;
-                string stored = slot.StartsWith("__") && !slot.EndsWith("__")
-                    ? "_" + created.Name.TrimStart('_') + slot : slot;
                 created.ClassDict[stored] = new PyMemberDescriptor(stored, created,
                     self =>
                     {
@@ -575,9 +621,9 @@ namespace SharpPy
         }
 
         /// <summary>The checks of type_new_slots_impl. Answers the names, null without __slots__.</summary>
-        private static List<string> CheckSlots(Dictionary<string, PyObject> dict, PyType[] bases)
+        private static void CheckSlots(Dictionary<string, PyObject> dict, PyType[] bases)
         {
-            if (!dict.TryGetValue("__slots__", out var slots)) return null;
+            if (!dict.TryGetValue("__slots__", out var slots)) return;
             var names = new List<PyObject>();
             if (slots is PyString) names.Add(slots);
             else
@@ -589,16 +635,13 @@ namespace SharpPy
                 }
                 catch (PythonException stop) when (stop.PyException is PyStopIteration) { }
             }
-            var result = new List<string>();
-            if (names.Count == 0) return result;
-            foreach (var type in bases)
-                foreach (var ancestor in type.MRO)
-                    if (ReferenceEquals(ancestor, PyType.IntType) || ReferenceEquals(ancestor, PyType.TupleType) || ReferenceEquals(ancestor, PyType.BytesType))
-                        throw PyTypeError.Create($"nonempty __slots__ not supported for subtype of '{ancestor.Name}'");
+            if (names.Count == 0) return;
+            var primary = BestBase(bases).Layout;
+            if (primary.ItemSize != 0)
+                throw PyTypeError.Create($"nonempty __slots__ not supported for subtype of '{BestBase(bases).Name}'");
             // type_new_visit_slots: the __dict__ and __weakref__ a base already has cannot be added again.
-            bool mayAddDict = !bases.Any(type => type is PyClass cls && cls.InstancesHaveDict());
-            bool mayAddWeak = !bases.Any(type => type.HasFeature(PyTypeFlags.ManagedWeakRef) ||
-                type.MRO.Any(ancestor => ancestor is PyClass cls && cls.ClassDict.ContainsKey("__weakref__")));
+            bool mayAddDict = primary.DictOffset == 0;
+            bool mayAddWeak = primary.WeakOffset == 0 && primary.ItemSize == 0;
             foreach (var item in names)
             {
                 if (item is not PyString text)
@@ -619,9 +662,7 @@ namespace SharpPy
                 }
                 if (dict.ContainsKey(text.Value) && text.Value is not ("__qualname__" or "__classcell__") && !text.Value.StartsWith("__"))
                     throw PyValueError.Create($"'{text.Value}' in __slots__ conflicts with class variable");
-                result.Add(text.Value);
             }
-            return result;
         }
 
         /// <summary>
@@ -984,7 +1025,7 @@ namespace SharpPy
     public class PyBasesDescriptor : PyObject, IDescriptor
     {
         public override string ToString() => "<attribute '__bases__' of 'type' objects>";
-        public override PyType GetPyType() => PyType.ObjectType;
+        public override PyType GetPyType() => PyType.GetSetDescriptorType;
         public override string GetTypeName() => "getset_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)
@@ -1050,19 +1091,14 @@ namespace SharpPy
     public class PyBaseDescriptor : PyObject, IDescriptor
     {
         public override string ToString() => "<attribute '__base__' of 'type' objects>";
-        public override PyType GetPyType() => PyType.ObjectType;
-        public override string GetTypeName() => "getset_descriptor";
+        public override PyType GetPyType() => PyType.MemberDescriptorType;
+        public override string GetTypeName() => "member_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)
         {
             var target = (instance != null && instance != PyNone.Instance) ? instance : owner;
             if (target is PyType pt)
-            {
-                if (pt.BaseTypes != null && pt.BaseTypes.Length > 0)
-                {
-                    return pt.BaseTypes[0];
-                }
-            }
+                return (PyObject)pt.TpBase ?? PyNone.Instance;
             var mro = (target as PyType)?.MRO ?? (target as PyClass)?.MRO;
             if (mro != null && mro.Count > 1)
             {
@@ -1093,7 +1129,7 @@ namespace SharpPy
     public class PyMroDescriptor : PyObject, IDescriptor
     {
         public override string ToString() => "<attribute '__mro__' of 'type' objects>";
-        public override PyType GetPyType() => PyType.ObjectType;
+        public override PyType GetPyType() => PyType.GetSetDescriptorType;
         public override string GetTypeName() => "getset_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)
@@ -1202,7 +1238,7 @@ namespace SharpPy
     public class PyDocDescriptor : PyObject, IDescriptor
     {
         public override string ToString() => "<attribute '__doc__' of 'type' objects>";
-        public override PyType GetPyType() => PyType.ObjectType;
+        public override PyType GetPyType() => PyType.GetSetDescriptorType;
         public override string GetTypeName() => "getset_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)

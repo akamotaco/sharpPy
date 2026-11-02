@@ -14,7 +14,7 @@ namespace SharpPy
     ///
     /// SharpPy에서는 PyString의 모든 동작을 위임하면서 추가 속성을 지원
     /// </summary>
-    public class PyStrSubclass : PyString, IDictBackedInstance
+    public class PyStrSubclass : PyString, IDictBackedInstance, IHeapInstance
     {
         // CPython: Objects/unicodeobject.c:14744 - self = type->tp_alloc(type, 0);
         // Objects/unicodeobject.c:14751-14764 - copy unicode data from original
@@ -24,7 +24,9 @@ namespace SharpPy
         public Dictionary<string, PyObject> InstanceDict { get; }
 
         // CPython: ob_type 필드 - 서브클래스 타입
-        private readonly PyClass _class;
+        private PyClass _class;
+
+        public void ChangeClass(PyClass target) => _class = target;
 
         public PyStrSubclass(PyClass cls, string value) : base(value)
         {

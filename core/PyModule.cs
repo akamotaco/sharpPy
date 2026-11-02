@@ -95,7 +95,7 @@ public class PyNamespaceModule : PyModule
 // Python 모듈 객체
 public class PyModule : PyObject
 {
-    public string Name { get; }
+    public string Name { get; private set; }
     public string FileName { get; }
     public IDictionary<string, PyObject> ModuleDict { get; }  // __dict__ (Variable == Attribute)
     public List<string> All { get; set; }  // __all__
@@ -145,11 +145,48 @@ public class PyModule : PyObject
         }
     }
     
-    public override PyType GetPyType() => PyType.ModuleType;
-    public override string GetTypeName() => "module";
+    private PyType _type = PyType.ModuleType;
+    private bool _allocated;
+
+    public override PyType GetPyType() => _type;
+    public override string GetTypeName() => _type.Name;
+
+    // new_module: a dict and nothing in it. module___init__ names it.
+    internal static PyModule Allocate(PyType type)
+    {
+        var module = new PyModule("?") { _type = type, _allocated = true };
+        module.ModuleDict.Clear();
+        return module;
+    }
+
+    // module___init___impl
+    internal void Initialize(string name, PyObject doc)
+    {
+        Name = name;
+        ModuleDict["__name__"] = new PyString(name);
+        ModuleDict["__doc__"] = doc;
+        foreach (var key in new[] { "__package__", "__loader__", "__spec__" })
+            ModuleDict.TryAdd(key, PyNone.Instance);
+    }
+
+    // The slot a module subclass may replace; the module's own lookup is ModuleGetAttro.
+    private PyObject OverriddenSlot(string slot)
+    {
+        if (_type is not PyClass cls) return null;
+        var method = cls.LookupInMRO(slot);
+        return ReferenceEquals(method, PyType.ObjectType.TypeDict[slot]) ? null : method;
+    }
     
     // 모듈 attribute 접근 (Variable == Attribute)
     public override PyObject GetAttribute(string name)
+    {
+        var replaced = OverriddenSlot("__getattribute__");
+        if (replaced == null)
+            return ModuleGetAttro(name);
+        return CallSpecial(replaced, new PyString(name));
+    }
+
+    internal PyObject ModuleGetAttro(string name)
     {
         // CPython 3.12: Objects/moduleobject.c:783 - _Py_module_getattro_impl
         // Special handling for __dict__ - return same object every time
@@ -165,8 +202,16 @@ public class PyModule : PyObject
             return _cachedDict;
         }
 
+        // PyObject_GenericGetAttr over the type of a module subclass.
+        var declared = (_type as PyClass)?.LookupInMRO(name);
+        if (declared != null && PyClassInstance.IsDescriptor(declared) && PyClassInstance.IsDataDescriptor(declared))
+            return BindSpecialMethod(declared);
+
         if (ModuleDict.TryGetValue(name, out PyObject value))
             return value;
+
+        if (declared != null && _type is PyClass && !ReferenceEquals(declared, PyType.ObjectType.TypeDict.GetValueOrDefault(name)))
+            return BindSpecialMethod(declared);
 
         // module_get_annotations: a module without any gets an empty dict of its own.
         if (name == "__annotations__")
@@ -183,14 +228,41 @@ public class PyModule : PyObject
         if (ModuleDict.TryGetValue("__getattr__", out var hook))
             return hook.Call(new PyObject[] { new PyString(name) }, null);
 
-        throw PyAttributeError.Create($"module '{Name}' has no attribute '{name}'");
+        throw PyAttributeError.Create(ModuleDict.ContainsKey("__name__")
+            ? $"module '{Name}' has no attribute '{name}'"
+            : $"module has no attribute '{name}'");
     }
     
     public override void SetAttribute(string name, PyObject value)
     {
+        var replaced = OverriddenSlot("__setattr__");
+        if (replaced == null)
+            ModuleSetAttro(name, value);
+        else
+            CallSpecial(replaced, new PyString(name), value);
+    }
+
+    internal void ModuleSetAttro(string name, PyObject value)
+    {
         // module_members: __dict__ is READONLY.
         if (name == "__dict__")
             throw PyAttributeError.Create("readonly attribute");
+        // object_set_class: a module's type may change, to another module type.
+        if (name == "__class__")
+        {
+            if (value is not PyType target)
+                throw PyTypeError.Create($"__class__ must be set to a class, not '{value.GetTypeName()}' object");
+            if (!ReferenceEquals(target, PyType.ModuleType) && !target.IsSubclassOf(PyType.ModuleType))
+                throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses");
+            PyTypeMetaclass.CheckAssignment(_type, target, "__class__");
+            _type = target;
+            return;
+        }
+        if ((_type as PyClass)?.LookupInMRO(name) is IDescriptor descriptor && descriptor.IsDataDescriptor())
+        {
+            descriptor.Set(this, value);
+            return;
+        }
         SetVariable(name, value);
     }
     
@@ -208,6 +280,15 @@ public class PyModule : PyObject
     
     // module_setattro with NULL: the name goes from the module's dict.
     public override void DelAttribute(string name)
+    {
+        var replaced = OverriddenSlot("__delattr__");
+        if (replaced == null)
+            ModuleDelAttro(name);
+        else
+            CallSpecial(replaced, new PyString(name));
+    }
+
+    internal void ModuleDelAttro(string name)
     {
         if (name == "__dict__")
             throw PyAttributeError.Create("readonly attribute");
@@ -312,13 +393,26 @@ public class PyModule : PyObject
     
     // CPython 3.12: Objects/moduleobject.c module_repr - file-backed modules show
     // "from '<file>'"; builtin/native modules (no source file) show "(built-in)".
-    public override string ToString() => HasSourceFile
-        ? $"<module '{Name}' from '{FileName}'>"
-        : $"<module '{Name}' (built-in)>";
+    public override string ToString()
+    {
+        // _module_repr: a module made by module() is what its dict says.
+        if (_allocated)
+            return ModuleDict.TryGetValue("__file__", out var file) && file is PyString path
+                ? $"<module '{Name}' from {path.ToRepr().Value}>"
+                : $"<module '{Name}'>";
+        return HasSourceFile ? $"<module '{Name}' from '{FileName}'>" : $"<module '{Name}' (built-in)>";
+    }
 
     // repr(module) == str(module) in CPython; the default ToRepr would print the
     // address form, so route repr through the module repr above.
-    public override PyString ToRepr() => new PyString(ToString());
+    public override PyString ToRepr()
+    {
+        var declared = (_type as PyClass)?.LookupInMRO("__repr__");
+        if (declared != null && !ReferenceEquals(declared, PyType.ObjectType.TypeDict.GetValueOrDefault("__repr__")) &&
+            CallSpecial(declared) is PyString text)
+            return text;
+        return new PyString(ToString());
+    }
     
     /// <summary>
     /// 모듈에 함수 추가 (표준 라이브러리 모듈용)

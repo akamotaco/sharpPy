@@ -148,65 +148,14 @@ namespace SharpPy
 
         protected override List<PyType> ComputeMro() => PyTypeMetaclass.MroInvoke(this) ?? base.ComputeMro();
 
-        // CPython 3.12: __slots__ semantics - an instance has a __dict__ only when
-        // some class in the MRO omits __slots__ (or lists '__dict__' explicitly).
-        private bool? _instancesHaveDictCache;
+        private TypeLayout _layout;
 
-        public bool InstancesHaveDict()
-        {
-            if (_instancesHaveDictCache.HasValue)
-            {
-                return _instancesHaveDictCache.Value;
-            }
-            foreach (var t in MRO)
-            {
-                if (ReferenceEquals(t, PyType.ObjectType))
-                {
-                    continue; // object never contributes an instance dict
-                }
-                if (t is PyClass pc && pc.ClassDict.TryGetValue("__slots__", out var slots))
-                {
-                    foreach (var slotName in EnumerateSlotNames(slots))
-                    {
-                        if (slotName == "__dict__")
-                        {
-                            _instancesHaveDictCache = true;
-                            return true;
-                        }
-                    }
-                    continue;
-                }
-                // A class without __slots__ adds a __dict__ to instances
-                _instancesHaveDictCache = true;
-                return true;
-            }
-            _instancesHaveDictCache = false;
-            return false;
-        }
+        internal override TypeLayout Layout =>
+            this is PyTypeMetaclass ? base.Layout : _layout ??= PyTypeMetaclass.NewLayout(this);
 
-        internal override bool SupportsWeakReference()
-        {
-            foreach (var t in MRO)
-            {
-                if (ReferenceEquals(t, PyType.ObjectType))
-                    continue;
-                if (t is PyClass pc)
-                {
-                    if (!pc.ClassDict.TryGetValue("__slots__", out var slots))
-                        return true;
-                    foreach (var slotName in EnumerateSlotNames(slots))
-                    {
-                        if (slotName == "__weakref__")
-                            return true;
-                    }
-                    continue;
-                }
-                // Builtin level other than object: defer to that type's rule.
-                if (t.SupportsWeakReference())
-                    return true;
-            }
-            return false;
-        }
+        public bool InstancesHaveDict() => Layout.DictOffset != 0;
+
+        internal override bool SupportsWeakReference() => Layout.WeakOffset != 0;
 
         public bool IsSlottedAttributeName(string name)
         {
@@ -614,10 +563,11 @@ namespace SharpPy
         {
             // _Py_type_getattro_impl: metatype data descriptors precede the
             // class namespace, including descriptors inherited by the metatype.
-            var metaAttribute = Metaclass == null ? null : MROUtils.LookupAttribute(Metaclass.MRO, name);
+            var metatype = Metaclass ?? (this is PyTypeMetaclass ? this : null);
+            var metaAttribute = metatype == null ? null : MROUtils.LookupAttribute(metatype.MRO, name);
             if (metaAttribute != null && PyClassInstance.IsDescriptor(metaAttribute) &&
                 PyClassInstance.IsDataDescriptor(metaAttribute))
-                return PyClassInstance.CallDescriptorGet(metaAttribute, this, Metaclass);
+                return PyClassInstance.CallDescriptorGet(metaAttribute, this, metatype);
 
             #if DEBUG_LOG
             Console.WriteLine($"🔍 PyClass.GetAttribute: {Name}.{name}");
@@ -1339,6 +1289,26 @@ namespace SharpPy
             if (!dict.ContainsKey(key)) return false;
             dict.DelItem(key);
             return true;
+        }
+
+        // What was assigned to __dict__ when it is more than a dict: x.__dict__ is x.
+        private PyObject _assignedDict;
+
+        // PyObject_GenericSetDict: the dict replaces the store itself, a subclass's table included.
+        internal void SetDict(PyObject value)
+        {
+            _materialized = PyNativeStorage.ForDict(value) ?? throw PyTypeError.Create(
+                $"__dict__ must be set to a dictionary, not a '{value.GetPyType().Name}'");
+            _assignedDict = value;
+            _attrs = null;
+        }
+
+        // subtype_setdict with NULL: the reference goes, a new dict comes on the next use.
+        internal void DropDict()
+        {
+            _materialized = null;
+            _assignedDict = null;
+            _attrs = new Dictionary<string, PyObject>();
         }
 
         // _PyObject_MaterializeManagedDict: the compact store moves into the dict once and for all.
@@ -2073,7 +2043,7 @@ namespace SharpPy
                 // obj.__dict__ is obj.__dict__ must be True
                 if (InstanceType.InstancesHaveDict())
                 {
-                    return Materialize();
+                    return _assignedDict ?? Materialize();
                 }
                 // __slots__ class without '__dict__': fall through to the normal
                 // MRO lookup, which ends in AttributeError like CPython.
@@ -2230,22 +2200,7 @@ namespace SharpPy
             // object_set_class
             if (name == "__class__")
             {
-                if (value is not PyType target)
-                    throw PyTypeError.Create($"__class__ must be set to a class, not '{value.GetTypeName()}' object");
-                if (target is not PyClass heapTarget)
-                    throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses");
-                PyTypeMetaclass.CheckClassAssignment(InstanceType, heapTarget);
-                InstanceType = heapTarget;
-                return;
-            }
-
-            // CPython 3.12: _PyObject_GenericSetAttrWithDict — __dict__ replaces the store itself
-            if (name == "__dict__" && InstanceType.InstancesHaveDict())
-            {
-                if (value is not PyDict)
-                    throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetPyType().Name}'");
-                _materialized = (PyDict)value;
-                _attrs = null;
+                InstanceType = SubclassInstanceSupport.ClassAssignment(InstanceType, value);
                 return;
             }
 
