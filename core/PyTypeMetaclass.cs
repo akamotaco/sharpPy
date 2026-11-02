@@ -381,7 +381,17 @@ namespace SharpPy
             AddInstanceDescriptors(created);
 
             // mro_internal: a metaclass may answer another order.
-            if (MroInvoke(created) is { } order)
+            created.MroPending = true;
+            List<PyType> order;
+            try
+            {
+                order = MroInvoke(created);
+            }
+            finally
+            {
+                created.MroPending = false;
+            }
+            if (order != null)
                 created.SetMro(order);
 
             // type_new_set_names, on a copy because __set_name__ may change the class.
@@ -859,6 +869,13 @@ namespace SharpPy
 
         private readonly PyType _owner;
 
+        /// <summary>tp_new_wrapper: every builtin type's __new__, a method of the type object.</summary>
+        internal static PyStaticBuiltinMethod ForNew(PyType owner, Func<PyObject[], PyDict, PyObject> method) =>
+            new PyStaticBuiltinMethod("__new__", method, owner);
+
+        public override PyString ToRepr() => _owner == null ? base.ToRepr() :
+            new PyString($"<built-in method {Name} of type object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_owner):x}>");
+
         public PyStaticBuiltinMethod(string name, Func<PyObject[], PyDict, PyObject> method, PyType owner = null)
         {
             Name = name;
@@ -1171,6 +1188,8 @@ namespace SharpPy
             Console.WriteLine($"  instance is PyType? {instance is PyType}");
             Console.WriteLine($"  instance is PyTypeMetaclass? {instance is PyTypeMetaclass}");
 #endif
+            if (instance is PyType { MroPending: true })
+                return PyNone.Instance;
             // CPython 3.12: When accessing type.__mro__ (instance=NULL, owner=type),
             // return type's MRO, not the descriptor itself
             if (instance == null || instance == PyNone.Instance)

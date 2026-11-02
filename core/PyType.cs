@@ -254,10 +254,9 @@ namespace SharpPy
         {
             // A class statement or type() call makes a heap type; a compiled builtin carries its
             // spec flags (Include/object.h:497 Py_TPFLAGS_HEAPTYPE).
-            // CPython uses best_base for the family bits; with one payload base per CLR class the
-            // first base is the same object, and a second variable-size base is refused
-            // ("multiple bases have instance lay-out conflict", registered as P0-42).
-            var baseType = BaseTypes.Length > 0 ? BaseTypes[0] : null;
+            // inherit_special reads tp_base, best_base of a class, which need not be the first
+            // base: class D(Mixin, dict) is a dict.
+            var baseType = BaseTypes.Length > 0 ? TpBase : null;
             if (this is PyClass)
             {
                 // type_new copies the base's flags into a heap type, which is measurable: a user
@@ -602,39 +601,57 @@ namespace SharpPy
 
         /// <summary>type_set_bases (Objects/typeobject.c): new bases, then a new MRO, here and in
         /// every subclass, as mro_hierarchy does.</summary>
-        // type_set_bases: a failing mro() takes the whole hierarchy back.
+        // A metaclass's mro() may set __bases__ again while this runs, so at each point, as
+        // type_set_bases does, only what is still this call's own is touched.
         internal void SetBases(PyType[] bases)
         {
             var oldBases = BaseTypes;
-            var undo = new List<(PyType, List<PyType>)>();
             var oldTpBase = TpBase;
-            foreach (var oldBase in oldBases) oldBase.RemoveSubclass(this);
+            var undo = new List<(PyType Type, List<PyType> Old, List<PyType> New)>();
             BaseTypes = bases;
             _tpBase = null;
-            foreach (var newBase in bases) newBase.AddSubclass(this);
+            _cachedBasesTuple = null;
             try
             {
                 Relinearize(undo);
             }
             catch
             {
-                foreach (var newBase in bases) newBase.RemoveSubclass(this);
-                BaseTypes = oldBases;
-                _tpBase = oldTpBase;
-                foreach (var oldBase in oldBases) oldBase.AddSubclass(this);
-                foreach (var (type, mro) in undo) type.SetMro(mro);
-                _cachedBasesTuple = null;
+                for (int i = undo.Count - 1; i >= 0; i--)
+                    if (ReferenceEquals(undo[i].Type.MRO, undo[i].New))
+                        undo[i].Type.SetMro(undo[i].Old);
+                if (ReferenceEquals(BaseTypes, bases))
+                {
+                    BaseTypes = oldBases;
+                    _tpBase = oldTpBase;
+                    _cachedBasesTuple = null;
+                }
                 throw;
+            }
+            if (ReferenceEquals(BaseTypes, bases))
+            {
+                foreach (var oldBase in oldBases) oldBase.RemoveSubclass(this);
+                foreach (var newBase in bases) newBase.AddSubclass(this);
             }
         }
 
-        private void Relinearize(List<(PyType, List<PyType>)> undo)
+        // mro_hierarchy and mro_internal: reentrance has already done this type and those below it.
+        private void Relinearize(List<(PyType, List<PyType>, List<PyType>)> undo)
         {
-            undo.Add((this, MRO));
-            SetMro(ComputeMro());
-            _cachedBasesTuple = null;
+            var old = MRO;
+            var order = ComputeMro();
+            if (!ReferenceEquals(MRO, old))
+                return;
+            SetMro(order);
+            undo.Add((this, old, order));
             foreach (var subclass in LiveSubclasses()) subclass.Relinearize(undo);
         }
+
+        /// <summary>
+        /// tp_mro is NULL until the first mro() has answered. The MRO itself has to be there
+        /// sooner, for what a class does while it is built, so only __mro__ says so.
+        /// </summary>
+        internal bool MroPending { get; set; }
 
         /// <summary>mro_invoke</summary>
         protected virtual List<PyType> ComputeMro() => CalculateC3MRO();
@@ -791,6 +808,11 @@ namespace SharpPy
             {
                 return new List<PyType> { this, ObjectType };
             }
+
+            // mro_implementation
+            foreach (var parent in BaseTypes)
+                if (parent.MroPending)
+                    throw PyTypeError.Create($"Cannot extend an incomplete type '{parent.Name}'");
 
             try
             {
@@ -2211,8 +2233,16 @@ namespace SharpPy
                             if (k is PyString ks) names.Add(ks.Value);
                 }
                 catch { }
-                var t2 = obj.GetPyType();
-                if (t2 != null)
+                // object___dir___impl: the class the object names, and it may name none.
+                PyObject itsClass = null;
+                try
+                {
+                    itsClass = obj.GetAttribute("__class__");
+                }
+                catch (PythonException error) when (error.PyException is PyAttributeError)
+                {
+                }
+                if (itsClass is PyType t2)
                 {
                     var imro = t2.MRO != null && t2.MRO.Count > 0 ? t2.MRO : new List<PyType> { t2 };
                     foreach (var t in imro) AddClassDictKeys(names, t);
@@ -2400,6 +2430,8 @@ namespace SharpPy
                 getter: self => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__mro__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    if (type.MroPending)
+                        return PyNone.Instance;
 
                     // CPython 3.12 requirement: type.__mro__ is type.__mro__ must be True
                     // Cache the tuple object to ensure identity consistency
@@ -2533,7 +2565,7 @@ namespace SharpPy
                 }
             );
 
-            TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__", PyTypeMetaclass.TypeNew);
+            TypeDict["__new__"] = PyStaticBuiltinMethod.ForNew(this, PyTypeMetaclass.TypeNew);
 
             // type.__setattr__(cls, name, value) - CPython type_setattro
             // Reference: Objects/typeobject.c:4815-4894 (type_setattro)

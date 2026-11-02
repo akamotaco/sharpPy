@@ -746,17 +746,15 @@ namespace SharpPy
                         int cv;
                         if (arg is PyBytes one && one.Value.Length == 1) cv = one.Value[0];
                         else if (arg is PyByteArray array && array.Length() == 1) cv = BytesMethods.Buffer(array)[0];
-                        else if (TryGetIntArg(arg, out var ci))
+                        else
                         {
+                            var ci = PyPercentFormat.Character(arg) ??
+                                throw PyTypeError.Create("%c requires an integer in range(256) or a single byte");
                             if (ci < 0 || ci > 255)
                             {
                                 throw PyOverflowError.Create("%c arg not in range(256)");
                             }
                             cv = (int)ci;
-                        }
-                        else
-                        {
-                            throw PyTypeError.Create($"%c requires an integer in range(256) or a single byte, not '{arg.GetTypeName()}'");
                         }
                         text = ((char)cv).ToString();
                         break;
@@ -765,13 +763,8 @@ namespace SharpPy
                     case 'i':
                     case 'u':
                     {
-                        // mainformatlong: %d takes what int() takes, except text.
-                        if (!TryGetIntArg(arg, out var di) && arg.LookupSpecialMethodUncached("__int__") != null)
-                            di = ((PyInt)PyType.IntType.Call(new[] { arg }, null)).Value;
-                        else if (!TryGetIntArg(arg, out di))
-                        {
-                            throw PyTypeError.Create($"%{conv} format: a real number is required, not {arg.GetTypeName()}");
-                        }
+                        // formatlong: "if (type == 'i') type = 'd';", which str % does not do.
+                        var di = PyPercentFormat.Integer(arg, conv == 'i' ? 'd' : conv);
                         // _PyUnicode_FormatLong: precision is a minimum of digits.
                         text = System.Numerics.BigInteger.Abs(di).ToString(System.Globalization.CultureInfo.InvariantCulture);
                         if (precision > text.Length) text = text.PadLeft(precision, '0');
@@ -783,10 +776,7 @@ namespace SharpPy
                     case 'x':
                     case 'X':
                     {
-                        if (!TryGetIntArg(arg, out var bi))
-                        {
-                            throw PyTypeError.Create($"%{conv} format: an integer is required, not {arg.GetTypeName()}");
-                        }
+                        var bi = PyPercentFormat.Integer(arg, conv);
                         bool neg = bi < 0;
                         var digits = conv == 'o'
                             ? ToRadixString(System.Numerics.BigInteger.Abs(bi), 8)
@@ -804,9 +794,15 @@ namespace SharpPy
                     case 'g':
                     case 'G':
                     {
-                        if (!TryGetRealArg(arg, out double dv))
+                        double dv;
+                        try
                         {
-                            throw PyTypeError.Create($"%{conv} format: a real number is required, not {arg.GetTypeName()}");
+                            dv = Modules.PyMathFunction.RealNumber(arg);
+                        }
+                        catch (PythonException)
+                        {
+                            // formatfloat puts this over any failure of PyFloat_AsDouble.
+                            throw PyTypeError.Create($"float argument required, not {arg.GetTypeName()}");
                         }
                         // formatfloat: one writer with str % and format().
                         if (double.IsNaN(dv)) text = char.IsUpper(conv) ? "NAN" : "nan";
@@ -874,15 +870,6 @@ namespace SharpPy
             }
             digits.Reverse();
             return new string(digits.ToArray());
-        }
-
-        private static bool TryGetIntArg(PyObject arg, out System.Numerics.BigInteger value)
-        {
-            if (arg is PyInt pi) { value = pi.Value; return true; }
-            if (arg is PyBool pb) { value = pb.Value ? 1 : 0; return true; }
-            var index = arg is PyString || arg is PyBytes ? null : PyObject.TryGetIndex(arg);
-            value = index?.Value ?? 0;
-            return index != null;
         }
 
         // CPython bytes find/count/index start/stop: accept int, bool, or __index__;
@@ -1156,20 +1143,10 @@ namespace SharpPy
 
         internal static int BytesIndex(PyObject arg)
         {
-            if (TryGetIntArg(arg, out var v)) return (int)v;
             var idx = PyObject.TryGetIndex(arg);
             if (idx == null)
                 throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
             return (int)idx.Value;
-        }
-
-        private static bool TryGetRealArg(PyObject arg, out double value)
-        {
-            if (arg is PyFloat pf) { value = pf.Value; return true; }
-            if (arg is PyInt pi) { value = (double)pi.Value; return true; }
-            if (arg is PyBool pb) { value = pb.Value ? 1.0 : 0.0; return true; }
-            value = 0;
-            return false;
         }
 
         private static string NormalizeExp(string text, bool lower)

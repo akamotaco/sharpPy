@@ -287,8 +287,15 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.BytearrayType;
 
         // bytearray_init: the arguments reach the object tp_new allocated.
-        internal void Initialize(PyObject[] args, PyDict kwargs) =>
-            _bytes = new List<byte>(BytesMethods.ByteArrayInit(args, kwargs));
+        // bytearray___init___impl: "Empty previous contents (yes, do this first of all!)", and the
+        // bytes of an iterable arrive one at a time, in sight of that iterable.
+        internal void Initialize(PyObject[] args, PyDict kwargs)
+        {
+            _bytes.Clear();
+            var bytes = BytesMethods.ByteArrayInit(args, kwargs, _bytes);
+            _bytes.Clear();
+            _bytes.AddRange(bytes);
+        }
 
         internal static void InstallNew()
         {
@@ -320,7 +327,7 @@ namespace SharpPy
                 hasDouble |= b == '"';
             }
             char quote = hasSingle && !hasDouble ? '"' : '\'';
-            var sb = new StringBuilder("bytearray(b").Append(quote);
+            var sb = new StringBuilder(GetTypeName()).Append("(b").Append(quote);
             foreach (byte b in _bytes)
             {
                 if (b == quote || b == '\\' || b == '\'')
@@ -706,8 +713,7 @@ namespace SharpPy
             if (HasBufferExports)
                 throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
 
-            var bytes = ConvertToBytes(iterable);
-            _bytes.AddRange(bytes);
+            _bytes.AddRange(BytesMethods.FromObject(iterable, "bytearray", 32));
         }
 
         public void Insert(int index, byte value)

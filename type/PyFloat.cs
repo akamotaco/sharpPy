@@ -273,7 +273,7 @@ namespace SharpPy
             // user float subclass resolved to object.__new__ and raised
             // "object.__new__() takes exactly one argument (the type to instantiate)" where CPython
             // returns the converted value.
-            floatType.TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__",
+            floatType.TypeDict["__new__"] = PyStaticBuiltinMethod.ForNew(floatType,
                 (args, kwargs) => FloatNew(
                     args.Length > 0 ? args[0] : floatType,
                     args.Length > 1 ? args[1..] : System.Array.Empty<PyObject>(),

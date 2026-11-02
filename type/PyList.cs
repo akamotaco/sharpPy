@@ -715,12 +715,9 @@ namespace SharpPy
                 }
                 else
                 {
-                    // Convert iterable to list
-                    var tempList = new List<PyObject>();
-                    PyObject iterator;
                     try
                     {
-                        iterator = value.GetIterator();
+                        valueList = FromIterable(value);
                     }
                     catch (PythonException ex) when (ex.PyException is PyTypeError te
                                  && te.Message.EndsWith("object is not iterable"))
@@ -729,19 +726,6 @@ namespace SharpPy
                         // "must assign iterable to extended slice".
                         throw PyTypeError.Create("must assign iterable to extended slice");
                     }
-                    try
-                    {
-                        while (true)
-                        {
-                            var item = iterator.Next();
-                            tempList.Add(item);
-                        }
-                    }
-                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                    {
-                        // Normal iteration end
-                    }
-                    valueList = new PyList(tempList);
                 }
 
                 var (start, stop, step) = slice.StorageIndices(_items.Count);
@@ -823,6 +807,14 @@ namespace SharpPy
         public void Clear()
         {
             _items.Clear();
+        }
+
+        /// <summary>PySequence_List: everything that drains an iterable into a list comes here.</summary>
+        internal static PyList FromIterable(PyObject iterable)
+        {
+            var list = new PyList();
+            list.Extend(iterable);
+            return list;
         }
 
         public void Extend(PyObject iterable)
@@ -1135,6 +1127,7 @@ namespace SharpPy
                 // CPython: Objects/listobject.c:911-970 - General iterable path
                 // it = PyObject_GetIter(iterable)
                 var iterator = other.GetIterator();
+                other.LengthHint(8);
                 try
                 {
                     // CPython: Objects/listobject.c:939-960 - Run iterator to exhaustion

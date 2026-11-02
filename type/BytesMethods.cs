@@ -798,13 +798,13 @@ namespace SharpPy
         }
 
         // PyBytes_FromObject and the slow path of bytearray___init___impl
-        internal static byte[] FromObject(PyObject source, string kind)
+        internal static byte[] FromObject(PyObject source, string kind, long lengthHint = 0, List<byte> growing = null)
         {
             string range = kind == "bytes" ? "bytes must be in range(0, 256)" : "byte must be in range(0, 256)";
             var data = Buffer(source);
             if (data != null)
                 return (byte[])data.Clone();
-            var result = new List<byte>();
+            var result = growing ?? new List<byte>();
             if (source is PyList list && ReferenceEquals(list.GetPyType(), PyType.ListType))
             {
                 // The list may change while __index__ runs.
@@ -829,6 +829,9 @@ namespace SharpPy
             {
                 throw PyTypeError.Create($"cannot convert '{source.GetTypeName()}' object to {kind}");
             }
+            // _PyBytes_FromIterator, bytearray_extend. bytearray() itself does not ask.
+            if (kind == "bytes" || lengthHint > 0)
+                source.LengthHint(kind == "bytes" ? 64 : lengthHint);
             while (true)
             {
                 PyObject item;
@@ -920,7 +923,7 @@ namespace SharpPy
         }
 
         // bytearray___init___impl
-        internal static byte[] ByteArrayInit(PyObject[] args, PyDict kwargs)
+        internal static byte[] ByteArrayInit(PyObject[] args, PyDict kwargs, List<byte> growing = null)
         {
             ConstructorArguments(args, kwargs, "bytearray", out var source, out var encoding, out var errors);
             if (source == null)
@@ -943,7 +946,7 @@ namespace SharpPy
                 if (count >= 0)
                     return new byte[count];
             }
-            return FromObject(source, "bytearray");
+            return FromObject(source, "bytearray", 0, growing);
         }
 
         private static void NoArguments(string owner, string name, PyObject[] args)

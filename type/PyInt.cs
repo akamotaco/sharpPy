@@ -640,8 +640,8 @@ namespace SharpPy
 
             // CPython 3.12: Objects/longobject.c:5597-5641 (long_new_impl)
             // int.__new__(cls, x=0, base=10)
-            intType.TypeDict["__new__"] = new PyStaticBuiltinMethod(
-                "__new__",
+            intType.TypeDict["__new__"] = PyStaticBuiltinMethod.ForNew(
+                intType,
                 (args, kwargs) =>
                 {
                     // args[0] is cls

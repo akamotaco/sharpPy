@@ -664,13 +664,7 @@ namespace SharpPy
             RejectUnknownKeywords(kwargs, "sort", "key", "reverse");
 
             // CPython materializes the iterable before list.sort parses keywords.
-            var result = new PyList();
-            var iterator = args[0].GetIterator();
-            try
-            {
-                while (true) result.Append(iterator.Next());
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
+            var result = PyList.FromIterable(args[0]);
             PyList.ParseSortKeywords(kwargs, out var key, out bool reverse);
             result.Sort(key, reverse);
             return result;
@@ -1912,71 +1906,18 @@ namespace SharpPy
                 var locals = PyVM.CurrentFrame.GetAttribute("f_locals");
                 var keys = locals is PyDict ? locals : locals.GetAttribute("keys").Call(new PyObject[0], null);
                 foreach (var name in PySet.IterableItems(keys)) names.Add(name);
-                var listing = new PyList(names);
-                listing.GetAttribute("sort").Call(new PyObject[0], null);
-                return listing;
+                var sortedLocals = new PyList(names);
+                sortedLocals.GetAttribute("sort").Call(new PyObject[0], null);
+                return sortedLocals;
             }
 
             var obj = args[0];
-            // module_dir
-            if (obj is PyModule && obj.GetAttribute("__dict__") is not PyDict)
-                throw PyTypeError.Create("<module>.__dict__ is not a dictionary");
-            var attributes = new HashSet<string>(); // Use HashSet to avoid duplicates
-
-            // Step 1: Try to call __dir__() method if available
-            try
-            {
-                var dirMethod = obj.GetAttribute("__dir__");
-                if (dirMethod != null)
-                {
-                    // Call __dir__() and return sorted result
-                    var result = dirMethod.Call(Array.Empty<PyObject>(), null);
-                    if (result is PyList list)
-                    {
-                        // Sort and return
-                        var sortedItems = new List<PyObject>(list.Items);
-                        // CPython sorts dir() results by Unicode code point (ordinal),
-                        // so uppercase names precede lowercase (e.g. BufferedRWPair before
-                        // BufferedRandom); a culture-aware CompareTo reorders those.
-                        sortedItems.Sort((a, b) => string.CompareOrdinal(
-                            (a as PyString)?.Value ?? a.ToString(),
-                            (b as PyString)?.Value ?? b.ToString()));
-                        return new PyList(sortedItems);
-                    }
-                }
-            }
-            catch
-            {
-                // __dir__() not available or failed, continue with default behavior
-            }
-
-            // object___dir___impl: with no __class__ there are only the instance's names.
-            if (obj is PyClassInstance)
-            {
-                try
-                {
-                    obj.GetAttribute("__class__");
-                }
-                catch (PythonException error) when (error.PyException is PyAttributeError)
-                {
-                    var own = new PyList(new List<PyObject>(PySet.IterableItems(obj.GetAttribute("__dict__"))));
-                    own.GetAttribute("sort").Call(new PyObject[0], null);
-                    return own;
-                }
-            }
-
-            // Step 2: No usable __dir__() - compute the default name set the same way
-            // CPython's object.__dir__ / type.__dir__ do (union of tp_dict over the
-            // class and its bases, excluding the metaclass; plus the instance __dict__;
-            // heap types contribute __dict__/__weakref__), then sort by code point.
-            var defaultNames = PyType.DefaultDirNames(obj);
-            defaultNames.Sort(StringComparer.Ordinal);
-            var sortedAttributes = new List<PyObject>();
-            foreach (var name in defaultNames)
-            {
-                sortedAttributes.Add(new PyString(name));
-            }
-            return new PyList(sortedAttributes);
+            // _dir_object
+            var dirMethod = obj.LookupSpecialMethodUncached("__dir__") ??
+                throw PyTypeError.Create("object does not provide __dir__");
+            var listing = PyList.FromIterable(obj.BindSpecialMethod(dirMethod).Call(Array.Empty<PyObject>(), null));
+            listing.GetAttribute("sort").Call(Array.Empty<PyObject>(), null);
+            return listing;
         }
 
         /// <summary>

@@ -1411,6 +1411,14 @@ namespace SharpPy
             variables is PyDictVariables given ? given.Dict : For(variables);
 
         internal static PyGlobalsDict For(IDictionary<string, PyObject> variables) => variables is PyNamespace owned ? owned.Mapping : Views.GetValue(variables, source => new PyGlobalsDict(source, false));
+        /// <summary>The live __dict__ of an object that keeps its attributes in a plain dictionary.</summary>
+        internal static PyGlobalsDict OfInstance(Dictionary<string, PyObject> attributes)
+        {
+            var view = For(attributes);
+            view.SynchronizeFromHost();
+            return view;
+        }
+
         internal static void Store(IDictionary<string, PyObject> variables, string name, PyObject value)
         {
             if (variables is PyNamespace) { variables[name] = value; return; }

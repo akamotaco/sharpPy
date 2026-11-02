@@ -1601,8 +1601,8 @@ namespace SharpPy
 
             // CPython 3.12: Objects/unicodeobject.c:14711-14730 (unicode_new_impl)
             // str.__new__(cls, value='', encoding=None, errors=None)
-            strType.TypeDict["__new__"] = new PyStaticBuiltinMethod(
-                "__new__",
+            strType.TypeDict["__new__"] = PyStaticBuiltinMethod.ForNew(
+                strType,
                 (args, kwargs) =>
                 {
                     // args[0] is cls
@@ -2703,17 +2703,10 @@ namespace SharpPy
                         break;
                     case 'd':
                     case 'i':
+                    case 'u':
                     {
                         numeric = true;
-                        BigInteger ival;
-                        // CPython tests PyLong_Check / PyFloat_Check here, and both accept
-                        // subclasses, so the exact CLR type tests are replaced by the central
-                        // PyInt.TryLongSelf / PyFloat.TryFloatSelf helpers. Measured: "%d" % IO(5)
-                        // is '5' where IO is a user int subclass; SharpPy raised instead.
-                        if (value is PyBool bb) ival = bb.Value ? BigInteger.One : BigInteger.Zero;
-                        else if (PyInt.TryLongSelf(value, out var intSelf)) ival = intSelf.Value;
-                        else if (PyFloat.TryFloatSelf(value, out var floatSelf)) ival = (BigInteger)Math.Truncate(floatSelf.Value);
-                        else throw PyTypeError.Create($"%{conv} format: a real number is required, not {value.GetTypeName()}");
+                        BigInteger ival = PyPercentFormat.Integer(value, conv);
                         if (ival.Sign < 0) { sign = "-"; ival = -ival; }
                         else if (signPlus) sign = "+";
                         else if (signSpace) sign = " ";
@@ -2728,12 +2721,7 @@ namespace SharpPy
                     case 'X':
                     {
                         numeric = true;
-                        BigInteger ival;
-                        // Same rule as %d: a subclass of int is still an int (CPython
-                        // PyLong_Check), a float is not.
-                        if (value is PyBool bb) ival = bb.Value ? BigInteger.One : BigInteger.Zero;
-                        else if (PyInt.TryLongSelf(value, out var intSelf)) ival = intSelf.Value;
-                        else throw PyTypeError.Create($"%{conv} format: an integer is required, not {value.GetTypeName()}");
+                        BigInteger ival = PyPercentFormat.Integer(value, conv);
                         if (ival.Sign < 0) { sign = "-"; ival = -ival; }
                         else if (signPlus) sign = "+";
                         else if (signSpace) sign = " ";
@@ -2757,7 +2745,7 @@ namespace SharpPy
                             body = value.AsString().Value;
                             break;
                         }
-                        var code = PyInt.TryLongSelf(value, out var whole) ? whole.Value : PyObject.TryGetIndex(value)?.Value ??
+                        var code = PyPercentFormat.Character(value) ??
                             throw PyTypeError.Create("%c requires int or char");
                         if (code < 0 || code > 0x10FFFF)
                             throw PyOverflowError.Create("%c arg not in range(0x110000)");
@@ -2772,13 +2760,7 @@ namespace SharpPy
                     case 'G':
                     {
                         numeric = true;
-                        double dv;
-                        // Same rule as %d: PyFloat_Check / PyLong_Check accept subclasses, so
-                        // "%.3f" % FSub(2.5) formats the payload as '2.500' (measured).
-                        if (value is PyBool bv) dv = bv.Value ? 1.0 : 0.0;
-                        else if (PyFloat.TryFloatSelf(value, out var floatSelf)) dv = floatSelf.Value;
-                        else if (PyInt.TryLongSelf(value, out var intSelf)) dv = (double)intSelf.Value;
-                        else throw PyTypeError.Create($"%{conv} format: a real number is required, not {value.GetTypeName()}");
+                        double dv = Modules.PyMathFunction.RealNumber(value);
                         // formatfloat: PyOS_double_to_string, one writer with format().
                         if (double.IsNaN(dv)) body = char.IsUpper(conv) ? "NAN" : "nan";
                         else if (double.IsInfinity(dv)) body = char.IsUpper(conv) ? "INF" : "inf";

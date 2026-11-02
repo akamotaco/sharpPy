@@ -2987,18 +2987,7 @@ namespace SharpPy
                         // (call.c uses PyObject_GetIter for non tuple/list args).
                         try
                         {
-                            var starIterator = argsIterable.GetIterator();
-                            while (true)
-                            {
-                                try
-                                {
-                                    argsList.Add(starIterator.Next());
-                                }
-                                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                                {
-                                    break;
-                                }
-                            }
+                            argsList.AddRange(argsIterable.AsTuple().Items);
                         }
                         // check_args_iterable: only what has neither __iter__ nor __getitem__.
                         catch (PythonException ex) when (ex.PyException is PyTypeError &&
@@ -3881,42 +3870,16 @@ namespace SharpPy
                     // CPython 3.12 LIST_EXTEND: extend the list at TOS1 with the iterable at TOS
                     // CPython: Python/bytecodes.c line 1507, _PyList_Extend calls list_extend
                     // list_extend uses PyObject_GetIter for generic iterables (Objects/listobject.c)
-                    var extendArg = argument; // Should be 1 for this case
-                    var extendIterable = frame.ValueStack.Pop(); // Pop iterable from top
-
-                    // The list/set should now be on top of the stack (CPython
-                    // listextend works on both list and set objects).
-                    var extendTarget = frame.ValueStack.Peek();
-                    var extendTargetList = extendTarget as PyList;
-                    var extendTargetSet = extendTarget as PySet;
-
-                    // Use generic iterator approach to handle all iterable types
-                    // This includes PyList, PyTuple, PyString, PyGenerator, etc.
-                    // CPython 3.12 bytecodes.c LIST_EXTEND error wording.
-                    PyObject extendIterator;
+                    var extendIterable = frame.ValueStack.Pop();
                     try
                     {
-                        extendIterator = extendIterable.GetIterator();
+                        ((PyList)frame.ValueStack.Peek()).Extend(extendIterable);
                     }
-                    catch (PythonException ex) when (ex.PyException is PyTypeError && extendIterable.LookupSpecialMethodUncached("__iter__") == null && extendIterable.LookupSpecialMethodUncached("__getitem__") == null)
+                    catch (PythonException ex) when (ex.PyException is PyTypeError &&
+                        extendIterable.LookupSpecialMethodUncached("__iter__") == null &&
+                        extendIterable.LookupSpecialMethodUncached("__getitem__") == null)
                     {
                         throw PyTypeError.Create($"Value after * must be an iterable, not {extendIterable.GetTypeName()}");
-                    }
-
-                    // Iterate and append all items
-                    while (true)
-                    {
-                        try
-                        {
-                            var nextItem = extendIterator.Next();
-                            if (extendTargetList != null) extendTargetList.Append(nextItem);
-                            else extendTargetSet.Add(nextItem);
-                        }
-                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                        {
-                            // Iterator exhausted
-                            break;
-                        }
                     }
                     break;
 
@@ -5104,8 +5067,10 @@ namespace SharpPy
                             throw PyTypeError.Create($"cannot unpack non-iterable {unpackExSequence.GetTypeName()} object");
                         }
 
+                        // _PyEval_UnpackIterable: what comes before the star, one at a time, and
+                        // then the rest as PySequence_List.
                         var unpackItems = new System.Collections.Generic.List<PyObject>();
-                        while (true)
+                        while (unpackItems.Count < countBefore)
                         {
                             try
                             {
@@ -5113,9 +5078,10 @@ namespace SharpPy
                             }
                             catch (PythonException stopSignal) when (stopSignal.PyException is PyStopIteration)
                             {
-                                break;
+                                throw PyValueError.Create($"not enough values to unpack (expected at least {countBefore + countAfter}, got {unpackItems.Count})");
                             }
                         }
+                        unpackItems.AddRange(PyList.FromIterable(unpackIterator).Items);
                         itemsToUnpack = unpackItems.ToArray();
                     }
 

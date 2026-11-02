@@ -1281,12 +1281,6 @@ namespace SharpPy
                 throw PyValueError.Create($"cannot fit '{value.GetTypeName()}' into an index-sized integer");
             return (long)index.Value;
         }
-        private static bool IsNumber(PyObject value) =>
-            value is PyInt or PyBool or PyIntSubclass or PyFloat or PyComplex ||
-            value.LookupSpecialMethodUncached("__index__") != null ||
-            value.LookupSpecialMethodUncached("__int__") != null ||
-            value.LookupSpecialMethodUncached("__float__") != null;
-
         private static bool IsBlockingErrno(System.Numerics.BigInteger code)
         {
             if (OperatingSystem.IsWindows())
@@ -1504,7 +1498,7 @@ namespace SharpPy
             if (OperatingSystem.IsWindows() && args.Length >= 4) _winerror = args[3];
             if (args.Length >= 3 && args[2] != PyNone.Instance)
             {
-                if (GetType() == typeof(PyBlockingIOError) && IsNumber(args[2]))
+                if (GetType() == typeof(PyBlockingIOError) && NumberCheck(args[2]))
                 {
                     SetWritten(AsWrittenCount(args[2]));
                     return;
@@ -2207,7 +2201,17 @@ namespace SharpPy
             Next = next;
         }
 
-        private static readonly PyType TracebackPyType = new PyType("traceback", new[] { PyType.ObjectType });
+        private static readonly PyType TracebackPyType = TracebackType();
+
+        private static PyType TracebackType()
+        {
+            var type = new PyType("traceback", new[] { PyType.ObjectType });
+            // tb_dir
+            type.TypeDict["__dir__"] = new PyMethodDescriptor("__dir__", type, (self, args, kwargs) => new PyList(
+                new PyObject[] { new PyString("tb_frame"), new PyString("tb_next"), new PyString("tb_lasti"), new PyString("tb_lineno") }), 0, 0);
+            return type;
+        }
+
         public override PyType GetPyType() => TracebackPyType;
         public override string GetTypeName() => "traceback";
 

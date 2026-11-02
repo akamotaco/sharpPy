@@ -187,7 +187,7 @@ namespace SharpPy
         /// </summary>
         private PyObject ChainFunction(PyObject[] args)
         {
-            return new ChainIterator(args);
+            return new ChainFromIterable(new PyTuple(args).GetIterator());
         }
 
         /// <summary>
@@ -671,47 +671,6 @@ namespace SharpPy
 
         public override string ToString() => 
             _remaining.HasValue ? $"repeat({_object}, {_remaining})" : $"repeat({_object})";
-    }
-
-    /// <summary>
-    /// chain 이터레이터 구현
-    /// </summary>
-    public class ChainIterator : PyIterator
-    {
-        private readonly PyIterator[] _iterators;
-        private int _currentIndex = 0;
-
-        public ChainIterator(PyObject[] iterables)
-        {
-            _iterators = new PyIterator[iterables.Length];
-            for (int i = 0; i < iterables.Length; i++)
-            {
-                var iter = iterables[i].GetIterator();
-                if (iter is PyIterator pyIter)
-                    _iterators[i] = pyIter;
-                else
-                    throw PyTypeError.Create($"'{iterables[i].GetTypeName()}' object is not iterable");
-            }
-        }
-
-        public override PyObject Next()
-        {
-            while (_currentIndex < _iterators.Length)
-            {
-                try
-                {
-                    return _iterators[_currentIndex].Next();
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                {
-                    _currentIndex++;
-                }
-            }
-
-            throw PyStopIteration.Create();
-        }
-
-        public override string ToString() => $"chain({_iterators.Length} iterables)";
     }
 
     #endregion

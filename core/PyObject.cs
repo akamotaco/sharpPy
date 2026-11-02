@@ -194,6 +194,13 @@ namespace SharpPy
         /// <param name="obj">The object to convert</param>
         /// <returns>PyInt if successful, null if __index__ not found</returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        /// <summary>PyNumber_Check: complex has neither __int__ nor __float__.</summary>
+        internal static bool NumberCheck(PyObject value) =>
+            value is PyInt or PyBool or PyIntSubclass or PyFloat or PyComplex ||
+            value.LookupSpecialMethodUncached("__index__") != null ||
+            value.LookupSpecialMethodUncached("__int__") != null ||
+            value.LookupSpecialMethodUncached("__float__") != null;
+
         public static PyInt? TryGetIndex(PyObject obj)
         {
             // Fast path for int and bool
@@ -532,7 +539,7 @@ namespace SharpPy
                 case "__dict__":
                     // CPython 3.12: Objects/object.c:4200-4250 (PyObject_GenericGetDict)
                     if (this is IDictBackedInstance dictAccessor)
-                        return new PyDict(dictAccessor.InstanceDict);
+                        return PyGlobalsDict.OfInstance(dictAccessor.InstanceDict);
                     // CPython 3.12: Non-instance objects should delegate to type's __dict__ descriptor
                     // For objects like None, functions, etc., __dict__ access should go through the type
                     return PyGetAttribute(name);
@@ -662,7 +669,7 @@ namespace SharpPy
             // A heap subclass of a value type keeps its instance dict beside the value; __dict__ is the live view.
             if (name == "__dict__" && this is IDictBackedInstance owner &&
                 GetPyType() is PyClass { } heapClass && heapClass.InstancesHaveDict())
-                return PyGlobalsDict.For(owner.InstanceDict);
+                return PyGlobalsDict.OfInstance(owner.InstanceDict);
             return GenericGetAttribute(name);
         }
 
@@ -1286,23 +1293,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyList AsList()
         {
-            // 이터러블 객체인 경우 변환
-            var items = new List<PyObject>();
-            // CPython: errors raised while consuming an iterator propagate; only
-            // the missing-__iter__ case reports "not iterable" (from GetIterator).
-            var iter = GetIterator();
-            while (true)
-            {
-                try
-                {
-                    items.Add(iter.Next());
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                {
-                    break;
-                }
-            }
-            return new PyList(items);
+            return PyList.FromIterable(this);
         }
 
         /// <summary>
@@ -1321,10 +1312,10 @@ namespace SharpPy
         /// </summary>
         public virtual PyTuple AsTuple()
         {
-            // 이터러블 객체인 경우 변환
+            // PySequence_Tuple: errors raised while consuming an iterator propagate.
             var items = new List<PyObject>();
-            // CPython: errors raised while consuming an iterator propagate.
             var iter = GetIterator();
+            LengthHint(10);
             while (true)
             {
                 try
@@ -1362,6 +1353,8 @@ namespace SharpPy
         internal long LengthHint(long defaultValue)
         {
             if (this is PyRange range) return range.PythonLength();
+            // _PyObject_HasLen: no iterator has one, and asking would raise for each list(iterator).
+            if (this is not PyIterator)
             try
             {
                 var lengthMethod = LookupSpecialMethodUncached("__len__");

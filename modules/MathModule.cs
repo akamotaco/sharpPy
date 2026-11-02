@@ -1369,9 +1369,10 @@ namespace SharpPy.Modules
                 difference <= Math.Abs(rel * left) || difference <= abs);
         }
 
-        private static double RealNumber(PyObject value)
+        // PyFloat_AsDouble
+        internal static double RealNumber(PyObject value)
         {
-            if (value is PyFloat real) return real.Value;
+            if (PyFloat.TryFloatSelf(value, out var real)) return real.Value;
             if (value is PyBool boolean) return boolean.Value ? 1 : 0;
             if (value is PyInt integer && !value.HasCustomType) return IntegerDouble(integer);
             var method = value.LookupSpecialMethodUncached("__float__");

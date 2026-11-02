@@ -24,6 +24,18 @@ namespace SharpPy
         protected static PyObject Builtin(string name) =>
             PyVM.CurrentFrame?.Builtin(name) ?? throw PyAttributeError.Create(name);
 
+        // gh-101765: looking the name up can run Python, a __eq__ of a key in builtins, which may
+        // exhaust this iterator. The state is read after that.
+        private static PyObject ReduceAfterLookup(PyObject self)
+        {
+            var iterator = (PyIterator)self;
+            Builtin(iterator.ReduceBuiltin);
+            return iterator.Reduce();
+        }
+
+        /// <summary>The builtin that __reduce__ answers with.</summary>
+        protected virtual string ReduceBuiltin => "iter";
+
         // (iter, (sequence,), index)
         protected static PyObject ReduceIter(PyObject sequence, long index) => new PyTuple(new PyObject[]
             { Builtin("iter"), new PyTuple(new[] { sequence }), new PyInt(index) });
@@ -54,7 +66,7 @@ namespace SharpPy
                     (self, args, kwargs) => ((PyIterator)self).RemainingHint());
             if (reduce)
                 type.TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", type,
-                    (self, args, kwargs) => ((PyIterator)self).Reduce());
+                    (self, args, kwargs) => ReduceAfterLookup(self));
             if (setState)
                 type.TypeDict["__setstate__"] = new PyMethodDescriptor("__setstate__", type, (self, args, kwargs) =>
                 {
@@ -164,7 +176,7 @@ namespace SharpPy
                     },
                     minArgs: 0, maxArgs: 0);
                 owner.TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", owner,
-                    (self, args, kwargs) => ((PyIterator)self).Reduce());
+                    (self, args, kwargs) => ReduceAfterLookup(self));
             }
             PyType.ReversedType.TypeDict["__length_hint__"] = new PyMethodDescriptor("__length_hint__", PyType.ReversedType,
                 (self, args, kwargs) => ((PyIterator)self).RemainingHint());

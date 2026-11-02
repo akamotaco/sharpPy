@@ -101,6 +101,15 @@ namespace SharpPy
             PyType.ModuleType.ConstructedByNewSlot = true;
             PyType.ModuleType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", PyType.ModuleType,
                 (cls, args, kwargs) => PyModule.Allocate((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
+            // module_dir: a module may answer for itself with a __dir__ of its own.
+            PyType.ModuleType.TypeDict["__dir__"] = new PyMethodDescriptor("__dir__", PyType.ModuleType, (self, args, kwargs) =>
+            {
+                if (self.GetAttribute("__dict__") is not PyDict names)
+                    throw PyTypeError.Create("<module>.__dict__ is not a dictionary");
+                return names.ContainsKey(new PyString("__dir__"))
+                    ? names.GetItem(new PyString("__dir__")).Call(Array.Empty<PyObject>(), null)
+                    : PyList.FromIterable(names);
+            }, 0, 0);
             PyType.ModuleType.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", PyType.ModuleType, (self, args, kwargs) =>
             {
                 var name = args.Length > 0 ? args[0] : kwargs?.GetItem(new PyString("name"));

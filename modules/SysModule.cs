@@ -115,6 +115,7 @@ namespace SharpPy.Modules
 
             // CPython 3.12: sys.builtin_module_names (tuple of builtin C module names)
             module.ModuleDict["builtin_module_names"] = CreateBuiltinModuleNames();
+            module.ModuleDict["float_repr_style"] = new PyString("short");
             module.ModuleDict["maxunicode"] = new PyInt(0x10FFFF);
 
             // CPython 3.12: sys.implementation (namespace with interpreter details)
