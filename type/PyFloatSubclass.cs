@@ -85,7 +85,9 @@ namespace SharpPy
             _floatValue.RichCompare(other, op);
 
         // CPython: tp_hash is float's, so FSub(2.0) and 2.0 collide in a dict.
-        public override int ToHash() => _floatValue.ToHash();
+        // _Py_HashDouble: a NaN hashes by the identity of the object asked.
+        public override int ToHash() => double.IsNaN(Value)
+            ? System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this) : _floatValue.ToHash();
 
         #endregion
 
@@ -105,8 +107,7 @@ namespace SharpPy
         {
             var declared = CallUserSpecialOrNull("__float__", System.Array.Empty<PyObject>());
             if (declared != null)
-                return declared as PyFloat ?? throw PyTypeError.Create(
-                    $"{_class.Name}.__float__ returned non-float (type {declared.GetTypeName()})");
+                return PyFloat.CheckFloatResult(this, declared);
             return new PyFloat(_floatValue.Value);
         }
 

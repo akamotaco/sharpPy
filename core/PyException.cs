@@ -173,6 +173,8 @@ namespace SharpPy
                         __cause__ = exc;
                     else
                         throw PyTypeError.Create($"exception cause must be None or derive from BaseException");
+                    // PyException_SetCause
+                    __suppress_context__ = true;
                     break;
                 case "__context__":
                     if (value is PyNone)
@@ -206,7 +208,8 @@ namespace SharpPy
         {
             if (name == "__dict__")
                 throw PyTypeError.Create("cannot delete __dict__");
-            if (name == "args") throw PyTypeError.Create("args may not be deleted");
+            if (name is "args" or "__traceback__" or "__context__" or "__cause__")
+                throw PyTypeError.Create($"{name} may not be deleted");
             var key = new PyString(name);
             if (_attributes != null && _attributes.ContainsKey(key))
             {
@@ -364,6 +367,14 @@ namespace SharpPy
     {
         private PyObject _name;
         private PyObject _obj;
+
+        // set_attribute_error_context
+        internal static System.Exception CreateFor(PyObject target, string name, string message)
+        {
+            var error = new PyAttributeError(message);
+            error.SetContextIfUnset(name, target);
+            return new PythonException(error);
+        }
 
         internal void SetContextIfUnset(string name, PyObject target)
         {
@@ -1730,6 +1741,8 @@ namespace SharpPy
     {
         public PyEOFError(string message = "EOF when reading a line") : base(message) { }
 
+        internal PyEOFError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public override string GetTypeName() => "EOFError";
         public override PyType GetPyType() => PyType.EOFErrorType;
 
@@ -1868,7 +1881,14 @@ namespace SharpPy
     /// </summary>
     public class PyUnicodeDecodeError : PyUnicodeError
     {
-        internal PyUnicodeDecodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) => ReadFields(args, 0);
+        // UnicodeDecodeError_init: the object is kept as bytes, whatever buffer it came as.
+        internal PyUnicodeDecodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs)
+        {
+            ReadFields(args, 0);
+            if (Fields[1] != null && Fields[1] is not PyBytes)
+                Fields[1] = new PyBytes(BytesMethods.Buffer(Fields[1]) ?? throw PyTypeError.Create(
+                    $"a bytes-like object is required, not '{Fields[1].GetTypeName()}'"));
+        }
 
         public override string GetTypeName() => "UnicodeDecodeError";
         public override PyType GetPyType() => PyType.UnicodeDecodeErrorType;

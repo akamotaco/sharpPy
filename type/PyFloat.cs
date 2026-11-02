@@ -53,28 +53,52 @@ namespace SharpPy
         /// </summary>
         internal static PyObject FloatNew(PyObject cls, PyObject[] valueArgs, PyDict kwargs)
         {
-            // x is positional-only (clinic header at Objects/floatobject.c:1644), so any keyword is
-            // refused by _PyArg_CheckPositional (Objects/floatobject.c:1705).
-            if (kwargs != null && kwargs.Length() != 0)
+            // float_new: only a subclass with an __init__ of its own may take keywords.
+            bool hasOwnInit = cls is PyType type && !ReferenceEquals(type, PyType.FloatType) && !PyType.TypeInitIsObjectInit(type);
+            if (kwargs != null && kwargs.Length() != 0 && !hasOwnInit)
                 throw PyTypeError.Create("float() takes no keyword arguments");
             if (valueArgs.Length > 1)
-                throw PyTypeError.Create(
-                    $"float expected at most 1 argument, got {valueArgs.Length}");
+                throw PyTypeError.Create($"float expected at most 1 argument, got {valueArgs.Length}");
 
-            // float_new_impl with x == NULL substitutes 0 (Objects/floatobject.c:1655).
-            var value = valueArgs.Length == 0 ? new PyInt(0) : valueArgs[0];
-
+            var value = valueArgs.Length == 0 ? null : valueArgs[0];
+            PyFloat result = value == null ? new PyFloat(0.0)
+                : value.GetType() == typeof(PyString) ? FromObject(value) : NumberFloat(value);
             if (ReferenceEquals(cls, PyType.FloatType))
-                return value.AsFloat();
-
+                return result;
             if (!(cls is PyClass subtype))
-                throw PyTypeError.Create(
-                    $"float.__new__(X): X is not a type object ({cls.GetTypeName()})");
+                throw PyTypeError.Create($"float.__new__(X): X is not a type object ({cls.GetTypeName()})");
+            return new PyFloatSubclass(subtype, result);
+        }
 
-            // float_subtype_new (Objects/floatobject.c:1677): convert with the exact type first, so
-            // conversion errors are reported the same way, then allocate the subtype and copy the
-            // value across.
-            return new PyFloatSubclass(subtype, value.AsFloat());
+        // The check PyNumber_Float makes on what nb_float gave.
+        internal static PyFloat CheckFloatResult(PyObject source, PyObject result)
+        {
+            if (result is PyFloat exact)
+                return exact;
+            if (result is not PyFloatSubclass subclass)
+                throw PyTypeError.Create($"{source.GetPyType().Name}.__float__ returned non-float (type {result.GetPyType().Name})");
+            PyWarnings.Deprecated($"{source.GetPyType().Name}.__float__ returned non-float (type {result.GetPyType().Name}).  " +
+                "The ability to return an instance of a strict subclass of float is deprecated, " +
+                "and may be removed in a future version of Python.");
+            return new PyFloat(subclass.Value);
+        }
+
+        // PyNumber_Float
+        internal static PyFloat NumberFloat(PyObject value)
+        {
+            if (value is PyFloat exact)
+                return exact;
+            var declared = value.LookupUserSpecial("__float__");
+            if (declared != null)
+                return CheckFloatResult(value, value.BindSpecialMethod(declared).Call(Array.Empty<PyObject>(), null));
+            if (value is PyFloatSubclass subclass)
+                return new PyFloat(subclass.Value);
+            if (value is PyInt or PyBool or PyIntSubclass)
+                return value.AsFloat();
+            var index = PyObject.TryGetIndex(value);
+            if (index != null)
+                return index.AsFloat();
+            return FromObject(value);
         }
 
         public static void InitializeFloatDescriptors()
@@ -162,9 +186,9 @@ namespace SharpPy
             regFloatUn("__abs__", s => new PyFloat(Math.Abs(s.Value)));
             regFloatUn("__neg__", s => new PyFloat(-s.Value));
             regFloatUn("__pos__", s => s);
-            regFloatUn("__floor__", s => new PyInt((System.Numerics.BigInteger)Math.Floor(s.Value)));
-            regFloatUn("__trunc__", s => new PyInt((System.Numerics.BigInteger)Math.Truncate(s.Value)));
-            regFloatUn("__ceil__", s => new PyInt((System.Numerics.BigInteger)Math.Ceiling(s.Value)));
+            regFloatUn("__floor__", s => FromDouble(Math.Floor(s.Value)));
+            regFloatUn("__trunc__", s => FromDouble(Math.Truncate(s.Value)));
+            regFloatUn("__ceil__", s => FromDouble(Math.Ceiling(s.Value)));
             // Forward binary slots. CPython lists these on float as slot wrappers and SharpPy had
             // none, so a float subclass reached through a dunder path found nothing at all; only
             // the hard-coded exact-PyFloat CLR path worked.
@@ -217,7 +241,7 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     // CPython float_hash keeps the invariant hash(2.0) == hash(2).
-                    return new PyInt(hashTarget.PythonHash());
+                    return new PyInt(double.IsNaN(hashTarget.Value) ? self.ToHash() : hashTarget.PythonHash());
                 });
 
             // CPython 3.12: Objects/floatobject.c:1420-1430 - float_is_integer
@@ -515,7 +539,10 @@ namespace SharpPy
         public override int ToHash()
         {
             // Python과 같은 방식으로 해시 계산
-            if (double.IsInfinity(Value) || double.IsNaN(Value))
+            // _Py_HashDouble: a NaN hashes by identity.
+            if (double.IsNaN(Value))
+                return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
+            if (double.IsInfinity(Value))
             {
                 return Value.GetHashCode();
             }
@@ -803,26 +830,13 @@ namespace SharpPy
             // CPython: Objects/floatobject.c float_round - ndigits None → int (round-half-even)
             if (ndigits == null || ndigits is PyNone)
             {
-                if (double.IsNaN(Value))
-                    throw PyValueError.Create("cannot convert float NaN to integer");
-                if (double.IsInfinity(Value))
-                    throw PyOverflowError.Create("cannot convert float infinity to integer");
-                return new PyInt((long)Math.Round(Value, MidpointRounding.ToEven));
+                return FromDouble(Math.Round(Value, MidpointRounding.ToEven));
             }
 
-            // CPython: ndigits must be an int
-            if (ndigits is not PyInt ndigitsInt)
-                throw PyTypeError.Create($"'{ndigits.GetTypeName()}' object cannot be interpreted as an integer");
-
-            long nd;
-            try
-            {
-                nd = ndigitsInt.ToLong();
-            }
-            catch (OverflowException)
-            {
-                throw PyOverflowError.Create("Python int too large to convert to C long");
-            }
+            // PyNumber_AsSsize_t(o_ndigits, NULL): a huge value clamps, it does not raise.
+            var places = TryGetIndex(ndigits) ?? throw PyTypeError.Create(
+                $"'{ndigits.GetTypeName()}' object cannot be interpreted as an integer");
+            long nd = (long)System.Numerics.BigInteger.Clamp(places.Value, -1000, 1000);
 
             return new PyFloat(CPythonDoubleRound(Value, (int)Math.Clamp(nd, -1000, 1000)));
         }
@@ -904,10 +918,20 @@ namespace SharpPy
         /// CPython: Objects/floatobject.c:float_floor (lines 1282-1293)
         /// Returns the floor as int
         /// </summary>
+        // PyLong_FromDouble
+        private static PyInt FromDouble(double value)
+        {
+            if (double.IsNaN(value))
+                throw PyValueError.Create("cannot convert float NaN to integer");
+            if (double.IsInfinity(value))
+                throw PyOverflowError.Create("cannot convert float infinity to integer");
+            return new PyInt(new System.Numerics.BigInteger(value));
+        }
+
         public PyObject Floor()
         {
             // CPython: Objects/floatobject.c:1290 - Returns floor as int
-            return new PyInt((long)Math.Floor(Value));
+            return FromDouble(Math.Floor(Value));
         }
 
         /// <summary>
@@ -918,36 +942,64 @@ namespace SharpPy
         public PyObject Ceil()
         {
             // CPython: Objects/floatobject.c:1303 - Returns ceiling as int
-            return new PyInt((long)Math.Ceiling(Value));
+            return FromDouble(Math.Ceiling(Value));
         }
 
+        private static bool IsOddInteger(double value) => Math.Abs(value) % 2.0 == 1.0;
+
+        // float_pow
         public override PyObject Power(PyObject other)
         {
-
-            var otherValue = other switch
+            if (!TryConvertOperand(other, out double exponent))
+                return PyNotImplemented.Instance;
+            double value = Value;
+            if (exponent == 0) return new PyFloat(1.0);
+            if (double.IsNaN(value)) return new PyFloat(value);
+            if (double.IsNaN(exponent)) return new PyFloat(value == 1.0 ? 1.0 : exponent);
+            if (double.IsInfinity(exponent))
             {
-                PyFloat otherFloat => otherFloat.Value,
-                PyInt otherInt => (double)otherInt.Value,
-                PyBool otherBool => otherBool.Value ? 1.0 : 0.0,
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): 'float' and '{other.GetTypeName()}'")
-            };
-
-            // CPython: Objects/floatobject.c float_pow - 0.0 base with negative exponent
-            if (Value == 0.0 && otherValue < 0.0)
-                throw PyZeroDivisionError.Create("0.0 cannot be raised to a negative power");
-
-            // 특수 케이스 처리: negative base with non-integer exponent
-            // CPython: Returns complex number (Objects/floatobject.c:float_pow)
-            if (Value < 0 && !IsIntegral(otherValue))
-            {
-                // Return complex number: (-2.0) ** 0.5 → (8.66e-17+1.414j)
-                var complexBase = new PyComplex(Value, 0);
-                var complexExponent = new PyComplex(otherValue, 0);
-                return complexBase.Power(complexExponent);
+                value = Math.Abs(value);
+                if (value == 1.0) return new PyFloat(1.0);
+                return new PyFloat((exponent > 0.0) == (value > 1.0) ? Math.Abs(exponent) : 0.0);
             }
+            if (double.IsInfinity(value))
+            {
+                bool odd = IsOddInteger(exponent);
+                if (exponent > 0.0) return new PyFloat(odd ? value : Math.Abs(value));
+                return new PyFloat(odd ? Math.CopySign(0.0, value) : 0.0);
+            }
+            if (value == 0.0)
+            {
+                if (exponent < 0.0)
+                    throw PyZeroDivisionError.Create("0.0 cannot be raised to a negative power");
+                return new PyFloat(IsOddInteger(exponent) ? value : 0.0);
+            }
+            bool negate = false;
+            if (value < 0.0)
+            {
+                if (exponent != Math.Floor(exponent))
+                    return new PyComplex(value, 0).Power(new PyComplex(exponent, 0));
+                value = -value;
+                negate = IsOddInteger(exponent);
+            }
+            if (value == 1.0) return new PyFloat(negate ? -1.0 : 1.0);
+            double result = Math.Pow(value, exponent);
+            if (double.IsInfinity(result))
+                throw new PythonException(new PyOverflowError(new PyObject[] { new PyInt(34), new PyString("Result too large") }, null));
+            return new PyFloat(negate ? -result : result);
+        }
 
-            var result = Math.Pow(Value, otherValue);
-            return new PyFloat(result);
+        // CONVERT_TO_DOUBLE
+        private static bool TryConvertOperand(PyObject operand, out double value)
+        {
+            value = 0.0;
+            switch (operand)
+            {
+                case PyFloat exact: value = exact.Value; return true;
+                case PyFloatSubclass subclass: value = subclass.Value; return true;
+                case PyInt or PyBool or PyIntSubclass: value = operand.AsFloat().Value; return true;
+                default: return false;
+            }
         }
 
         #endregion
@@ -1118,97 +1170,129 @@ namespace SharpPy
 
         #region Static Factory Methods
 
-        /// <summary>
-        /// CPython 3.12: Objects/floatobject.c:446-560 (PyFloat_FromString) with
-        /// Python/pystrtod.c (_Py_parse_inf_or_nan). The text forms are shared by str and
-        /// every buffer exporter (bytes, bytearray, memoryview). Single underscores are
-        /// allowed only *between* digits (PEP 515) and the parse must not depend on the
-        /// CLR culture, which the CLR double.TryParse otherwise does.
-        /// </summary>
+        /// <summary>A quiet NaN with the sign clear: the CLR's double.NaN has it set.</summary>
+        internal static readonly double QuietNaN = BitConverter.Int64BitsToDouble(0x7FF8000000000000);
+
+        // _PyUnicode_TransformDecimalAndSpaceToASCII
+        private static string TransformDecimalAndSpace(string text)
+        {
+            bool ascii = true;
+            foreach (char c in text)
+                if (c >= 127) { ascii = false; break; }
+            if (ascii) return text;
+            var output = new System.Text.StringBuilder(text.Length);
+            foreach (var rune in text.EnumerateRunes())
+            {
+                if (rune.Value < 127) output.Append((char)rune.Value);
+                else if (System.Text.Rune.IsWhiteSpace(rune)) output.Append(' ');
+                else
+                {
+                    int digit = (int)System.Text.Rune.GetNumericValue(rune);
+                    if (System.Text.Rune.GetUnicodeCategory(rune) != System.Globalization.UnicodeCategory.DecimalDigitNumber)
+                    {
+                        output.Append('?');
+                        break;
+                    }
+                    output.Append((char)('0' + digit));
+                }
+            }
+            return output.ToString();
+        }
+
+        private static bool IsCSpace(char c) => c == ' ' || (c >= 9 && c <= 13);
+
+        // _Py_string_to_number_with_underscores
+        private static string WithoutUnderscores(string text)
+        {
+            if (text.IndexOf('_') < 0) return text;
+            var output = new System.Text.StringBuilder(text.Length);
+            char previous = '\0';
+            foreach (char c in text)
+            {
+                if (c == '_')
+                {
+                    if (!char.IsAsciiDigit(previous)) return null;
+                }
+                else
+                {
+                    output.Append(c);
+                    if (previous == '_' && !char.IsAsciiDigit(c)) return null;
+                }
+                previous = c;
+            }
+            return previous == '_' ? null : output.ToString();
+        }
+
+        // _Py_parse_inf_or_nan and the grammar of _PyOS_ascii_strtod, consuming all of the text.
+        private static bool TryParseDouble(string text, out double value)
+        {
+            value = 0.0;
+            int position = 0;
+            bool negative = false;
+            if (position < text.Length && (text[position] == '+' || text[position] == '-'))
+                negative = text[position++] == '-';
+            string body = text.Substring(position).ToLowerInvariant();
+            if (body is "inf" or "infinity")
+            {
+                value = negative ? double.NegativeInfinity : double.PositiveInfinity;
+                return true;
+            }
+            if (body == "nan")
+            {
+                value = negative ? -QuietNaN : QuietNaN;
+                return true;
+            }
+            int digits = 0;
+            while (position < text.Length && char.IsAsciiDigit(text[position])) { position++; digits++; }
+            if (position < text.Length && text[position] == '.')
+            {
+                position++;
+                while (position < text.Length && char.IsAsciiDigit(text[position])) { position++; digits++; }
+            }
+            if (digits == 0) return false;
+            if (position < text.Length && (text[position] == 'e' || text[position] == 'E'))
+            {
+                int exponent = position + 1;
+                if (exponent < text.Length && (text[exponent] == '+' || text[exponent] == '-')) exponent++;
+                int start = exponent;
+                while (exponent < text.Length && char.IsAsciiDigit(text[exponent])) exponent++;
+                if (exponent == start) return false;
+                position = exponent;
+            }
+            return position == text.Length && double.TryParse(text, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out value);
+        }
+
+        // float_from_string_inner with the underscore pass in front.
         internal static bool TryParsePythonText(string text, out double value)
         {
             value = 0.0;
-            if (text == null)
-                return false;
-            var trimmed = text.Trim();
-            if (trimmed.Length == 0)
-                return false;
-
-            if (trimmed.IndexOf('_') >= 0)
-            {
-                var clean = new System.Text.StringBuilder(trimmed.Length);
-                for (int i = 0; i < trimmed.Length; i++)
-                {
-                    char c = trimmed[i];
-                    if (c != '_')
-                    {
-                        clean.Append(c);
-                        continue;
-                    }
-                    bool leftDigit = i > 0 && trimmed[i - 1] >= '0' && trimmed[i - 1] <= '9';
-                    bool rightDigit = i + 1 < trimmed.Length && trimmed[i + 1] >= '0' && trimmed[i + 1] <= '9';
-                    if (!leftDigit || !rightDigit)
-                        return false;
-                }
-                trimmed = clean.ToString();
-            }
-
-            string body = trimmed;
-            bool negate = false;
-            if (body[0] == '+' || body[0] == '-')
-            {
-                negate = body[0] == '-';
-                body = body.Substring(1);
-            }
-            string lower = body.ToLowerInvariant();
-            if (lower == "inf" || lower == "infinity")
-            {
-                value = negate ? double.NegativeInfinity : double.PositiveInfinity;
-                return true;
-            }
-            if (lower == "nan")
-            {
-                value = double.NaN;
-                return true;
-            }
-
-            return double.TryParse(trimmed,
-                System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture,
-                out value);
+            var clean = text == null ? null : WithoutUnderscores(text);
+            if (clean == null) return false;
+            int first = 0, last = clean.Length;
+            while (first < last && IsCSpace(clean[first])) first++;
+            while (last > first + 1 && IsCSpace(clean[last - 1])) last--;
+            return first < last && TryParseDouble(clean.Substring(first, last - first), out value);
         }
 
-        /// <summary>
-        /// CPython PyFloat_FromString buffer branch: the failure message reports the
-        /// exporting object, not the decoded characters (float(b'x') says "b'x'").
-        /// </summary>
-        internal static PyFloat FromBufferBytes(byte[] data, PyObject source)
+        /// <summary>PyFloat_FromString: a str, or the bytes of anything exporting a buffer.</summary>
+        internal static PyFloat FromObject(PyObject value)
         {
-            if (TryParsePythonText(System.Text.Encoding.Latin1.GetString(data), out double parsed))
+            string text;
+            if (value is PyString str)
+                text = TransformDecimalAndSpace(str.Value);
+            else
+            {
+                var data = BytesMethods.Buffer(value) ?? throw PyTypeError.Create(
+                    $"float() argument must be a string or a real number, not '{value.GetPyType().Name}'");
+                text = System.Text.Encoding.Latin1.GetString(data);
+            }
+            if (TryParsePythonText(text, out double parsed))
                 return new PyFloat(parsed);
-            throw PyValueError.Create($"could not convert string to float: {source.ToRepr().Value}");
+            throw PyValueError.Create($"could not convert string to float: {value.ToRepr().Value}");
         }
 
-        /// <summary>
-        /// 문자열에서 PyFloat 생성
-        /// </summary>
-        public static PyFloat FromString(string s)
-        {
-            s = s.Trim().ToLower();
-            
-            // 특수 값들
-            if (s == "inf" || s == "infinity" || s == "+inf" || s == "+infinity")
-                return new PyFloat(double.PositiveInfinity);
-            if (s == "-inf" || s == "-infinity")
-                return new PyFloat(double.NegativeInfinity);
-            if (s == "nan")
-                return new PyFloat(double.NaN);
-
-            if (double.TryParse(s, out double result))
-                return new PyFloat(result);
-            
-            throw PyValueError.Create($"could not convert string to float: '{s}'");
-        }
+        public static PyFloat FromString(string s) => FromObject(new PyString(s));
 
         /// <summary>
         /// 다른 숫자 타입에서 PyFloat 생성
@@ -1233,7 +1317,7 @@ namespace SharpPy
         public static readonly PyFloat One = new PyFloat(1.0);
         public static readonly PyFloat PositiveInfinity = new PyFloat(double.PositiveInfinity);
         public static readonly PyFloat NegativeInfinity = new PyFloat(double.NegativeInfinity);
-        public static readonly PyFloat NaN = new PyFloat(double.NaN);
+        public static readonly PyFloat NaN = new PyFloat(QuietNaN);
 
         #endregion
 
@@ -1304,7 +1388,7 @@ namespace SharpPy
                 {
                     probe += 3;
                     s = probe;
-                    return FinishHex(false, double.NaN, text, s, end);
+                    return FinishHex(false, QuietNaN, text, s, end);
                 }
             }
 

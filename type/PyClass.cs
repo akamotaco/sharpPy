@@ -2151,7 +2151,7 @@ namespace SharpPy
             }
 
             // PyObject_GenericGetAttr ends here; __getattr__ belongs to the slot, GetAttribute.
-            throw PyAttributeError.Create($"'{InstanceType.Name}' object has no attribute '{name}'");
+            throw PyAttributeError.CreateFor(this, name, $"'{InstanceType.Name}' object has no attribute '{name}'");
         }
 
         public override PyObject GetAttribute(string name)

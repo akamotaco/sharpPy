@@ -52,6 +52,9 @@ namespace SharpPy
         /// <summary>
         /// 스택 최상단 값 확인 (제거 없음)
         /// </summary>
+        // STACK[-(depth + 1)]
+        internal PyObject PeekBelow(int depth) => _items[_items.Count - 1 - depth];
+
         public PyObject Peek()
         {
             if (_items.Count == 0)

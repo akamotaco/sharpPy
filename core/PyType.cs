@@ -1118,6 +1118,7 @@ namespace SharpPy
                 case "BytesWarning": return new PyBytesWarning(args, kwargs);
                 case "ResourceWarning": return new PyResourceWarning(args, kwargs);
                 case "StopAsyncIteration": return new PyStopAsyncIteration(args, kwargs);
+                case "EOFError": return new PyEOFError(args, kwargs);
                 case "ValueError":
                     return new PyValueError(args, kwargs);
                 case "TypeError":

@@ -2765,19 +2765,11 @@ namespace SharpPy
                         else if (PyFloat.TryFloatSelf(value, out var floatSelf)) dv = floatSelf.Value;
                         else if (PyInt.TryLongSelf(value, out var intSelf)) dv = (double)intSelf.Value;
                         else throw PyTypeError.Create($"%{conv} format: a real number is required, not {value.GetTypeName()}");
-                        body = conv switch
-                        {
-                            'f' or 'F' => dv.ToString((conv == 'F' ? "F" : "f") + precision, CultureInfo.InvariantCulture),
-                            'e' => FormatExponent(dv, precision, false),
-                            'E' => FormatExponent(dv, precision, true),
-                            'g' => dv.ToString("g" + precision, CultureInfo.InvariantCulture),
-                            _ => dv.ToString("G" + precision, CultureInfo.InvariantCulture),
-                        };
-                        // CPython float() text for nan/inf
-                        if (double.IsNaN(dv)) body = "nan";
-                        else if (double.IsPositiveInfinity(dv)) body = "inf";
-                        else if (double.IsNegativeInfinity(dv)) { dv = dv; body = "-inf"; }
-                        if (body.StartsWith('-')) { sign = "-"; body = body.Substring(1); }
+                        // formatfloat: PyOS_double_to_string, one writer with format().
+                        if (double.IsNaN(dv)) body = char.IsUpper(conv) ? "NAN" : "nan";
+                        else if (double.IsInfinity(dv)) body = char.IsUpper(conv) ? "INF" : "inf";
+                        else body = PyFloatFormatter.DoubleToString(Math.Abs(dv), conv, precision, alt);
+                        if (!double.IsNaN(dv) && double.IsNegative(dv)) sign = "-";
                         else if (signPlus) sign = "+";
                         else if (signSpace) sign = " ";
                         break;
@@ -2865,7 +2857,7 @@ namespace SharpPy
             return new string(chars.ToArray());
         }
 
-        private static string AsciiEscape(string s)
+        internal static string AsciiEscape(string s)
         {
             var sb = new StringBuilder(s.Length);
             foreach (var ch in s)
@@ -2878,22 +2870,6 @@ namespace SharpPy
                     sb.Append($"\\u{(int)ch:x4}");
             }
             return sb.ToString();
-        }
-
-        /// <summary>
-        /// Format exponent notation to match Python format (e.g., "1.23e+04" not "1.23e+004")
-        /// CPython: Objects/floatobject.c:format_float_short (uses at least 2 digits for exponent, not 3)
-        /// </summary>
-        private static string FormatExponent(double value, int precision, bool uppercase)
-        {
-            // C# ToString("e") uses 3 digits for exponent (e.g., "e+004")
-            // Python uses minimum 2 digits (e.g., "e+04")
-            string formatted = value.ToString(uppercase ? $"E{precision}" : $"e{precision}", CultureInfo.InvariantCulture);
-
-            // Fix exponent format: replace e+004 with e+04, e-004 with e-04, etc.
-            // Pattern: e+/-004 → e+/-04
-            var regex = new System.Text.RegularExpressions.Regex(uppercase ? @"E([+-])0(\d{2})" : @"e([+-])0(\d{2})");
-            return regex.Replace(formatted, uppercase ? "E$1$2" : "e$1$2");
         }
 
         /// <summary>
@@ -3170,65 +3146,8 @@ namespace SharpPy
             throw PyValueError.Create($"invalid literal for int() with base 10: '{Value}'");
         }
         
-        /// <summary>
-        /// CPython PyUnicode_AsDouble 호환: PyString에서 C# double 값 추출
-        /// </summary>
-        // CPython 3.12: Objects/floatobject.c:165-202 (float_from_string_inner)
-        // CPython 3.12: Python/pystrtod.c:27-57 (_Py_parse_inf_or_nan)
-        public override double ToFloat()
-        {
-            var trimmed = Value.Trim();
+        public override double ToFloat() => PyFloat.FromObject(this).Value;
 
-            // CPython 3.12: Python/pystrtod.c:27-57 - _Py_parse_inf_or_nan
-            // Parse special values: inf, -inf, infinity, -infinity, nan, -nan
-            if (trimmed.Length > 0)
-            {
-                bool negate = false;
-                string s = trimmed;
-
-                // Handle leading sign
-                if (s[0] == '-')
-                {
-                    negate = true;
-                    s = s.Substring(1).TrimStart();
-                }
-                else if (s[0] == '+')
-                {
-                    s = s.Substring(1).TrimStart();
-                }
-
-                // Check for "inf" or "infinity" (case insensitive)
-                if (s.Length >= 3 && s.Substring(0, 3).ToLowerInvariant() == "inf")
-                {
-                    // Check if it's "infinity"
-                    if (s.Length >= 8 && s.Substring(0, 8).ToLowerInvariant() == "infinity")
-                    {
-                        return negate ? double.NegativeInfinity : double.PositiveInfinity;
-                    }
-                    // Just "inf"
-                    else if (s.Length == 3 || !char.IsLetterOrDigit(s[3]))
-                    {
-                        return negate ? double.NegativeInfinity : double.PositiveInfinity;
-                    }
-                }
-                // Check for "nan" (case insensitive)
-                else if (s.Length >= 3 && s.Substring(0, 3).ToLowerInvariant() == "nan")
-                {
-                    if (s.Length == 3 || !char.IsLetterOrDigit(s[3]))
-                    {
-                        return double.NaN;
-                    }
-                }
-            }
-
-            // Standard numeric parsing (shared with the buffer forms: PEP 515
-            // underscores and culture-independent digits follow CPython, not CLR).
-            if (PyFloat.TryParsePythonText(trimmed, out double result))
-                return result;
-
-            throw PyValueError.Create($"could not convert string to float: '{Value}'");
-        }
-        
         // === As* Methods: Type Conversion (PyString → PyObject types) ===
         
         /// <summary>

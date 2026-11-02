@@ -25,6 +25,7 @@ namespace SharpPy
             PySlotWrappers.Install();
             PyTextWrapper.Install();
             PyComplex.InstallNew();
+            PyExceptionSlots.InstallReduce();
             // float___getformat___impl
             PyType.FloatType.TypeDict["__getformat__"] = new PyClassMethodDescriptor("__getformat__", PyType.FloatType,
                 new PyBuiltinFunction("__getformat__", (args, kwargs) =>

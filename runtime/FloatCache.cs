@@ -18,7 +18,7 @@ namespace SharpPy
         public static readonly PyFloat Two = new PyFloat(2.0);
 
         // 특수 값들
-        public static readonly PyFloat NaN = new PyFloat(double.NaN);
+        public static readonly PyFloat NaN = new PyFloat(PyFloat.QuietNaN);
         public static readonly PyFloat PositiveInfinity = new PyFloat(double.PositiveInfinity);
         public static readonly PyFloat NegativeInfinity = new PyFloat(double.NegativeInfinity);
 

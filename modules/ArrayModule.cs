@@ -196,6 +196,16 @@ namespace SharpPy.Modules
             public override PyType GetPyType() => _type;
             public override string GetTypeName() => _type.Name;
 
+            // array_buffer_getbuf: the view is over the items themselves, with no spare capacity.
+            public override PyMemoryView GetBuffer(int flags)
+            {
+                if (_buffer.Length != _count * ItemSize)
+                    Array.Resize(ref _buffer, _count * ItemSize);
+                return new PyMemoryView(_buffer, false, ItemSize, this);
+            }
+
+            public override bool SupportsBuffer() => true;
+
             internal void EnsureCapacity(int newCount)
             {
                 int itemSize = ItemSize;

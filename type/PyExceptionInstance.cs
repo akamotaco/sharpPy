@@ -89,6 +89,72 @@ internal static class PyExceptionSlots
         _ => null,
     };
 
+    private static PyObject StateOf(PyObject self)
+    {
+        var dict = self.GetAttribute("__dict__");
+        return dict.Length() == 0 ? null : dict;
+    }
+
+    private static PyObject ReduceValue(PyObject self, PyObject args, PyObject state) => state == null
+        ? new PyTuple(new[] { self.GetPyType(), args })
+        : new PyTuple(new[] { self.GetPyType(), args, state });
+
+    // ImportError_getstate and AttributeError_getstate: the dict with the fields put in it.
+    private static PyObject StateWith(PyObject self, params string[] fields)
+    {
+        PyDict state = null;
+        foreach (var name in fields)
+        {
+            var value = self.GetAttribute(name);
+            if (value is PyNone) continue;
+            state ??= new PyDict();
+            state.SetItem(new PyString(name), value);
+        }
+        var dict = StateOf(self);
+        if (state == null) return dict;
+        if (dict != null)
+            foreach (var entry in new List<KeyValuePair<PyObject, PyObject>>(((PyDict)dict).GetInternalDict()))
+                if (!state.ContainsKey(entry.Key)) state.SetItem(entry.Key, entry.Value);
+        return state;
+    }
+
+    private static PyObject ArgsTupleOf(PyObject self) => self.GetAttribute("args");
+
+    /// <summary>BaseException_methods and the reductions of the types with fields.</summary>
+    internal static void InstallReduce()
+    {
+        void Method(PyType type, string name, Func<PyObject, PyObject[], PyObject> body, int count = 0) =>
+            type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) => body(self, args), count, count);
+        Method(PyType.BaseExceptionType, "__reduce__", (self, args) => ReduceValue(self, ArgsTupleOf(self), StateOf(self)));
+        Method(PyType.BaseExceptionType, "__setstate__", (self, args) =>
+        {
+            if (args[0] is PyNone) return PyNone.Instance;
+            if (args[0] is not PyDict state)
+                throw PyTypeError.Create("state is not a dictionary");
+            foreach (var entry in new List<KeyValuePair<PyObject, PyObject>>(state.GetInternalDict()))
+                self.SetAttribute(((PyString)entry.Key).Value, entry.Value);
+            return PyNone.Instance;
+        }, 1);
+        Method(PyType.ImportErrorType, "__reduce__", (self, args) => ReduceValue(self, ArgsTupleOf(self), StateWith(self, "name", "path")));
+        Method(PyType.ImportErrorType, "__getstate__", (self, args) => StateWith(self, "name", "path") ?? PyNone.Instance);
+        Method(PyType.AttributeErrorType, "__getstate__", (self, args) => StateWith(self, "name", "args") ?? PyNone.Instance);
+        Method(PyType.AttributeErrorType, "__reduce__", (self, args) => ReduceValue(self, ArgsTupleOf(self), StateWith(self, "name", "args")));
+        Method(PyType.OSErrorType, "__reduce__", (self, args) =>
+        {
+            // args holds only the first two real arguments when a file name was given.
+            var arguments = (PyTuple)ArgsTupleOf(self);
+            var filename = self.GetAttribute("filename");
+            if (arguments.Items.Length == 2 && filename is not PyNone)
+            {
+                var filename2 = self.GetAttribute("filename2");
+                arguments = filename2 is PyNone
+                    ? new PyTuple(new[] { arguments.Items[0], arguments.Items[1], filename })
+                    : new PyTuple(new[] { arguments.Items[0], arguments.Items[1], filename, PyNone.Instance, filename2 });
+            }
+            return ReduceValue(self, arguments, StateOf(self));
+        });
+    }
+
     /// <summary>The member descriptors and __init__ of such a type. A builtin object is built by its
     /// constructor and answers for its own fields; only a Python subclass comes through here.</summary>
     internal static void InstallFields(PyType type, string[] names)
@@ -105,6 +171,14 @@ internal static class PyExceptionSlots
             {
                 instance.Layout = (PyBaseException)NearestBuiltin(instance.InstanceType).Call(args, kwargs);
                 instance.ArgsSlot = instance.Layout.ArgsTuple;
+            }
+            else if (self is PyBaseException exception)
+            {
+                // A second __init__ resets every field, what it was not given included.
+                var fresh = (PyBaseException)exception.GetPyType().Call(args, kwargs);
+                exception.SetArgsTuple(fresh.ArgsTuple);
+                foreach (var name in names)
+                    exception.SetAttribute(name, fresh.GetAttribute(name));
             }
             return PyNone.Instance;
         });

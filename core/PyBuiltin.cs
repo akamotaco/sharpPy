@@ -1119,21 +1119,8 @@ namespace SharpPy
         // CPython 3.12: Objects/longobject.c:5598-5641 (long_new_impl)
         private static PyObject CallInt(PyObject[] args, PyDict kwargs = null) => PyInt.FromArguments(args, kwargs);
 
-        private static PyObject CallFloat(PyObject[] args, PyDict kwargs = null)
-        {
-            // CPython 3.12: float() with no args returns 0.0
-            // CPython float_new has no keyword parameters at all.
-            if (kwargs != null && kwargs.Length() != 0)
-                throw PyTypeError.Create("float() takes no keyword arguments");
-
-            if (args.Length == 0)
-                return new PyFloat(0.0);
-
-            if (args.Length != 1)
-                throw PyTypeError.Create($"float expected at most 1 argument, got {args.Length}");
-
-            return args[0].AsFloat();
-        }
+        private static PyObject CallFloat(PyObject[] args, PyDict kwargs = null) =>
+            PyFloat.FloatNew(PyType.FloatType, args, kwargs);
 
         internal static PyObject CallComplex(PyObject[] args, PyDict kwargs = null)
         {

@@ -4,9 +4,11 @@ namespace SharpPy
     {
         private const string LegacyThrowMessage = "the (type, exc, tb) signature of throw() is deprecated, use the single-arg signature instead.";
 
-        internal static void DeprecatedThrow(bool asynchronous = false)
+        internal static void DeprecatedThrow(bool asynchronous = false) => Deprecated(asynchronous ? "the (type, exc, tb) signature of athrow() is deprecated, use the single-arg signature instead." : LegacyThrowMessage);
+
+        // PyErr_WarnFormat(PyExc_DeprecationWarning, 1, ...)
+        internal static void Deprecated(string message)
         {
-            string message = asynchronous ? "the (type, exc, tb) signature of athrow() is deprecated, use the single-arg signature instead." : LegacyThrowMessage;
             var frame = PyVM.CurrentFrame;
             if (frame == null) return;
             var globals = frame.ScopeChain.GlobalScope.Variables;

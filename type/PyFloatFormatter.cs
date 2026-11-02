@@ -74,18 +74,7 @@ internal static class PyFloatFormatter
         }
         else
         {
-            double magnitude = Math.Abs(value);
-            if (type == 'f' || type == 'F' || type == '%')
-                number = magnitude.ToString("F" + (precision < 0 ? 6 : precision), Invariant);
-            else if (type == 'e' || type == 'E')
-                number = NormalizeExponent(magnitude.ToString(type + (precision < 0 ? 6 : precision).ToString(Invariant), Invariant));
-            else
-                number = General(magnitude, precision, type, alternate);
-            if (alternate && !number.Contains('.'))
-            {
-                int exponent = ExponentIndex(number);
-                number = exponent < 0 ? number + "." : number.Insert(exponent, ".");
-            }
+            number = DoubleToString(Math.Abs(value), type, precision, alternate);
             if (zero && negative)
             {
                 bool nonzero = false;
@@ -151,6 +140,24 @@ internal static class PyFloatFormatter
             value = value * 10 + digit; index += size;
         }
         return value;
+    }
+
+    /// <summary>PyOS_double_to_string for a finite, non-negative value, the sign left to the caller.</summary>
+    internal static string DoubleToString(double magnitude, char type, int precision, bool alternate)
+    {
+        string number;
+        if (type == 'f' || type == 'F' || type == '%')
+            number = magnitude.ToString("F" + (precision < 0 ? 6 : precision), Invariant);
+        else if (type == 'e' || type == 'E')
+            number = NormalizeExponent(magnitude.ToString(type + (precision < 0 ? 6 : precision).ToString(Invariant), Invariant));
+        else
+            number = General(magnitude, precision, type, alternate);
+        if (alternate && !number.Contains('.'))
+        {
+            int exponent = ExponentIndex(number);
+            number = exponent < 0 ? number + "." : number.Insert(exponent, ".");
+        }
+        return number;
     }
 
     private static int ExponentIndex(string number)

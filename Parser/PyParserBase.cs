@@ -733,6 +733,11 @@ namespace SharpPy.Generated
                 else
                     errorLine = ErrorLineFromTokenizerBuffers(lineno);
             }
+            // PyUnicode_DecodeUTF8(..., "replace"): undecodable source bytes.
+            var replaced = new System.Text.StringBuilder(errorLine.Length);
+            foreach (char unit in errorLine)
+                replaced.Append(unit >= 0xDC80 && unit <= 0xDCFF ? '�' : unit);
+            errorLine = replaced.ToString();
 
             int colNumber = ByteOffsetToCharacterOffset(errorLine, colOffset);
             int endColNumber = endColOffset > 0 ? ByteOffsetToCharacterOffset(errorLine, endColOffset) : endColOffset;

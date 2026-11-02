@@ -75,10 +75,7 @@ namespace SharpPy
             var method = self.LookupSpecialMethodUncached("__float__");
             if (method != null)
             {
-                var result = self.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-                if (result is PyFloat asFloat)
-                    return asFloat;
-                throw PyTypeError.Create($"{self.GetTypeName()}.__float__ returned non-float (type {result.GetTypeName()})");
+                return PyFloat.CheckFloatResult(self, self.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null));
             }
             return PyClassInstance.TryGetIndex(self)?.AsFloat() ?? throw PyTypeError.Create(
                 $"float() argument must be a string or a real number, not '{self.GetTypeName()}'");

@@ -17,7 +17,7 @@ namespace SharpPy.Modules
             module.ModuleDict["e"] = new PyFloat(Math.E);
             module.ModuleDict["tau"] = new PyFloat(2 * Math.PI);
             module.ModuleDict["inf"] = new PyFloat(double.PositiveInfinity);
-            module.ModuleDict["nan"] = new PyFloat(double.NaN);
+            module.ModuleDict["nan"] = new PyFloat(PyFloat.QuietNaN);
 
             // 기본 수학 함수들
             module.ModuleDict["sqrt"] = new PyMathFunction("sqrt");
