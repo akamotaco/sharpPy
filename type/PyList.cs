@@ -720,7 +720,7 @@ namespace SharpPy
                         valueList = FromIterable(value);
                     }
                     catch (PythonException ex) when (ex.PyException is PyTypeError te
-                                 && te.Message.EndsWith("object is not iterable"))
+                                 && te.Message.EndsWith("object is not iterable", StringComparison.Ordinal))
                     {
                         // CPython list_ass_subscript: PySequence_Fast wording
                         // "must assign iterable to extended slice".

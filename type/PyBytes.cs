@@ -818,7 +818,7 @@ namespace SharpPy
 
                 if (isNumeric && (signPlus || signSpace))
                 {
-                    if (!text.StartsWith("-"))
+                    if (!text.StartsWith("-", StringComparison.Ordinal))
                     {
                         text = (signPlus ? "+" : " ") + text;
                     }

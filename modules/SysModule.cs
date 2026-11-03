@@ -85,7 +85,7 @@ namespace SharpPy.Modules
             module.ModuleDict["api_version"] = new PyInt(1013);
             module.ModuleDict["copyright"] = new PyString("Copyright (c) 2001-2026 Python Software Foundation.\nAll Rights Reserved.");
             module.ModuleDict["pycache_prefix"] = PyNone.Instance;
-            module.ModuleDict["dont_write_bytecode"] = PyBool.True;
+            module.ModuleDict["dont_write_bytecode"] = PyBool.FromBool(!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PYTHONDONTWRITEBYTECODE")));
             module.ModuleDict["_git"] = new PyTuple(new PyObject[] { new PyString("SharpPy"), new PyString(""), new PyString("") });
             module.ModuleDict["_xoptions"] = new PyDict();
             module.ModuleDict["_home"] = PyNone.Instance;
@@ -345,7 +345,8 @@ namespace SharpPy.Modules
             for (int i = 0; i < fields.Length; i++)
                 values[i] = new PyInt(fields[i] switch
                 {
-                    "dont_write_bytecode" or "no_site" or "hash_randomization" => 1,
+                    "dont_write_bytecode" => string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PYTHONDONTWRITEBYTECODE")) ? 0 : 1,
+                    "no_site" or "hash_randomization" => 1,
                     "int_max_str_digits" => 4300,
                     _ => 0,
                 });

@@ -296,7 +296,7 @@ namespace SharpPy
         internal override PyObject Reduce()
         {
             // dictreviter_reduce: a list of what is left
-            if (_typeName.StartsWith("dict_"))
+            if (_typeName.StartsWith("dict_", StringComparison.Ordinal))
             {
                 var left = new List<PyObject>();
                 for (int i = _index; !_exhausted && i < _list.RawCount(); i++)

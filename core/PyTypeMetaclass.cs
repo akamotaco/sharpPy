@@ -556,7 +556,7 @@ namespace SharpPy
 
         // _Py_Mangle as type_new_copy_slots applies it.
         private static string SlotAttribute(PyClass type, string slot) =>
-            slot.StartsWith("__") && !slot.EndsWith("__") ? "_" + type.Name.TrimStart('_') + slot : slot;
+            slot.StartsWith("__", StringComparison.Ordinal) && !slot.EndsWith("__", StringComparison.Ordinal) ? "_" + type.Name.TrimStart('_') + slot : slot;
 
         /// <summary>type_new_slots and type_new_descriptors: what a new class adds to its tp_base.</summary>
         internal static TypeLayout NewLayout(PyClass type)
@@ -698,7 +698,7 @@ namespace SharpPy
                         throw PyTypeError.Create("__weakref__ slot disallowed: we already got one");
                     mayAddWeak = false;
                 }
-                if (dict.ContainsKey(text.Value) && text.Value is not ("__qualname__" or "__classcell__") && !text.Value.StartsWith("__"))
+                if (dict.ContainsKey(text.Value) && text.Value is not ("__qualname__" or "__classcell__") && !text.Value.StartsWith("__", StringComparison.Ordinal))
                     throw PyValueError.Create($"'{text.Value}' in __slots__ conflicts with class variable");
             }
         }

@@ -182,7 +182,7 @@ namespace SharpPy
             // CPython complex repr prints each part with the shortest float repr,
             // omitting the trailing ".0" for integral parts (1e-05, 1e+20 styles).
             string text = PyFloat.FormatFloat(value, "");
-            if (text.EndsWith(".0"))
+            if (text.EndsWith(".0", StringComparison.Ordinal))
                 text = text.Substring(0, text.Length - 2);
             return text;
         }
@@ -198,7 +198,7 @@ namespace SharpPy
 
             // CPython: 1j outputs as "1j", not "j"; same shortest-repr rule as real parts.
             string text = PyFloat.FormatFloat(value, "");
-            if (text.EndsWith(".0"))
+            if (text.EndsWith(".0", StringComparison.Ordinal))
                 text = text.Substring(0, text.Length - 2);
             return text;
         }

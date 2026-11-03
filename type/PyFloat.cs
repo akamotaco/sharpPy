@@ -1368,7 +1368,7 @@ namespace SharpPy
                 }
 
                 string tail = text.Substring(probe).ToLowerInvariant();
-                if (tail.StartsWith("inf"))
+                if (tail.StartsWith("inf", StringComparison.Ordinal))
                 {
                     probe += 3;
                     if (text.Length - probe >= 5 && text.Substring(probe, 5).ToLowerInvariant() == "inity")
@@ -1379,7 +1379,7 @@ namespace SharpPy
                         probeNegate ? double.NegativeInfinity : double.PositiveInfinity, text, s, end);
                 }
 
-                if (tail.StartsWith("nan"))
+                if (tail.StartsWith("nan", StringComparison.Ordinal))
                 {
                     probe += 3;
                     s = probe;

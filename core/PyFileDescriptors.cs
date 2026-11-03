@@ -35,8 +35,7 @@ namespace SharpPy
             {
                 if (Table.TryGetValue(fd, out var stream)) return stream;
                 if (fd is < 0 or > 2) throw BadDescriptor();
-                return Table[fd] = fd == 0 ? Console.OpenStandardInput()
-                    : fd == 1 ? Console.OpenStandardOutput() : Console.OpenStandardError();
+                return Table[fd] = new PyConsoleStream(fd);
             }
         }
 
@@ -60,6 +59,21 @@ namespace SharpPy
             else
                 mode = (flags & O_TRUNC) != 0 ? FileMode.Truncate : FileMode.Open;
             var access = (flags & O_RDWR) != 0 ? FileAccess.ReadWrite : write ? FileAccess.Write : FileAccess.Read;
+#if GODOT
+            // res:// and user:// are Godot's file system, packs included.
+            if (Godot_IO.Helper.IsGodotPath(path))
+            {
+                bool exists = Godot.FileAccess.FileExists(path);
+                if ((flags & O_CREAT) == 0 && !exists)
+                    throw new FileNotFoundException(null, path);
+                if ((flags & O_CREAT) != 0 && (flags & O_EXCL) != 0 && exists)
+                    throw new IOException("File exists", unchecked((int)0x80070050));
+                bool update = (flags & O_RDWR) != 0;
+                char kind = !write ? 'r' : (flags & O_APPEND) != 0 ? 'a' : (flags & O_TRUNC) != 0 || !exists ? 'w' : 'r';
+                var godot = new GodotFileStream(path, kind, update || (kind == 'r' && write));
+                return Add(godot);
+            }
+#endif
             var options = (flags & O_TEMPORARY) != 0 ? FileOptions.DeleteOnClose : FileOptions.None;
             var stream = new FileStream(path, mode, access, FileShare.ReadWrite | FileShare.Delete, 1, options);
             if ((flags & O_APPEND) != 0)

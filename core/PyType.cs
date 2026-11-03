@@ -1887,7 +1887,7 @@ namespace SharpPy
         {
             string name = self.GetPyType().Name;
             if (name == builtin) return new PyString(text);
-            if (text.StartsWith(builtin + "(")) return new PyString(name + text.Substring(builtin.Length));
+            if (text.StartsWith(builtin + "(", StringComparison.Ordinal)) return new PyString(name + text.Substring(builtin.Length));
             return new PyString($"{name}({text})");
         }
 

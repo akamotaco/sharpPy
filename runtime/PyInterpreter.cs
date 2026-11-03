@@ -106,13 +106,13 @@ namespace SharpPy
 #else
             const bool virtualPath = false;
 #endif
-            if (!virtualPath && !string.IsNullOrEmpty(fileName) && !fileName.StartsWith("<") && !Path.IsPathRooted(fileName))
+            if (!virtualPath && !string.IsNullOrEmpty(fileName) && !fileName.StartsWith("<", StringComparison.Ordinal) && !Path.IsPathRooted(fileName))
             {
                 fileName = Path.GetFullPath(fileName);
             }
 
             // Store filename and source lines for Python-like error reporting
-            if (mode == CompileMode.File && !string.IsNullOrEmpty(fileName) && !fileName.StartsWith("<"))
+            if (mode == CompileMode.File && !string.IsNullOrEmpty(fileName) && !fileName.StartsWith("<", StringComparison.Ordinal))
                 PyGlobalsDict.Store(_globalScope.GlobalScope.Variables, "__file__", new PyString(fileName));
             _currentFileName = fileName;
             // Fix: Handle all line ending types correctly (\r\n, \r, \n)

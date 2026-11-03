@@ -134,7 +134,7 @@ namespace SharpPy.Core
                         return method == "__next__" ? request.Next() : request;
                     };
                     // am_await, tp_iter and tp_iternext are slots.
-                    type.TypeDict[method] = method.StartsWith("__")
+                    type.TypeDict[method] = method.StartsWith("__", StringComparison.Ordinal)
                         ? new PyWrapperDescriptor(method, type, run)
                         : new PyMethodDescriptor(method, type, run);
                 }

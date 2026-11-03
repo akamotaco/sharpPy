@@ -811,7 +811,7 @@ namespace SharpPy
                     int pos = win.UnitStart;
                     while (pos + sub.Value.Length <= win.UnitEnd)
                     {
-                        int foundIndex = str.Value.IndexOf(sub.Value, pos, win.UnitEnd - pos);
+                        int foundIndex = str.Value.IndexOf(sub.Value, pos, win.UnitEnd - pos, StringComparison.Ordinal);
                         if (foundIndex == -1)
                             break;
                         if (StartsCharacter(str.Value, sub.Value, foundIndex))
@@ -1252,7 +1252,7 @@ namespace SharpPy
                     if (sep.Value.Length == 0)
                         throw PyValueError.Create("empty separator");
 
-                    int index = str.Value.IndexOf(sep.Value);
+                    int index = str.Value.IndexOf(sep.Value, StringComparison.Ordinal);
                     if (index == -1)
                         return new PyTuple(new PyObject[] { str, new PyString(""), new PyString("") });
 
@@ -1280,7 +1280,7 @@ namespace SharpPy
                     if (sep.Value.Length == 0)
                         throw PyValueError.Create("empty separator");
 
-                    int index = str.Value.LastIndexOf(sep.Value);
+                    int index = str.Value.LastIndexOf(sep.Value, StringComparison.Ordinal);
                     if (index == -1)
                         return new PyTuple(new PyObject[] { new PyString(""), new PyString(""), str });
 
@@ -1305,7 +1305,7 @@ namespace SharpPy
                     if (args[0] is not PyString prefix)
                         throw PyTypeError.Create("prefix must be str, not " + args[0].GetTypeName());
 
-                    if (str.Value.StartsWith(prefix.Value))
+                    if (str.Value.StartsWith(prefix.Value, StringComparison.Ordinal))
                         return new PyString(str.Value.Substring(prefix.Value.Length));
 
                     return str;
@@ -1325,7 +1325,7 @@ namespace SharpPy
                     if (args[0] is not PyString suffix)
                         throw PyTypeError.Create("suffix must be str, not " + args[0].GetTypeName());
 
-                    if (str.Value.EndsWith(suffix.Value))
+                    if (str.Value.EndsWith(suffix.Value, StringComparison.Ordinal))
                         return new PyString(str.Value.Substring(0, str.Value.Length - suffix.Value.Length));
 
                     return str;
@@ -2012,12 +2012,12 @@ namespace SharpPy
             int found;
             if (!backward)
             {
-                found = text.IndexOf(pattern, win.UnitStart, win.UnitEnd - win.UnitStart);
+                found = text.IndexOf(pattern, win.UnitStart, win.UnitEnd - win.UnitStart, StringComparison.Ordinal);
                 while (found != -1 && !StartsCharacter(text, pattern, found))
                 {
                     int from = found + 1;
                     found = from < win.UnitEnd
-                        ? text.IndexOf(pattern, from, win.UnitEnd - from)
+                        ? text.IndexOf(pattern, from, win.UnitEnd - from, StringComparison.Ordinal)
                         : -1;
                 }
             }
@@ -2025,11 +2025,11 @@ namespace SharpPy
             {
                 found = win.UnitEnd == 0
                     ? -1
-                    : text.LastIndexOf(pattern, win.UnitEnd - 1, win.UnitEnd - win.UnitStart);
+                    : text.LastIndexOf(pattern, win.UnitEnd - 1, win.UnitEnd - win.UnitStart, StringComparison.Ordinal);
                 while (found != -1 && !StartsCharacter(text, pattern, found))
                 {
                     found = found > win.UnitStart + 1
-                        ? text.LastIndexOf(pattern, found - 1, found - 1 - win.UnitStart)
+                        ? text.LastIndexOf(pattern, found - 1, found - 1 - win.UnitStart, StringComparison.Ordinal)
                         : -1;
                 }
             }
@@ -3028,7 +3028,7 @@ namespace SharpPy
                 ? Value
                 : Value.Substring(start, actualEnd - start);
 
-            var index = searchIn.IndexOf(sub);
+            var index = searchIn.IndexOf(sub, StringComparison.Ordinal);
             return new PyInt(index == -1 ? -1 : index + start);
         }
 
@@ -3046,7 +3046,7 @@ namespace SharpPy
             
             int count = 0;
             int index = 0;
-            while ((index = Value.IndexOf(sub, index)) != -1)
+            while ((index = Value.IndexOf(sub, index, StringComparison.Ordinal)) != -1)
             {
                 count++;
                 index += sub.Length;
@@ -3054,8 +3054,8 @@ namespace SharpPy
             return new PyInt(count);
         }
 
-        public PyBool StartsWith(string prefix) => PyBool.FromBool(Value.StartsWith(prefix));
-        public PyBool EndsWith(string suffix) => PyBool.FromBool(Value.EndsWith(suffix));
+        public PyBool StartsWith(string prefix) => PyBool.FromBool(Value.StartsWith(prefix, StringComparison.Ordinal));
+        public PyBool EndsWith(string suffix) => PyBool.FromBool(Value.EndsWith(suffix, StringComparison.Ordinal));
 
         public PyList Split(string sep = null, int maxsplit = -1)
         {
@@ -3288,8 +3288,8 @@ namespace SharpPy
                         codec == "utf-16-be" || codec == "utf-32" || codec == "utf-32-le" ||
                         codec == "utf-32-be";
                 Limit = codec == "ascii" ? 0x7F : codec == "latin-1" ? 0xFF : int.MaxValue;
-                Width = codec == "utf-8" ? 0 : codec.StartsWith("utf-16") ? 2
-                      : codec.StartsWith("utf-32") ? 4 : 1;
+                Width = codec == "utf-8" ? 0 : codec.StartsWith("utf-16", StringComparison.Ordinal) ? 2
+                      : codec.StartsWith("utf-32", StringComparison.Ordinal) ? 4 : 1;
             }
 
             internal readonly string Codec;
@@ -3663,7 +3663,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"startswith() takes exactly one argument ({args.Length} given)");
             
             foreach (var prefix in NormalizePrefixTuple(args[0], "startswith"))
-                if (Value.StartsWith(prefix))
+                if (Value.StartsWith(prefix, StringComparison.Ordinal))
                     return PyBool.True;
             return PyBool.False;
         }
@@ -3674,7 +3674,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"endswith() takes exactly one argument ({args.Length} given)");
             
             foreach (var suffix in NormalizePrefixTuple(args[0], "endswith"))
-                if (Value.EndsWith(suffix))
+                if (Value.EndsWith(suffix, StringComparison.Ordinal))
                     return PyBool.True;
             return PyBool.False;
         }
@@ -3706,7 +3706,7 @@ namespace SharpPy
                 ? Value 
                 : Value.Substring(start, end - start);
                 
-            var index = substring.IndexOf(sub);
+            var index = substring.IndexOf(sub, StringComparison.Ordinal);
             return new PyInt(index == -1 ? -1 : index + start);
         }
 
@@ -3750,7 +3750,7 @@ namespace SharpPy
             int count = 0;
             int index = 0;
             
-            while ((index = text.IndexOf(sub, index)) != -1)
+            while ((index = text.IndexOf(sub, index, StringComparison.Ordinal)) != -1)
             {
                 count++;
                 index += sub.Length;

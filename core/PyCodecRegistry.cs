@@ -85,13 +85,6 @@ namespace SharpPy
             string key = Normalize(original);
             if (Cache.TryGetValue(key, out var cached)) return cached;
 
-            PyObject entry = BuiltinSearch(key);
-            if (entry != null)
-            {
-                Cache[key] = entry;
-                return entry;
-            }
-
             // _PyCodecRegistry_Init imports encodings, whose search_function reads Lib/encodings.
             if (!_encodingsImported)
             {

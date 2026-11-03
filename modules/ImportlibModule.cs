@@ -35,7 +35,7 @@ namespace SharpPy.Modules
                 }
                 // import_module and _resolve_name: the module named, not its top package.
                 string name = nameStr.Value;
-                if (name.StartsWith("."))
+                if (name.StartsWith(".", StringComparison.Ordinal))
                 {
                     if (args.Length < 2 || args[1] is not PyString package)
                         throw PyTypeError.Create($"the 'package' argument is required to perform a relative import for {nameStr.ToRepr().Value}");

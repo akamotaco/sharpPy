@@ -124,14 +124,14 @@ public class PyModule : PyObject
     {
         ModuleDict["__name__"] = new PyString(Name);
         // A builtin module has no __file__.
-        if (hasFile && !string.IsNullOrEmpty(FileName) && !FileName.StartsWith("<"))
+        if (hasFile && !string.IsNullOrEmpty(FileName) && !FileName.StartsWith("<", StringComparison.Ordinal))
             ModuleDict["__file__"] = new PyString(FileName);
         ModuleDict["__doc__"] = new PyString($"Module {Name}");
 
         // CPython 3.12: Set __package__
         // For packages (__init__.py): __package__ = __name__
         // For modules: __package__ = parent package name (or "" for top-level)
-        bool isPackage = FileName != null && FileName.EndsWith("__init__.py");
+        bool isPackage = FileName != null && FileName.EndsWith("__init__.py", StringComparison.Ordinal);
 
         if (isPackage)
         {
@@ -355,7 +355,7 @@ public class PyModule : PyObject
 
     private void ExecuteLine(string line)
     {
-        if (line.StartsWith("def "))
+        if (line.StartsWith("def ", StringComparison.Ordinal))
         {
             var funcName = line.Substring(4).Split('(')[0].Trim();
             var func = new PyFunction(funcName, null, this);
@@ -381,10 +381,10 @@ public class PyModule : PyObject
             Console.WriteLine($"  정의됨: 변수 {varName} = {value}");
 #endif
         }
-        else if (line.StartsWith("__all__ = "))
+        else if (line.StartsWith("__all__ = ", StringComparison.Ordinal))
         {
             var allStr = line.Substring(10).Trim();
-            if (allStr.StartsWith("[") && allStr.EndsWith("]"))
+            if (allStr.StartsWith("[", StringComparison.Ordinal) && allStr.EndsWith("]", StringComparison.Ordinal))
             {
                 // Performance: Eliminated LINQ - manual parsing instead of Select + Where
                 var parts = allStr.Substring(1, allStr.Length - 2).Split(',');
@@ -498,6 +498,7 @@ public class PyModule : PyObject
             // CPython 3.12 Built-in C 모듈 (성능 중요)
             ["math"] = () => SharpPy.Modules.MathModule.CreateMathModule(),
             ["cmath"] = () => SharpPy.Modules.CmathModule.CreateModule(),
+            ["_wmi"] = () => SharpPy.Modules.WmiModule.CreateModule(),
             ["time"] = () => new TimeModule(),
             ["itertools"] = () => ItertoolsModule.Instance,
             ["_collections"] = () => SharpPy.Modules._CollectionsModule.CreateCollectionsModule(),
@@ -922,7 +923,8 @@ public class PyModule : PyObject
         {
             try
             {
-                var sourceCode = Generated.Tokenizer.DecodeFile(IOHelper.ReadAllBytes(filePath), filePath);
+                var cached = PyBytecodeCache.TryLoad(filePath);
+                var sourceCode = cached == null ? Generated.Tokenizer.DecodeFile(IOHelper.ReadAllBytes(filePath), filePath) : null;
                 var module = new PyModule(moduleName, filePath);
                 module.HasSourceFile = true;
 
@@ -937,8 +939,11 @@ public class PyModule : PyObject
                 // CPython 3.12: Register in sys.modules (prevents circular import)
                 SetModule(moduleName, module);
 
-                // 모듈 실행 (초기화)
-                module.Execute(sourceCode);
+                // SourceLoader.get_code: the cache, or the source compiled and then cached.
+                var code = cached ?? Compiler.CompileSource(sourceCode, filePath);
+                if (cached == null)
+                    PyBytecodeCache.Store(filePath, code);
+                module.ExecuteCode(code);
 
 #if DEBUG_MODULE_LOG
                 Console.WriteLine($"📦 모듈 '{moduleName}' 파일에서 로드됨: {filePath}");
@@ -1143,7 +1148,7 @@ public class PyModule : PyObject
             {
                 foreach (var kvp in module.ModuleDict)
                 {
-                    if (!kvp.Key.StartsWith("_"))
+                    if (!kvp.Key.StartsWith("_", StringComparison.Ordinal))
                     {
                         result[kvp.Key] = kvp.Value;
                     }

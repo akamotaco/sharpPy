@@ -13,7 +13,7 @@ namespace SharpPy.Modules
     /// </summary>
     internal static class MarshalModule
     {
-        private const int Version = 4;
+        internal const int Version = 4;
         // MAX_MARSHAL_STACK_DEPTH
         private static readonly int MaxDepth =
             System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? 1000 : 2000;
@@ -44,7 +44,7 @@ namespace SharpPy.Modules
             return (int)index.Value;
         }
 
-        private static byte[] Write(PyObject value, int version)
+        internal static byte[] Write(PyObject value, int version)
         {
             var writer = new Writer(version);
             writer.Object(value);

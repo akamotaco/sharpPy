@@ -257,12 +257,12 @@ namespace SharpPy.Core
             string trimmed = input.Trim();
             
             // Function definition, class definition, control structures
-            if (trimmed.StartsWith("def ") || trimmed.StartsWith("class ") ||
-                trimmed.StartsWith("if ") || trimmed.StartsWith("elif ") ||
-                trimmed.StartsWith("else:") || trimmed.StartsWith("for ") ||
-                trimmed.StartsWith("while ") || trimmed.StartsWith("try:") ||
-                trimmed.StartsWith("except") || trimmed.StartsWith("finally:") ||
-                trimmed.StartsWith("with "))
+            if (trimmed.StartsWith("def ", StringComparison.Ordinal) || trimmed.StartsWith("class ", StringComparison.Ordinal) ||
+                trimmed.StartsWith("if ", StringComparison.Ordinal) || trimmed.StartsWith("elif ", StringComparison.Ordinal) ||
+                trimmed.StartsWith("else:", StringComparison.Ordinal) || trimmed.StartsWith("for ", StringComparison.Ordinal) ||
+                trimmed.StartsWith("while ", StringComparison.Ordinal) || trimmed.StartsWith("try:", StringComparison.Ordinal) ||
+                trimmed.StartsWith("except", StringComparison.Ordinal) || trimmed.StartsWith("finally:", StringComparison.Ordinal) ||
+                trimmed.StartsWith("with ", StringComparison.Ordinal))
             {
                 return true;
             }
@@ -274,7 +274,7 @@ namespace SharpPy.Core
         private bool ShouldContinueMultiLineMode(string input)
         {
             // Continue if line is indented or empty
-            if (string.IsNullOrWhiteSpace(input) || input.StartsWith(" ") || input.StartsWith("\t"))
+            if (string.IsNullOrWhiteSpace(input) || input.StartsWith(" ", StringComparison.Ordinal) || input.StartsWith("\t", StringComparison.Ordinal))
             {
                 return true;
             }
@@ -376,10 +376,10 @@ namespace SharpPy.Core
             }
 
             // Check for statements (keywords that don't return values)
-            return trimmed.StartsWith("def ") || trimmed.StartsWith("class ") ||
-                   trimmed.StartsWith("import ") || trimmed.StartsWith("from ") ||
-                   trimmed.StartsWith("print(") || trimmed.StartsWith("del ") ||
-                   trimmed.StartsWith("global ") || trimmed.StartsWith("nonlocal ");
+            return trimmed.StartsWith("def ", StringComparison.Ordinal) || trimmed.StartsWith("class ", StringComparison.Ordinal) ||
+                   trimmed.StartsWith("import ", StringComparison.Ordinal) || trimmed.StartsWith("from ", StringComparison.Ordinal) ||
+                   trimmed.StartsWith("print(", StringComparison.Ordinal) || trimmed.StartsWith("del ", StringComparison.Ordinal) ||
+                   trimmed.StartsWith("global ", StringComparison.Ordinal) || trimmed.StartsWith("nonlocal ", StringComparison.Ordinal);
         }
 
         private string FormatResult(PyObject result)
@@ -425,15 +425,15 @@ namespace SharpPy.Core
                     var trimmedLine = line.Trim();
                     // Show lines that are actual Python output (not debug messages)
                     if (!string.IsNullOrEmpty(trimmedLine) &&
-                        !trimmedLine.StartsWith("🐍") && !trimmedLine.StartsWith("📄") &&
-                        !trimmedLine.StartsWith("🏗️") && !trimmedLine.StartsWith("======") &&
-                        !trimmedLine.StartsWith("📝") && !trimmedLine.StartsWith("🔍") &&
-                        !trimmedLine.StartsWith("✅") && !trimmedLine.StartsWith("🔧") &&
-                        !trimmedLine.StartsWith("→") && !trimmedLine.StartsWith("🚀") &&
-                        !trimmedLine.StartsWith("📁") && !trimmedLine.StartsWith("🔗") &&
-                        !trimmedLine.StartsWith("🆕") && !trimmedLine.StartsWith("소스:") &&
+                        !trimmedLine.StartsWith("🐍", StringComparison.Ordinal) && !trimmedLine.StartsWith("📄", StringComparison.Ordinal) &&
+                        !trimmedLine.StartsWith("🏗️", StringComparison.Ordinal) && !trimmedLine.StartsWith("======", StringComparison.Ordinal) &&
+                        !trimmedLine.StartsWith("📝", StringComparison.Ordinal) && !trimmedLine.StartsWith("🔍", StringComparison.Ordinal) &&
+                        !trimmedLine.StartsWith("✅", StringComparison.Ordinal) && !trimmedLine.StartsWith("🔧", StringComparison.Ordinal) &&
+                        !trimmedLine.StartsWith("→", StringComparison.Ordinal) && !trimmedLine.StartsWith("🚀", StringComparison.Ordinal) &&
+                        !trimmedLine.StartsWith("📁", StringComparison.Ordinal) && !trimmedLine.StartsWith("🔗", StringComparison.Ordinal) &&
+                        !trimmedLine.StartsWith("🆕", StringComparison.Ordinal) && !trimmedLine.StartsWith("소스:", StringComparison.Ordinal) &&
                         !trimmedLine.Contains("스택:") && !trimmedLine.Contains("VM 완료") &&
-                        !trimmedLine.StartsWith("🎉"))
+                        !trimmedLine.StartsWith("🎉", StringComparison.Ordinal))
                     {
                         Console.WriteLine(line);
                     }

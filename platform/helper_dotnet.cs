@@ -18,7 +18,7 @@ namespace DotNet_IO
                     var allFiles = Directory.GetFiles(path);
                     foreach (var file in allFiles)
                     {
-                        if (string.IsNullOrEmpty(extension) || file.EndsWith(extension))
+                        if (string.IsNullOrEmpty(extension) || file.EndsWith(extension, StringComparison.Ordinal))
                         {
                             // 경로를 슬래시로 정규화
                             files.Add(file.Replace('\\', '/'));

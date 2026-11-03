@@ -131,7 +131,7 @@ namespace SharpPy.Core
                         // whatever it is called. -W and -X take a value, joined or not.
                         if (arg is "-W" or "-X")
                             i++;
-                        else if (!arg.StartsWith("-"))
+                        else if (!arg.StartsWith("-", StringComparison.Ordinal))
                             line.PythonFile = arg;
                         break;
                 }

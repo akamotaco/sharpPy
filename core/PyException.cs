@@ -1438,7 +1438,7 @@ namespace SharpPy
                 message = new System.ComponentModel.Win32Exception(winCode).Message;
                 // FormatMessage text ends with ".\r\n"; CPython trims to the bare sentence.
                 message = message.TrimEnd();
-                if (message.EndsWith("."))
+                if (message.EndsWith(".", StringComparison.Ordinal))
                     message = message.Substring(0, message.Length - 1);
             }
             catch

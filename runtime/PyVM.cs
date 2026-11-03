@@ -2924,18 +2924,6 @@ namespace SharpPy
                     frame.ValueStack.Push(getValue);
                     break;
 
-                case ByteCodeOp.CALL_STR_UPPER:
-                    var upperStr = (PyString)frame.ValueStack.Pop();
-                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
-                    frame.ValueStack.Push(new PyString(upperStr.Value.ToUpper()));
-                    break;
-
-                case ByteCodeOp.CALL_STR_LOWER:
-                    var lowerStr = (PyString)frame.ValueStack.Pop();
-                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
-                    frame.ValueStack.Push(new PyString(lowerStr.Value.ToLower()));
-                    break;
-
                 case ByteCodeOp.CALL_LEN_LIST:
                     var lenList = (PyList)frame.ValueStack.Pop();
                     frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
@@ -5251,7 +5239,7 @@ namespace SharpPy
                             {
                                 foreach (var key in pyModule.ModuleDict.Keys)
                                 {
-                                    if (!key.StartsWith("_"))
+                                    if (!key.StartsWith("_", StringComparison.Ordinal))
                                     {
                                         namesToImport.Add(key);
                                     }
@@ -6760,7 +6748,7 @@ namespace SharpPy
                         var name = nameStr.Value;
 
                         // Skip names starting with underscore if using __dict__
-                        if (skipUnderscores && name.StartsWith("_"))
+                        if (skipUnderscores && name.StartsWith("_", StringComparison.Ordinal))
                         {
                             continue;
                         }
@@ -6789,7 +6777,7 @@ namespace SharpPy
                         var name = nameStr.Value;
 
                         // Skip names starting with underscore if using __dict__
-                        if (skipUnderscores && name.StartsWith("_"))
+                        if (skipUnderscores && name.StartsWith("_", StringComparison.Ordinal))
                         {
                             continue;
                         }

@@ -24,7 +24,7 @@ namespace Godot_IO
                     {
                         if (!dir.CurrentIsDir())
                         {
-                            if (string.IsNullOrEmpty(extension) || fileName.EndsWith(extension))
+                            if (string.IsNullOrEmpty(extension) || fileName.EndsWith(extension, StringComparison.Ordinal))
                             {
                                 files.Add(path + "/" + fileName);
                             }
@@ -114,8 +114,8 @@ namespace Godot_IO
             // Godot은 항상 슬래시를 사용하므로 단순히 결합
             var combined = string.Join("/", paths.Where(p => !string.IsNullOrEmpty(p)));
             
-            string prefix = combined.StartsWith("res://") ? "res://"
-                : combined.StartsWith("user://") ? "user://" : "";
+            string prefix = combined.StartsWith("res://", StringComparison.Ordinal) ? "res://"
+                : combined.StartsWith("user://", StringComparison.Ordinal) ? "user://" : "";
             if (prefix.Length != 0) combined = combined.Substring(prefix.Length).TrimStart('/');
             while (combined.Contains("//")) combined = combined.Replace("//", "/");
             return prefix + combined;
@@ -179,7 +179,7 @@ namespace Godot_IO
                 string dirName = dirPath.GetFile();
                 
                 // 디렉토리 경로가 "/"로 끝나는 경우 처리
-                if (string.IsNullOrEmpty(dirName) && dirPath.EndsWith("/"))
+                if (string.IsNullOrEmpty(dirName) && dirPath.EndsWith("/", StringComparison.Ordinal))
                 {
                     dirPath = dirPath.TrimSuffix("/");
                     parentDir = dirPath.GetBaseDir();
@@ -222,7 +222,7 @@ namespace Godot_IO
         // 추가 유틸리티: 경로가 Godot 프로토콜인지 확인
         public static bool IsGodotPath(string path)
         {
-            return path != null && (path.StartsWith("res://") || path.StartsWith("user://"));
+            return path != null && (path.StartsWith("res://", StringComparison.Ordinal) || path.StartsWith("user://", StringComparison.Ordinal));
         }
         
         // 추가 유틸리티: 절대 경로 변환

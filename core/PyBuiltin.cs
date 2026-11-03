@@ -441,7 +441,7 @@ namespace SharpPy
                     throw PyTypeError.Create("object.readline() returned non-string");
                 if (text.Value.Length == 0)
                     throw PyEOFError.Create("EOF when reading a line");
-                return new PyString(text.Value.EndsWith("\n") ? text.Value.Substring(0, text.Value.Length - 1) : text.Value);
+                return new PyString(text.Value.EndsWith("\n", StringComparison.Ordinal) ? text.Value.Substring(0, text.Value.Length - 1) : text.Value);
             }
 
             // prompt가 주어지면 출력 (줄바꿈 없이)
@@ -1486,7 +1486,7 @@ namespace SharpPy
             {
                 var lines = parser.Message.Split('\n');
                 var text = lines[lines.Length - 1].Trim();
-                if (text.StartsWith("SyntaxError: ")) text = text.Substring("SyntaxError: ".Length);
+                if (text.StartsWith("SyntaxError: ", StringComparison.Ordinal)) text = text.Substring("SyntaxError: ".Length);
                 return PySyntaxError.Create(text, filename, Math.Max(parser.LineNumber, 1));
             }
             return PySyntaxError.Create("invalid syntax", filename, 1);

@@ -47,7 +47,7 @@ namespace SharpPy.Modules
                     break;
                 }
                 char code = fmt[i];
-                if ("xcbB?hHiIlLqQnNfdespP".IndexOf(code) < 0)
+                if ("xcbB?hHiIlLqQnNfdespP".IndexOf(code, StringComparison.Ordinal) < 0)
                     throw Error("bad char in struct format");
                 if (!hasCount) count = 1;
                 entries.Add(new FormatEntry { Code = code, Count = count });
@@ -303,7 +303,7 @@ namespace SharpPy.Modules
                 }
                 else
                 {
-                    bool signed = "bhilqn".IndexOf(entry.Code) >= 0;
+                    bool signed = "bhilqn".IndexOf(entry.Code, StringComparison.Ordinal) >= 0;
                     for (int i = 0; i < entry.Count; i++)
                     {
                         result.Add(new PyInt(ReadInt(buf, offset, itemSize, le, signed)));

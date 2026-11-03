@@ -1511,7 +1511,7 @@ namespace SharpPy
         private bool IsExceptionClass()
         {
             // Check if this class inherits from Exception
-            return InstanceType.Name.EndsWith("Error") ||
+            return InstanceType.Name.EndsWith("Error", StringComparison.Ordinal) ||
                    InstanceType.Name == "Exception" ||
                    InstanceType.BaseTypes.Any(bt => bt.Name == "Exception" || bt.Name == "BaseException");
         }

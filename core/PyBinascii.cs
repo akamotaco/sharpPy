@@ -105,7 +105,7 @@ namespace SharpPy
             foreach (byte b in data)
             {
                 if (b == (byte)'=') { padded = true; break; }
-                int index = Alphabet.IndexOf((char)b);
+                int index = Alphabet.IndexOf((char)b, StringComparison.Ordinal);
                 if (index >= 0) bits.Add(index);
                 else if (strict) throw PyBinasciiError.Create("Only base64 data is allowed");
             }

@@ -357,10 +357,10 @@ namespace SharpPy.Generated
         private static string GetNormalName(string s)
         {
             string name = (s.Length > 12 ? s.Substring(0, 12) : s).Replace('_', '-').ToLowerInvariant();
-            if (name == "utf-8" || name.StartsWith("utf-8-"))
+            if (name == "utf-8" || name.StartsWith("utf-8-", StringComparison.Ordinal))
                 return "utf-8";
-            if (name is "latin-1" or "iso-8859-1" or "iso-latin-1" || name.StartsWith("latin-1-") ||
-                name.StartsWith("iso-8859-1-") || name.StartsWith("iso-latin-1-"))
+            if (name is "latin-1" or "iso-8859-1" or "iso-latin-1" || name.StartsWith("latin-1-", StringComparison.Ordinal) ||
+                name.StartsWith("iso-8859-1-", StringComparison.Ordinal) || name.StartsWith("iso-latin-1-", StringComparison.Ordinal))
                 return "iso-8859-1";
             return s;
         }

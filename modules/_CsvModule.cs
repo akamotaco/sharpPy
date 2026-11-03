@@ -698,7 +698,7 @@ namespace SharpPy.Modules
                 foreach (char c in text)
                 {
                     bool wantEscape = false;
-                    if (c == delim || (hasEsc && c == esc) || c == quote || c == '\n' || c == '\r' || lt.IndexOf(c) >= 0)
+                    if (c == delim || (hasEsc && c == esc) || c == quote || c == '\n' || c == '\r' || lt.IndexOf(c, StringComparison.Ordinal) >= 0)
                     {
                         if (quoting == 3)
                         {

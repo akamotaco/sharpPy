@@ -219,17 +219,17 @@ namespace SharpPy
         // reversed_len: asks the sequence, which may have shrunk or may refuse.
         internal override PyObject RemainingHint()
         {
-            if (_index < 0 || _typeName.StartsWith("dict_"))
+            if (_index < 0 || _typeName.StartsWith("dict_", StringComparison.Ordinal))
                 return new PyInt(_index + 1);
             return new PyInt(_index + 1 > _seq.Length() ? 0 : _index + 1);
         }
 
-        protected override string ReduceBuiltin => _typeName.StartsWith("dict_") ? "iter" : "reversed";
+        protected override string ReduceBuiltin => _typeName.StartsWith("dict_", StringComparison.Ordinal) ? "iter" : "reversed";
 
         // reversed_reduce and listreviter_reduce. reversed(range) is a range_iterator going down.
         internal override PyObject Reduce()
         {
-            if (_typeName.StartsWith("dict_"))
+            if (_typeName.StartsWith("dict_", StringComparison.Ordinal))
             {
                 var left = new List<PyObject>();
                 for (long i = _index; i >= 0; i--)

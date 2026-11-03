@@ -94,6 +94,24 @@ namespace SharpPy.Modules
             module.ModuleDict["ftruncate"] = new PyBuiltinFunction("ftruncate", Ftruncate);
             module.ModuleDict["isatty"] = new PyBuiltinFunction("isatty", Isatty);
             module.ModuleDict["fstat"] = new PyBuiltinFunction("fstat", Fstat);
+            // Descriptors here are never inherited by a child and never non-blocking.
+            module.ModuleDict["set_inheritable"] = new PyBuiltinFunction("set_inheritable", args =>
+            {
+                PyFileDescriptors.Get(Descriptor(args[0]));
+                return PyNone.Instance;
+            });
+            module.ModuleDict["get_inheritable"] = new PyBuiltinFunction("get_inheritable", args =>
+            {
+                PyFileDescriptors.Get(Descriptor(args[0]));
+                return PyBool.False;
+            });
+            module.ModuleDict["get_blocking"] = new PyBuiltinFunction("get_blocking", args =>
+            {
+                PyFileDescriptors.Get(Descriptor(args[0]));
+                return PyBool.True;
+            });
+            module.ModuleDict["device_encoding"] = new PyBuiltinFunction("device_encoding", args =>
+                PyFileDescriptors.Get(Descriptor(args[0])) is PyConsoleStream { IsTerminal: true } ? new PyString("utf-8") : PyNone.Instance);
             module.ModuleDict["getcwd"] = new PyBuiltinFunction("getcwd", Getcwd);
             module.ModuleDict["chdir"] = new PyBuiltinFunction("chdir", Chdir);
             module.ModuleDict["listdir"] = new PyBuiltinFunction("listdir", Listdir);
@@ -345,7 +363,7 @@ namespace SharpPy.Modules
                 if (IOHelper.FileExists(path))
                     throw WindowsOr(267, path);
                 var entries = new List<PyDirEntry>();
-                string separator = path.EndsWith("/") || path.EndsWith("\\") ? "" : Path.DirectorySeparatorChar.ToString();
+                string separator = path.EndsWith("/", StringComparison.Ordinal) || path.EndsWith("\\", StringComparison.Ordinal) ? "" : Path.DirectorySeparatorChar.ToString();
                 foreach (var entry in IOHelper.GetFileSystemEntries(path))
                 {
                     string name = IOHelper.GetFileName(entry);
@@ -484,7 +502,11 @@ namespace SharpPy.Modules
         private static PyObject Lseek(PyObject[] args)
         {
             var origin = Descriptor(args[2]) switch { 0 => SeekOrigin.Begin, 1 => SeekOrigin.Current, _ => SeekOrigin.End };
-            return new PyInt(PyFileDescriptors.Get(Descriptor(args[0])).Seek((long)PyObject.TryGetIndex(args[1]).Value, origin));
+            var stream = PyFileDescriptors.Get(Descriptor(args[0]));
+            // lseek on a console or a pipe: ESPIPE
+            if (!stream.CanSeek)
+                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(29), new PyString("Illegal seek") }, null));
+            return new PyInt(stream.Seek((long)PyObject.TryGetIndex(args[1]).Value, origin));
         }
 
         private static PyObject Fsync(PyObject[] args)
@@ -501,23 +523,29 @@ namespace SharpPy.Modules
 
         private static PyObject Isatty(PyObject[] args)
         {
-            int fd = Descriptor(args[0]);
-            return PyBool.FromBool(fd switch
+            try
             {
-                0 => !Console.IsInputRedirected,
-                1 => !Console.IsOutputRedirected,
-                2 => !Console.IsErrorRedirected,
-                _ => false,
-            });
+                return PyBool.FromBool(PyFileDescriptors.Get(Descriptor(args[0])) is PyConsoleStream { IsTerminal: true });
+            }
+            catch (PythonException)
+            {
+                return PyBool.False;
+            }
         }
 
         private static PyObject Fstat(PyObject[] args)
         {
-            if (PyFileDescriptors.Get(Descriptor(args[0])) is FileStream file)
+            var stream = PyFileDescriptors.Get(Descriptor(args[0]));
+            if (stream is FileStream file)
             {
                 file.Flush();
                 return Stat(new PyObject[] { new PyString(file.Name) });
             }
+            // A console is a character device; any other stream answers for its size.
+            if (stream is PyConsoleStream)
+                return new PyStatResult(0x2000 | 0x1B6, 0, 0);
+            if (stream.CanSeek)
+                return new PyStatResult(0x8000 | 0x1A4, stream.Length, 0);
             throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(9), new PyString("Bad file descriptor") }, null));
         }
 

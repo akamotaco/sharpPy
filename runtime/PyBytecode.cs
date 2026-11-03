@@ -430,7 +430,18 @@ namespace SharpPy
         public int KwonlyArgCount { get; }            // co_kwonlyargcount (keyword-only 매개변수 개수)
         public int Flags { get; }                     // co_flags (CPython 호환)
         public bool IsOptimized { get; }              // 바이트코드 최적화 여부
-        public string? FileName { get; }              // co_filename (CPython 호환)
+        public string? FileName { get; private set; }              // co_filename (CPython 호환)
+
+        // update_code_filenames: this code and the code among its constants.
+        internal void FixFileName(string fileName)
+        {
+            if (FileName == fileName)
+                return;
+            FileName = fileName;
+            foreach (var constant in Constants)
+                if (constant is PyCodeObject inner)
+                    inner.FixFileName(fileName);
+        }
         
         // CPython 스타일 에러 보고를 위한 소스 라인 정보
         public List<string>? SourceLines { get; }     // 원본 소스 코드 라인들 (에러 표시용)
