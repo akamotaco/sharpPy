@@ -6,6 +6,10 @@ namespace SharpPy
 
         internal static void DeprecatedThrow(bool asynchronous = false) => Deprecated(asynchronous ? "the (type, exc, tb) signature of athrow() is deprecated, use the single-arg signature instead." : LegacyThrowMessage);
 
+        // PyErr_WarnEx through Lib/warnings.py: stacklevel 1 is the Python frame that called in.
+        internal static void Warn(PyType category, string message, int stacklevel) =>
+            PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[] { new PyString(message), category, new PyInt(stacklevel) }, null);
+
         // PyErr_WarnFormat(PyExc_DeprecationWarning, 1, ...)
         internal static void Deprecated(string message)
         {

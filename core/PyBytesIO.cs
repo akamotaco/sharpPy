@@ -1,365 +1,478 @@
 using System;
-using System.Collections.Generic;
 
 namespace SharpPy;
 
 /// <summary>
-/// _io.BytesIO implemented in C# - the counterpart of Modules/_io/bytesio.c.
-///
-/// Steps B1 and B2 did the same for the abstract bases and StringIO. BytesIO derives from the
-/// native _BufferedIOBase, so its MRO is BytesIO -> _BufferedIOBase -> _IOBase -> object like
-/// CPython, and io.BufferedIOBase recognises it through the register() call that step B4 puts
-/// back into Lib/io.py.
-///
-/// Measured differences from StringIO that look like inconsistencies in CPython and have to be
-/// kept anyway:
-/// - initial value and writes accept any bytes-like object, and the parameter name
-///   initial_bytes IS an accepted keyword (StringIO's initial is positional-only)
-/// - a negative truncate size says "negative size value -1" (lowercase) where StringIO says
-///   "Negative size value -1"
-/// - a negative seek says "negative seek value -5" where StringIO says "negative seek position"
-/// - a bad whence says "invalid whence (...)" lowercase where StringIO capitalises it
-/// - closed operations raise "I/O operation on closed file." WITH the trailing period, i.e. the
-///   iobase.c wording, while StringIO raises the stringio.c wording without it
-/// - cur-relative seeks are supported here (stringio refuses a non-zero SEEK_CUR offset)
+/// Modules/_io/bytesio.c. The buffer is a byte array that may be larger than the data
+/// (string_size); null means closed. While a bytes object handed out shares the array
+/// (SHARED_BUF), a write copies it first. getbuffer() exports the array through a
+/// _BytesIOBuffer, and nothing may resize it while an export is alive.
 /// </summary>
-public class PyBytesIOType : PyIOBaseType
-{
-    public PyBytesIOType(PyType baseType) : base("BytesIO", new[] { baseType })
-    {
-        TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", this,
-            (cls, args, kwargs) => new PyBytesIO(null, (PyType)cls), acceptsKwargs: true);
-        TypeDict["__init__"] = new PyWrapperDescriptor("__init__", this, (self, args, kwargs) =>
-        {
-            ((PyBytesIO)self).Initialize(args, kwargs);
-            return PyNone.Instance;
-        }, 0, int.MaxValue, acceptsKwargs: true);
-    }
-
-    public override PyObject CreateInstance(PyObject[] args, PyDict kwargs)
-        => PyBytesIO.Construct(this, args, kwargs);
-}
-
 public class PyBytesIO : PyIOBaseInstance
 {
-    public static readonly PyBytesIOType BytesType =
-        new(PyIOBaseSlots.BufferedIOBaseType);
+    public static readonly PyIOBaseType BytesType = MakeType();
 
-    private readonly List<byte> buffer = new();
-    private long pos;
+    private byte[] _buf = Array.Empty<byte>();
+    // The bytes object that shares _buf, if one was handed out or taken in.
+    private PyBytes _shared;
+    private long _pos;
+    private int _size;
+    private int _exports;
 
     public PyBytesIO(byte[] initial, PyType type = null) : base(type ?? BytesType)
     {
         if (initial != null)
-            buffer.AddRange(initial);
+        {
+            _buf = (byte[])initial.Clone();
+            _size = _buf.Length;
+        }
     }
 
-    /// <summary>
-    /// BytesIO(initial_bytes=b'', /). Only one positional argument; a second argument - keyword or
-    /// not - reports "BytesIO() takes at most 1 argument (2 given)" (measured).
-    /// </summary>
-    public static PyObject Construct(PyType type, PyObject[] args, PyDict kwargs)
+    private static PyBytesIO Self(PyObject self, string name) => self as PyBytesIO
+        ?? throw PyTypeError.Create($"descriptor '{name}' requires a '_io.BytesIO' object but received a '{self.GetTypeName()}'");
+
+    private static PythonException BufferError() =>
+        new(new PyBufferError("Existing exports of data: object cannot be re-sized"));
+
+    // CHECK_CLOSED
+    private void CheckClosed()
     {
-        var created = new PyBytesIO(null, type);
-        created.Initialize(args, kwargs);
-        return created;
+        if (_buf == null)
+            throw PyValueError.Create("I/O operation on closed file.");
     }
+
+    // CHECK_EXPORTS
+    private void CheckExports()
+    {
+        if (BufferExports.Held(() => System.Threading.Volatile.Read(ref _exports) > 0))
+            throw BufferError();
+    }
+
+    private bool Shared => _shared != null;
+
+    // scan_eol
+    private long ScanEol(long len)
+    {
+        if (_pos >= _size)
+            return 0;
+        long maxlen = _size - _pos;
+        if (len < 0 || len > maxlen)
+            len = maxlen;
+        if (len > 0)
+        {
+            int at = Array.IndexOf(_buf, (byte)'\n', (int)_pos, (int)len);
+            if (at >= 0)
+                len = at - _pos + 1;
+        }
+        return len;
+    }
+
+    // unshare_buffer
+    private void Unshare(long size)
+    {
+        var copy = new byte[size];
+        Array.Copy(_buf, copy, _size);
+        _buf = copy;
+        _shared = null;
+    }
+
+    // resize_buffer
+    private void Resize(long size)
+    {
+        long alloc = _buf.Length;
+        if (size > Array.MaxLength)
+            throw PyOverflowError.Create("new buffer size too large");
+        if (size < alloc / 2)
+            alloc = size + 1;
+        else if (size < alloc)
+            return;
+        else if (size <= alloc * 1.125)
+            alloc = size + (size >> 3) + (size < 9 ? 3 : 6);
+        else
+            alloc = size + 1;
+        if (alloc > Array.MaxLength)
+            throw PyOverflowError.Create("new buffer size too large");
+        if (Shared)
+            Unshare(alloc);
+        else
+            Array.Resize(ref _buf, (int)alloc);
+    }
+
+    private static byte[] Contiguous(PyObject value) => BytesMethods.Buffer(value)
+        ?? throw PyTypeError.Create($"a bytes-like object is required, not '{value.GetTypeName()}'");
+
+    // write_bytes
+    private long WriteBytes(PyObject value)
+    {
+        CheckClosed();
+        CheckExports();
+        var data = Contiguous(value);
+        int len = data.Length;
+        if (len == 0)
+            return 0;
+        long endpos = _pos + len;
+        if (endpos > _buf.Length)
+            Resize(endpos);
+        else if (Shared)
+            Unshare(Math.Max(endpos, _size));
+        if (_pos > _size)
+            Array.Clear(_buf, _size, (int)(_pos - _size));
+        Array.Copy(data, 0, _buf, _pos, len);
+        _pos = endpos;
+        if (_size < endpos)
+            _size = (int)endpos;
+        return len;
+    }
+
+    // The bytes object over the whole array, made once and then shared.
+    private PyBytes SharedBytes() => _shared ??= new PyBytes(_buf);
+
+    // _io_BytesIO_getvalue_impl
+    private PyObject GetValue()
+    {
+        CheckClosed();
+        if (_size <= 1 || _exports > 0)
+            return new PyBytes(_buf.AsSpan(0, _size).ToArray());
+        if (_size != _buf.Length)
+        {
+            if (Shared)
+                Unshare(_size);
+            else
+                Array.Resize(ref _buf, _size);
+        }
+        return SharedBytes();
+    }
+
+    // read_bytes
+    private PyObject ReadBytes(long size)
+    {
+        if (size > 1 && _pos == 0 && size == _buf.Length && _exports == 0)
+        {
+            _pos += size;
+            return SharedBytes();
+        }
+        // Past the end, size is 0 and nothing is copied.
+        var output = size == 0 ? Array.Empty<byte>() : _buf.AsSpan((int)_pos, (int)size).ToArray();
+        _pos += size;
+        return new PyBytes(output);
+    }
+
+    private PyObject Read(long size)
+    {
+        CheckClosed();
+        long n = _size - _pos;
+        if (size < 0 || size > n)
+        {
+            size = n;
+            if (size < 0)
+                size = 0;
+        }
+        return ReadBytes(size);
+    }
+
+    private PyObject ReadLines(PyObject arg)
+    {
+        CheckClosed();
+        long maxsize;
+        if (arg is PyInt or PyBool or PyIntSubclass)
+            maxsize = BytesMethods.AsSsize(arg);
+        else if (arg is PyNone)
+            maxsize = -1;
+        else
+            throw PyTypeError.Create($"integer argument expected, got '{arg.GetTypeName()}'");
+        long size = 0, n;
+        var result = new PyList();
+        while ((n = ScanEol(-1)) != 0)
+        {
+            result.Append(new PyBytes(_buf.AsSpan((int)_pos, (int)n).ToArray()));
+            _pos += n;
+            size += n;
+            if (maxsize > 0 && size >= maxsize)
+                break;
+        }
+        return result;
+    }
+
+    private PyObject ReadInto(PyObject argument)
+    {
+        CheckClosed();
+        var view = PyIOBaseSlots.WritableBytes(argument, "readinto");
+        try
+        {
+            long len = view.Length();
+            long n = _size - _pos;
+            if (len > n)
+            {
+                len = n;
+                if (len < 0)
+                    len = 0;
+            }
+            view.WriteContiguous(_buf.AsSpan((int)Math.Min(_pos, _buf.Length), (int)len));
+            _pos += len;
+            return new PyInt(len);
+        }
+        finally
+        {
+            view.Release();
+        }
+    }
+
+    private PyObject Truncate(long size)
+    {
+        CheckClosed();
+        CheckExports();
+        if (size < 0)
+            throw PyValueError.Create($"negative size value {size}");
+        if (size < _size)
+        {
+            _size = (int)size;
+            Resize(size);
+        }
+        return new PyInt(size);
+    }
+
+    private PyObject Seek(long pos, int whence)
+    {
+        CheckClosed();
+        if (pos < 0 && whence == 0)
+            throw PyValueError.Create($"negative seek value {pos}");
+        if (whence == 1)
+        {
+            if (pos > long.MaxValue - _pos)
+                throw PyOverflowError.Create("new position too large");
+            pos += _pos;
+        }
+        else if (whence == 2)
+        {
+            if (pos > long.MaxValue - _size)
+                throw PyOverflowError.Create("new position too large");
+            pos += _size;
+        }
+        else if (whence != 0)
+            throw PyValueError.Create($"invalid whence ({whence}, should be 0, 1 or 2)");
+        if (pos < 0)
+            pos = 0;
+        _pos = pos;
+        return new PyInt(_pos);
+    }
+
+    // bytesio_iternext
+    public override PyObject Next()
+    {
+        CheckClosed();
+        long n = ScanEol(-1);
+        if (n == 0)
+            throw PyStopIteration.Create();
+        return ReadBytes(n);
+    }
+
+    public override PyObject GetIterator() => this;
+
+    // bytesio_getstate
+    private PyObject GetState()
+    {
+        var value = GetValue();
+        PyObject dict = InstanceDict.Count == 0 ? PyNone.Instance : PyDictOf(InstanceDict);
+        return new PyTuple(new[] { value, new PyInt(_pos), dict });
+    }
+
+    private static PyDict PyDictOf(System.Collections.Generic.Dictionary<string, PyObject> entries)
+    {
+        var dict = new PyDict();
+        foreach (var pair in entries)
+            dict.SetItem(new PyString(pair.Key), pair.Value);
+        return dict;
+    }
+
+    private static string TypeName(PyObject self) =>
+        self.GetPyType() is PyIOBaseType native ? "_io." + native.Name : self.GetPyType().Name;
+
+    // bytesio_setstate
+    private PyObject SetState(PyObject state)
+    {
+        if (state is not PyTuple tuple || tuple.Items.Length < 3)
+            throw PyTypeError.Create($"{TypeName(this)}.__setstate__ argument should be 3-tuple, got {state.GetTypeName()}");
+        CheckExports();
+        _size = 0;
+        _pos = 0;
+        WriteBytes(tuple.Items[0]);
+        var position = tuple.Items[1];
+        if (position is not (PyInt or PyBool or PyIntSubclass))
+            throw PyTypeError.Create($"second item of state must be an integer, not {position.GetTypeName()}");
+        long pos = BytesMethods.AsSsize(position);
+        if (pos < 0)
+            throw PyValueError.Create("position value cannot be negative");
+        _pos = pos;
+        var dict = tuple.Items[2];
+        if (dict is not PyNone)
+        {
+            if (dict is not PyDict entries)
+                throw PyTypeError.Create($"third item of state should be a dict, got a {dict.GetTypeName()}");
+            foreach (var pair in entries.InternalDict)
+                InstanceDict[pair.Key.ToStr().Value] = pair.Value;
+        }
+        return PyNone.Instance;
+    }
+
+    private static readonly string[] InitNames = { "initial_bytes" };
 
     // _io_BytesIO___init___impl
     internal void Initialize(PyObject[] args, PyDict kwargs)
     {
-        byte[] initial = null;
-        int given = args.Length + (kwargs != null ? kwargs.Length() : 0);
-        if (given > 1)
-            throw PyTypeError.Create($"BytesIO() takes at most 1 argument ({given} given)");
-
-        if (args.Length == 1)
-            initial = BytesLike(args[0]);
-        else if (kwargs != null && kwargs.Length() == 1)
+        var values = PyArgs.Unpack("BytesIO", args, kwargs, InitNames, 0, 0, 1);
+        var initvalue = values[0];
+        _size = 0;
+        _pos = 0;
+        if (BufferExports.Held(() => System.Threading.Volatile.Read(ref _exports) > 0))
+            throw BufferError();
+        if (initvalue != null && initvalue is not PyNone)
         {
-            var keys = kwargs.Keys();
-            if (keys.Length() != 1 || !(keys.GetItem(0) is PyString key) || key.Value != "initial_bytes")
-                throw PyTypeError.Create(
-                    $"BytesIO() takes at most 1 argument ({given} given)");
-            var raw = PyObject.KwValue(kwargs, "initial_bytes");
-            if (raw != null && !(raw is PyNone))
-                initial = BytesLike(raw);
+            if (initvalue is PyBytes bytes && bytes.GetPyType() == PyType.BytesType)
+            {
+                _buf = bytes.Value;
+                _shared = bytes;
+                _size = bytes.Value.Length;
+            }
+            else
+            {
+                WriteBytes(initvalue);
+                _pos = 0;
+            }
+        }
+    }
+
+    public static void Register() { }
+
+    /// <summary>Modules/_io/bytesio.c _BytesIOBuffer: what getbuffer()'s view exports from.</summary>
+    private sealed class ExportBuffer : PyObject, IBufferExporter
+    {
+        internal static readonly PyType BufferType = MakeBufferType();
+        private readonly PyBytesIO _source;
+
+        internal ExportBuffer(PyBytesIO source) => _source = source;
+
+        private static PyType MakeBufferType()
+        {
+            var type = new PyType("_BytesIOBuffer", new[] { PyType.ObjectType }, "_io");
+            type.TypeDict["__module__"] = new PyString("_io");
+            return type;
         }
 
-        buffer.Clear();
-        if (initial != null)
-            buffer.AddRange(initial);
-        pos = 0;
+        public override PyType GetPyType() => BufferType;
+        public override string GetTypeName() => "_io._BytesIOBuffer";
+        public override bool SupportsBuffer() => true;
+
+        // bytesiobuf_getbuffer
+        public override PyMemoryView GetBuffer(int flags)
+        {
+            var b = _source;
+            if (b._exports == 0 && b.Shared)
+                b.Unshare(b._size);
+            return PyMemoryView.FromExporter(this, b._size);
+        }
+
+        public void AcquireBufferExport() => System.Threading.Interlocked.Increment(ref _source._exports);
+        public void ReleaseBufferExport() => System.Threading.Interlocked.Decrement(ref _source._exports);
+        public Span<byte> BufferSpan => _source._buf;
     }
 
-    /// <summary>
-    /// bytes(), bytearray() and memoryview() all work; anything else answers CPython's
-    /// "a bytes-like object is required, not 'str'", which is what PyObject.GetBuffer already
-    /// raises for the default case.
-    /// </summary>
-    private static byte[] BytesLike(PyObject value)
+    private static PyIOBaseType MakeType()
     {
-        if (value is PyNone)
-            return System.Array.Empty<byte>();
-        if (value is PyBytes b)
-            return b.Value;
-        if (value is PyByteArray ba)
-            return ba.ToByteArrayCopy();
-        return value.GetBuffer(0).Data;
-    }
+        var type = new PyIOBaseType("BytesIO", new PyType[] { PyIOBaseSlots.BufferedIOBaseType });
+        type.ConstructedByNewSlot = true;
+        // bytesio_new: an empty buffer even before __init__.
+        type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) => new PyBytesIO(null, (PyType)cls),
+            acceptsKwargs: true);
+        type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
+        {
+            Self(self, "__init__").Initialize(args, kwargs);
+            return PyNone.Instance;
+        }, 0, int.MaxValue, acceptsKwargs: true);
 
-    private static PyBytesIO Self(PyObject self)
-    {
-        if (self is PyBytesIO bio)
-            return bio;
-        throw PyTypeError.Create(
-            $"descriptor 'getvalue' requires a 'BytesIO' object but received a '{self.GetTypeName()}'");
-    }
+        void Def(string name, PyCall kind, Func<PyBytesIO, PyObject[], PyObject> body, int min = 0, int max = 0) =>
+            PyArgs.Define(type, name, kind, (self, args) => body(Self(self, name), args), min, max);
+        PyObject Arg(PyObject[] args, int i) => args.Length > i ? args[i] : null;
 
-    /// <summary>bytesio.c uses the iobase wording, with the trailing period.</summary>
-    private static void CheckClosed(PyBytesIO self)
-    {
-        if (self.PyClosed)
-            throw PyValueError.Create("I/O operation on closed file.");
-    }
-
-    private static long Index(PyObject value, string label)
-    {
-        var index = PyObject.TryGetIndex(value)
-            ?? throw PyTypeError.Create($"{label} must be an integer");
-        return index.Value > long.MaxValue ? long.MaxValue
-            : index.Value < long.MinValue ? long.MinValue : (long)index.Value;
-    }
-
-    public static void Register()
-    {
-        BytesType.TypeDict["getvalue"] = new PyMethodDescriptor(
-            "getvalue", BytesType, (self, args, kwargs) =>
+        foreach (var name in new[] { "readable", "writable", "seekable" })
+            Def(name, PyCall.NoArgs, (self, args) =>
             {
-                var s = Self(self);
-                CheckClosed(s);
-                return new PyBytes(s.buffer.ToArray());
-            }, minArgs: 0, maxArgs: 0);
-
-        BytesType.TypeDict["read"] = new PyMethodDescriptor(
-            "read", BytesType, (self, args, kwargs) =>
-            {
-                var s = Self(self);
-                CheckClosed(s);
-                long size = -1;
-                if (args.Length > 0 && !(args[0] is PyNone))
-                    size = Index(args[0], "argument");
-                var start = Math.Min(s.pos, s.buffer.Count);
-                var end = size < 0 ? s.buffer.Count : Math.Min(start + size, s.buffer.Count);
-                var data = s.buffer.GetRange((int)start, (int)(end - start)).ToArray();
-                s.pos = end;
-                return new PyBytes(data);
-            }, minArgs: 0, maxArgs: 1);
-
-        // read1 is BufferedReader vocabulary; BytesIO answers it like read (measured).
-        BytesType.TypeDict["read1"] = new PyMethodDescriptor(
-            "read1", BytesType, (self, args, kwargs) =>
-            {
-                var s = Self(self);
-                CheckClosed(s);
-                long size = args.Length > 0 && !(args[0] is PyNone) ? Index(args[0], "argument") : -1;
-                var start = Math.Min(s.pos, s.buffer.Count);
-                var end = size < 0 ? s.buffer.Count : Math.Min(start + size, s.buffer.Count);
-                var data = s.buffer.GetRange((int)start, (int)(end - start)).ToArray();
-                s.pos = end;
-                return new PyBytes(data);
-            }, minArgs: 0, maxArgs: 1);
-
-        BytesType.TypeDict["readinto"] = new PyMethodDescriptor(
-            "readinto", BytesType, (self, args, kwargs) =>
-            {
-                // Fills the writable buffer and answers how many bytes were written; the target
-                // keeps its original tail (measured: bytearray(9) over b"ab" -> (2, b'ab\0...')).
-                var s = Self(self);
-                CheckClosed(s);
-                if (args[0] is not PyByteArray target)
-                    throw PyTypeError.Create(
-                        $"readinto() argument must be writable buffer, not '{args[0].GetTypeName()}'");
-                var backing = target.ToByteArrayCopy();
-                var start = (int)Math.Min(s.pos, s.buffer.Count);
-                var count = System.Math.Min(backing.Length, s.buffer.Count - start);
-                // PyByteArray exposes only Append/Clear here, so rebuild the buffer: the filled
-                // prefix from this stream, then the target's untouched tail.
-                target.Clear();
-                for (var i = 0; i < count; i++)
-                    target.Append(s.buffer[start + i]);
-                for (var i = count; i < backing.Length; i++)
-                    target.Append(backing[i]);
-                s.pos = start + count;
-                return new PyInt(count);
-            }, minArgs: 1, maxArgs: 1);
-
-        BytesType.TypeDict["readline"] = new PyMethodDescriptor(
-            "readline", BytesType, (self, args, kwargs) =>
-            {
-                var s = Self(self);
-                CheckClosed(s);
-                long limit = args.Length > 0 && !(args[0] is PyNone) ? Index(args[0], "argument") : -1;
-                if (s.pos >= s.buffer.Count)
-                    return new PyBytes(System.Array.Empty<byte>());
-                long end = s.buffer.Count;
-                for (long i = s.pos; i < s.buffer.Count; i++)
-                {
-                    if (s.buffer[(int)i] == (byte)'\n')
-                    {
-                        end = i + 1;
-                        break;
-                    }
-                }
-                if (limit >= 0 && end - s.pos > limit)
-                    end = s.pos + limit;
-                var line = s.buffer.GetRange((int)s.pos, (int)(end - s.pos)).ToArray();
-                s.pos = end;
-                return new PyBytes(line);
-            }, minArgs: 0, maxArgs: 1);
-
-        BytesType.TypeDict["write"] = new PyMethodDescriptor(
-            "write", BytesType, (self, args, kwargs) =>
-            {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"BytesIO.write() takes exactly one argument ({args.Length} given)");
-                var s = Self(self);
-                CheckClosed(s);
-                var data = BytesLike(args[0]);
-                // Writing past the end appends; writing inside overwrites (bytesio semantics).
-                for (long i = 0; i < data.Length; i++)
-                {
-                    var at = s.pos + i;
-                    if (at < s.buffer.Count)
-                        s.buffer[(int)at] = data[i];
-                    else
-                        s.buffer.Add(data[i]);
-                }
-                s.pos += data.Length;
-                return new PyInt(data.Length);
-            }, minArgs: 1, maxArgs: 1);
-
-        BytesType.TypeDict["seek"] = new PyMethodDescriptor(
-            "seek", BytesType, (self, args, kwargs) =>
-            {
-                var s = Self(self);
-                CheckClosed(s);
-                long offset = Index(args[0], "argument");
-                int whence = 0;
-                if (args.Length > 1 && !(args[1] is PyNone))
-                    whence = (int)Index(args[1], "whence");
-                long next = whence switch
-                {
-                    0 => offset,
-                    1 => s.pos + offset,
-                    2 => s.buffer.Count + offset,
-                    _ => throw PyValueError.Create(
-                        $"invalid whence ({whence}, should be 0, 1 or 2)"),
-                };
-                if (next < 0)
-                    throw PyValueError.Create($"negative seek value {next}");
-                s.pos = next;
-                return new PyInt(next);
-            }, minArgs: 1, maxArgs: 2);
-
-        BytesType.TypeDict["tell"] = new PyMethodDescriptor(
-            "tell", BytesType, (self, args, kwargs) =>
-            {
-                var s = Self(self);
-                CheckClosed(s);
-                return new PyInt(s.pos);
-            }, minArgs: 0, maxArgs: 0);
-
-        BytesType.TypeDict["truncate"] = new PyMethodDescriptor(
-            "truncate", BytesType, (self, args, kwargs) =>
-            {
-                var s = Self(self);
-                CheckClosed(s);
-                long size = s.pos;
-                if (args.Length > 0 && !(args[0] is PyNone))
-                {
-                    size = Index(args[0], "size");
-                    if (size < 0)
-                        throw PyValueError.Create($"negative size value {size}");
-                }
-                if (size < s.buffer.Count)
-                    s.buffer.RemoveRange((int)size, s.buffer.Count - (int)size);
-                if (s.pos > size)
-                    s.pos = size;
-                return new PyInt(size);
-            }, minArgs: 0, maxArgs: 1);
-
-        BytesType.TypeDict["seekable"] = new PyMethodDescriptor(
-            "seekable", BytesType, (self, args, kwargs) =>
-            {
-                CheckClosed(Self(self));
+                self.CheckClosed();
                 return PyBool.True;
-            }, minArgs: 0, maxArgs: 0);
-
-        BytesType.TypeDict["readable"] = new PyMethodDescriptor(
-            "readable", BytesType, (self, args, kwargs) =>
+            });
+        Def("close", PyCall.NoArgs, (self, args) =>
+        {
+            self.CheckExports();
+            self._buf = null;
+            self._shared = null;
+            return PyNone.Instance;
+        });
+        Def("flush", PyCall.NoArgs, (self, args) =>
+        {
+            self.CheckClosed();
+            return PyNone.Instance;
+        });
+        Def("isatty", PyCall.NoArgs, (self, args) =>
+        {
+            self.CheckClosed();
+            return PyBool.False;
+        });
+        Def("tell", PyCall.NoArgs, (self, args) =>
+        {
+            self.CheckClosed();
+            return new PyInt(self._pos);
+        });
+        Def("write", PyCall.One, (self, args) => new PyInt(self.WriteBytes(args[0])));
+        Def("writelines", PyCall.One, (self, args) =>
+        {
+            self.CheckClosed();
+            var iterator = args[0].GetIterator();
+            while (true)
             {
-                CheckClosed(Self(self));
-                return PyBool.True;
-            }, minArgs: 0, maxArgs: 0);
-
-        BytesType.TypeDict["writable"] = new PyMethodDescriptor(
-            "writable", BytesType, (self, args, kwargs) =>
-            {
-                CheckClosed(Self(self));
-                return PyBool.True;
-            }, minArgs: 0, maxArgs: 0);
-
-        BytesType.TypeDict["detach"] = new PyMethodDescriptor(
-            "detach", BytesType, (self, args, kwargs) =>
-                throw PyUnsupportedOperation.Create("detach"),
-            minArgs: 0, maxArgs: 0);
-
-        // __getstate__ answers (bytes, position, None) and __setstate__ validates each item with
-        // its own message (measured: a bool third item gives
-        // "third item of state should be a dict, got a bool").
-        BytesType.TypeDict["__getstate__"] = new PyMethodDescriptor(
-            "__getstate__", BytesType, (self, args, kwargs) =>
-            {
-                var s = Self(self);
-                return new PyTuple(new PyObject[] {
-                    new PyBytes(s.buffer.ToArray()),
-                    new PyInt(s.pos),
-                    PyNone.Instance,
-                });
-            }, minArgs: 0, maxArgs: 0);
-
-        BytesType.TypeDict["__setstate__"] = new PyMethodDescriptor(
-            "__setstate__", BytesType, (self, args, kwargs) =>
-            {
-                var s = Self(self);
-                if (args[0] is not PyTuple state || state.Length() != 3)
-                    throw PyValueError.Create("invalid state tuple");
-                if (state.GetItem(0) is not PyBytes data)
-                    throw PyTypeError.Create(
-                        $"first item of state must be bytes, got a {state.GetItem(0).GetTypeName()}");
-                if (state.GetItem(1) is not PyInt position)
-                    throw PyTypeError.Create(
-                        $"second item of state must be an int, got a {state.GetItem(1).GetTypeName()}");
-                if (!(state.GetItem(2) is PyNone) && state.GetItem(2) is not PyDict)
-                    throw PyTypeError.Create(
-                        $"third item of state should be a dict, got a {state.GetItem(2).GetTypeName()}");
-                s.buffer.Clear();
-                s.buffer.AddRange(data.Value);
-                s.pos = position.Value > long.MaxValue ? long.MaxValue
-                    : position.Value < 0 ? 0 : (long)position.Value;
-                return PyNone.Instance;
-            }, minArgs: 1, maxArgs: 1);
-
-        // getbuffer() hands out a memoryview over the stream contents. CPython's view stays live
-        // against later writes; this one is taken at the call, which is recorded as a deviation in
-        // docs/library_surface_policy.md rather than left as a missing attribute.
-        BytesType.TypeDict["getbuffer"] = new PyMethodDescriptor(
-            "getbuffer", BytesType, (self, args, kwargs) =>
-            {
-                var s = Self(self);
-                CheckClosed(s);
-                return new PyMemoryView(s.buffer.ToArray());
-            }, minArgs: 0, maxArgs: 0);
+                PyObject item;
+                try
+                {
+                    item = iterator.Next();
+                }
+                catch (PythonException error) when (error.PyException is PyStopIteration)
+                {
+                    break;
+                }
+                self.WriteBytes(item);
+            }
+            return PyNone.Instance;
+        });
+        Def("read1", PyCall.Fast, (self, args) => self.Read(PyArgs.OptionalSsize(Arg(args, 0))), 0, 1);
+        Def("readinto", PyCall.One, (self, args) => self.ReadInto(args[0]));
+        Def("readline", PyCall.Fast, (self, args) =>
+        {
+            long size = PyArgs.OptionalSsize(Arg(args, 0));
+            self.CheckClosed();
+            return self.ReadBytes(self.ScanEol(size));
+        }, 0, 1);
+        Def("readlines", PyCall.Fast, (self, args) => self.ReadLines(Arg(args, 0) ?? PyNone.Instance), 0, 1);
+        Def("read", PyCall.Fast, (self, args) => self.Read(PyArgs.OptionalSsize(Arg(args, 0))), 0, 1);
+        Def("getbuffer", PyCall.Defining, (self, args) =>
+        {
+            self.CheckClosed();
+            return new ExportBuffer(self).GetBuffer(0);
+        });
+        Def("getvalue", PyCall.NoArgs, (self, args) => self.GetValue());
+        Def("seek", PyCall.Fast, (self, args) =>
+            self.Seek(PyArgs.Ssize(args[0]), args.Length > 1 ? PyArgs.Int(args[1]) : 0), 1, 2);
+        Def("truncate", PyCall.Fast, (self, args) =>
+        {
+            // Py_ssize_t(accept={int, NoneType}, c_default="self->pos")
+            long size = PyArgs.OptionalSsize(Arg(args, 0), self._pos);
+            return self.Truncate(size);
+        }, 0, 1);
+        Def("__getstate__", PyCall.NoArgs, (self, args) => self.GetState());
+        Def("__setstate__", PyCall.One, (self, args) => self.SetState(args[0]));
+        Def("__sizeof__", PyCall.NoArgs, (self, args) =>
+            new PyInt(64 + (self._buf != null && !self.Shared ? 33 + self._buf.Length : 0)));
+        // tp_iter is PyObject_SelfIter and tp_iternext is bytesio_iternext.
+        type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self, 0, 0);
+        type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => Self(self, "__next__").Next(), 0, 0);
+        type.TypeDict["closed"] = new PyGetSetDescriptor("closed", type, self => PyBool.FromBool(Self(self, "closed")._buf == null));
+        return type;
     }
 }

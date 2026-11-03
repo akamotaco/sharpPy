@@ -9,12 +9,6 @@ if (args.Length > 0 && args[0] == "--memoryview-gc-probe")
     return;
 }
 
-if (args.Length > 0 && args[0] == "--file-close-probe")
-{
-    Console.WriteLine(JsonSerializer.Serialize(FileCloseProbe.Run()));
-    return;
-}
-
 if (args.Length > 1 && args[0] == "--float-format-probe")
 {
     Console.WriteLine(JsonSerializer.Serialize(FloatFormatProbe.Run(args[1])));

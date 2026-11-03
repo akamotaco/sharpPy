@@ -84,6 +84,21 @@ namespace SharpPy
         internal PyWeakCell Cell;
         /// <summary>tp_finalize ran, or was settled by a clean finish; gc.is_finalized reports it.</summary>
         internal bool FinalizerRan;
+        /// <summary>
+        /// The guard of the object that writes through this one, which goes first. Weak, or the
+        /// inner object would keep the outer alive; a WeakTrackResurrection handle and not a
+        /// WeakReference, which is finalizable itself and can be gone in the same collection.
+        /// </summary>
+        internal GCHandle Outer;
+
+        internal PyGuard OuterGuard => Outer.IsAllocated ? Outer.Target as PyGuard : null;
+
+        internal void SetOuter(PyGuard outer)
+        {
+            if (Outer.IsAllocated)
+                Outer.Free();
+            Outer = outer == null ? default : GCHandle.Alloc(outer, GCHandleType.WeakTrackResurrection);
+        }
 
         internal PyGuard(PyObject owner) { Owner = owner; }
 
@@ -199,6 +214,7 @@ namespace SharpPy
             }
             guard.State = GuardState.Cleared;
             guard.Owner = null;
+            guard.SetOuter(null);
             GC.SuppressFinalize(guard);
         }
 
@@ -397,14 +413,14 @@ namespace SharpPy
         {
             int handled = 0;
             bool finalizerRan = false;
-            List<PyGuard> releases = null;
+            List<PyGuard> releases = null, armed = null;
             while (Queue.TryDequeue(out var guard))
             {
                 handled++;
                 if (guard.State == GuardState.Armed)
                 {
                     finalizerRan = true;
-                    Step(guard);
+                    (armed ??= new List<PyGuard>()).Add(guard);
                 }
                 else if (guard.State == GuardState.Watched)
                 {
@@ -415,6 +431,8 @@ namespace SharpPy
                     (releases ??= new List<PyGuard>()).Add(guard);
                 }
             }
+            if (armed != null)
+                StepOuterFirst(armed, Step);
             if (releases == null) return handled;
             foreach (var guard in releases)
             {
@@ -454,6 +472,7 @@ namespace SharpPy
                     guard.State = GuardState.Cleared;
                     ClearWeakRefs(guard);
                     guard.Owner = null;
+                    guard.SetOuter(null);
                     break;
             }
         }
@@ -548,8 +567,42 @@ namespace SharpPy
         /// </summary>
         private static PyObject LookupHook(PyObject target)
         {
-            if (!(target.GetPyType() is PyClass cls)) return null;
-            return cls.LookupFinalizerHook();
+            var type = target.GetPyType();
+            if (type is PyClass cls) return cls.LookupFinalizerHook();
+            // A native type's tp_finalize, exposed as its __del__ and inherited (iobase_finalize).
+            foreach (var t in type.MRO)
+                if (t.TypeDict.TryGetValue("__del__", out var hook))
+                    return hook;
+            return null;
+        }
+
+        /// <summary>
+        /// outer is a layer over inner: a buffered stream over its raw stream, a text stream over its
+        /// buffer. In CPython outer's reference keeps inner alive until outer is finalized, so a
+        /// collection that finds both at once finalizes outer first, and so does shutdown.
+        /// </summary>
+        internal static void FinalizeAfter(PyObject inner, PyObject outer)
+        {
+            // A null outer ends the edge: detach() hands the inner layer back.
+            if (inner == null || !Guards.TryGetValue(inner, out var innerGuard)) return;
+            innerGuard.SetOuter(outer != null && Guards.TryGetValue(outer, out var outerGuard) ? outerGuard : null);
+        }
+
+        // Steps the armed guards, each after the armed layers over it. An outer layer holds its inner
+        // one, so when the inner is unreachable the outer is too, even if the finalizer thread has
+        // not queued it yet; it is finalized first all the same.
+        private static void StepOuterFirst(List<PyGuard> armed, Action<PyGuard> step)
+        {
+            var done = new HashSet<PyGuard>();
+            void Run(PyGuard guard, int depth)
+            {
+                if (!done.Add(guard)) return;
+                if (depth < 16 && guard.OuterGuard is { State: GuardState.Armed } outer)
+                    Run(outer, depth + 1);
+                step(guard);
+            }
+            foreach (var guard in armed)
+                Run(guard, 0);
         }
 
         /// <summary>
@@ -557,14 +610,18 @@ namespace SharpPy
         /// so one pass may not be enough: a finalizer can drop more objects, and those need another
         /// round. Bounded, like CPython's collect which also works in bounded rounds.
         /// </summary>
-        internal static void CollectAndDrain()
+        internal static int CollectAndDrain()
         {
+            int total = 0;
             for (int round = 0; round < 10; round++)
             {
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
-                if (Drain() == 0) break;
+                int handled = Drain();
+                total += handled;
+                if (handled == 0) break;
             }
+            return total;
         }
 
         /// <summary>
@@ -670,14 +727,16 @@ namespace SharpPy
         {
             PyGuard[] snapshot = SnapshotLive();
             Array.Sort(snapshot, (a, b) => a.Sequence.CompareTo(b.Sequence));
+            var armed = new List<PyGuard>();
             foreach (var guard in snapshot)
-            {
                 if (guard.State == GuardState.Armed)
-                {
-                    Step(guard);
-                    handled++;
-                }
-            }
+                    armed.Add(guard);
+            StepOuterFirst(armed, guard =>
+            {
+                if (guard.State != GuardState.Armed) return;
+                Step(guard);
+                handled++;
+            });
         }
 
         private static PyGuard[] SnapshotLive()

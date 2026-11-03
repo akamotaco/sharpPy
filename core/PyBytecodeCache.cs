@@ -11,7 +11,8 @@ namespace SharpPy
     /// </summary>
     internal static class PyBytecodeCache
     {
-        private const string Tag = "sharppy-312";
+        // sys.implementation.cache_tag: the one name SharpPy's caches go by.
+        internal const string Tag = "sharppy-312";
         // MAGIC_NUMBER of 3.12: (3531).to_bytes(2, 'little') + b'\r\n'
         private static readonly byte[] Magic = { 0xcb, 0x0d, 0x0d, 0x0a };
         private const int HeaderSize = 16;

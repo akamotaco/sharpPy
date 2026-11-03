@@ -318,22 +318,9 @@ namespace SharpPy
                 Console.WriteLine(new string('=', 60));
 #endif
 
-                // CPython 3.12: Write .pyc file to __pycache__
-                // Reference: Lib/py_compile.py:79-173
-                // Reference: Lib/importlib/_bootstrap_external.py:768-775
+                // Compiling a file caches it the way importing it would (SourceLoader.get_code).
                 if (!string.IsNullOrEmpty(fileName) && fileName != "<string>")
-                {
-                    try
-                    {
-                        var pycPath = PycFileWriter.GetPycPath(fileName);
-                        PycFileWriter.WritePycFile(pycPath, codeObject, fileName);
-                        Console.WriteLine($"Compiled: {fileName} -> {pycPath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Warning: Failed to write .pyc file: {ex.Message}");
-                    }
-                }
+                    PyBytecodeCache.Store(fileName, codeObject);
 
                 return codeObject;
             }

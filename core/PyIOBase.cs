@@ -30,7 +30,7 @@ public class PyIOBaseInstance : PyObject, IDictBackedInstance
     private readonly PyType type;
     private Dictionary<string, PyObject> dict = new();
 
-    /// <summary>CPython iobase.closed.</summary>
+    /// <summary>The closed state of bytesio.c and stringio.c, which keep their own.</summary>
     public bool PyClosed;
 
     public PyIOBaseInstance(PyType type) => this.type = type;
@@ -62,8 +62,8 @@ public class PyIOBaseInstance : PyObject, IDictBackedInstance
     /// </summary>
     public override PyObject GetIterator()
     {
-        if (PyClosed)
-            throw PyIOBaseSlots.ClosedError();
+        // iobase_iter: iobase_check_closed.
+        PyIOBaseSlots.CheckClosedOf(this);
         return this;
     }
 
@@ -71,18 +71,11 @@ public class PyIOBaseInstance : PyObject, IDictBackedInstance
     {
         var readline = GetAttribute("readline");
         var line = BindSpecialMethod(readline).Call(Array.Empty<PyObject>(), null);
-        if (line is PyString s ? s.Length() == 0 : StaticSizeOf(line) <= 0)
+        // iobase_iternext: PyObject_Size of the line.
+        if (line.Length() <= 0)
             throw PyStopIteration.Create();
         return line;
     }
-
-    private static int StaticSizeOf(PyObject o) => o switch
-    {
-        PyBytes b => b.Value.Length,
-        PyList l => l.Length(),
-        PyTuple t => t.Length(),
-        _ => throw PyTypeError.Create($"object of type '{o.GetTypeName()}' has no len()"),
-    };
 
     /// <summary>
     /// iobase carries __dict__ (iobase_members exposes __dictoffset__), so instance attributes
@@ -159,33 +152,20 @@ public static class PyIOBaseSlots
         => self is PyIOBaseInstance ||
            (self?.GetPyType() != null && self.GetPyType().DerivesFromType(IOBaseType));
 
-    private static bool IsClosed(PyObject self)
-    {
-        if (self is PyIOBaseInstance native)
-            return native.PyClosed;
-        // A python subclass may override the "closed" property; CPython reads the same
-        // observable through the struct field it exposes as that attribute.
-        try
-        {
-            return self.GetAttribute("closed") is PyBool b && b.Value;
-        }
-        catch (System.Exception)
-        {
-            return false;
-        }
-    }
+    // iobase_is_closed: iobase_close leaves __IOBase_closed in the instance dict.
+    private static bool IsClosed(PyObject self) => self.LookupAttribute("__IOBase_closed") != null;
 
+    internal static void CheckClosedOf(PyObject self) => CheckClosed(self);
+
+    // iobase_check_closed: the derived "closed" attribute, which is not __IOBase_closed in most cases.
     private static void CheckClosed(PyObject self)
     {
-        if (IsClosed(self))
+        var closed = self.LookupAttribute("closed");
+        if (closed != null && closed.IsTrue())
             throw PyValueError.Create(ClosedMessage);
     }
 
-    private static void MarkClosed(PyObject self)
-    {
-        if (self is PyIOBaseInstance native)
-            native.PyClosed = true;
-    }
+    private static void MarkClosed(PyObject self) => self.SetAttribute("__IOBase_closed", PyBool.True);
 
     /// <summary>Exposes the closed flag to stringio/bytesio and file streams.</summary>
     public static bool ClosedOf(PyObject self) => IsClosed(self);
@@ -193,27 +173,32 @@ public static class PyIOBaseSlots
     /// <summary>The iobase.c wording, with the trailing period.</summary>
     public static System.Exception ClosedError() => PyValueError.Create(ClosedMessage);
 
-    private static int StaticSize(PyObject o) => o switch
-    {
-        PyString s => s.Length(),
-        PyBytes b => b.Value.Length,
-        PyByteArray ba => ba.Length(),
-        PyList l => l.Length(),
-        PyTuple t => t.Length(),
-        _ => throw PyTypeError.Create($"object of type '{o.GetTypeName()}' has no len()"),
-    };
 
-    // CPython calls these back through PyObject_CallMethod(self, name, ...), which means a
-    // python subclass overriding readline/write/flush is honoured. BindSpecialMethod is the
-    // CLR-side counterpart of that lookup-plus-bind.
-    private static void CallVoid(PyObject self, string name)
-        => self.BindSpecialMethod(self.GetAttribute(name))
-               .Call(Array.Empty<PyObject>(), null);
+    // PyObject_CallMethod: the attribute as getattr finds it (an instance attribute included),
+    // called; a python subclass overriding readline/write/flush is honoured that way.
+    private static void CallVoid(PyObject self, string name) => self.GetAttribute(name).Call(Array.Empty<PyObject>(), null);
 
-    private static PyObject CallWith(PyObject self, string name, PyObject[] args)
-        => self.BindSpecialMethod(self.GetAttribute(name)).Call(args, null);
+    private static PyObject CallWith(PyObject self, string name, PyObject[] args) => self.GetAttribute(name).Call(args, null);
 
     private static PyObject[] One(PyObject value) => new PyObject[] { value };
+
+    // The clinic "w*" converter: a writable buffer, as a byte view the caller releases.
+    internal static PyMemoryView WritableBytes(PyObject argument, string function)
+    {
+        if (!argument.SupportsBuffer())
+            throw PyTypeError.Create($"{function}() argument must be read-write bytes-like object, not {argument.GetTypeName()}");
+        var view = argument.GetBuffer(0);
+        if (view.ReadOnly)
+        {
+            view.Release();
+            throw PyTypeError.Create($"{function}() argument must be read-write bytes-like object, not {argument.GetTypeName()}");
+        }
+        if (view.ItemSize == 1)
+            return view;
+        var bytes = (PyMemoryView)view.GetAttribute("cast").Call(new PyObject[] { new PyString("B") }, null);
+        view.Release();
+        return bytes;
+    }
 
     /// <summary>Iterates with CPython's PyIter_Next shape: Next() until StopIteration.</summary>
     private static IEnumerable<PyObject> Enumerate(PyObject iterable)
@@ -271,11 +256,9 @@ public static class PyIOBaseSlots
         IOBaseType.TypeDict["flush"] = new PyMethodDescriptor(
             "flush", IOBaseType, (self, args, kwargs) =>
             {
-                // iobase_flush does NOT call self.flush(): the C version flushes the *raw*
-                // stream of concrete subclasses, and the base has nothing to flush. Calling
-                // back into this descriptor recurses forever (measured the crash).
-                // Measured here: open -> None, closed -> ValueError.
-                CheckClosed(self);
+                // _io__IOBase_flush_impl: only __IOBase_closed is asked, not the derived closed.
+                if (IsClosed(self))
+                    throw PyValueError.Create(ClosedMessage);
                 return PyNone.Instance;
             }, minArgs: 0, maxArgs: 0);
 
@@ -345,23 +328,21 @@ public static class PyIOBaseSlots
         IOBaseType.TypeDict["readlines"] = new PyMethodDescriptor(
             "readlines", IOBaseType, (self, args, kwargs) =>
             {
-                // _io._IOBase.readlines(hint=-1): hint <= 0 collects the whole iterator,
-                // otherwise it stops once a line overflows the remaining hint.
-                System.Numerics.BigInteger hint = -1;
-                if (args.Length > 0 && !(args[0] is PyNone))
-                    hint = PyObject.TryGetIndex(args[0])?.Value ?? -1;
+                // _io__IOBase_readlines_impl: the lines are self iterated; hint <= 0 takes them
+                // all, otherwise it stops once a line overflows the remaining hint.
+                long hint = args.Length > 0 && args[0] is not PyNone ? BytesMethods.AsSsize(args[0]) : -1;
                 var result = new PyList();
                 if (hint <= 0)
                 {
-                    foreach (var line in IterateLines(self))
+                    foreach (var line in Enumerate(self))
                         result.Append(line);
                     return result;
                 }
-                System.Numerics.BigInteger length = 0;
-                foreach (var line in IterateLines(self))
+                long length = 0;
+                foreach (var line in Enumerate(self))
                 {
                     result.Append(line);
-                    var lineLength = StaticSize(line);
+                    long lineLength = line.Length();
                     if (lineLength > hint - length)
                         break;
                     length += lineLength;
@@ -384,12 +365,43 @@ public static class PyIOBaseSlots
         IOBaseType.TypeDict["close"] = new PyMethodDescriptor(
             "close", IOBaseType, (self, args, kwargs) =>
             {
-                // iobase_close flushes the raw stream of concrete subclasses once, then marks
-                // the object closed; the base has no raw stream, so it only flips the flag.
-                // close() twice is a no-op (measured: close(); close() -> None, True).
-                MarkClosed(self);
+                // _io__IOBase_close_impl: flush() once, then __IOBase_closed whatever flush did.
+                if (IsClosed(self))
+                    return PyNone.Instance;
+                try
+                {
+                    CallWith(self, "flush", Array.Empty<PyObject>());
+                }
+                finally
+                {
+                    MarkClosed(self);
+                }
                 return PyNone.Instance;
             }, minArgs: 0, maxArgs: 0);
+
+        // iobase_finalize, the tp_finalize that a subclass inherits and that __del__ wraps: an open
+        // object is closed, with _finalizing set first, and nothing it raises escapes.
+        IOBaseType.TypeDict["__del__"] = new PyWrapperDescriptor("__del__", IOBaseType, (self, args, kwargs) =>
+        {
+            int closed;
+            try
+            {
+                var value = self.LookupAttribute("closed");
+                closed = value == null ? -1 : value.IsTrue() ? 1 : 0;
+            }
+            catch (PythonException)
+            {
+                closed = -1;
+            }
+            if (closed == 0)
+            {
+                try { self.SetAttribute("_finalizing", PyBool.True); }
+                catch (PythonException) { }
+                try { CallWith(self, "close", Array.Empty<PyObject>()); }
+                catch (PythonException) { }
+            }
+            return PyNone.Instance;
+        }, 0, 0);
 
         IOBaseType.TypeDict["__iter__"] = new PyMethodDescriptor(
             "__iter__", IOBaseType, (self, args, kwargs) =>
@@ -403,7 +415,7 @@ public static class PyIOBaseSlots
             {
                 // iobase_iternext: readline(); an empty line ends the iteration.
                 var line = CallWith(self, "readline", Array.Empty<PyObject>());
-                if (StaticSize(line) <= 0)
+                if (line.Length() <= 0)
                     throw PyStopIteration.Create();
                 return line;
             }, minArgs: 0, maxArgs: 0);
@@ -451,41 +463,83 @@ public static class PyIOBaseSlots
                 return PyNone.Instance;
             }, minArgs: 0, maxArgs: 0);
 
-        // ---- _RawIOBase: read/readinto/write are the primitive operations, and the C
-        // defaults raise bare NotImplementedError (measured: message is empty).
-        void RawNotImplemented(string name, int minArgs, int maxArgs)
-        {
+        // ---- _RawIOBase (iobase.c): readinto and write are the primitives and raise a bare
+        // NotImplementedError; read is readinto into a bytearray, readall is read until EOF.
+        foreach (var name in new[] { "readinto", "write" })
             RawIOBaseType.TypeDict[name] = new PyMethodDescriptor(
-                name, RawIOBaseType, (self, args, kw) =>
+                name, RawIOBaseType, (self, args, kw) => throw new PythonException(new PyNotImplementedError(Array.Empty<PyObject>(), null)), minArgs: 1, maxArgs: 1);
+        RawIOBaseType.TypeDict["read"] = new PyMethodDescriptor(
+            "read", RawIOBaseType, (self, args, kw) =>
+            {
+                long n = args.Length > 0 && args[0] is not PyNone ? BytesMethods.AsSsize(args[0]) : -1;
+                if (n < 0)
+                    return CallWith(self, "readall", Array.Empty<PyObject>());
+                var b = new PyByteArray(new byte[n]);
+                var res = CallWith(self, "readinto", One(b));
+                if (res is PyNone)
+                    return res;
+                long got = BytesMethods.AsSsize(res);
+                var data = b.ToByteArrayCopy();
+                if (got < 0 || got > data.Length)
+                    throw PyValueError.Create($"readinto returned {got} outside buffer size {data.Length}");
+                Array.Resize(ref data, (int)got);
+                return new PyBytes(data);
+            }, minArgs: 0, maxArgs: 1);
+        RawIOBaseType.TypeDict["readall"] = new PyMethodDescriptor(
+            "readall", RawIOBaseType, (self, args, kw) =>
+            {
+                var chunks = new List<byte>();
+                bool any = false;
+                while (true)
                 {
-                    throw PyNotImplementedError.Create("");
-                }, minArgs: minArgs, maxArgs: maxArgs);
-        }
+                    var data = CallWith(self, "read", One(new PyInt(8192)));
+                    if (data is PyNone)
+                    {
+                        if (!any)
+                            return data;
+                        break;
+                    }
+                    if (data is not PyBytes bytes)
+                        throw PyTypeError.Create("read() should return bytes");
+                    if (bytes.Value.Length == 0)
+                        break;
+                    chunks.AddRange(bytes.Value);
+                    any = true;
+                }
+                return new PyBytes(chunks.ToArray());
+            }, minArgs: 0, maxArgs: 0);
 
-        RawNotImplemented("read", 0, 1);
-        RawNotImplemented("readall", 0, 0);
-        RawNotImplemented("readinto", 1, 1);
-        RawNotImplemented("write", 1, 1);
-
-        // ---- _BufferedIOBase: same shape, the C file raises NotImplementedError too.
-        void BufferedNotImplemented(string name, int minArgs, int maxArgs)
+        // ---- _BufferedIOBase (bufferedio.c): read, read1, write and detach are unsupported;
+        // readinto and readinto1 are read and read1 copied into the buffer. peek and raw are
+        // not among them, so io.BytesIO inherits neither.
+        foreach (var (name, max) in new[] { ("read", 1), ("read1", 1), ("write", 1), ("detach", 0) })
+            PyArgs.Define(BufferedIOBaseType, name, PyCall.Defining, (self, args) => throw PyUnsupportedOperation.Create(name),
+                name == "write" ? 1 : 0, max);
+        foreach (var name in new[] { "readinto", "readinto1" })
         {
+            string reader = name == "readinto" ? "read" : "read1";
             BufferedIOBaseType.TypeDict[name] = new PyMethodDescriptor(
                 name, BufferedIOBaseType, (self, args, kw) =>
                 {
-                    throw PyNotImplementedError.Create("");
-                }, minArgs: minArgs, maxArgs: maxArgs);
+                    // _bufferediobase_readinto_generic
+                    var view = WritableBytes(args[0], name);
+                    try
+                    {
+                        int length = view.Length();
+                        var data = CallWith(self, reader, One(new PyInt(length)));
+                        if (data is not PyBytes bytes)
+                            throw PyTypeError.Create("read() should return bytes");
+                        if (bytes.Value.Length > length)
+                            throw PyValueError.Create($"read() returned too much data: {length} bytes requested, {bytes.Value.Length} returned");
+                        view.WriteContiguous(bytes.Value);
+                        return new PyInt(bytes.Value.Length);
+                    }
+                    finally
+                    {
+                        view.Release();
+                    }
+                }, minArgs: 1, maxArgs: 1);
         }
-
-        // dir(_io._BufferedIOBase) in CPython lists exactly these; peek and raw are NOT among
-        // them (measured against SharpPy, which had them by assumption), so io.BytesIO does not
-        // inherit a peek/raw attribute at all.
-        BufferedNotImplemented("read", 0, 1);
-        BufferedNotImplemented("read1", 0, 1);
-        BufferedNotImplemented("readinto", 1, 1);
-        BufferedNotImplemented("readinto1", 1, 1);
-        BufferedNotImplemented("write", 1, 1);
-        BufferedNotImplemented("detach", 0, 0);
 
         // dir(_io._TextIOBase) lists detach as well (measured); it reports unsupported.
         TextIOBaseType.TypeDict["detach"] = new PyMethodDescriptor(
@@ -526,17 +580,6 @@ public static class PyIOBaseSlots
                         return PyNone.Instance;
                     }
                 });
-        }
-    }
-
-    private static IEnumerable<PyObject> IterateLines(PyObject self)
-    {
-        while (true)
-        {
-            var line = CallWith(self, "readline", Array.Empty<PyObject>());
-            if (StaticSize(line) <= 0)
-                yield break;
-            yield return line;
         }
     }
 }

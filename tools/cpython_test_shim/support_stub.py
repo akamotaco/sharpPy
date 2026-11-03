@@ -64,6 +64,15 @@ def requires_mac_ver(*min_version):
     return lambda func: func
 
 
+# SharpPy runs under no sanitizer.
+def check_sanitizer(*, address=False, memory=False, ub=False, thread=False):
+    return False
+
+
+def skip_if_sanitizer(reason=None, *, address=False, memory=False, ub=False, thread=False):
+    return lambda func: func
+
+
 class _Stand_in:
     def __init__(self, name):
         self.name = name
@@ -430,6 +439,17 @@ def _check_no_warnings(testcase, *args, **kwargs):
     testcase.assertEqual(len(caught), 0)
 
 
+@contextlib.contextmanager
+def _check_no_resource_warning(testcase):
+    # warnings_helper.check_no_resource_warning: check_no_warnings(category=ResourceWarning, force_gc=True).
+    import gc
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", ResourceWarning)
+        yield
+        gc.collect()
+    testcase.assertEqual([w.message for w in caught if issubclass(w.category, ResourceWarning)], [])
+
+
 def _check_syntax_warning(testcase, statement, errtext="", *, lineno=1, offset=None):
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always", SyntaxWarning)
@@ -443,6 +463,7 @@ def _check_syntax_warning(testcase, statement, errtext="", *, lineno=1, offset=N
 import_helper = _helper_module("import_helper", import_fresh_module=_import_fresh_module, import_module=_import_module)
 os_helper = _helper_module("os_helper", TESTFN=TESTFN, unlink=_unlink)
 warnings_helper = _helper_module("warnings_helper", check_warnings=_check_warnings, check_no_warnings=_check_no_warnings,
+                                 check_no_resource_warning=_check_no_resource_warning,
                                  check_syntax_warning=_check_syntax_warning, ignore_warnings=lambda *, category: (lambda f: f))
 script_helper = _helper_module("script_helper")
 socket_helper = _helper_module("socket_helper")

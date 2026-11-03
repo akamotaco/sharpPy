@@ -18,7 +18,6 @@ public sealed class PyFileIO : PyIOBaseInstance
     private int _seekable = -1;
     private int _blksize;
     private bool _finalizing;
-    private PyResourceBus.Token _bus;
 
     public static readonly PyIOBaseType FileIOType = MakeType();
 
@@ -179,6 +178,7 @@ public sealed class PyFileIO : PyIOBaseInstance
                 {
                     try
                     {
+                        PyFileDescriptors.ReleaseUnreachable(path);
                         Fd = PyFileDescriptors.Open(path, flags);
                     }
                     catch (Exception error) when (error is IOException or UnauthorizedAccessException)
@@ -225,18 +225,9 @@ public sealed class PyFileIO : PyIOBaseInstance
     private static PythonException BadMode() =>
         PyValueError.Create("Must have exactly one of create/read/write/append mode and at most one plus") as PythonException;
 
-    // An abandoned file is closed when the collector finds it, as fileio_dealloc does.
-    private void Register()
-    {
-        if (!_closefd)
-            return;
-        int fd = Fd;
-        _bus = PyResourceBus.Register(this, () =>
-        {
-            try { PyFileDescriptors.Close(fd); }
-            catch (PythonException) { }
-        });
-    }
+    // An abandoned file is closed when the collector finds it: tp_finalize (iobase_finalize)
+    // calls close(), which warns first because _finalizing is set.
+    private void Register() => PyFinalizer.Attach(this);
 
     // internal_close
     private void InternalClose()
@@ -245,8 +236,6 @@ public sealed class PyFileIO : PyIOBaseInstance
             return;
         int fd = Fd;
         Fd = -1;
-        PyResourceBus.MarkReleased(_bus);
-        _bus = null;
         try
         {
             PyFileDescriptors.Close(fd);
@@ -381,17 +370,18 @@ public sealed class PyFileIO : PyIOBaseInstance
     private static PyFileIO Self(PyObject self, string name) => self as PyFileIO
         ?? throw PyTypeError.Create($"descriptor '{name}' requires a '_io.FileIO' object but received a '{self.GetTypeName()}'");
 
+    // The methods that take the defining class go through _PyArg_UnpackKeywords; seek is plain
+    // METH_FASTCALL and _dealloc_warn METH_O; the rest are METH_NOARGS.
+    private static PyCall KindOf(string name) => name switch
+    {
+        "close" or "readinto" or "read" or "write" or "truncate" => PyCall.Defining,
+        "seek" => PyCall.Fast,
+        "_dealloc_warn" => PyCall.One,
+        _ => PyCall.NoArgs,
+    };
+
     private static void Method(PyType type, string name, Func<PyFileIO, PyObject[], PyObject> body, int min = 0, int max = 0) =>
-        type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) =>
-        {
-            // The argument clinic's counts come before anything the method does.
-            if (args.Length < min || args.Length > max)
-                throw PyTypeError.Create(min == max
-                    ? max == 0 ? $"{name}() takes no arguments ({args.Length} given)" : $"{name}() takes exactly one argument ({args.Length} given)"
-                    : args.Length < min ? $"{name} expected at least {min} argument{(min == 1 ? "" : "s")}, got {args.Length}"
-                    : $"{name} expected at most {max} argument{(max == 1 ? "" : "s")}, got {args.Length}");
-            return body(Self(self, name), args);
-        }, minArgs: 0, maxArgs: int.MaxValue);
+        PyArgs.Define(type, name, KindOf(name), (self, args) => body(Self(self, name), args), min, max);
 
     private static PyIOBaseType MakeType()
     {
@@ -426,18 +416,19 @@ public sealed class PyFileIO : PyIOBaseInstance
             self.CheckOpen();
             if (!self._readable)
                 throw ErrMode("reading");
-            if (!args[0].SupportsBuffer())
-                throw PyTypeError.Create($"readinto() argument must be read-write bytes-like object, not {args[0].GetTypeName()}");
-            var view = args[0].GetBuffer(0);
-            if (view.GetAttribute("readonly").IsTrue())
-                throw PyTypeError.Create($"readinto() argument must be read-write bytes-like object, not {args[0].GetTypeName()}");
-            var bytes = view.GetAttribute("cast").Call(new PyObject[] { new PyString("B") }, null);
-            int length = bytes.Length();
-            var data = new byte[length];
-            int n = self.ReadInto(data, 0, length);
-            for (int i = 0; i < n; i++)
-                bytes.SetItem(new PyInt(i), new PyInt(data[i]));
-            return new PyInt(n);
+            var bytes = PyIOBaseSlots.WritableBytes(args[0], "readinto");
+            try
+            {
+                int length = bytes.Length();
+                var data = new byte[length];
+                int n = self.ReadInto(data, 0, length);
+                bytes.WriteContiguous(data.AsSpan(0, n));
+                return new PyInt(n);
+            }
+            finally
+            {
+                bytes.Release();
+            }
         }, 1, 1);
         Method(type, "write", (self, args) =>
         {
@@ -512,6 +503,11 @@ public sealed class PyFileIO : PyIOBaseInstance
                     throw failure;
                 return PyNone.Instance;
             }
+            if (self._finalizing)
+            {
+                try { self.GetAttribute("_dealloc_warn").Call(new PyObject[] { self }, null); }
+                catch (PythonException) { }
+            }
             self.InternalClose();
             if (failure != null)
                 throw failure;
@@ -567,7 +563,8 @@ public sealed class PyFileIO : PyIOBaseInstance
         type.TypeDict["closefd"] = new PyGetSetDescriptor("closefd", type, self => PyBool.FromBool(Self(self, "closefd")._closefd));
         type.TypeDict["mode"] = new PyGetSetDescriptor("mode", type, self => new PyString(Self(self, "mode").ModeString()));
         type.TypeDict["_blksize"] = new PyMemberDescriptor("_blksize", type, self => new PyInt(Self(self, "_blksize")._blksize));
-        type.TypeDict["_finalizing"] = new PyMemberDescriptor("_finalizing", type, self => PyBool.FromBool(Self(self, "_finalizing")._finalizing));
+        type.TypeDict["_finalizing"] = new PyMemberDescriptor("_finalizing", type, self => PyBool.FromBool(Self(self, "_finalizing")._finalizing),
+            (self, value) => Self(self, "_finalizing")._finalizing = value.IsTrue());
         return type;
     }
 }

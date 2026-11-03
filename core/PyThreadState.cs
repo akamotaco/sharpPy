@@ -114,11 +114,15 @@ namespace SharpPy
             lock (Gate)
             {
                 _waiters++;
-                while (_held)
+                // take_gil: once finalization has begun only the finalizing thread runs again; any
+                // other thread waits for good, even while that thread has let the GIL go.
+                while (_held || (_finalizing && !ReferenceEquals(state, _finalizer)))
                 {
-                    // A daemon thread does not run again once finalization has begun.
-                    while (_finalizing)
+                    if (_finalizing && !ReferenceEquals(state, _finalizer))
+                    {
                         Monitor.Wait(Gate);
+                        continue;
+                    }
                     if (!Monitor.Wait(Gate, _intervalMilliseconds) && _held)
                     {
                         _dropRequest = true;
@@ -186,7 +190,16 @@ namespace SharpPy
         }
 
         /// <summary>_PyRuntimeState_SetFinalizing: this thread keeps the GIL to the end.</summary>
-        internal static void BeginFinalizing() => _finalizing = true;
+        internal static void BeginFinalizing()
+        {
+            lock (Gate)
+            {
+                _finalizer = _current;
+                _finalizing = true;
+            }
+        }
+
+        private static PyThreadState _finalizer;
 
         internal static bool Finalizing => _finalizing;
     }

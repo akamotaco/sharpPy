@@ -325,7 +325,7 @@ namespace SharpPy.Modules
         {
             if (attempt++ != 0) return false;
             if (!(error is IOException) && !(error is UnauthorizedAccessException)) return false;
-            return PyResourceBus.ReleaseUnreferenced(forceCollection: true) > 0;
+            return PyFinalizer.CollectAndDrain() + PyResourceBus.ReleaseUnreferenced(forceCollection: true) > 0;
         }
 
         // win32_error: what .NET threw, as the code GetLastError held.
@@ -550,9 +550,12 @@ namespace SharpPy.Modules
                 file.Flush();
                 return Stat(new PyObject[] { new PyString(file.Name) });
             }
-            // A console is a character device; any other stream answers for its size.
+            // _Py_fstat_noraise: what is not a disk file has only its type, a character device
+            // (the console) or a FIFO (a pipe); any other stream answers for its size.
             if (stream is PyConsoleStream)
-                return new PyStatResult(0x2000 | 0x1B6, 0, 0);
+                return new PyStatResult(0x2000, 0, 0);
+            if (stream is System.IO.Pipes.PipeStream)
+                return new PyStatResult(0x1000, 0, 0);
             if (stream.CanSeek)
                 return new PyStatResult(0x8000 | 0x1A4, stream.Length, 0);
             throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(9), new PyString("Bad file descriptor") }, null));
@@ -775,6 +778,8 @@ namespace SharpPy.Modules
             Environment.SetEnvironmentVariable(key, value);
             return PyNone.Instance;
         }
+
+        internal static PyObject FsPathObject(PyObject path) => Fspath(new[] { path });
 
         // fspath(path) -> str
         // CPython: posixmodule.c os_fspath_impl

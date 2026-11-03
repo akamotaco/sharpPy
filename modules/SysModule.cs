@@ -248,7 +248,8 @@ namespace SharpPy.Modules
             kwargs.SetItem(new PyString("name"), new PyString("cpython"));
             kwargs.SetItem(new PyString("version"), CreateVersionInfo());
             kwargs.SetItem(new PyString("hexversion"), new PyInt(HexVersion));
-            kwargs.SetItem(new PyString("cache_tag"), new PyString("cpython-312"));
+            // Its own tag, so a cache SharpPy writes never takes the name of one CPython reads.
+            kwargs.SetItem(new PyString("cache_tag"), new PyString(PyBytecodeCache.Tag));
 
             return new PySimpleNamespace(kwargs);
         }
@@ -865,7 +866,8 @@ namespace SharpPy.Modules
             _ => Console.Out
         };
 
-        public override PyType GetPyType() => PyFileContextManager.TextType;
+        // Until create_stdio builds these over FileIO, Buffered and TextIOWrapper, they report the type.
+        public override PyType GetPyType() => PyTextIOWrapper.WrapperType;
         public override string GetTypeName() => "_io.TextIOWrapper";
         public override PyString ToRepr() => new PyString($"<{GetTypeName()} name='{DisplayName}' mode='{Mode}' encoding='utf-8'>");
 

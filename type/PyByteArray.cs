@@ -8,7 +8,7 @@ namespace SharpPy
     /// Python bytearray type - mutable sequence of bytes
     /// CPython 3.12 compatible implementation
     /// </summary>
-    public class PyByteArray : PyObject
+    public class PyByteArray : PyObject, IBufferExporter
     {
         #region Fields
 
@@ -821,12 +821,10 @@ namespace SharpPy
             buffer.Release();
         }
 
-        internal void AcquireBufferExport() => System.Threading.Interlocked.Increment(ref _exports);
-        internal void ReleaseBufferExport() => System.Threading.Interlocked.Decrement(ref _exports);
-        private bool HasBufferExports => System.Threading.Volatile.Read(ref _exports) > 0;
-        internal byte ReadBufferByte(int index) => _bytes[index];
-        internal Span<byte> BufferSpan => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_bytes);
-        internal void WriteBufferByte(int index, byte value) => _bytes[index] = value;
+        public void AcquireBufferExport() => System.Threading.Interlocked.Increment(ref _exports);
+        public void ReleaseBufferExport() => System.Threading.Interlocked.Decrement(ref _exports);
+        private bool HasBufferExports => BufferExports.Held(() => System.Threading.Volatile.Read(ref _exports) > 0);
+        public Span<byte> BufferSpan => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_bytes);
 
         public override bool SupportsBuffer() => true;
 

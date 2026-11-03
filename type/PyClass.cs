@@ -129,7 +129,16 @@ namespace SharpPy
             PyObject hook = null;
             foreach (var t in MRO)
             {
-                if (!(t is PyClass owner)) continue;
+                // A native base's tp_finalize, exposed as its __del__ (iobase_finalize), is inherited.
+                if (t is not PyClass owner)
+                {
+                    if (t.TypeDict.TryGetValue("__del__", out var native))
+                    {
+                        hook = native;
+                        break;
+                    }
+                    continue;
+                }
                 // The first class in the MRO that has the name wins, whatever the value is. Skipping a
                 // None went on to find the parent and call it, where CPython stops at the None and
                 // reports TypeError: 'NoneType' object is not callable on stderr

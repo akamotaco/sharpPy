@@ -88,9 +88,10 @@
 - 5-2. `os.open` 20건, `tempfile` 없음.
 - 5-4. `weakref` 프록시, `bytearray %`.
 - 5-5. 그 밖의 라이브러리 목록은 P0-83. 필요성이 확인된 것만 한다.
-- 5-6. `io` 계층: `open()`은 `FileIO`/`Buffered*`/`TextIOWrapper` 세 층이 아니라 `PyFileContextManager` 하나다. `sys.stdout`은 `TextIOWrapper` 타입을 보이지만 별도 클래스다. `_io`를 세 층으로 다시 짜거나 `_pyio.py`를 쓰는 결정이 필요하다.
+- 5-6. `io` 계층: `open()`은 `_iomodule.c`대로 `FileIO`→`Buffered*`→`TextIOWrapper`이고, `BytesIO`·`StringIO`도 `bytesio.c`·`stringio.c`의 이식이다. 남은 것은 표준 스트림이다. `sys.stdin/stdout/stderr`는 아직 `SysModule.PyFile`(콘솔에 바로 쓰는 별도 클래스)이고 타입만 `TextIOWrapper`로 보인다. `create_stdio`(Python/pylifecycle.c)처럼 fd 0~2 위의 세 층으로 만들고, 종료 시 `flush_std_files`, `print`·`input`·`PyUnraisable`·`PyWarnings`의 `PyFile` 분기 제거, `PyFileContextManager`·`PyTextWrapper` 삭제가 한 묶음이다. sys 모듈 생성 중에는 코덱 조회가 `codecs`→`sys` 재귀가 되므로 `init_sys_streams`에 해당하는 초기화 단계가 먼저 필요하다.
+- 5-6a. 수명 모델: CPython gc는 순환 쓰레기의 약한 참조를 `tp_finalize`보다 먼저 지운다(`handle_weakrefs`). SharpPy 가드는 종결자 뒤에 지우므로, 종결자가 `ResourceWarning(source=...)` 등으로 객체를 되살리면 `test_io`의 `test_garbage_collection` 6건처럼 약한 참조가 살아 있다.
 - 5-7. 2026-11-03 새로 돌린 모듈의 큰 묶음: `test_array` 404건(메서드 인자 검사, `fromfile`), `test_itertools`·`test_weakref` 시간 초과, `test_types` `_testinternalcapi`, `test_collections` doctest가 `inspect.getmodule`에서 멈춤, `test_time` `mktime`, `test_sys` 13건, `test_frame` 11건(`frame.clear`, `f_locals`), `test_memoryview` 18건(다차원 형식), `test_struct` 23건.
-- 5-8. `sys.path_hooks`, `sys.path_importer_cache`는 빈 목록이다. 파일 찾기는 C# `PathFinder` 하나다.
+- 5-8. `sys.path_hooks`, `sys.path_importer_cache`는 빈 목록이다. 파일 찾기는 C# `PathFinder` 하나다. 테스트 드라이버 밖의 자식 SharpPy에서 `import test.test_threading`은 CPython `importlib/_bootstrap_external.py`가 `winreg`를 찾다 실패한다(`test_4_daemon_threads`를 드라이버에서 건너뛰는 이유). `importlib.util.cache_from_source`는 `__pycache__`와 태그 없이 `a/b.pyc`를 돌려준다.
 
 ## 6. PEP 695
 

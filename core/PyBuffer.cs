@@ -92,6 +92,35 @@ namespace SharpPy
     }
 
     /// <summary>
+    /// An exporter whose memory can move or be resized while no view holds it (bytearray, the
+    /// buffer of io.BytesIO): bf_getbuffer counts a view in, bf_releasebuffer counts it out, and
+    /// the views read the memory through the exporter.
+    /// </summary>
+    public interface IBufferExporter
+    {
+        void AcquireBufferExport();
+        void ReleaseBufferExport();
+        Span<byte> BufferSpan { get; }
+    }
+
+    internal static class BufferExports
+    {
+        /// <summary>
+        /// Whether views still hold the exporter. CPython releases a view the moment its last
+        /// reference goes; here an unreachable view is released by its finalizer, so before an
+        /// exporter refuses, the collector finishes the views nothing can reach any more.
+        /// </summary>
+        internal static bool Held(Func<bool> exported)
+        {
+            if (!exported())
+                return false;
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            return exported();
+        }
+    }
+
+    /// <summary>
     /// MemoryView implementation for buffer protocol
     /// Represents a view into buffer data
     /// </summary>
@@ -334,14 +363,18 @@ namespace SharpPy
         internal static PyMemoryView FromByteArray(PyByteArray data) =>
             new ExportedView(data, false, 1, 0, data.Length(), 1);
 
+        // PyMemoryView_FromObject over an exporter: a writable byte view of length bytes.
+        internal static PyMemoryView FromExporter(IBufferExporter exporter, int length) =>
+            new ExportedView(exporter, false, 1, 0, length, 1);
+
         // Only resizable exporters need CLR cleanup. Immutable byte views retain
         // their ordinary allocation/collection path. This fallback does not
         // promise CPython's immediate last-Python-reference release timing.
         private sealed class ExportedView : PyMemoryView
         {
-            internal ExportedView(PyByteArray data, bool readOnly, int itemsize,
+            internal ExportedView(IBufferExporter data, bool readOnly, int itemsize,
                 int offset, int length, nint stride, string fmt = "B", int[] shape = null)
-                : base(data, readOnly, itemsize, offset, length, stride, fmt, shape, data) { }
+                : base(data, readOnly, itemsize, offset, length, stride, fmt, shape, (PyObject)data) { }
             internal ExportedView(PyMemoryView source, PySlice slice) : base(source, slice) { }
             ~ExportedView() { ReleaseExport(false); }
         }
@@ -350,7 +383,7 @@ namespace SharpPy
             int offset, int length, nint stride, string fmt = "B", int[] shape = null,
             PyObject exportee = null)
         {
-            _exportee = exportee ?? (data as PyByteArray);
+            _exportee = exportee ?? (data as IBufferExporter as PyObject);
             if (shape != null)
             {
                 // A 1-element shape is CPython's ordinary 1-D view; drop it so the fast
@@ -380,7 +413,7 @@ namespace SharpPy
             _offset = offset;
             _length = length;
             _stride = stride;
-            if (data is PyByteArray exporter) exporter.AcquireBufferExport();
+            if (data is IBufferExporter exporter) exporter.AcquireBufferExport();
         }
 
         private void CheckReleased()
@@ -431,8 +464,8 @@ namespace SharpPy
             }
         }
 
-        private byte ReadByte(int position) => _data is PyByteArray exporter
-            ? exporter.ReadBufferByte(position) : ((byte[])_data)[position];
+        private byte ReadByte(int position) => _data is IBufferExporter exporter
+            ? exporter.BufferSpan[position] : ((byte[])_data)[position];
 
         // CPython memoryview.cast element decoding. Native (little-endian on the
         // supported hosts) struct interpretation of the raw bytes.
@@ -480,7 +513,7 @@ namespace SharpPy
         {
             int total = _length * _itemsize;
             int elems = total / itemsize;
-            return _data is PyByteArray e
+            return _data is IBufferExporter e
                 ? new ExportedView(e, _readonly, itemsize, _offset, elems, itemsize, fmt, shape)
                 : new PyMemoryView(_data, _readonly, itemsize, _offset, elems, itemsize, fmt, shape, _exportee);
         }
@@ -521,7 +554,7 @@ namespace SharpPy
         private PyObject GetNdItem(PyObject index)
         {
             if (index is PySlice slice)
-                return _data is PyByteArray ? new ExportedView(this, slice) : new PyMemoryView(this, slice);
+                return _data is IBufferExporter ? new ExportedView(this, slice) : new PyMemoryView(this, slice);
             if (index is PyTuple items)
             {
                 if (items.Items.Length > _shape.Length)
@@ -577,7 +610,7 @@ namespace SharpPy
         {
             var data = _data;
             _data = null;
-            if (data is PyByteArray exporter)
+            if (data is IBufferExporter exporter)
             {
                 exporter.ReleaseBufferExport();
                 if (suppressFinalization) GC.SuppressFinalize(this);
@@ -588,7 +621,7 @@ namespace SharpPy
         public override PyMemoryView GetBuffer(int flags)
         {
             CheckReleased();
-            return _data is PyByteArray exporter
+            return _data is IBufferExporter exporter
                 ? new ExportedView(exporter, _readonly, _itemsize, _offset, _length, _stride, _fmt, _shape)
                 : new PyMemoryView(_data, _readonly, _itemsize, _offset, _length, _stride, _fmt);
         }
@@ -598,7 +631,9 @@ namespace SharpPy
             get
             {
                 CheckReleased();
-                if (_itemsize == 1 && _data is byte[] array && _offset == 0 && _stride == 1 && _length == array.Length)
+                // Only the memory of a bytes object can be handed out without a copy; any other
+                // array, read-only view or not, can change under whatever was made from it.
+                if (_exportee is PyBytes && _itemsize == 1 && _data is byte[] array && _offset == 0 && _stride == 1 && _length == array.Length)
                     return array;
                 int total = _length * _itemsize;
                 var result = new byte[total];
@@ -807,7 +842,7 @@ namespace SharpPy
             // CPython 3.12: line 2578-2593 - slice support
             else if (index is PySlice slice)
             {
-                return _data is PyByteArray ? new ExportedView(this, slice) : new PyMemoryView(this, slice);
+                return _data is IBufferExporter ? new ExportedView(this, slice) : new PyMemoryView(this, slice);
             }
             var converted = TryGetIndex(index);
             if (converted == null) throw PyTypeError.Create("memoryview: invalid slice key");
@@ -847,7 +882,7 @@ namespace SharpPy
                 if (byteValue > 255)
                     throw PyValueError.Create("memoryview: invalid value for format 'B'");
 
-                if (_data is PyByteArray exporter) exporter.WriteBufferByte(position, (byte)byteValue);
+                if (_data is IBufferExporter exporter) exporter.BufferSpan[position] = (byte)byteValue;
                 else ((byte[])_data)[position] = (byte)byteValue;
                 return;
             }
@@ -857,7 +892,7 @@ namespace SharpPy
         // Valid logical indices of a nonempty view always map into int-sized storage.
         private int StorageIndex(int position) => unchecked((int)(_offset + position * _stride));
 
-        private Span<byte> StorageSpan() => _data is PyByteArray exporter
+        private Span<byte> StorageSpan() => _data is IBufferExporter exporter
             ? exporter.BufferSpan : (byte[])_data;
 
         // Synchronous native IO only: no Python callbacks while this span is used.
@@ -867,6 +902,19 @@ namespace SharpPy
             if (_length > 1 && _stride != 1)
                 throw PyBufferError.Create("memoryview: underlying buffer is not C-contiguous");
             return _length == 0 ? ReadOnlySpan<byte>.Empty : StorageSpan().Slice(_offset, _length);
+        }
+
+        // Synchronous native IO only: fills the front of a writable, C-contiguous byte view.
+        internal void WriteContiguous(ReadOnlySpan<byte> data)
+        {
+            CheckReleased();
+            if (_readonly)
+                throw PyTypeError.Create("cannot modify read-only memory");
+            if (_itemsize != 1 || (_length > 1 && _stride != 1))
+                throw PyBufferError.Create("memoryview: underlying buffer is not C-contiguous");
+            if (data.Length > _length)
+                throw PyValueError.Create("memoryview assignment: lvalue and rvalue have different structures");
+            data.CopyTo(StorageSpan().Slice(_offset, data.Length));
         }
 
         private void SetSlice(PySlice slice, PyObject value)
