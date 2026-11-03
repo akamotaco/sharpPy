@@ -19,7 +19,7 @@
 | 바이트코드 (Lib/*.py) | 코드 객체 8039개 전부 `co_code`, `co_linetable`(열 번호 포함), `co_exceptiontable`, `co_stacksize` 바이트 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level raw <files>` |
 | 바이트코드 (프로브) | 코드 객체 5325개 전부 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level exceptions` |
 | 심볼 테이블 (Lib/*.py) | 스코프 8039개 전부 플래그까지 일치 | `python tools/compare_symtable.py --dotnet <dotnet> <files>` |
-| 버그 프로브 | 174 / 174 | `python tools/run_bughunt.py` |
+| 버그 프로브 | 179 / 179 | `python tools/run_bughunt.py` |
 | 평가 | 225 일치, 3 변동 필드, 2 참조 없음 | `python tools/evaluate.py --dotnet <dotnet> --timeout 90` |
 | Godot | 82 일치 | `.artifacts/round30-godot`에서 `--replay` |
 

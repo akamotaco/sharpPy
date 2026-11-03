@@ -131,6 +131,15 @@ namespace SharpPy
                 view.CheckReleased();
                 return new PyBytes(view.Data);
             });
+            // memoryview_toreadonly
+            type.TypeDict["toreadonly"] = new PyMethodDescriptor("toreadonly", type, (self, args, kwargs) =>
+            {
+                var view = (PyMemoryView)self;
+                view.CheckReleased();
+                var copy = new PyMemoryView(view, new PySlice(PyNone.Instance, PyNone.Instance, PyNone.Instance));
+                copy._bufferState |= 1;
+                return copy;
+            }, 0, 0);
             type.TypeDict["tolist"] = new PyMethodDescriptor("tolist", type, (self, args, kwargs) =>
             {
                 if (self is not PyMemoryView view)
@@ -713,7 +722,7 @@ namespace SharpPy
         /// CPython: PyGetSetDef memory_getsetlist - expose C# properties as Python attributes
         /// Objects/memoryobject.c:memory_itemsize_get
         /// </summary>
-        public override PyObject GetAttribute(string name)
+        internal PyObject Read(string name)
         {
             if (name == "strides")
             {
@@ -731,6 +740,16 @@ namespace SharpPy
                 // CPython checks PyBuffer_IsContiguous; with an explicit shape the
                 // strides stay row-major, so only a non-unit element stride breaks it.
                 return _stride == _itemsize ? PyBool.True : PyBool.False;
+            }
+            if (name == "f_contiguous")
+            {
+                CheckReleased();
+                // Row-major strides read column-major only when at most one dimension is longer than 1.
+                int wide = 0;
+                foreach (int extent in _shape ?? Array.Empty<int>())
+                    if (extent > 1)
+                        wide++;
+                return _stride == _itemsize && wide <= 1 ? PyBool.True : PyBool.False;
             }
             if (name == "readonly")
             {
@@ -763,7 +782,7 @@ namespace SharpPy
                 for (int k = 0; k < _shape.Length; k++) sh[k] = SmallIntCache.GetOrCreate(_shape[k]);
                 return new PyTuple(sh);
             }
-            return base.GetAttribute(name);
+            throw PyAttributeError.Create(name);
         }
 
         /// <summary>

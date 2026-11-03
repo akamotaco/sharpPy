@@ -95,9 +95,11 @@ namespace SharpPy
             Slot(PyType.GenericAliasType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
             Slot(PyType.UnionType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
             Slot(PyType.UnionType, "__or__", (self, args) => PyUnionType.Or(self, args[0]));
+            TypeTables.Install();
             InstallContainers();
             InstallViews();
             InstallIterators();
+            TypeTables.Finish();
             PyType.ModuleType.ConstructedByNewSlot = true;
             PyType.ModuleType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", PyType.ModuleType,
                 (cls, args, kwargs) => PyModule.Allocate((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
@@ -247,12 +249,21 @@ namespace SharpPy
             Slot(PyType.StrType, "__rmod__", (self, args) => args[0] is PyString format ? format.Modulo(self) : PyNotImplemented.Instance);
 
             Method(PyType.BytesType, "__bytes__", (self, args) => self);
+            // bool_and and its reflections: two bools stay a bool, anything else is an int.
+            foreach (var (name, operation) in new (string, Func<PyObject, PyObject, PyObject>)[]
+            {
+                ("and", (a, b) => a.BitwiseAnd(b)), ("or", (a, b) => a.BitwiseOr(b)), ("xor", (a, b) => a.BitwiseXor(b)),
+            })
+                Slot(PyType.BoolType, $"__r{name}__", (self, args) => args[0] is PyInt or PyBool ? operation(args[0], self) : PyNotImplemented.Instance);
+            Slot(PyNotImplemented.Instance.GetPyType(), "__bool__", (self, args) => PyBool.FromBool(self.IsTrue()));
             Method(PyType.BytesType, "__getnewargs__", (self, args) => new PyTuple(new[] { self }));
             Slot(PyType.BytesType, "__mod__", (self, args) => self.Modulo(args[0]));
             Slot(PyType.BytesType, "__rmod__", (self, args) => args[0] is PyBytes format ? format.Modulo(self) : PyNotImplemented.Instance);
 
             var array = PyType.BytearrayType;
             Slot(array, "__len__", (self, args) => new PyInt(self.Length()));
+            Slot(array, "__iadd__", (self, args) => ((PyByteArray)self).InPlaceConcat(args[0]));
+            Slot(array, "__imul__", (self, args) => ((PyByteArray)self).InPlaceRepeat(args[0]));
             Slot(array, "__contains__", (self, args) => self.Contains(args[0]));
             Slot(array, "__getitem__", (self, args) => self.GetItem(args[0]));
             Slot(array, "__mod__", (self, args) => self.Modulo(args[0]));
@@ -320,7 +331,7 @@ namespace SharpPy
             });
             Method(PyType.RangeType, "__reversed__", (self, args) => self.GetItem(new PySlice(PyNone.Instance, PyNone.Instance, new PyInt(-1))).GetIterator());
 
-            foreach (var generic in new[] { PyType.BaseExceptionGroupType })
+            foreach (var generic in new[] { PyType.BaseExceptionGroupType, PyType.GetIteratorType("enumerate"), PyType.MappingProxyType, PyType.WeakRefType })
                 if (!generic.TypeDict.ContainsKey("__class_getitem__"))
                     generic.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__", (cls, arg) => new PyGenericAlias((PyType)cls, arg));
 

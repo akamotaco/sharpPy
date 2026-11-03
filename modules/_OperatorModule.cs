@@ -18,14 +18,14 @@ namespace SharpPy.Modules
             var allList = new PyList(new PyObject[]
             {
                 new PyString("abs"), new PyString("add"), new PyString("and_"),
-                new PyString("attrgetter"), new PyString("concat"), new PyString("contains"),
+                new PyString("concat"), new PyString("contains"),
                 new PyString("countOf"), new PyString("delitem"), new PyString("eq"),
                 new PyString("floordiv"), new PyString("ge"), new PyString("getitem"),
                 new PyString("gt"), new PyString("index"), new PyString("indexOf"),
                 new PyString("inv"), new PyString("invert"), new PyString("is_"),
                 new PyString("is_not"), new PyString("itemgetter"), new PyString("le"),
                 new PyString("length_hint"), new PyString("lshift"), new PyString("lt"),
-                new PyString("matmul"), new PyString("methodcaller"), new PyString("mod"),
+                new PyString("matmul"), new PyString("mod"),
                 new PyString("mul"), new PyString("ne"), new PyString("neg"),
                 new PyString("not_"), new PyString("or_"), new PyString("pos"),
                 new PyString("pow"), new PyString("rshift"), new PyString("setitem"),
@@ -78,11 +78,6 @@ namespace SharpPy.Modules
             module.ModuleDict["indexOf"] = new PyBuiltinFunction("indexOf", IndexOf);
             module.ModuleDict["setitem"] = new PyBuiltinFunction("setitem", SetItem);
             module.ModuleDict["length_hint"] = new PyBuiltinFunction("length_hint", LengthHint);
-
-            // Attribute operators
-            module.ModuleDict["attrgetter"] = new PyBuiltinFunction("attrgetter", AttrGetter);
-            module.ModuleDict["itemgetter"] = new PyBuiltinFunction("itemgetter", ItemGetter);
-            module.ModuleDict["methodcaller"] = new PyBuiltinFunction("methodcaller", MethodCaller);
 
             return module;
         }

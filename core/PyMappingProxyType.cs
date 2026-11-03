@@ -113,11 +113,7 @@ namespace SharpPy
         #region Built-in methods (CPython mappingproxy methods)
 
         // mappingproxy_keys and the rest: PyObject_CallMethod on the mapping.
-        public override PyObject GetAttribute(string name) => name switch
-        {
-            "keys" or "values" or "items" or "get" => Snapshot().GetAttribute(name),
-            _ => base.GetAttribute(name),
-        };
+        internal virtual PyObject Forward(string name) => Snapshot().GetAttribute(name);
 
         #endregion
     }
@@ -146,11 +142,7 @@ namespace SharpPy
 
         public override PyString ToRepr() => new PyString($"mappingproxy({_wrapped.ToRepr().Value})");
 
-        public override PyObject GetAttribute(string name) => name switch
-        {
-            "keys" or "values" or "items" or "get" or "copy" or "__reversed__" => _wrapped.GetAttribute(name),
-            _ => base.GetAttribute(name),
-        };
+        internal override PyObject Forward(string name) => _wrapped.GetAttribute(name);
     }
 
 }

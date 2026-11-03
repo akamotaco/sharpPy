@@ -625,28 +625,94 @@ public class PyModule : PyObject
                 return ImportDottedModule(moduleName);
             }
 
-            // CPython 3.12: Python/import.c:2158 - Check builtin modules
-            if (_builtinModules.TryGetValue(moduleName, out Func<PyModule> moduleFactory))
-            {
-                var module = moduleFactory();
-                foreach (var value in module.ModuleDict.Values)
-                    if (value is PyBuiltinFunction function)
-                        function.OwnerModule = moduleName;
-                SetModule(moduleName, module);
-                return module;
-            }
-
-            // 4. sys.path를 사용한 파일 시스템 검색
-            var foundModule = SearchModuleInPath(moduleName);
-            if (foundModule != null)
-            {
-                return foundModule;
-            }
-
-            // 5. 모듈을 찾을 수 없음
-            throw PyModuleNotFoundError.Create($"No module named '{moduleName}'", moduleName);
+            return FindAndLoad(moduleName, () => LoadBuiltin(moduleName), () => SearchModuleInPath(moduleName), PyNone.Instance)
+                ?? throw PyModuleNotFoundError.Create($"No module named '{moduleName}'", moduleName);
         }
-        
+
+        private static PyModule LoadBuiltin(string moduleName)
+        {
+            if (!_builtinModules.TryGetValue(moduleName, out Func<PyModule> moduleFactory))
+                return null;
+            var module = moduleFactory();
+            foreach (var value in module.ModuleDict.Values)
+                if (value is PyBuiltinFunction function)
+                    function.OwnerModule = moduleName;
+            SetModule(moduleName, module);
+            return module;
+        }
+
+        /// <summary>The finders CPython has on sys.meta_path. The two searches are the C# ones here.</summary>
+        internal sealed class NativeFinder : PyObject
+        {
+            private readonly PyType _type;
+
+            internal NativeFinder(string name)
+            {
+                _type = new PyType(name, new[] { PyType.ObjectType }, "_frozen_importlib");
+                _type.TypeDict["find_spec"] = new PyMethodDescriptor("find_spec", _type, (self, args, kwargs) => PyNone.Instance, acceptsKwargs: true);
+            }
+
+            public override PyType GetPyType() => _type;
+        }
+
+        internal static readonly NativeFinder BuiltinFinder = new("BuiltinImporter");
+        internal static readonly NativeFinder PathFinder = new("PathFinder");
+
+        // _find_spec and _load_unlocked (Lib/importlib/_bootstrap.py): each finder of sys.meta_path in turn.
+        private static PyModule FindAndLoad(string name, Func<PyModule> builtin, Func<PyModule> path, PyObject searchPath)
+        {
+            PyObject[] finders = { BuiltinFinder, PathFinder };
+            if (TryGetModule("sys", out var sys) && sys.ModuleDict.TryGetValue("meta_path", out var list) && list is PyList paths)
+                finders = paths.AsTuple().Items;
+            foreach (var finder in finders)
+            {
+                var found = ReferenceEquals(finder, BuiltinFinder) ? builtin()
+                    : ReferenceEquals(finder, PathFinder) ? path()
+                    : LoadThrough(finder, name, searchPath);
+                if (found != null)
+                    return found;
+            }
+            return null;
+        }
+
+        private static PyModule LoadThrough(PyObject finder, string name, PyObject searchPath)
+        {
+            var findSpec = finder.LookupAttribute("find_spec");
+            if (findSpec == null)
+                return null;
+            var spec = findSpec.Call(new[] { new PyString(name), searchPath, PyNone.Instance }, null);
+            if (spec is PyNone)
+                return null;
+            // module_from_spec
+            var loader = spec.GetAttribute("loader");
+            var created = loader.LookupAttribute("create_module")?.Call(new[] { spec }, null);
+            var module = created == null || created is PyNone ? new PyModule(name) : (PyModule)created;
+            module.ModuleDict["__spec__"] = spec;
+            module.ModuleDict["__loader__"] = loader;
+            int dot = name.LastIndexOf('.');
+            module.ModuleDict["__package__"] = new PyString(dot < 0 ? "" : name.Substring(0, dot));
+            var locations = spec.LookupAttribute("submodule_search_locations");
+            if (locations != null && locations is not PyNone)
+            {
+                module.ModuleDict["__path__"] = locations;
+                module.ModuleDict["__package__"] = new PyString(name);
+            }
+            var origin = spec.LookupAttribute("origin");
+            if (origin != null && origin is not PyNone && spec.LookupAttribute("has_location")?.IsTrue() == true)
+                module.ModuleDict["__file__"] = origin;
+            SetModule(name, module);
+            try
+            {
+                loader.GetAttribute("exec_module").Call(new PyObject[] { module }, null);
+            }
+            catch
+            {
+                RemoveModule(name);
+                throw;
+            }
+            return TryGetModule(name, out var loaded) ? loaded : module;
+        }
+
         /// <summary>
         /// 점으로 구분된 모듈 import (예: package.submodule)
         /// </summary>
@@ -673,12 +739,15 @@ public class PyModule : PyObject
                 if (i == 0)
                 {
                     // 최상위 패키지
-                    subModule = SearchModuleInPath(part);
+                    string top = part;
+                    subModule = FindAndLoad(top, () => LoadBuiltin(top), () => SearchModuleInPath(top), PyNone.Instance);
                 }
                 else
                 {
                     // 서브모듈 - 부모 패키지 내에서 검색
-                    subModule = SearchSubmodule(currentModule, part, currentPath);
+                    var (parent, name, full) = (currentModule, part, currentPath);
+                    subModule = FindAndLoad(full, () => null, () => SearchSubmodule(parent, name, full),
+                        parent.ModuleDict.TryGetValue("__path__", out var searchPath) ? searchPath : PyNone.Instance);
                 }
                 
                 if (subModule == null)

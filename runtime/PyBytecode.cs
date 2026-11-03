@@ -601,7 +601,7 @@ namespace SharpPy
         public override string GetTypeName() => "code";
 
         // CPython: type(code).__name__ == 'code'
-        private static readonly PyType CodePyType = MakeCodeType();
+        internal static readonly PyType CodePyType = MakeCodeType();
 
         private static PyType MakeCodeType()
         {
@@ -841,7 +841,7 @@ namespace SharpPy
                 BytesField(args[14], "linetable"), BytesField(args[15], "exceptiontable"));
         }
 
-        public override PyObject GetAttribute(string name)
+        internal PyObject Read(string name)
         {
             return name switch
             {
@@ -1064,6 +1064,11 @@ namespace SharpPy
         }
 
         public override string ToString() => $"<code object {Name}>";
+
+        // code_repr
+        public override PyString ToRepr() => new PyString(FileName != null
+            ? $"<code object {PyFrame.BindErrorName(Name)} at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}, file \"{FileName}\", line {GetFirstLineNo()}>"
+            : $"<code object {PyFrame.BindErrorName(Name)} at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}, file ???, line {GetFirstLineNo()}>");
         
         /// <summary>
         /// Test the synchronous generator flag determined by scope analysis.

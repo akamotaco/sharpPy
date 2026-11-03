@@ -45,7 +45,7 @@ namespace SharpPy
         // CPython method_descriptor_repr: <method 'NAME' of 'TYPE' objects>
         public override PyString ToRepr()
             => OwnerType != null
-                ? new PyString($"<method '{Name}' of '{OwnerType.Name}' objects>")
+                ? new PyString($"<method '{Name}' of '{OwnerType.FullName}' objects>")
                 : new PyString($"<method '{Name}'>");
 
         // Descriptor protocol
@@ -59,7 +59,7 @@ namespace SharpPy
 
             // method_get: descr_check.
             if (Name != "__new__" && !AppliesTo(OwnerType, instance))
-                throw PyTypeError.Create($"descriptor '{Name}' for '{OwnerType.Name}' objects doesn't apply to a '{instance.GetTypeName()}' object");
+                throw PyTypeError.Create($"descriptor '{Name}' for '{OwnerType.FullName}' objects doesn't apply to a '{instance.GetTypeName()}' object");
 
             // 인스턴스에서 접근 시 bound method 반환
             return new PyBoundMethodDescriptor(instance, this);
@@ -67,12 +67,12 @@ namespace SharpPy
 
         public void Set(PyObject instance, PyObject value)
         {
-            throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
+            throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.FullName}' objects is not writable");
         }
 
         public void Delete(PyObject instance)
         {
-            throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
+            throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.FullName}' objects is not writable");
         }
 
         // descr_members and descr_getset: what every descriptor of a type says about itself.
@@ -110,7 +110,7 @@ namespace SharpPy
             // The generic `{Type}.{name}()` form below is wrong for those, so `__new__` keeps its own
             // path and is tracked separately in docs/known_gaps.md.
             if (!_acceptsKwargs && Name != "__new__" && kwargs != null && kwargs.Length() != 0)
-                throw PyTypeError.Create($"{OwnerType.Name}.{Name}() takes no keyword arguments");
+                throw PyTypeError.Create($"{OwnerType.FullName}.{Name}() takes no keyword arguments");
         }
 
         public override PyObject Call(PyObject[] args, PyDict kwargs)
@@ -120,12 +120,12 @@ namespace SharpPy
             // Unbound method call: 첫 번째 인자가 self여야 함
             if (args.Length < 1)
             {
-                throw PyTypeError.Create($"unbound method {OwnerType.Name}.{Name}() needs an argument");
+                throw PyTypeError.Create($"unbound method {OwnerType.FullName}.{Name}() needs an argument");
             }
 
             var self = args[0];
             if (Name != "__new__" && !AppliesTo(OwnerType, self))
-                throw PyTypeError.Create($"descriptor '{Name}' for '{OwnerType.Name}' objects doesn't apply to a '{self.GetTypeName()}' object");
+                throw PyTypeError.Create($"descriptor '{Name}' for '{OwnerType.FullName}' objects doesn't apply to a '{self.GetTypeName()}' object");
             var actualArgs = new PyObject[args.Length - 1];
             Array.Copy(args, 1, actualArgs, 0, args.Length - 1);
 
@@ -163,7 +163,7 @@ namespace SharpPy
             return Call(fullArgs, kwargs);
         }
 
-        public override string ToString() => $"<method '{Name}' of '{OwnerType.Name}' objects>";
+        public override string ToString() => $"<method '{Name}' of '{OwnerType.FullName}' objects>";
     }
 
     /// <summary>
@@ -214,7 +214,7 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
         public override string GetTypeName() => "builtin_function_or_method";
 
-        internal string QualifiedName => $"{MethodDescriptor.OwnerType.Name}.{MethodDescriptor.Name}";
+        internal string QualifiedName => $"{MethodDescriptor.OwnerType.FullName}.{MethodDescriptor.Name}";
 
         /// <summary>
         /// The same CPython object as PyBuiltinBoundMethod above, so the same slot: two bound
@@ -336,7 +336,7 @@ namespace SharpPy
         {
             if (_setter == null)
             {
-                throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
+                throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.FullName}' objects is not writable");
             }
 
             _setter(instance, value);
@@ -357,14 +357,15 @@ namespace SharpPy
                 return;
             }
             throw PyAttributeError.Create(
-                $"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
+                $"attribute '{Name}' of '{OwnerType.FullName}' objects is not writable");
         }
 
         // Native getset descriptors have a setting slot even when it only
         // rejects writes. Read-only attributes still take data precedence.
         public bool IsDataDescriptor() => true;
 
-        public override string ToString() => $"<attribute '{Name}' of '{OwnerType.Name}' objects>";
+        public override string ToString() => $"<attribute '{Name}' of '{OwnerType.FullName}' objects>";
+        public override PyString ToRepr() => new PyString(ToString());
     }
 
     /// <summary>
@@ -444,13 +445,13 @@ namespace SharpPy
         private void Check(PyObject instance)
         {
             if (!PyMethodDescriptor.AppliesTo(OwnerType, instance))
-                throw PyTypeError.Create($"descriptor '{Name}' for '{OwnerType.Name}' objects doesn't apply to a '{instance.GetTypeName()}' object");
+                throw PyTypeError.Create($"descriptor '{Name}' for '{OwnerType.FullName}' objects doesn't apply to a '{instance.GetTypeName()}' object");
         }
 
         // A member has tp_descr_set whether or not it can be written.
         public bool IsDataDescriptor() => true;
 
-        public override string ToString() => $"<member '{Name}' of '{OwnerType.Name}' objects>";
+        public override string ToString() => $"<member '{Name}' of '{OwnerType.FullName}' objects>";
         public override PyString ToRepr() => new PyString(ToString());
     }
 
@@ -497,7 +498,7 @@ namespace SharpPy
         // CPython wrapper_descriptor_repr: <slot wrapper 'NAME' of 'TYPE' objects>
         public override PyString ToRepr()
             => OwnerType != null
-                ? new PyString($"<slot wrapper '{Name}' of '{OwnerType.Name}' objects>")
+                ? new PyString($"<slot wrapper '{Name}' of '{OwnerType.FullName}' objects>")
                 : new PyString($"<slot wrapper '{Name}'>");
 
         public PyObject Get(PyObject instance, PyType owner)
@@ -512,7 +513,7 @@ namespace SharpPy
 
         public void Set(PyObject instance, PyObject value)
         {
-            throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
+            throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.FullName}' objects is not writable");
         }
 
         // A wrapper/method descriptor has no tp_descr_set at all, so CPython reports it one level up,
@@ -522,7 +523,7 @@ namespace SharpPy
         public void Delete(PyObject instance)
         {
             throw PyAttributeError.Create(
-                $"'{OwnerType.Name}' object attribute '{Name}' is read-only");
+                $"'{OwnerType.FullName}' object attribute '{Name}' is read-only");
         }
 
         public bool IsDataDescriptor() => false;
@@ -533,19 +534,19 @@ namespace SharpPy
         {
             if (args.Length < 1)
             {
-                throw PyTypeError.Create($"descriptor '{Name}' of '{OwnerType.Name}' object needs an argument");
+                throw PyTypeError.Create($"descriptor '{Name}' of '{OwnerType.FullName}' object needs an argument");
             }
 
             var self = args[0];
             if (Name != "__new__" && !PyMethodDescriptor.AppliesTo(OwnerType, self))
-                throw PyTypeError.Create($"descriptor '{Name}' requires a '{OwnerType.Name}' object but received a '{self.GetTypeName()}'");
+                throw PyTypeError.Create($"descriptor '{Name}' requires a '{OwnerType.FullName}' object but received a '{self.GetTypeName()}'");
             var actualArgs = new PyObject[args.Length - 1];
             Array.Copy(args, 1, actualArgs, 0, args.Length - 1);
 
             return _implementation(self, actualArgs, kwargs);
         }
 
-        public override string ToString() => $"<slot wrapper '{Name}' of '{OwnerType.Name}' objects>";
+        public override string ToString() => $"<slot wrapper '{Name}' of '{OwnerType.FullName}' objects>";
     }
 
     /// <summary>

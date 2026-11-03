@@ -16,7 +16,7 @@ namespace SharpPy
             AddKeywordFunction("count", CountFunction, "start", "step");
             AddFunction("cycle", CycleFunction);
             AddFunction("repeat", RepeatFunction);
-            ModuleDict["chain"] = new ChainType(ChainFunction);
+            AddFunction("chain", ChainFunction);
             AddKeywordFunction("combinations", CombinationsFunction, "iterable", "r");
             AddKeywordFunction("permutations", PermutationsFunction, "iterable", "r");
             ModuleDict["product"] = new PyBuiltinFunction("product", ProductFunction);
@@ -33,6 +33,27 @@ namespace SharpPy
             AddFunction("combinations_with_replacement", CombinationsWithReplacementFunction);
             AddFunction("pairwise", PairwiseFunction);
             AddFunction("tee", TeeFunction);
+            foreach (var name in new[]
+            {
+                "count", "cycle", "repeat", "chain", "combinations", "permutations", "product", "accumulate", "compress",
+                "dropwhile", "takewhile", "filterfalse", "islice", "groupby", "zip_longest", "starmap", "batched",
+                "combinations_with_replacement", "pairwise",
+            })
+                ModuleDict[name] = ClassOf(name, ModuleDict[name]);
+            var chain = (PyType)ModuleDict["chain"];
+            // chain.from_iterable is a classmethod: the outer iterable is taken one inner iterable at a time.
+            chain.TypeDict["from_iterable"] = new PyBuiltinClassMethod("from_iterable", (cls, iterable) => new ChainFromIterable(iterable.GetIterator()));
+            chain.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__", (cls, arg) => new PyGenericAlias((PyType)cls, arg));
+        }
+
+        // Each of these is a class in C: type(), isinstance() and the repr of what it makes all read that.
+        private static PyType ClassOf(string name, PyObject constructor)
+        {
+            var type = PyType.GetIteratorType("itertools." + name);
+            type.ConstructedByNewSlot = true;
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) => constructor.Call(args, kwargs),
+                acceptsKwargs: true);
+            return type;
         }
 
         /// <summary>The positional-or-keyword parameters of a C implementation (PyArg_ParseTupleAndKeywords):
@@ -343,24 +364,10 @@ namespace SharpPy
         }
     }
 
-    /// <summary>chain is a class in C, and chain.from_iterable is its classmethod: the outer iterable is
-    /// consumed lazily, one inner iterable at a time.</summary>
-    internal sealed class ChainType : PyBuiltinFunction
-    {
-        internal ChainType(Func<PyObject[], PyObject> implementation) : base("chain", implementation) { }
-
-        public override PyObject GetAttribute(string name) => name == "from_iterable"
-            ? new PyBuiltinFunction("from_iterable", args =>
-            {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"chain.from_iterable() takes exactly one argument ({args.Length} given)");
-                return new ChainFromIterable(args[0].GetIterator());
-            })
-            : base.GetAttribute(name);
-    }
-
     internal sealed class ChainFromIterable : PyIterator
     {
+        protected override string IteratorName => "itertools.chain";
+
         private readonly PyObject _outer;
         private PyObject _inner;
 
@@ -384,6 +391,7 @@ namespace SharpPy
     /// </summary>
     public class BatchedIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.batched";
         private readonly PyObject _iterator;
         private readonly int _n;
 
@@ -415,6 +423,7 @@ namespace SharpPy
     /// </summary>
     public class CombinationsWithReplacementIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.combinations_with_replacement";
         private readonly List<PyObject> _pool;
         private readonly int _r;
         private int[] _indices;
@@ -481,6 +490,7 @@ namespace SharpPy
     /// </summary>
     public class PairwiseIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.pairwise";
         private readonly PyObject _iterator;
         private PyObject _prev;
         private bool _started = false;
@@ -582,6 +592,7 @@ namespace SharpPy
     /// </summary>
     public class CountIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.count";
         private PyObject _current;
         private readonly PyObject _step;
 
@@ -606,6 +617,7 @@ namespace SharpPy
     /// </summary>
     public class CycleIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.cycle";
         private readonly List<PyObject> _items;
         private int _index = 0;
 
@@ -648,6 +660,7 @@ namespace SharpPy
     /// </summary>
     public class RepeatIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.repeat";
         private readonly PyObject _object;
         private int? _remaining;
 
@@ -680,6 +693,7 @@ namespace SharpPy
     /// </summary>
     public class CombinationsIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.combinations";
         private readonly List<PyObject> _pool;
         private readonly int _r;
         private int[] _indices;
@@ -758,6 +772,7 @@ namespace SharpPy
     /// </summary>
     public class PermutationsIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.permutations";
         private readonly List<PyObject> _pool;
         private readonly int _r;
         private int[] _indices;
@@ -852,6 +867,7 @@ namespace SharpPy
     /// </summary>
     public class ProductIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.product";
         private readonly List<PyObject>[] _pools;
         private readonly int[] _indices;
         private bool _started = false;
@@ -933,6 +949,7 @@ namespace SharpPy
     /// </summary>
     public class AccumulateIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.accumulate";
         private readonly PyIterator _iterator;
         private readonly PyObject _binop;  // CPython: lz->binop
         private PyObject _total;           // CPython: lz->total
@@ -995,6 +1012,7 @@ namespace SharpPy
     /// </summary>
     public class CompressIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.compress";
         private readonly PyIterator _dataIterator;     // CPython: lz->data
         private readonly PyIterator _selectorIterator; // CPython: lz->selectors
 
@@ -1038,6 +1056,7 @@ namespace SharpPy
     /// </summary>
     public class DropWhileIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.dropwhile";
         private readonly PyObject _func;      // CPython: lz->func
         private readonly PyIterator _iterator; // CPython: lz->it
         private int _start;                    // CPython: lz->start (0=dropping, 1=started)
@@ -1091,6 +1110,7 @@ namespace SharpPy
     /// </summary>
     public class TakeWhileIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.takewhile";
         private readonly PyObject _func;       // CPython: lz->func
         private readonly PyIterator _iterator;  // CPython: lz->it
         private int _stop;                      // CPython: lz->stop
@@ -1146,6 +1166,7 @@ namespace SharpPy
     /// </summary>
     public class FilterFalseIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.filterfalse";
         private readonly PyObject _func;       // CPython: lz->func
         private readonly PyIterator _iterator;  // CPython: lz->it
 
@@ -1196,6 +1217,7 @@ namespace SharpPy
 
     public class ISliceIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.islice";
         private readonly PyIterator _iterator;
         private readonly int _start;
         private readonly int? _stop;
@@ -1390,6 +1412,7 @@ namespace SharpPy
     /// </summary>
     public class GroupByIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.groupby";
         private readonly PyObject _source;
         private readonly PyObject _key;
         private PyObject _current, _currentKey, _targetKey;
@@ -1465,6 +1488,7 @@ namespace SharpPy
     /// </summary>
     public class ZipLongestIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.zip_longest";
         private readonly PyIterator[] _iterators;   // CPython: lz->ittuple
         private readonly PyObject _fillvalue;       // CPython: lz->fillvalue
         private readonly bool[] _active;            // Track active iterators
@@ -1526,6 +1550,7 @@ namespace SharpPy
     /// </summary>
     public class StarmapIterator : PyIterator
     {
+        protected override string IteratorName => "itertools.starmap";
         private readonly PyObject _func;       // CPython: lz->func
         private readonly PyIterator _iterator; // CPython: lz->it
 

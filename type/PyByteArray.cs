@@ -576,8 +576,28 @@ namespace SharpPy
             return BytesMethods.Concat(this, other);
         }
 
-        // Note: For mutable types, += is handled by the VM which calls extend()
-        // No need to override InPlaceAdd - it doesn't exist in PyObject
+        private void ReplaceContents(List<byte> bytes)
+        {
+            if (HasBufferExports && bytes.Count != _bytes.Count)
+                throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
+            _bytes = bytes;
+        }
+
+        // bytearray_iconcat
+        internal PyObject InPlaceConcat(PyObject other)
+        {
+            var joined = (PyByteArray)Add(other);
+            ReplaceContents(joined._bytes);
+            return this;
+        }
+
+        // bytearray_irepeat
+        internal PyObject InPlaceRepeat(PyObject count)
+        {
+            var repeated = (PyByteArray)Multiply(count);
+            ReplaceContents(repeated._bytes);
+            return this;
+        }
 
         /// <summary>
         /// __mul__ - Repetition (returns new bytearray)
@@ -600,9 +620,6 @@ namespace SharpPy
 
             throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'");
         }
-
-        // Note: For mutable types, *= is handled by the VM similarly to +=
-        // No need to override InPlaceMultiply - it doesn't exist in PyObject
 
         #endregion
 

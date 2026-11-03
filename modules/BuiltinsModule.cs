@@ -54,8 +54,6 @@ namespace SharpPy.Modules
             module.ModuleDict["frozenset"] = PyType.FrozenSetType;
             module.ModuleDict["bytes"] = PyType.BytesType;
             module.ModuleDict["bytearray"] = PyType.BytearrayType;
-            module.ModuleDict["NoneType"] = PyType.NoneType;
-            module.ModuleDict["function"] = PyType.FunctionType;
             module.ModuleDict["slice"] = PyType.SliceType;
 
             // Built-in constants
@@ -155,6 +153,10 @@ namespace SharpPy.Modules
             module.ModuleDict["abs"] = new PyBuiltinFunction("abs", Abs);
             module.ModuleDict["len"] = new PyBuiltinFunction("len", Len);
             module.ModuleDict["isinstance"] = new PyBuiltinFunction("isinstance", IsInstance);
+            module.ModuleDict["aiter"] = new PyBuiltinFunction("aiter", args => PyVM.Aiter(args));
+            module.ModuleDict["anext"] = new PyBuiltinFunction("anext", args => PyVM.Anext(args));
+            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+                module.ModuleDict["WindowsError"] = module.ModuleDict["OSError"];
             module.ModuleDict["issubclass"] = new PyBuiltinFunction("issubclass", IsSubclass);
             // hasattr/getattr/setattr used to have a second implementation here as well, and this one
             // won because it was passed as the delegate. It caught every exception, so
@@ -288,6 +290,18 @@ namespace SharpPy.Modules
             var classInfo = args[1];
 
             return PyBool.FromBool(ObjectRecursiveIsInstance(obj, classInfo));
+        }
+
+        // _PyObject_RealIsInstance and _PyObject_RealIsSubclass: type.__instancecheck__, no hook.
+        internal static PyObject RealIsInstance(PyObject instance, PyObject cls) => PyBool.FromBool(ObjectIsInstance(instance, cls));
+
+        internal static PyObject RealIsSubclass(PyObject derived, PyObject cls)
+        {
+            if (derived.LookupAttribute("__bases__") is not PyTuple)
+                throw PyTypeError.Create("issubclass() arg 1 must be a class");
+            if (cls.LookupAttribute("__bases__") is not PyTuple)
+                throw PyTypeError.Create("issubclass() arg 2 must be a class, a tuple of classes, or a union");
+            return PyBool.FromBool(derived is PyType type && cls is PyType target && type.IsSubclassOf(target));
         }
 
         /// <summary>

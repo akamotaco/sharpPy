@@ -54,6 +54,8 @@ except ImportError:
 class defaultdict(dict):
     """defaultdict: Modules/_collectionsmodule.c in Python, since a dict subclass needs no C layout here."""
 
+    __slots__ = ('default_factory',)
+
     def __init__(self, default_factory=None, /, *args, **kwds):
         if default_factory is not None and not callable(default_factory):
             raise TypeError('first argument must be callable or None')

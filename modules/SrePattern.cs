@@ -323,7 +323,7 @@ namespace SharpPy.Modules
                 Position(Argument(args, kwargs, 2, "endpos"), int.MaxValue));
         }
 
-        public override PyObject GetAttribute(string name)
+        internal PyObject Read(string name)
         {
             switch (name)
             {
@@ -492,7 +492,7 @@ namespace SharpPy.Modules
         private int Boundary(PyObject[] args, int offset)
             => _marks[(args.Length > 0 ? GroupNumber(args[0]) : 0) * 2 + offset];
 
-        public override PyObject GetAttribute(string name)
+        internal PyObject Read(string name)
         {
             switch (name)
             {

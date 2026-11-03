@@ -3005,13 +3005,19 @@ namespace SharpPy
             }
             if (found) return resolved;
 
+            return base.GetAttribute(name);
+        }
+
+        // super_members
+        internal PyObject Own(string name)
+        {
             switch (name)
             {
                 case "__thisclass__": return Type;
                 case "__self__": return Object ?? PyNone.Instance;
                 case "__self_class__": return (PyObject)ObjectType ?? PyNone.Instance;
             }
-            throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
+            return null;
         }
 
         /// <summary>
@@ -3062,7 +3068,8 @@ namespace SharpPy
                         if (baseType is PyClass pyClass)
                         {
                             // For user-defined classes, look only in ClassDict
-                            pyClass.ClassDict.TryGetValue(name, out attr);
+                            if (!pyClass.ClassDict.TryGetValue(name, out attr))
+                                pyClass.TypeDict.TryGetValue(name, out attr);
                         }
                         else if (baseType is PyType pyType)
                         {

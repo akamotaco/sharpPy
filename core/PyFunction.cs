@@ -384,12 +384,17 @@ public partial class PyFunction : PyObject, IDescriptor
             deleter: self => throw PyTypeError.Create("cannot delete __dict__")
         );
 
-        // __call__ getset descriptor (함수 자체를 반환)
-        funcType.TypeDict["__call__"] = new PyGetSetDescriptor(
-            "__call__",
-            funcType,
-            getter: self => self // 함수 자체가 __call__
-        );
+        // add_operators: tp_call and tp_descr_get
+        funcType.TypeDict["__call__"] = new PyWrapperDescriptor("__call__", funcType, (self, args, kwargs) => self.Call(args, kwargs));
+        funcType.TypeDict["__get__"] = new PyWrapperDescriptor("__get__", funcType, (self, args, kwargs) =>
+        {
+            // func_descr_get: anything but None binds, a class too.
+            if (args.Length > 0 && args[0] is not PyNone)
+                return new PyMethod(args[0], self);
+            if (args.Length < 2 || args[1] is PyNone)
+                throw PyTypeError.Create("__get__(None, None) is invalid");
+            return self;
+        });
     }
     
     private PyObject DefaultImplementation(PyObject[] args)
@@ -705,23 +710,6 @@ public partial class PyFunction : PyObject, IDescriptor
     // Function attributes 접근 - CPython 호환: descriptor 테이블 사용
     public override PyObject GetAttribute(string name)
     {
-        // CPython 3.12: Objects/funcobject.c:358-390 (func_getattro)
-        // Expose __get__ for descriptor protocol
-        if (name == "__get__")
-        {
-            // Return a bound descriptor method
-            return new PyBuiltinFunction("__get__", (args) =>
-            {
-                // __get__(self, obj, type=None)
-                PyObject instance = args.Length > 0 ? args[0] : null;
-                PyType owner = args.Length > 1 && args[1] is PyType t ? t : null;
-                // func_descr_get: anything but None binds, a class too.
-                if (instance != null && instance is not PyNone)
-                    return new PyMethod(instance, this);
-                return Get(null, owner);
-            });
-        }
-
         // PyObject_GenericGetAttr: a getset of the type comes before the instance's dict.
         if (PyType.FunctionType.TypeDict.TryGetValue(name, out var slot) && slot is IDescriptor { } getset && getset.IsDataDescriptor())
             return getset.Get(this, PyType.FunctionType);

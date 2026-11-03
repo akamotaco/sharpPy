@@ -52,7 +52,7 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.RangeType;
         public override string GetTypeName() => "range";
 
-        public override PyObject GetAttribute(string name) => name switch
+        internal PyObject Read(string name) => name switch
         {
             "start" => new PyInt(Start),
             "stop" => new PyInt(Stop),

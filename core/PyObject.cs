@@ -538,7 +538,8 @@ namespace SharpPy
                     return PyClass;
                 case "__dict__":
                     // CPython 3.12: Objects/object.c:4200-4250 (PyObject_GenericGetDict)
-                    if (this is IDictBackedInstance dictAccessor)
+                    // A class of value type with empty __slots__ has no dict to show.
+                    if (this is IDictBackedInstance dictAccessor && (GetPyType() is not PyClass heapOwner || heapOwner.InstancesHaveDict()))
                         return PyGlobalsDict.OfInstance(dictAccessor.InstanceDict);
                     // CPython 3.12: Non-instance objects should delegate to type's __dict__ descriptor
                     // For objects like None, functions, etc., __dict__ access should go through the type

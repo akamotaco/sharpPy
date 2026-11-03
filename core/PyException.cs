@@ -679,7 +679,7 @@ namespace SharpPy
     // Import 예외들
     public class PyImportError : PyException
     {
-        private PyObject _name, _path, _msg;
+        private PyObject _name, _path, _msg, _nameFrom;
 
         public string ModuleName => (_name as PyString)?.Value;
 
@@ -698,6 +698,7 @@ namespace SharpPy
             {
                 if (pair.Key is PyString { Value: "name" }) _name = pair.Value;
                 else if (pair.Key is PyString { Value: "path" }) _path = pair.Value;
+                else if (pair.Key is PyString { Value: "name_from" }) _nameFrom = pair.Value;
                 else throw PyTypeError.Create(
                     $"'{pair.Key.ToStr().Value}' is an invalid keyword argument for {GetTypeName()}()");
             }
@@ -711,6 +712,7 @@ namespace SharpPy
             "name" => _name ?? PyNone.Instance,
             "path" => _path ?? PyNone.Instance,
             "msg" => _msg ?? PyNone.Instance,
+            "name_from" => _nameFrom ?? PyNone.Instance,
             _ => base.GetAttribute(name),
         };
 
@@ -718,6 +720,7 @@ namespace SharpPy
         {
             if (name == "name") _name = value;
             else if (name == "path") _path = value;
+            else if (name == "name_from") _nameFrom = value;
             else if (name == "msg") _msg = value;
             else base.SetAttribute(name, value);
         }
@@ -2201,7 +2204,7 @@ namespace SharpPy
             Next = next;
         }
 
-        private static readonly PyType TracebackPyType = TracebackType();
+        internal static readonly PyType TracebackPyType = TracebackType();
 
         private static PyType TracebackType()
         {
@@ -2222,7 +2225,7 @@ namespace SharpPy
 
         public override PyString ToRepr() => AsString();
 
-        public override PyObject GetAttribute(string name)
+        internal PyObject Read(string name)
         {
             return name switch
             {

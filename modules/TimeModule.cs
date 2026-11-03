@@ -7,10 +7,13 @@ namespace SharpPy
 {
     // CPython 3.12 time.struct_time 구현
     /// <summary>time.struct_time (Modules/timemodule.c): a nine item tuple with names.</summary>
-    public class PyStructTime : PyTuple
+    public class PyStructTime : PyStructSequence
     {
-        internal static readonly PyType StructTimeType =
-            new PyType("struct_time", new[] { PyType.TupleType }) { ConstructedByNewSlot = true };
+        internal static readonly PyStructSequenceType StructTimeType = new("time", "struct_time", new[]
+        {
+            "tm_year", "tm_mon", "tm_mday", "tm_hour", "tm_min", "tm_sec", "tm_wday", "tm_yday", "tm_isdst",
+            "tm_zone", "tm_gmtoff",
+        }, 9);
 
         public int Year { get; }
         public int Month { get; }
@@ -26,10 +29,11 @@ namespace SharpPy
 
         public PyStructTime(int year, int month, int day, int hour, int minute, int second,
             int weekday, int yearday, int isdst, int gmtoff = 0, string zone = "")
-            : base(new PyObject[]
+            : base(StructTimeType, new PyObject[]
             {
                 new PyInt(year), new PyInt(month), new PyInt(day), new PyInt(hour), new PyInt(minute),
                 new PyInt(second), new PyInt(weekday), new PyInt(yearday), new PyInt(isdst),
+                new PyString(zone), new PyInt(gmtoff),
             })
         {
             Year = year;
@@ -45,7 +49,7 @@ namespace SharpPy
             Zone = zone;
         }
 
-        public static PyStructTime FromDateTime(DateTime dt, int isdst = -1)
+        public static PyStructTime FromDateTime(DateTime dt, int isdst = -1, int gmtoff = 0, string zone = "")
         {
             int weekday = (int)dt.DayOfWeek;
             // Python의 월요일=0 규칙으로 변환 (C#의 일요일=0과 다름)
@@ -56,7 +60,7 @@ namespace SharpPy
             return new PyStructTime(
                 dt.Year, dt.Month, dt.Day,
                 dt.Hour, dt.Minute, dt.Second,
-                weekday, yearday, isdst
+                weekday, yearday, isdst, gmtoff, zone
             );
         }
 
@@ -83,32 +87,6 @@ namespace SharpPy
         {
             return new DateTime(Year, Month, Day, Hour, Minute, Second, DateTimeKind.Unspecified);
         }
-
-        public override PyType GetPyType() => StructTimeType;
-        public override string GetTypeName() => "struct_time";
-
-        public override PyObject GetAttribute(string name) => name switch
-        {
-            "tm_year" => Items[0],
-            "tm_mon" => Items[1],
-            "tm_mday" => Items[2],
-            "tm_hour" => Items[3],
-            "tm_min" => Items[4],
-            "tm_sec" => Items[5],
-            "tm_wday" => Items[6],
-            "tm_yday" => Items[7],
-            "tm_isdst" => Items[8],
-            "tm_gmtoff" => new PyInt(GmtOffset),
-            "tm_zone" => new PyString(Zone),
-            _ => base.GetAttribute(name),
-        };
-
-        public override PyString ToRepr() => new PyString(
-            $"time.struct_time(tm_year={Year}, tm_mon={Month}, tm_mday={Day}, " +
-            $"tm_hour={Hour}, tm_min={Minute}, tm_sec={Second}, " +
-            $"tm_wday={WeekDay}, tm_yday={YearDay}, tm_isdst={IsDst})");
-
-        public override PyString AsString() => ToRepr();
     }
 
     public class TimeModule : PyModule
@@ -263,7 +241,7 @@ namespace SharpPy
                     throw PyTypeError.Create("gmtime() takes at most 1 argument");
                 }
 
-                return PyStructTime.FromDateTime(dt, 0); // UTC has no DST
+                return PyStructTime.FromDateTime(dt, 0, 0, "UTC"); // UTC has no DST
             }));
 
             // time.localtime([seconds]) - Convert seconds to local struct_time
@@ -285,8 +263,10 @@ namespace SharpPy
                     throw PyTypeError.Create("localtime() takes at most 1 argument");
                 }
 
-                int isdst = TimeZoneInfo.Local.IsDaylightSavingTime(dt) ? 1 : 0;
-                return PyStructTime.FromDateTime(dt, isdst);
+                var zone = TimeZoneInfo.Local;
+                bool daylight = zone.IsDaylightSavingTime(dt);
+                return PyStructTime.FromDateTime(dt, daylight ? 1 : 0, (int)zone.GetUtcOffset(dt).TotalSeconds,
+                    daylight ? zone.DaylightName : zone.StandardName);
             }));
 
             // time.mktime(tuple) - Convert struct_time to seconds
@@ -412,9 +392,6 @@ namespace SharpPy
                 return GetClockInfo(name.Value);
             }));
 
-            // struct_time 타입을 모듈에 추가 (튜플의 서브타입처럼 동작)
-            PyStructTime.StructTimeType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", PyStructTime.StructTimeType,
-                (cls, args, kwargs) => ParseStructTime(args[0]), 1, 1);
             SetAttribute("struct_time", PyStructTime.StructTimeType);
         }
 
@@ -473,9 +450,6 @@ namespace SharpPy
             if (obj is PyStructTime st)
                 return st;
 
-            if (obj is PyList list)
-                obj = new PyTuple(list.Items);
-
             if (obj is PyTuple tuple)
             {
                 if (tuple.Items.Length < 9)
@@ -510,7 +484,7 @@ namespace SharpPy
             string dayName = st.WeekDay >= 0 && st.WeekDay < 7 ? dayNames[st.WeekDay] : "???";
             string monthName = st.Month >= 1 && st.Month <= 12 ? monthNames[st.Month] : "???";
 
-            return $"{dayName} {monthName} {st.Day,2:D2} {st.Hour:D2}:{st.Minute:D2}:{st.Second:D2} {st.Year}";
+            return $"{dayName} {monthName} {st.Day,2} {st.Hour:D2}:{st.Minute:D2}:{st.Second:D2} {st.Year}";
         }
 
         // Helper: strftime 포맷 변환

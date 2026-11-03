@@ -36,6 +36,9 @@ namespace SharpPy
         
         public override PyType GetPyType() => PyType.CellType;
 
+        // cell_get_contents
+        internal PyObject Contents() => HasValue ? _value : throw PyValueError.Create("Cell is empty");
+
         // cell_new
         internal static void InstallNew()
         {

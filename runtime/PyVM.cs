@@ -761,6 +761,10 @@ namespace SharpPy
 
         public override string ToString() => $"<frame for {Code.Name}>";
 
+        // frame_repr
+        public override PyString ToRepr() => new PyString(
+            $"<frame at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}, file {new PyString(Code.FileName ?? "<unknown>").ToRepr().Value}, line {Read("f_lineno").ToRepr().Value}, code {Read("f_code").GetAttribute("co_name").AsString().Value}>");
+
         // PyObject required overrides
         public override PyType GetPyType() => FramePyType;
         public override string GetTypeName() => "frame";
@@ -770,9 +774,9 @@ namespace SharpPy
         /// Exposes frame introspection attributes
         /// </summary>
         // CPython: type(frame).__name__ == 'frame'
-        private static readonly PyType FramePyType = new PyType("frame", new[] { PyType.ObjectType });
+        internal static readonly PyType FramePyType = new PyType("frame", new[] { PyType.ObjectType });
 
-        public override PyObject GetAttribute(string name)
+        internal PyObject Read(string name)
         {
             return name switch
             {
@@ -7289,7 +7293,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 GET_AWAITABLE 구현 - PEP 492 호환
         /// </summary>
-        private PyObject GetAwaitable(PyObject obj, int where = 0)
+        internal PyObject GetAwaitable(PyObject obj, int where = 0)
         {
             // _PyCoro_GetAwaitableIter: a coroutine is its own iterator.
             if (obj is SharpPy.Core.PyCoroutine || obj is PyGenerator { IsIterableCoroutine: true })
@@ -7308,6 +7312,32 @@ namespace SharpPy
             if (result is not PyIterator && result.LookupSpecialMethodUncached("__next__") == null)
                 throw PyTypeError.Create($"__await__() returned non-iterator of type '{result.GetTypeName()}'");
             return result;
+        }
+
+        // PyObject_GetAIter
+        internal static PyObject Aiter(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"aiter() takes exactly one argument ({args.Length} given)");
+            var method = args[0].LookupSpecialMethodUncached("__aiter__");
+            if (method == null)
+                throw PyTypeError.Create($"'{args[0].GetTypeName()}' object is not an async iterable");
+            var iterator = args[0].BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+            if (iterator.LookupSpecialMethodUncached("__anext__") == null)
+                throw PyTypeError.Create($"aiter() returned not an async iterator of type '{iterator.GetTypeName()}'");
+            return iterator;
+        }
+
+        // builtin_anext_impl
+        internal static PyObject Anext(PyObject[] args)
+        {
+            if (args.Length is < 1 or > 2)
+                throw PyTypeError.Create($"anext expected at {(args.Length < 1 ? "least 1 argument" : "most 2 arguments")}, got {args.Length}");
+            var method = args[0].LookupSpecialMethodUncached("__anext__");
+            if (method == null)
+                throw PyTypeError.Create($"'{args[0].GetTypeName()}' object is not an async iterator");
+            var awaitable = args[0].BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+            return args.Length == 1 ? awaitable : new SharpPy.Core.PyAnextAwaitable(awaitable, args[1]);
         }
 
         private PyObject GetAsyncIterator(PyObject obj)

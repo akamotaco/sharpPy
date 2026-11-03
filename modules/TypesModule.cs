@@ -27,172 +27,107 @@ namespace SharpPy.Modules
         }
     }
 
-    /// <summary>
-    /// Simple namespace type for types.SimpleNamespace
-    /// CPython 3.12: Objects/namespaceobject.c:20-250 (SimpleNamespace_Type)
-    /// </summary>
-    public class PySimpleNamespaceType : PyType
+    /// <summary>types.SimpleNamespace (Objects/namespaceobject.c): a dict and nothing else.</summary>
+    public sealed class PySimpleNamespaceType : PyType
     {
         public static readonly PySimpleNamespaceType Instance = new PySimpleNamespaceType();
 
+        internal override string FullName => "types.SimpleNamespace";
+
         private PySimpleNamespaceType() : base("SimpleNamespace", new PyType[] { PyType.ObjectType }, "types")
         {
-        }
-
-        public override string ToString() => "<class 'types.SimpleNamespace'>";
-
-        /// <summary>
-        /// CPython 3.12: Objects/namespaceobject.c:38-70 (namespace_new)
-        /// </summary>
-        public override PyObject Call(PyObject[] args, PyDict kwargs)
-        {
-            // SimpleNamespace() accepts only keyword arguments
-            if (args.Length > 0)
-                throw PyTypeError.Create("SimpleNamespace() takes no positional arguments");
-
-            return new PySimpleNamespace(kwargs);
+            ConstructedByNewSlot = true;
+            TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", this,
+                (cls, args, kwargs) => new PySimpleNamespace((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
+            TypeDict["__init__"] = new PyWrapperDescriptor("__init__", this, (self, args, kwargs) =>
+            {
+                if (args.Length != 0)
+                    throw PyTypeError.Create("no positional arguments expected");
+                ((PySimpleNamespace)self).Update(kwargs);
+                return PyNone.Instance;
+            });
+            TypeDict["__dict__"] = new PyMemberDescriptor("__dict__", this, self => ((PySimpleNamespace)self).Dict);
+            TypeDict["__hash__"] = PyNone.Instance;
+            TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", this, (self, args, kwargs) => new PyTuple(new PyObject[]
+            {
+                self.GetPyType(), new PyTuple(Array.Empty<PyObject>()), ((PySimpleNamespace)self).Dict,
+            }));
+            TypeTables.Repr(this);
+            TypeTables.Compared(this);
         }
     }
 
-    /// <summary>
-    /// SimpleNamespace instance
-    /// CPython 3.12: Objects/namespaceobject.c (namespace_* functions)
-    /// </summary>
-    public class PySimpleNamespace : PyObject
+    public sealed class PySimpleNamespace : PyObject, IDictBackedInstance
     {
-        private readonly Dictionary<string, PyObject> _attrs;
+        private readonly PyType _type;
+        public Dictionary<string, PyObject> InstanceDict { get; } = new();
 
-        public PySimpleNamespace(PyDict kwargs = null)
+        internal PySimpleNamespace(PyType type) => _type = type;
+
+        public PySimpleNamespace(PyDict kwargs = null) : this(PySimpleNamespaceType.Instance) => Update(kwargs);
+
+        internal void Update(PyDict kwargs)
         {
-            _attrs = new Dictionary<string, PyObject>();
-            if (kwargs != null)
-            {
-                foreach (var kvp in kwargs.InternalDict)
-                {
-                    var key = kvp.Key is PyString ps ? ps.Value : kvp.Key.ToString();
-                    _attrs[key] = kvp.Value;
-                }
-            }
+            if (kwargs == null)
+                return;
+            foreach (var pair in kwargs.InternalDict)
+                InstanceDict[((PyString)pair.Key).Value] = pair.Value;
         }
 
-        public override PyType GetPyType() => PySimpleNamespaceType.Instance;
-        public override string GetTypeName() => "SimpleNamespace";
+        internal PyObject Dict => PyGlobalsDict.OfInstance(InstanceDict);
 
-        /// <summary>
-        /// CPython 3.12: Objects/namespaceobject.c:72-100 (namespace_getattro)
-        /// </summary>
-        public override PyObject GetAttribute(string name)
-        {
-            // Check stored attributes first
-            if (_attrs.TryGetValue(name, out var value))
-                return value;
+        public override PyType GetPyType() => _type;
+        public override string GetTypeName() => _type.FullName;
 
-            // Special attributes
-            if (name == "__dict__")
-            {
-                var dictItems = new Dictionary<PyObject, PyObject>();
-                foreach (var kvp in _attrs)
-                    dictItems[new PyString(kvp.Key)] = kvp.Value;
-                return new PyDict(dictItems);
-            }
-            if (name == "__class__")
-                return PySimpleNamespaceType.Instance;
+        public override PyObject GetAttribute(string name) => _type is PyClass heap
+            ? SubclassInstanceSupport.GetAttribute(this, heap, InstanceDict, name, base.GetAttribute)
+            : base.GetAttribute(name);
 
-            throw PyAttributeError.Create($"'SimpleNamespace' object has no attribute '{name}'");
-        }
-
-        /// <summary>
-        /// CPython 3.12: Objects/namespaceobject.c:102-130 (namespace_setattro)
-        /// </summary>
         public override void SetAttribute(string name, PyObject value)
         {
-            _attrs[name] = value;
+            if (_type is PyClass heap)
+                SubclassInstanceSupport.SetAttribute(this, heap, InstanceDict, name, value);
+            else if (name == "__dict__")
+                throw PyAttributeError.Create("readonly attribute");
+            else
+                InstanceDict[name] = value;
         }
 
-        /// <summary>
-        /// CPython 3.12: Objects/namespaceobject.c:132-160 (namespace_delattro)
-        /// </summary>
         public override void DelAttribute(string name)
         {
-            if (!_attrs.Remove(name))
-                throw PyAttributeError.Create($"'SimpleNamespace' object has no attribute '{name}'");
+            if (!InstanceDict.Remove(name))
+                throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
         }
 
-        /// <summary>
-        /// CPython 3.12: Objects/namespaceobject.c:162-220 (namespace_repr)
-        /// </summary>
-        public override string ToString()
-        {
-            var parts = new List<string>();
-            foreach (var kvp in _attrs)
-            {
-                // Get repr string value properly
-                var reprStr = kvp.Value.ToRepr();
-                var reprValue = reprStr is PyString ps ? ps.Value : reprStr.ToString();
-                parts.Add($"{kvp.Key}={reprValue}");
-            }
-            return $"namespace({string.Join(", ", parts)})";
-        }
-
+        // namespace_repr
         public override PyString ToRepr()
         {
-            return new PyString(ToString());
+            string name = ReferenceEquals(_type, PySimpleNamespaceType.Instance) ? "namespace" : _type.FullName;
+            if (!PyReprGuard.Enter(this))
+                return new PyString($"{name}(...)");
+            try
+            {
+                var pairs = new List<string>();
+                foreach (var pair in InstanceDict)
+                    if (pair.Key.Length > 0)
+                        pairs.Add($"{pair.Key}={pair.Value.ToRepr().Value}");
+                return new PyString($"{name}({string.Join(", ", pairs)})");
+            }
+            finally
+            {
+                PyReprGuard.Leave(this);
+            }
         }
 
-        /// <summary>
-        /// CPython 3.12: Objects/namespaceobject.c:222-250 (namespace_richcompare)
-        /// </summary>
-        public override bool Equals(object other)
-        {
-            if (other is PySimpleNamespace otherNs)
-            {
-                return CompareNamespaces(otherNs);
-            }
-            return false;
-        }
+        public override PyString AsString() => ToRepr();
+        public override string ToString() => ToRepr().Value;
 
-        private bool CompareNamespaces(PySimpleNamespace other)
-        {
-            if (_attrs.Count != other._attrs.Count)
-                return false;
-            foreach (var kvp in _attrs)
-            {
-                if (!other._attrs.TryGetValue(kvp.Key, out var otherValue))
-                    return false;
-                // Use PyObject comparison for proper Python semantics
-                var cmp = kvp.Value.RichCompare(otherValue, PyObject.CompareOp.EQ);
-                if (cmp is PyBool b && !b.IsTrue())
-                    return false;
-                if (cmp == PyNone.Instance || cmp == PyNotImplemented.Instance)
-                    return false;
-            }
-            return true;
-        }
+        // namespace_richcompare
+        public override PyObject RichCompare(PyObject other, CompareOp op) => other is PySimpleNamespace namespaceObject
+            ? Dict.RichCompare(namespaceObject.Dict, op)
+            : PyNotImplemented.Instance;
 
-        /// <summary>
-        /// CPython 3.12: Objects/namespaceobject.c:222-250 (namespace_richcompare)
-        /// Override RichCompare for proper Python == operator support
-        /// </summary>
-        public override PyObject RichCompare(PyObject other, PyObject.CompareOp op)
-        {
-            if (op == PyObject.CompareOp.EQ)
-            {
-                if (other is PySimpleNamespace otherNs)
-                    return PyBool.FromBool(CompareNamespaces(otherNs));
-                return PyBool.False;
-            }
-            if (op == PyObject.CompareOp.NE)
-            {
-                if (other is PySimpleNamespace otherNs)
-                    return PyBool.FromBool(!CompareNamespaces(otherNs));
-                return PyBool.True;
-            }
-            return PyNotImplemented.Instance;
-        }
-
-        public override int GetHashCode()
-        {
-            return _attrs.GetHashCode();
-        }
+        public override bool Equals(object other) => other is PySimpleNamespace && RichCompare((PyObject)other, CompareOp.EQ).IsTrue();
+        public override int ToHash() => throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
     }
 }

@@ -246,6 +246,7 @@ namespace SharpPy
                 or "odict_items" or "odict_iterator" or "odict_keys" or "odict_values" or "range_iterator"
                 or "set_iterator" or "stderrprinter" or "str_ascii_iterator" or "str_iterator"
                 or "thread_info" or "timezone" or "traceback" or "tuple_iterator" or "version_info"
+                or "flags" or "struct_time" or "stat_result" or "terminal_size" or "times_result"
                 or "wrapper_descriptor" => PyTypeFlags.None,
             _ => PyTypeFlags.BaseType,
         };
@@ -281,7 +282,7 @@ namespace SharpPy
                 if (baseType == null) continue;
                 if (!baseType.HasFeature(PyTypeFlags.BaseType))
                     throw PyTypeError.Create(
-                        $"type '{baseType.Name}' is not an acceptable base type");
+                        $"type '{baseType.FullName}' is not an acceptable base type");
             }
         }
 
@@ -420,7 +421,11 @@ namespace SharpPy
                     // Derive from IteratorType so the shared __iter__/__next__
                     // descriptors resolve via MRO (attribute access keeps working);
                     // the distinct Name is what type(it).__name__ reports.
-                    t = new PyType(name, new[] { IteratorType });
+                    // A dotted name is tp_name: the module and then the class.
+                    int dot = name.LastIndexOf('.');
+                    t = dot < 0
+                        ? new PyType(name, new[] { IteratorType })
+                        : new PyType(name.Substring(dot + 1), new[] { ObjectType }, name.Substring(0, dot));
                     _iteratorTypeCache[name] = t;
                     PyIterator.InstallByName(t);
                 }
@@ -598,6 +603,9 @@ namespace SharpPy
             : BaseTypes.Length > 0 ? BaseTypes[0] : null;
 
         internal virtual TypeLayout Layout => _builtinLayout ??= TypeLayouts.Of(this);
+
+        /// <summary>tp_name of a type that keeps its module in it, as a compiled one does.</summary>
+        internal virtual string FullName => this is PyClass || string.IsNullOrEmpty(Module) || Module == "builtins" ? Name : Module + "." + Name;
 
         /// <summary>type_set_bases (Objects/typeobject.c): new bases, then a new MRO, here and in
         /// every subclass, as mro_hierarchy does.</summary>
@@ -1024,7 +1032,7 @@ namespace SharpPy
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (Layout.NoInstances)
-                throw PyTypeError.Create($"cannot create '{Name}' instances");
+                throw PyTypeError.Create($"cannot create '{FullName}' instances");
             if (ConstructedByNewSlot)
             {
                 var slotArgs = new PyObject[args.Length + 1];
@@ -1668,7 +1676,7 @@ namespace SharpPy
         /// of set" where CPython says int. Classes are asked for their own name here.
         /// </summary>
         internal static string TpName(PyObject cls) =>
-            cls is PyType typeObject ? typeObject.Name : cls.GetTypeName();
+            cls is PyType typeObject ? typeObject.FullName : cls.GetTypeName();
 
         /// <summary>
         /// set_reduce / frozenset_reduce (Objects/setobject.c): (type(self), (list(self),), state),
@@ -1822,7 +1830,7 @@ namespace SharpPy
         {
             // reduce_newobj: a type without tp_new has nothing to rebuild with.
             if (self.GetPyType().Layout.NoInstances)
-                throw PyTypeError.Create($"cannot pickle '{self.GetPyType().Name}' object");
+                throw PyTypeError.Create($"cannot pickle '{self.GetPyType().FullName}' object");
             var copyreg = PyImportSystem.Import("copyreg");
             if (protocol < 2)
                 return copyreg.GetAttribute("_reduce_ex").Call(new[] { self, new PyInt(protocol) }, null);
@@ -2265,8 +2273,10 @@ namespace SharpPy
                     names.Add(k);
                 }
                 // heap types get a __dict__ / __weakref__ member (CPython adds them to tp_dict)
-                names.Add("__dict__");
-                names.Add("__weakref__");
+                if (pc.InstancesHaveDict())
+                    names.Add("__dict__");
+                if (pc.SupportsWeakReference())
+                    names.Add("__weakref__");
             }
             else if (t.TypeDict != null)
             {

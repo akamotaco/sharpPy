@@ -541,7 +541,7 @@ namespace SharpPy
             foreach (var candidate in bases)
             {
                 if (!candidate.HasFeature(PyTypeFlags.BaseType))
-                    throw PyTypeError.Create($"type '{candidate.Name}' is not an acceptable base type");
+                    throw PyTypeError.Create($"type '{candidate.FullName}' is not an acceptable base type");
                 var solid = SolidBase(candidate);
                 if (winner == null || (!ReferenceEquals(winner, solid) && !winner.IsSubclassOf(solid) && solid.IsSubclassOf(winner)))
                 {

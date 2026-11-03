@@ -19,6 +19,7 @@ namespace SharpPy
         internal PyObject TraceFunction;
         internal PyObject ProfileFunction;
         internal bool IsMain;
+        internal int Ident = Environment.CurrentManagedThreadId;
     }
 
     /// <summary>

@@ -410,7 +410,7 @@ namespace SharpPy
 
         internal PyFrame ResumedBy { set => _resumedBy = value; }
 
-        private PyObject GetYieldFromReceiver() => YieldFromReceiver(_frame, _started, _finished);
+        internal PyObject GetYieldFromReceiver() => YieldFromReceiver(_frame, _started, _finished);
 
         // _PyGen_yf
         internal static PyObject YieldFromReceiver(PyFrame frame, bool started, bool finished)

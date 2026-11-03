@@ -10,13 +10,30 @@ namespace SharpPy.Core
     /// </summary>
     public class PyAsyncGenerator : PyObject
     {
+        // tstate->async_gen_firstiter and async_gen_finalizer
+        [ThreadStatic] internal static PyObject FirstIterHook;
+        [ThreadStatic] internal static PyObject FinalizerHook;
+        private bool _hooksInitialized;
+        private PyObject _finalizer;
+
+        // async_gen_init_hooks
+        private void InitHooks()
+        {
+            if (_hooksInitialized)
+                return;
+            _hooksInitialized = true;
+            _finalizer = FinalizerHook;
+            FirstIterHook?.Call(new PyObject[] { this }, null);
+        }
+
         private readonly PyFrame _frame;
         internal PyFrame Frame => _frame;
         private readonly PyGenerator _generator;
         internal bool Running;
         private bool _finished;
         public string Name { get; }
-        public PyObject Qualname { get; }
+        public PyObject Qualname { get; private set; }
+        private PyObject NameValue;
 
         static PyAsyncGenerator()
         {
@@ -39,28 +56,48 @@ namespace SharpPy.Core
                         _ => generator.AClose()
                     };
                 });
+            type.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", type, self => ((PyAsyncGenerator)self).NameValue,
+                (self, value) => ((PyAsyncGenerator)self).NameValue = NameArgument(value, "__name__"));
+            type.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", type, self => ((PyAsyncGenerator)self).Qualname,
+                (self, value) => ((PyAsyncGenerator)self).Qualname = NameArgument(value, "__qualname__"));
+            type.TypeDict["ag_await"] = new PyGetSetDescriptor("ag_await", type, self => ((PyAsyncGenerator)self)._generator.GetYieldFromReceiver() ?? PyNone.Instance);
+            type.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__", (cls, arg) => new PyGenericAlias((PyType)cls, arg));
         }
+
+        // gen_set_name, gen_set_qualname
+        private static PyObject NameArgument(PyObject value, string name) => value is PyString
+            ? value : throw PyTypeError.Create($"{name} must be set to a string object");
 
         public PyAsyncGenerator(PyFrame frame, PyVM vm, string name = "<async_generator>", string qualname = null)
         {
             _frame = frame;
             _generator = new PyGenerator(frame, vm, name);
             Name = name;
+            NameValue = new PyString(name);
             Qualname = new PyString(qualname ?? frame.Code.QualName ?? name);
         }
         public override PyType GetPyType() => PyType.AsyncGeneratorType;
         public override string GetTypeName() => "async_generator";
         public override PyString ToRepr() => new PyString($"<async_generator object {Name}>");
         public PyObject ANext() => ASend(PyNone.Instance);
-        public PyObject ASend(PyObject value) => new Awaitable(this, value, null, false);
+        public PyObject ASend(PyObject value)
+        {
+            InitHooks();
+            return new Awaitable(this, value, null, false);
+        }
         public PyObject AThrow(PyObject type, PyObject value = null, PyObject tb = null) =>
             CreateThrow(tb != null ? new[] { type, value ?? PyNone.Instance, tb } : value != null ? new[] { type, value } : new[] { type });
         private PyObject CreateThrow(PyObject[] args)
         {
+            InitHooks();
             if (args.Length > 1) PyWarnings.DeprecatedThrow(asynchronous: true);
             return new Awaitable(this, null, args, false);
         }
-        public PyObject AClose() => new Awaitable(this, null, null, true);
+        public PyObject AClose()
+        {
+            InitHooks();
+            return new Awaitable(this, null, null, true);
+        }
 
         private sealed class Awaitable : PyIterator
         {
@@ -346,5 +383,60 @@ namespace SharpPy.Core
         {
             return Value.GetHashCode();
         }
+    }
+
+    /// <summary>anextawaitable (Objects/iterobject.c): what anext(it, default) gives.</summary>
+    internal sealed class PyAnextAwaitable : PyIterator
+    {
+        private static readonly PyType Type = MakeType();
+        private readonly PyObject _wrapped, _default;
+
+        internal PyAnextAwaitable(PyObject wrapped, PyObject defaultValue)
+        {
+            _wrapped = wrapped;
+            _default = defaultValue;
+        }
+
+        private static PyType MakeType()
+        {
+            var type = new PyType("anext_awaitable", new[] { PyType.ObjectType });
+            type.TypeDict["__await__"] = new PyWrapperDescriptor("__await__", type, (self, args, kwargs) => self);
+            type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
+            type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.Next());
+            foreach (var method in new[] { "send", "throw", "close" })
+                type.TypeDict[method] = new PyMethodDescriptor(method, type, (self, args, kwargs) => ((PyAnextAwaitable)self).Proxy(method, args));
+            return type;
+        }
+
+        public override PyType GetPyType() => Type;
+        public override string GetTypeName() => "anext_awaitable";
+
+        // anextawaitable_getiter
+        private PyObject Awaitable()
+        {
+            var awaitable = PyVM.Instance.GetAwaitable(_wrapped);
+            if (awaitable is not PyCoroutine)
+                return awaitable;
+            var iterator = awaitable.GetAttribute("__await__").Call(Array.Empty<PyObject>(), null);
+            if (iterator is not PyIterator && iterator.LookupSpecialMethodUncached("__next__") == null)
+                throw PyTypeError.Create("__await__ returned a non-iterable");
+            return iterator;
+        }
+
+        private PyObject Finished(Func<PyObject> step)
+        {
+            try
+            {
+                return step();
+            }
+            catch (PythonException error) when (error.PyException.IsInstance(PyType.StopAsyncIterationType))
+            {
+                throw new PythonException(new PyStopIteration(_default));
+            }
+        }
+
+        public override PyObject Next() => Finished(() => Awaitable().Next());
+
+        private PyObject Proxy(string method, PyObject[] args) => Finished(() => Awaitable().GetAttribute(method).Call(args, null));
     }
 }

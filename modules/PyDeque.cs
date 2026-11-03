@@ -107,11 +107,17 @@ namespace SharpPy.Modules
 
             type.TypeDict["__hash__"] = PyNone.Instance;
 
-            type.TypeDict["__iadd__"] = new PyMethodDescriptor("__iadd__", type,
+            type.TypeDict["__add__"] = new PyWrapperDescriptor("__add__", type, (self, args, kwargs) => self.Add(args[0]));
+            type.TypeDict["__mul__"] = new PyWrapperDescriptor("__mul__", type, (self, args, kwargs) => self.Multiply(args[0]));
+            type.TypeDict["__rmul__"] = new PyWrapperDescriptor("__rmul__", type, (self, args, kwargs) => self.Multiply(args[0]));
+            type.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__", (cls, arg) => new SharpPy.PyGenericAlias((PyType)cls, arg));
+            TypeTables.Repr(type);
+            TypeTables.Compared(type);
+            type.TypeDict["__iadd__"] = new PyWrapperDescriptor("__iadd__", type,
                 (self, args, kwargs) => { ((PyDeque)self).Extend(args[0]); return self; }, 1, 1);
 
-            type.TypeDict["__imul__"] = new PyMethodDescriptor("__imul__", type,
-                (self, args, kwargs) => { ((PyDeque)self).InPlaceMultiply(args[0].ToInt()); return self; }, 1, 1);
+            type.TypeDict["__imul__"] = new PyWrapperDescriptor("__imul__", type,
+                (self, args, kwargs) => { ((PyDeque)self).InPlaceMultiply(args[0].ToInt()); return self; });
 
             type.TypeDict["__copy__"] = new PyMethodDescriptor("__copy__", type,
                 (self, args, kwargs) => ((PyDeque)self).Copy(), 0, 0);

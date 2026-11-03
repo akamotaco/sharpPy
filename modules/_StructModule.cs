@@ -498,6 +498,7 @@ namespace SharpPy.Modules
             }, 1, 1);
 
             module.ModuleDict["Struct"] = StructType;
+            TypeTables.InstallStruct(StructType);
             return module;
         }
 

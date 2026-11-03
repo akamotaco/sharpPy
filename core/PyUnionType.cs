@@ -21,6 +21,18 @@ namespace SharpPy
         public override PyString AsString() => new PyString(ToString());
         public override PyString ToRepr() => new PyString(ToString());
 
+        // union_getitem
+        internal PyObject Subscript(PyObject item)
+        {
+            var arguments = new PyTuple(Args);
+            var parameters = PyGenericAlias.MakeParameters(arguments);
+            var replaced = PyGenericAlias.SubsParameters(this, arguments, parameters, item);
+            var result = replaced.Items.Length == 0 ? null : replaced.Items[0];
+            for (int i = 1; i < replaced.Items.Length; i++)
+                result = result.BitwiseOr(replaced.Items[i]);
+            return result;
+        }
+
         public override string ToString()
         {
             // Performance: Eliminated LINQ - manual conversion instead of Select + ToArray

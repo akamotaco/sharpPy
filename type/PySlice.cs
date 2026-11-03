@@ -33,7 +33,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: slice.start, slice.stop, slice.step attributes
         /// </summary>
-        public override PyObject GetAttribute(string name)
+        internal PyObject Read(string name)
         {
             return name switch
             {

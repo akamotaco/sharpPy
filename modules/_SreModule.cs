@@ -22,6 +22,7 @@ namespace SharpPy.Modules
                 foreach (var type in new[] { PyPatternType, PyMatchType })
                     type.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
                         (cls, key) => new SharpPy.PyGenericAlias((PyType)cls, key));
+                TypeTables.InstallSre(PyPatternType, PyMatchType);
             }
 
             var module = new PyModule("_sre", "<_sre C module>");
