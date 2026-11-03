@@ -223,33 +223,17 @@ namespace SharpPy
 
         #region Attribute Access
 
+        // The class's tp_getattro (SubclassInstanceSupport.GetAttribute); the payload type's own
+        // attributes come last. An enum member reads _value_ before the class sets it.
         public override PyObject GetAttribute(string name)
         {
-            // CPython 3.12: Objects/object.c:1227-1304 (PyObject_GenericGetAttr)
-            //
-            // IMPORTANT: Do NOT delegate to _intValue.GetAttribute()!
-            // _intValue is a plain PyInt without custom type, so its MRO is just [int, object].
-            //
-            // We delegate to base.GetAttribute() which calls GenericGetAttribute().
-            // GenericGetAttribute() will:
-            // 1. Use GetPyType() to get the correct MRO (we override to return _class)
-            // 2. Check for data descriptors in MRO
-            // 3. Check InstanceDict (PyObject.GenericGetAttribute now handles PyIntSubclass)
-            // 4. Check for non-data descriptors in MRO
-            //
-            // This ensures proper attribute lookup order per CPython
-
-            // Special case: _value_ attribute for enum members
-            // If not set in InstanceDict, return the underlying int value
-            // This handles enum members during initialization before _value_ is set
             if (name == "_value_" && !InstanceDict.ContainsKey("_value_"))
-            {
                 return _intValue;
-            }
-
-            // Delegate everything to base class for proper MRO-based lookup
-            return base.GetAttribute(name);
+            return SubclassInstanceSupport.GetAttribute(this, _class, name);
         }
+
+        internal override PyObject GenericGetAttr(string name) =>
+            SubclassInstanceSupport.GenericGetAttribute(this, _class, InstanceDict, name, base.GetAttribute);
 
         public override void SetAttribute(string name, PyObject value)
         {

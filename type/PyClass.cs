@@ -2069,6 +2069,8 @@ namespace SharpPy
             return false;
         }
 
+        internal override PyObject GenericGetAttr(string name) => GetAttributeGeneric(name);
+
         internal PyObject GetAttributeGeneric(string name)
         {
             #if DEBUG_LOG
@@ -2715,8 +2717,10 @@ namespace SharpPy
         // User-defined descriptors, methods and the instance __dict__ live in the Python class dict,
         // which CLR inheritance cannot see. Shared with PyBytesSubclass.
         public override PyObject GetAttribute(string name) =>
-            SubclassInstanceSupport.GetAttribute(this, InstanceType, InstanceDict, name,
-                n => base.GetAttribute(n));
+            SubclassInstanceSupport.GetAttribute(this, InstanceType, name);
+
+        internal override PyObject GenericGetAttr(string name) =>
+            SubclassInstanceSupport.GenericGetAttribute(this, InstanceType, InstanceDict, name, n => base.GetAttribute(n));
 
         public override void SetAttribute(string name, PyObject value) =>
             SubclassInstanceSupport.SetAttribute(this, InstanceType, InstanceDict, name, value);

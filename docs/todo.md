@@ -39,7 +39,7 @@
 |---|---|---|---|
 | AST | ASDL 하나 | ASDL 하나. 구형 AST와 `Bridge`는 지웠다 | 끝 |
 | 이항 연산 | `binary_op1`, `binary_iop1`, `SLOT1BINFULL`, `sequence_repeat` | 같은 구조로 포팅 (`PyVM.BinaryOp1`, `SlotNumberBinary`, `InPlaceNumber`). C# 진입점도 모두 `ExecuteBinaryOpType`을 지난다. `int`, `float`, `str` 하위 클래스의 이항 슬롯은 값의 슬롯만 부른다. 단항 연산은 아직 CLR 가상 메서드다 | 끝 (단항은 3절) |
-| 속성 조회 | `tp_getattro` 슬롯, 대부분 `PyObject_GenericGetAttr` | `GetAttribute` override 76개 | 우선순위 대조 필요 |
+| 속성 조회 | `tp_getattro` 슬롯, 대부분 `PyObject_GenericGetAttr` | `_PyType_Lookup`은 `PyType.FindNameInMro` 하나다. 내장 타입의 Python 하위 클래스는 `slot_tp_getattr_hook`(`SubclassInstanceSupport.GetAttribute`)과 `GenericGetAttr`로 나뉘고 `object.__getattribute__`는 뒤쪽을 부른다. 남은 것: 내장 타입 자체의 `GetAttribute` override가 이름별 switch로 답하는 곳, `TypeMethodCache`의 리플렉션 대체 조회, `LOAD_ATTR`의 메서드 판정 | 진행 중 |
 | 호출 | `tp_call`, vectorcall | `Call` override 34개 | 대조 필요 |
 | 인스턴스 생성 | `tp_new` + `tp_init` | 가상 메서드 `CreateInstance`, 일부만 `ConstructedByNewSlot` | 대조 필요 |
 | 오류 전달 | NULL 반환과 스레드 상태 | CLR 예외. `ExecuteFrame`이 어떤 CLR 예외든 Python 예외로 바꾼다 | 유지 |

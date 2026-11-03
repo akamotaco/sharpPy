@@ -1460,6 +1460,32 @@ namespace SharpPy
             return mutable ? (PyObject)new PyByteArray(encodedBytes) : new PyBytes(encodedBytes);
         }
 
+        /// <summary>
+        /// find_name_in_mro (Objects/typeobject.c): each base's own dict in MRO order. A class's
+        /// namespace is its ClassDict, then the TypeDict that carries what a builtin base installs.
+        /// </summary>
+        internal PyObject FindNameInMro(string name, out bool written)
+        {
+            foreach (var mroType in MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out var classValue))
+                {
+                    written = true;
+                    return classValue;
+                }
+                if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue(name, out var typeValue))
+                {
+                    written = false;
+                    return typeValue;
+                }
+            }
+            written = false;
+            return null;
+        }
+
+        /// <summary>_PyType_Lookup. written tells whether a Python class body holds the name.</summary>
+        internal PyObject FindNameInMro(string name) => FindNameInMro(name, out _);
+
         // Special method lookup (MRO 기반) with method cache
         // CPython reference: Objects/typeobject.c:_PyType_Lookup
         public PyObject LookupSpecial(string name)
@@ -2054,21 +2080,14 @@ namespace SharpPy
                     if (args[0] is not PyString nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
 
-                    // CPython: object's tp_getattro points directly to PyObject_GenericGetAttr (C function)
-                    // SharpPy: Call GetAttributeGeneric which skips custom __getattribute__ lookup
-                    if (self is PyClassInstance instance)
-                    {
-                        return instance.GetAttributeGeneric(nameStr.Value);
-                    }
-
                     // A metaclass's or a module subclass's own __getattribute__ may be what called this.
                     if (self is PyClass cls)
                         return cls.TypeGetAttribute(nameStr.Value);
                     if (self is PyModule module)
                         return module.ModuleGetAttro(nameStr.Value);
 
-                    // Fallback for non-PyClassInstance objects
-                    return self.GetAttribute(nameStr.Value);
+                    // PyObject_GenericGetAttr, without the hook of the instance's Python class.
+                    return self.GenericGetAttr(nameStr.Value);
                 },
                 minArgs: 1,
                 maxArgs: 1

@@ -258,9 +258,13 @@ public interface IDescriptor
         public override PyObject GetAttribute(string name)
         {
             if (_customType is PyClass cls)
-                return SubclassInstanceSupport.GetAttribute(this, cls, InstanceDict, name, GenericGetAttribute);
+                return SubclassInstanceSupport.GetAttribute(this, cls, name);
             return name == "__doc__" ? _doc ?? PyNone.Instance : GenericGetAttribute(name);
         }
+
+        internal override PyObject GenericGetAttr(string name) => _customType is PyClass cls
+            ? SubclassInstanceSupport.GenericGetAttribute(this, cls, InstanceDict, name, GenericGetAttribute)
+            : GetAttribute(name);
 
         public override string GetTypeName() => GetPyType().Name;
         public override PyType GetPyType() => _customType ?? PyType.PropertyType;

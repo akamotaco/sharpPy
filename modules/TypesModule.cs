@@ -80,7 +80,11 @@ namespace SharpPy.Modules
         public override string GetTypeName() => _type.FullName;
 
         public override PyObject GetAttribute(string name) => _type is PyClass heap
-            ? SubclassInstanceSupport.GetAttribute(this, heap, InstanceDict, name, base.GetAttribute)
+            ? SubclassInstanceSupport.GetAttribute(this, heap, name)
+            : base.GetAttribute(name);
+
+        internal override PyObject GenericGetAttr(string name) => _type is PyClass heap
+            ? SubclassInstanceSupport.GenericGetAttribute(this, heap, InstanceDict, name, base.GetAttribute)
             : base.GetAttribute(name);
 
         public override void SetAttribute(string name, PyObject value)

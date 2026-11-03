@@ -157,25 +157,58 @@ namespace SharpPy
             return inherited();
         }
 
-        internal static PyObject GetAttribute(PyObject self, PyClass instanceType,
-            Dictionary<string, PyObject> instanceDict, string name, Func<string, PyObject> baseGetAttribute)
+        /// <summary>
+        /// tp_getattro of a Python class over a builtin: slot_tp_getattr_hook (Objects/typeobject.c)
+        /// calls a __getattribute__ the class writes, or PyObject_GenericGetAttr (self.GenericGetAttr),
+        /// and __getattr__ when that raises AttributeError.
+        /// </summary>
+        internal static PyObject GetAttribute(PyObject self, PyClass instanceType, string name)
+        {
+            var getattribute = instanceType.FindNameInMro("__getattribute__", out bool written);
+            var hook = instanceType.FindNameInMro("__getattr__");
+            if (hook == null)
+                return written ? CallHook(self, getattribute, name) : self.GenericGetAttr(name);
+            try
+            {
+                return written ? CallHook(self, getattribute, name) : self.GenericGetAttr(name);
+            }
+            catch (PythonException error) when (error.PyException is PyAttributeError)
+            {
+                return CallHook(self, hook, name);
+            }
+        }
+
+        private static PyObject CallHook(PyObject self, PyObject method, string name) =>
+            self.BindSpecialMethod(method).Call(new PyObject[] { new PyString(name) }, null);
+
+        /// <summary>
+        /// _PyObject_GenericGetAttrWithDict (Objects/object.c): a data descriptor of the type, then the
+        /// instance dict, then a non-data descriptor or plain attribute of the type. Only what a
+        /// Python class body holds is answered here; a builtin's attribute goes to nativeGetAttribute,
+        /// the builtin's own tp_getattro.
+        /// </summary>
+        internal static PyObject GenericGetAttribute(PyObject self, PyClass instanceType,
+            Dictionary<string, PyObject> instanceDict, string name, Func<string, PyObject> nativeGetAttribute)
         {
             // A heap class adds a __dict__ after the base's layout; the live view over the same store.
             if (name == "__dict__" && instanceType.InstancesHaveDict())
                 return PyGlobalsDict.For(instanceDict);
 
-            PyObject classAttribute = FirstClassDictEntry(instanceType, name);
-
-            if (classAttribute is IDescriptor descriptor)
+            var attribute = instanceType.FindNameInMro(name, out bool inClass);
+            IDescriptor descriptor = attribute as IDescriptor
+                ?? (attribute != null && attribute is not PyFunction && attribute.LookupSpecialMethodUncached("__get__") != null
+                    ? new PyDescriptorWrapper(attribute) : null);
+            if (descriptor != null && descriptor.IsDataDescriptor())
                 return descriptor.Get(self, instanceType);
-            if (classAttribute is PyFunction function)
-                return new PyMethod(self, function);
             if (instanceDict.TryGetValue(name, out PyObject instanceValue))
                 return instanceValue;
-            if (classAttribute != null)
-                return classAttribute;
-
-            return baseGetAttribute(name);
+            if (inClass)
+            {
+                if (attribute is PyFunction function)
+                    return new PyMethod(self, function);
+                return descriptor != null ? descriptor.Get(self, instanceType) : attribute;
+            }
+            return nativeGetAttribute(name);
         }
 
         internal static void SetAttribute(PyObject self, PyClass instanceType,
