@@ -111,9 +111,12 @@ namespace SharpPy
 
             var traceback = PyTraceback.TracebackPyType;
             Members<PyTraceback>(traceback, (self, name) => self.Read(name), "tb_frame", "tb_lasti");
-            GetSets<PyTraceback>(traceback, (self, name) => self.Read(name), "tb_next", "tb_lineno");
+            GetSets<PyTraceback>(traceback, (self, name) => self.Read(name), "tb_lineno");
+            traceback.TypeDict["tb_next"] = new PyGetSetDescriptor("tb_next", traceback, self => ((PyTraceback)self).Read("tb_next"),
+                (self, value) => ((PyTraceback)self).SetNext(value), deleter: self => throw PyTypeError.Create("can't delete tb_next attribute"));
 
-            GetSets<PyCell>(PyType.CellType, (self, name) => self.Contents(), "cell_contents");
+            PyType.CellType.TypeDict["cell_contents"] = new PyGetSetDescriptor("cell_contents", PyType.CellType, self => ((PyCell)self).Contents(),
+                (self, value) => ((PyCell)self).Value = value, deleter: self => ((PyCell)self).Value = null);
             PyType.CellType.TypeDict["__hash__"] = PyNone.Instance;
 
             Members<PyRange>(PyType.RangeType, (self, name) => self.Read(name), "start", "stop", "step");

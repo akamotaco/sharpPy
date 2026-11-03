@@ -48,7 +48,7 @@ namespace SharpPy.Modules
                 }
                 catch
                 {
-                    throw PyTypeError.Create("reduce() of empty sequence with no initial value");
+                    throw PyTypeError.Create("reduce() of empty iterable with no initial value");
                 }
             }
 
@@ -75,10 +75,18 @@ namespace SharpPy.Modules
         /// </summary>
         public static PyObject PyCmpToKey(PyObject[] args, PyDict? kwargs)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"cmp_to_key expected exactly 1 argument, got {args.Length}");
-
-            return new PyCmpToKeyWrapper(args[0]);
+            var compare = args.Length > 0 ? args[0] : null;
+            if (kwargs != null && kwargs.TryGetStoredValue(new PyString("mycmp"), out var named))
+            {
+                if (compare != null)
+                    throw PyTypeError.Create("argument for cmp_to_key() given by name ('mycmp') and position (1)");
+                compare = named;
+            }
+            if (compare == null)
+                throw PyTypeError.Create("cmp_to_key() missing required argument 'mycmp' (pos 1)");
+            if (args.Length + (kwargs?.Length() ?? 0) > 1)
+                throw PyTypeError.Create($"cmp_to_key() takes at most 1 argument ({args.Length + kwargs.Length()} given)");
+            return new PyCmpToKeyWrapper(compare);
         }
     }
 

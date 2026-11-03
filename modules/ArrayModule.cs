@@ -201,7 +201,7 @@ namespace SharpPy.Modules
             {
                 if (_buffer.Length != _count * ItemSize)
                     Array.Resize(ref _buffer, _count * ItemSize);
-                return new PyMemoryView(_buffer, false, ItemSize, this);
+                return new PyMemoryView(_buffer, false, 1, this).Reinterpret(_typecode.ToString(), ItemSize);
             }
 
             public override bool SupportsBuffer() => true;
@@ -219,10 +219,7 @@ namespace SharpPy.Modules
 
             private int NormalizeIndex(PyObject index)
             {
-                long i;
-                if (index is PyInt pi) i = (long)pi.Value;
-                else if (index is PyBool pb) i = pb.Value ? 1 : 0;
-                else throw PyTypeError.Create($"array indices must be integers or slices, not {index.GetTypeName()}");
+                long i = (long)(TryGetIndex(index) ?? throw PyTypeError.Create($"array indices must be integers or slices, not {index.GetTypeName()}")).Value;
 
                 if (i < 0) i += _count;
                 if (i < 0 || i >= _count)
@@ -709,13 +706,88 @@ namespace SharpPy.Modules
                 return result;
             }
 
-            internal PyTuple ReduceEx()
+            // typecode_to_mformat_code
+            private int MachineFormat() => _typecode switch
             {
+                'B' => 0,
+                'b' => 1,
+                'u' => ItemSize == 2 ? 18 : 20,
+                'f' => 14,
+                'd' => 16,
+                _ => ItemSize switch { 2 => 2, 4 => 6, _ => 10 } + (char.IsLower(_typecode) ? 2 : 0),
+            };
+
+            // array___reduce_ex___impl
+            internal PyTuple ReduceEx(int protocol)
+            {
+                PyObject state = this is IDictBackedInstance owner && owner.InstanceDict.Count != 0 ? GetAttribute("__dict__") : PyNone.Instance;
+                if (protocol < 3)
+                    return new PyTuple(new PyObject[]
+                    {
+                        GetPyType(),
+                        new PyTuple(new PyObject[] { new PyString(_typecode.ToString()), ToList() }),
+                        state,
+                    });
                 return new PyTuple(new PyObject[]
                 {
-                    GetPyType(),
-                    new PyTuple(new PyObject[] { new PyString(_typecode.ToString()), ToList() })
+                    Reconstructor,
+                    new PyTuple(new PyObject[] { GetPyType(), new PyString(_typecode.ToString()), new PyInt(MachineFormat()), ToBytes() }),
+                    state,
                 });
+            }
+
+            internal static readonly PyBuiltinFunction Reconstructor = new("_array_reconstructor", Reconstruct);
+
+            // array__array_reconstructor_impl: the items as written on another machine, read here.
+            internal static PyType Type;
+
+            private static PyObject Reconstruct(PyObject[] args)
+            {
+                if (args.Length != 4)
+                    throw PyTypeError.Create($"_array_reconstructor expected 4 arguments, got {args.Length}");
+                if (args[0] is not PyType arrayType)
+                    throw PyTypeError.Create($"first argument must be a type object, not {args[0].GetTypeName()}");
+                if (!arrayType.IsSubclassOf(Type))
+                    throw PyTypeError.Create($"{arrayType.Name} is not a subtype of array.array");
+                if (args[1] is not PyString { Value.Length: 1 } typecode || !"bBuhHiIlLqQfd".Contains(typecode.Value))
+                    throw PyValueError.Create("second argument must be a valid type code");
+                int code = args[2].ToInt();
+                if (code is < 0 or > 21)
+                    throw PyValueError.Create("third argument must be a valid machine format code");
+                if (args[3] is not PyBytes bytes)
+                    throw PyTypeError.Create($"fourth argument should be bytes, not {args[3].GetTypeName()}");
+                int size = code switch { 0 or 1 => 1, >= 2 and <= 5 => 2, >= 6 and <= 9 or 14 or 15 => 4, 18 or 19 => 2, 20 or 21 => 4, _ => 8 };
+                var data = bytes.Value;
+                if (data.Length % size != 0)
+                    throw PyValueError.Create("bytes length not a multiple of item size");
+                bool bigEndian = code >= 2 && code % 2 == 1;
+                var cell = new byte[size];
+                PyObject Item(int offset)
+                {
+                    for (int i = 0; i < size; i++)
+                        cell[i] = data[offset + (bigEndian ? size - 1 - i : i)];
+                    return code switch
+                    {
+                        0 => new PyInt(cell[0]),
+                        1 => new PyInt((sbyte)cell[0]),
+                        2 or 3 => new PyInt(BitConverter.ToUInt16(cell)),
+                        4 or 5 => new PyInt(BitConverter.ToInt16(cell)),
+                        6 or 7 => new PyInt(BitConverter.ToUInt32(cell)),
+                        8 or 9 => new PyInt(BitConverter.ToInt32(cell)),
+                        10 or 11 => new PyInt((System.Numerics.BigInteger)BitConverter.ToUInt64(cell)),
+                        12 or 13 => new PyInt(BitConverter.ToInt64(cell)),
+                        14 or 15 => new PyFloat(BitConverter.ToSingle(cell)),
+                        16 or 17 => new PyFloat(BitConverter.ToDouble(cell)),
+                        18 or 19 => new PyString(((char)BitConverter.ToUInt16(cell)).ToString()),
+                        _ => new PyString(char.ConvertFromUtf32(BitConverter.ToInt32(cell))),
+                    };
+                }
+                if (code >= 18 && typecode.Value != "u" || code < 18 && typecode.Value == "u")
+                    throw PyValueError.Create("bad typecode (must be b, B, u, h, H, i, I, l, L, q, Q, f or d)");
+                var items = new PyObject[data.Length / size];
+                for (int i = 0; i < items.Length; i++)
+                    items[i] = Item(i * size);
+                return arrayType.Call(new PyObject[] { typecode, new PyList(items) }, null);
             }
 
             internal void InitializeFrom(PyObject initializer)
@@ -926,7 +998,7 @@ namespace SharpPy.Modules
 
             type.TypeDict["__reduce_ex__"] = new PyMethodDescriptor("__reduce_ex__", type, (self, args, kwargs) =>
             {
-                return ((PyArray)self).ReduceEx();
+                return ((PyArray)self).ReduceEx(args[0].ToInt());
             }, 1, 1);
 
             type.TypeDict["__add__"] = new PyWrapperDescriptor("__add__", type, (self, args, kwargs) => self.Add(args[0]));
@@ -1012,6 +1084,8 @@ namespace SharpPy.Modules
             type.CollectionFlags = PyType.TPFLAGS_SEQUENCE;
             module.ModuleDict["array"] = type;
             module.ModuleDict["ArrayType"] = type;
+            PyArray.Type = type;
+            module.ModuleDict["_array_reconstructor"] = PyArray.Reconstructor;
             module.ModuleDict["typecodes"] = new PyString("bBuhHiIlLqQfd");
 
             return module;

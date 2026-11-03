@@ -191,7 +191,8 @@ namespace SharpPy
         {
             "async_generator" or "builtin_function_or_method" or "code" or "coroutine" or "frozenset"
                 or "function" or "generator" or "memoryview" or "method" or "module" or "set" or "type"
-                or "GenericAlias" => PyTypeFlags.ManagedWeakRef,
+                or "GenericAlias" or "deque" or "array" or "Pattern" or "partial"
+                => PyTypeFlags.ManagedWeakRef,
             _ => PyTypeFlags.None,
         };
 

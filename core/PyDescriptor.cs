@@ -263,6 +263,8 @@ namespace SharpPy
                     return Instance;
                 case "__func__":
                     return MethodDescriptor;
+                case "__module__":
+                    return PyNone.Instance;
                 case "__name__":
                     return new PyString(MethodDescriptor.Name);
                 case "__qualname__":

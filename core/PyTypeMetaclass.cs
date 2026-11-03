@@ -852,6 +852,7 @@ namespace SharpPy
             {
                 "__self__" => _instance,
                 "__func__" => _method,
+                "__module__" => PyNone.Instance,
                 "__name__" => new PyString(_method.Name),
                 _ => base.GetAttribute(name)
             };

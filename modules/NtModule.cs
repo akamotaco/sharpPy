@@ -47,6 +47,25 @@ namespace SharpPy.Modules
                 new PyString("HAVE_FTRUNCATE"), new PyString("HAVE_LSTAT"), new PyString("MS_WINDOWS"),
             });
             module.ModuleDict["stat_result"] = PyStatResult.Type;
+            var terminalSize = new PyStructSequenceType("os", "terminal_size", new[] { "columns", "lines" });
+            module.ModuleDict["terminal_size"] = terminalSize;
+            module.ModuleDict["get_terminal_size"] = new PyBuiltinFunction("get_terminal_size", args =>
+            {
+                if (Console.IsOutputRedirected)
+                    throw PyOSError.Create("[Errno 25] Inappropriate ioctl for device");
+                return new PyStructSequence(terminalSize, new PyObject[] { new PyInt(Console.WindowWidth), new PyInt(Console.WindowHeight) });
+            });
+            var timesResult = new PyStructSequenceType("nt", "times_result", new[] { "user", "system", "children_user", "children_system", "elapsed" });
+            module.ModuleDict["times_result"] = timesResult;
+            module.ModuleDict["times"] = new PyBuiltinFunction("times", args =>
+            {
+                var process = System.Diagnostics.Process.GetCurrentProcess();
+                return new PyStructSequence(timesResult, new PyObject[]
+                {
+                    new PyFloat(process.UserProcessorTime.TotalSeconds), new PyFloat(process.PrivilegedProcessorTime.TotalSeconds),
+                    new PyFloat(0), new PyFloat(0), new PyFloat(0),
+                });
+            });
             module.ModuleDict["DirEntry"] = PyDirEntry.Type;
             module.ModuleDict["lstat"] = new PyBuiltinFunction("lstat", Stat);
             module.ModuleDict["scandir"] = new PyBuiltinFunction("scandir", Scandir);
@@ -787,76 +806,50 @@ namespace SharpPy.Modules
         #endregion
     }
 
-    /// <summary>
-    /// CPython 3.12 stat_result object (os.stat_result)
-    /// CPython: Objects/structseq.c + Modules/posixmodule.c
-    /// </summary>
-    public class PyStatResult : PyObject
+    /// <summary>os.stat_result (Modules/posixmodule.c): ten items, three of them only by index.</summary>
+    public sealed class PyStatResult : PyStructSequence
     {
-        private readonly int _mode;
-        private readonly long _size;
-        private readonly double _mtime, _ctime, _atime;
+        private static readonly string[] Extra = OperatingSystem.IsWindows()
+            ? new[] { "st_file_attributes", "st_reparse_tag" } : new[] { "st_blksize", "st_blocks", "st_rdev" };
 
-        public PyStatResult(FileSystemInfo info)
+        internal static readonly PyStructSequenceType Type = new("os", "stat_result", Fields(), 10);
+
+        private static string[] Fields()
         {
-            _mode = info is DirectoryInfo ? 0x4000 | 0x1ED : 0x8000 | 0x1A4;
-            _size = info is FileInfo file ? file.Length : 0;
-            _mtime = ToUnixTime(info.LastWriteTime);
-            _ctime = ToUnixTime(info.CreationTime);
-            _atime = ToUnixTime(info.LastAccessTime);
+            var fields = new List<string> { "st_mode", "st_ino", "st_dev", "st_nlink", "st_uid", "st_gid", "st_size", null, null, null,
+                "st_atime", "st_mtime", "st_ctime", "st_atime_ns", "st_mtime_ns", "st_ctime_ns" };
+            fields.AddRange(Extra);
+            return fields.ToArray();
         }
+
+        private static PyObject[] Values(int mode, long size, double atime, double mtime, double ctime)
+        {
+            PyObject Whole(double seconds) => new PyInt((long)Math.Floor(seconds));
+            PyObject Nanoseconds(double seconds) => new PyInt((System.Numerics.BigInteger)(seconds * 1e9));
+            var values = new List<PyObject>
+            {
+                new PyInt(mode), new PyInt(0), new PyInt(0), new PyInt(1), new PyInt(0), new PyInt(0), new PyInt(size),
+                Whole(atime), Whole(mtime), Whole(ctime), new PyFloat(atime), new PyFloat(mtime), new PyFloat(ctime),
+                Nanoseconds(atime), Nanoseconds(mtime), Nanoseconds(ctime),
+            };
+            foreach (var name in Extra)
+                values.Add(new PyInt(0));
+            return values.ToArray();
+        }
+
+        private PyStatResult(int mode, long size, double atime, double mtime, double ctime)
+            : base(Type, Values(mode, size, atime, mtime, ctime)) { }
+
+        public PyStatResult(FileSystemInfo info) : this(info is DirectoryInfo ? 0x4000 | 0x1ED : 0x8000 | 0x1A4,
+            info is FileInfo file ? file.Length : 0, ToUnixTime(info.LastAccessTime), ToUnixTime(info.LastWriteTime), ToUnixTime(info.CreationTime)) { }
 
         // Godot virtual resources expose size and modification time, but no
         // creation/access timestamps. Keep stat results as value snapshots.
-        internal PyStatResult(int mode, long size, double mtime)
-        { _mode = mode; _size = size; _mtime = mtime; }
-
-        internal static readonly PyType Type = new PyType("stat_result", new[] { PyType.ObjectType });
-
-        public override PyType GetPyType() => Type;
-        public override string GetTypeName() => "stat_result";
-
-        public override PyObject GetAttribute(string name)
-        {
-            switch (name)
-            {
-                case "st_mode":
-                    // CPython: posixmodule.c - file mode bits
-                    // S_IFDIR (0o40000) for directory, S_IFREG (0o100000) for regular file
-                    return new PyInt(_mode);
-                case "st_size":
-                    return new PyInt(_size);
-                case "st_mtime":
-                    return new PyFloat(_mtime);
-                case "st_ctime":
-                    return new PyFloat(_ctime);
-                case "st_atime":
-                    return new PyFloat(_atime);
-                case "st_ino":
-                    return new PyInt(0); // inode (not available on Windows)
-                case "st_dev":
-                    return new PyInt(0); // device (not available in .NET)
-                case "st_nlink":
-                    return new PyInt(1); // number of hard links
-                case "st_uid":
-                    return new PyInt(0); // user id (not available on Windows)
-                case "st_gid":
-                    return new PyInt(0); // group id (not available on Windows)
-                default:
-                    throw PyAttributeError.Create($"'stat_result' object has no attribute '{name}'");
-            }
-        }
+        internal PyStatResult(int mode, long size, double mtime) : this(mode, size, 0, mtime, 0) { }
 
         private static double ToUnixTime(DateTime dt)
         {
             return (dt.ToUniversalTime() - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
         }
-
-        public override PyString ToRepr()
-        {
-            return new PyString($"os.stat_result(st_mode={_mode}, st_ino=0, st_dev=0, st_nlink=1, st_uid=0, st_gid=0, st_size={_size}, st_atime={_atime}, st_mtime={_mtime}, st_ctime={_ctime})");
-        }
-
-        public override string ToString() => ToRepr().Value;
     }
 }

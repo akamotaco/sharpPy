@@ -89,6 +89,10 @@ namespace SharpPy.Modules
             module.ModuleDict["_git"] = new PyTuple(new PyObject[] { new PyString("SharpPy"), new PyString(""), new PyString("") });
             module.ModuleDict["_xoptions"] = new PyDict();
             module.ModuleDict["_home"] = PyNone.Instance;
+            module.ModuleDict["_vpath"] = new PyString("");
+            module.ModuleDict["_framework"] = new PyString("");
+            module.ModuleDict["_base_executable"] = new PyString(GetExecutablePath());
+            module.ModuleDict["_stdlib_dir"] = PyNone.Instance;
             module.ModuleDict["is_finalizing"] = new PyBuiltinFunction("is_finalizing", args => PyBool.FromBool(PyGil.Finalizing));
             module.ModuleDict["get_asyncgen_hooks"] = new PyBuiltinFunction("get_asyncgen_hooks", args => AsyncgenHooks());
             module.ModuleDict["set_asyncgen_hooks"] = new PyBuiltinFunction("set_asyncgen_hooks", SetAsyncgenHooks);

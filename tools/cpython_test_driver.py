@@ -52,6 +52,16 @@ try:
         import importlib.machinery
     except ImportError:
         fill_importlib()
+    if sys.implementation.cache_tag is None or "importlib._bootstrap" not in sys.modules:
+        try:
+            import importlib._bootstrap
+        except ImportError:
+            import importlib
+            import types
+            for module_name in ("importlib._bootstrap", "importlib._bootstrap_external"):
+                sys.modules[module_name] = types.ModuleType(module_name)
+                sys.modules[module_name].__getattr__ = lambda name: (lambda *args, **kwargs: None)
+                setattr(importlib, module_name.rpartition(".")[2], sys.modules[module_name])
     import test
     test.__path__.insert(0, os.path.join(CPYTHON_LIB, "test"))
     import unittest

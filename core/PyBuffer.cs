@@ -713,6 +713,12 @@ namespace SharpPy
             return new PyBytes(Data).ToHash();
         }
 
+        internal override long GetPythonHash()
+        {
+            ToHash();
+            return PyHash.Bytes(Data);
+        }
+
         public int ItemSize { get { CheckReleased(); return _itemsize; } }
 
         public override PyType GetPyType() => PyType.MemoryViewType;

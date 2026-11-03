@@ -136,8 +136,15 @@ namespace SharpPy
                 if (this is PyInt number) return PyInt.PythonHash(number.Value);
                 if (this is PyBool boolean) return boolean.Value ? 1 : 0;
                 if (this is PyFloat real) return real.PythonHash();
-                if (this is PyString || this is PyNone) return ToHash();
+                if (this is PyNone) return ToHash();
             }
+            // unicode_hash and bytes_hash, unless the class says otherwise.
+            if (this is PyString text && (text.GetType() == typeof(PyString) || LookupUserSpecial("__hash__") == null))
+                return PyHash.Text(text.Value);
+            if (this is PyStrSubclass derived && LookupUserSpecial("__hash__") == null)
+                return PyHash.Text(derived.GetStrValue().Value);
+            if (this is PyBytes bytes && (bytes.GetType() == typeof(PyBytes) || LookupUserSpecial("__hash__") == null))
+                return PyHash.Bytes(bytes.Value);
             var method = LookupSpecialMethodUncached("__hash__");
             if (method != null)
             {

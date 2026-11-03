@@ -393,6 +393,7 @@ namespace SharpPy
             }));
 
             SetAttribute("struct_time", PyStructTime.StructTimeType);
+            SetAttribute("_STRUCT_TM_ITEMS", new PyInt(11));
         }
 
         private void InitializeConstants()

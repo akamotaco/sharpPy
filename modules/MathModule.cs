@@ -1,542 +1,200 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace SharpPy.Modules
 {
     /// <summary>
-    /// Python math 모듈 구현 - 수학 함수들과 상수들
+    /// Modules/mathmodule.c. The wrappers keep the rule of math_1, math_1a and math_2: what the C
+    /// function answered decides between the value, ValueError and OverflowError.
     /// </summary>
     public static class MathModule
     {
-        public static PyModule CreateMathModule()
-        {
-            var module = new PyModule("math", "C:\\Users\\m11\\Desktop\\work\\sharpPy\\modules\\math.py");
+        private enum Fault { None, Domain, Range }
 
-            // 수학 상수들
-            module.ModuleDict["pi"] = new PyFloat(Math.PI);
-            module.ModuleDict["e"] = new PyFloat(Math.E);
-            module.ModuleDict["tau"] = new PyFloat(2 * Math.PI);
-            module.ModuleDict["inf"] = new PyFloat(double.PositiveInfinity);
-            module.ModuleDict["nan"] = new PyFloat(PyFloat.QuietNaN);
+        [ThreadStatic] private static Fault _errno;
 
-            // 기본 수학 함수들
-            module.ModuleDict["sqrt"] = new PyMathFunction("sqrt");
-            module.ModuleDict["pow"] = new PyMathFunction("pow");
-            module.ModuleDict["exp"] = new PyMathFunction("exp");
-            module.ModuleDict["log"] = new PyMathFunction("log");
-            module.ModuleDict["log10"] = new PyMathFunction("log10");
-            module.ModuleDict["log2"] = new PyMathFunction("log2");
+        private static Exception Raise(Fault fault) => fault == Fault.Domain
+            ? PyValueError.Create("math domain error") : PyOverflowError.Create("math range error");
 
-            // 삼각 함수들
-            module.ModuleDict["sin"] = new PyMathFunction("sin");
-            module.ModuleDict["cos"] = new PyMathFunction("cos");
-            module.ModuleDict["tan"] = new PyMathFunction("tan");
-            module.ModuleDict["asin"] = new PyMathFunction("asin");
-            module.ModuleDict["acos"] = new PyMathFunction("acos");
-            module.ModuleDict["atan"] = new PyMathFunction("atan");
-            module.ModuleDict["atan2"] = new PyMathFunction("atan2");
+        internal static double RealNumber(PyObject value) => PyMathFunction.RealNumber(value);
 
-            // 쌍곡선 함수들
-            module.ModuleDict["sinh"] = new PyMathFunction("sinh");
-            module.ModuleDict["cosh"] = new PyMathFunction("cosh");
-            module.ModuleDict["tanh"] = new PyMathFunction("tanh");
-            module.ModuleDict["asinh"] = new PyMathFunction("asinh");
-            module.ModuleDict["acosh"] = new PyMathFunction("acosh");
-            module.ModuleDict["atanh"] = new PyMathFunction("atanh");
-
-            // 각도 변환
-            module.ModuleDict["degrees"] = new PyMathFunction("degrees");
-            module.ModuleDict["radians"] = new PyMathFunction("radians");
-
-            // 기타 함수들
-            // measured: hasattr(math, "abs") is False in CPython - the C module has fabs, not abs.
-            // SharpPy exported an fabs-like abs here, which made hasattr(math, "abs") True.
-            module.ModuleDict["ceil"] = new PyMathFunction("ceil");
-            module.ModuleDict["floor"] = new PyMathFunction("floor");
-            module.ModuleDict["trunc"] = new PyMathFunction("trunc");
-            module.ModuleDict["round"] = new PyMathFunction("round");
-            module.ModuleDict["copysign"] = new PyMathFunction("copysign");
-            module.ModuleDict["fabs"] = new PyMathFunction("fabs");
-            module.ModuleDict["factorial"] = new PyMathFunction("factorial");
-            module.ModuleDict["lgamma"] = new PyMathFunction("lgamma");
-            module.ModuleDict["gcd"] = new PyMathFunction("gcd");
-            module.ModuleDict["lcm"] = new PyMathFunction("lcm");
-
-            // 부동소수점 관련
-            module.ModuleDict["isfinite"] = new PyMathFunction("isfinite");
-            module.ModuleDict["isinf"] = new PyMathFunction("isinf");
-            module.ModuleDict["isnan"] = new PyMathFunction("isnan");
-            module.ModuleDict["isclose"] = new PyMathFunction("isclose");
-            module.ModuleDict["modf"] = new PyMathFunction("modf");
-            module.ModuleDict["frexp"] = new PyMathFunction("frexp");
-            module.ModuleDict["ldexp"] = new PyMathFunction("ldexp");
-
-            // Python 3.8+ 추가 함수들
-            module.ModuleDict["isqrt"] = new PyMathFunction("isqrt");
-
-            // Python 3.9+ / 3.11+ / 3.12+ 추가 함수들
-            module.ModuleDict["cbrt"] = new PyMathFunction("cbrt");
-            module.ModuleDict["comb"] = new PyMathFunction("comb");
-            module.ModuleDict["erf"] = new PyMathFunction("erf");
-            module.ModuleDict["erfc"] = new PyMathFunction("erfc");
-            module.ModuleDict["exp2"] = new PyMathFunction("exp2");
-            module.ModuleDict["expm1"] = new PyMathFunction("expm1");
-            module.ModuleDict["fmod"] = new PyMathFunction("fmod");
-            module.ModuleDict["fsum"] = new PyMathFunction("fsum");
-            module.ModuleDict["gamma"] = new PyMathFunction("gamma");
-            module.ModuleDict["log1p"] = new PyMathFunction("log1p");
-            module.ModuleDict["nextafter"] = new PyMathFunction("nextafter");
-            module.ModuleDict["perm"] = new PyMathFunction("perm");
-            module.ModuleDict["prod"] = new PyMathFunction("prod");
-            module.ModuleDict["remainder"] = new PyMathFunction("remainder");
-            module.ModuleDict["sumprod"] = new PyMathFunction("sumprod");
-            module.ModuleDict["ulp"] = new PyMathFunction("ulp");
-            module.ModuleDict["dist"] = new PyMathFunction("dist");
-            module.ModuleDict["hypot"] = new PyMathFunction("hypot");
-
-            return module;
-        }
-    }
-
-    /// <summary>
-    /// math 모듈의 함수 구현
-    /// </summary>
-    public class PyMathFunction : PyObject
-    {
-        public string Name { get; }
-
-        public PyMathFunction(string name)
-        {
-            Name = name;
-        }
-
-        public override string GetTypeName() => "builtin_function_or_method";
-        public override bool IsCallable() => true;
-
-        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
-        {
-            if (Name == "isclose") return CallIsClose(args, kwargs);
-            // Keyword-only parameters reach the implementation as trailing arguments.
-            if (Name == "prod" && KwValue(kwargs, "start") is PyObject start)
-                return CallProd(new[] { args[0], start });
-            if (Name == "nextafter" && KwValue(kwargs, "steps") is PyObject steps)
-            {
-                var step = args[0];
-                for (var left = steps.ToInt(); left > 0; left--) step = CallNextafter(new[] { step, args[1] });
-                return step;
-            }
-            return Name switch
-            {
-                // 기본 수학 함수들
-                "sqrt" => CallSqrt(args),
-                "pow" => CallPow(args),
-                "exp" => CallExp(args),
-                "log" => CallLog(args),
-                "log10" => CallLog10(args),
-                "log2" => CallLog2(args),
-
-                // 삼각 함수들
-                "sin" => CallSin(args),
-                "cos" => CallCos(args),
-                "tan" => CallTan(args),
-                "asin" => CallAsin(args),
-                "acos" => CallAcos(args),
-                "atan" => CallAtan(args),
-                "atan2" => CallAtan2(args),
-
-                // 쌍곡선 함수들
-                "sinh" => CallSinh(args),
-                "cosh" => CallCosh(args),
-                "tanh" => CallTanh(args),
-                "asinh" => CallAsinh(args),
-                "acosh" => CallAcosh(args),
-                "atanh" => CallAtanh(args),
-
-                // 각도 변환
-                "degrees" => CallDegrees(args),
-                "radians" => CallRadians(args),
-
-                // 기타 함수들
-                "ceil" => CallCeil(args),
-                "floor" => CallFloor(args),
-                "trunc" => CallTrunc(args),
-                "round" => CallRound(args),
-                "copysign" => CallCopysign(args),
-                "fabs" => CallFabs(args),
-                "factorial" => CallFactorial(args),
-                "lgamma" => CallLGamma(args),
-                "gcd" => CallGcd(args),
-                "lcm" => CallLcm(args),
-
-                // 부동소수점 관련
-                "isfinite" => CallIsFinite(args),
-                "isinf" => CallIsInf(args),
-                "isnan" => CallIsNaN(args),
-                "modf" => CallModf(args),
-                "frexp" => CallFrexp(args),
-                "ldexp" => CallLdexp(args),
-
-                // Python 3.9+ / 3.11+ / 3.12+
-                "cbrt" => CallCbrt(args),
-                "comb" => CallComb(args),
-                "erf" => CallErf(args),
-                "erfc" => CallErfc(args),
-                "exp2" => CallExp2(args),
-                "expm1" => CallExpm1(args),
-                "fmod" => CallFmod(args),
-                "fsum" => CallFsum(args),
-                "gamma" => CallGamma(args),
-                "log1p" => CallLog1p(args),
-                "nextafter" => CallNextafter(args),
-                "perm" => CallPerm(args),
-                "prod" => CallProd(args),
-                "remainder" => CallRemainder(args),
-                "sumprod" => CallSumprod(args),
-                "ulp" => CallUlp(args),
-
-                // 추가 함수들
-                "isqrt" => CallIsqrt(args),
-                "dist" => CallDist(args),
-                "hypot" => CallHypot(args),
-
-                _ => throw PyNotImplementedError.Create($"math.{Name} not implemented")
-            };
-        }
-
-        // === 기본 수학 함수 구현 ===
-
-        private PyObject CallSqrt(PyObject[] args)
+        // METH_O
+        private static PyObject One(string name, PyObject[] args, Func<PyObject, PyObject> body)
         {
             if (args.Length != 1)
-                throw PyTypeError.Create($"sqrt() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            if (x < 0)
-                throw PyValueError.Create("math domain error");
-
-            return new PyFloat(Math.Sqrt(x));
+                throw PyTypeError.Create($"math.{name}() takes exactly one argument ({args.Length} given)");
+            return body(args[0]);
         }
 
-        private PyObject CallPow(PyObject[] args)
+        private static void Check2(string name, PyObject[] args)
         {
             if (args.Length != 2)
-                throw PyTypeError.Create($"pow() takes exactly two arguments ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            var y = GetFloatValue(args[1]);
-
-            return new PyFloat(Math.Pow(x, y));
+                throw PyTypeError.Create($"{name} expected 2 arguments, got {args.Length}");
         }
 
-        private PyObject CallExp(PyObject[] args)
+        // math_1
+        private static PyObject Math1(PyObject arg, Func<double, double> function, bool canOverflow)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"exp() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(Math.Exp(x));
+            double x = RealNumber(arg);
+            double r = function(x);
+            if (double.IsNaN(r) && !double.IsNaN(x))
+                throw Raise(Fault.Domain);
+            if (double.IsInfinity(r) && double.IsFinite(x))
+                throw Raise(canOverflow ? Fault.Range : Fault.Domain);
+            return new PyFloat(r);
         }
 
-        private PyObject CallLog(PyObject[] args)
+        // math_1a: the function says itself, by errno.
+        private static PyObject Math1a(PyObject arg, Func<double, double> function)
         {
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"log() takes from 1 to 2 positional arguments ({args.Length} given)");
+            double x = RealNumber(arg);
+            _errno = Fault.None;
+            double r = function(x);
+            if (_errno != Fault.None)
+                throw Raise(_errno);
+            return new PyFloat(r);
+        }
 
-            var x = GetFloatValue(args[0]);
-            if (x <= 0)
-                throw PyValueError.Create("math domain error");
-
-            if (args.Length == 1)
-                return new PyFloat(Math.Log(x));
-            else
+        // math_2
+        private static PyObject Math2(PyObject[] args, Func<double, double, double> function, string name)
+        {
+            Check2(name, args);
+            double x = RealNumber(args[0]), y = RealNumber(args[1]);
+            double r = function(x, y);
+            if (double.IsNaN(r))
             {
-                var base_ = GetFloatValue(args[1]);
-                if (base_ <= 0 || base_ == 1)
-                    throw PyValueError.Create("math domain error");
-                return new PyFloat(Math.Log(x, base_));
+                if (!double.IsNaN(x) && !double.IsNaN(y))
+                    throw Raise(Fault.Domain);
             }
+            else if (double.IsInfinity(r) && double.IsFinite(x) && double.IsFinite(y))
+                throw Raise(Fault.Range);
+            return new PyFloat(r);
         }
 
-        private PyObject CallLog10(PyObject[] args)
+        private static double M_Atan2(double y, double x)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"log10() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            if (x <= 0)
-                throw PyValueError.Create("math domain error");
-
-            return new PyFloat(Math.Log10(x));
-        }
-
-        private PyObject CallLog2(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"log2() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            if (x <= 0)
-                throw PyValueError.Create("math domain error");
-
-            return new PyFloat(Math.Log2(x));
-        }
-
-        // === 삼각 함수 구현 ===
-
-        private PyObject CallSin(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"sin() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(Math.Sin(x));
-        }
-
-        private PyObject CallCos(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"cos() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(Math.Cos(x));
-        }
-
-        private PyObject CallTan(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"tan() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(Math.Tan(x));
-        }
-
-        private PyObject CallAsin(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"asin() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            if (x < -1 || x > 1)
-                throw PyValueError.Create("math domain error");
-
-            return new PyFloat(Math.Asin(x));
-        }
-
-        private PyObject CallAcos(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"acos() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            if (x < -1 || x > 1)
-                throw PyValueError.Create("math domain error");
-
-            return new PyFloat(Math.Acos(x));
-        }
-
-        private PyObject CallAtan(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"atan() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(Math.Atan(x));
-        }
-
-        private PyObject CallAtan2(PyObject[] args)
-        {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"atan2() takes exactly two arguments ({args.Length} given)");
-
-            var y = GetFloatValue(args[0]);
-            var x = GetFloatValue(args[1]);
-            return new PyFloat(Math.Atan2(y, x));
-        }
-
-        // === 쌍곡선 함수 구현 ===
-
-        private PyObject CallSinh(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"sinh() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(Math.Sinh(x));
-        }
-
-        private PyObject CallCosh(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"cosh() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(Math.Cosh(x));
-        }
-
-        private PyObject CallTanh(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"tanh() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(Math.Tanh(x));
-        }
-
-        private PyObject CallAsinh(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"asinh() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(Math.Asinh(x));
-        }
-
-        private PyObject CallAcosh(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"acosh() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            if (x < 1)
-                throw PyValueError.Create("math domain error");
-
-            return new PyFloat(Math.Acosh(x));
-        }
-
-        private PyObject CallAtanh(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"atanh() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            if (x <= -1 || x >= 1)
-                throw PyValueError.Create("math domain error");
-
-            return new PyFloat(Math.Atanh(x));
-        }
-
-        // === 각도 변환 ===
-
-        private PyObject CallDegrees(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"degrees() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(x * 180.0 / Math.PI);
-        }
-
-        private PyObject CallRadians(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"radians() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(x * Math.PI / 180.0);
-        }
-
-        // === 기타 함수들 ===
-
-        // CPython 3.12: Modules/mathmodule.c:math_ceil (lines 2299-2310)
-        // Delegates to __ceil__ special method
-        /// <summary>
-        /// CPython m_floor / m_ceil / m_trunc are thin wrappers over PyNumber_Floor and friends,
-        /// i.e. the operand type's __floor__ / __ceil__ / __trunc__ slot. int and float publish
-        /// those slots and the delegates read the payload, so a plain subclass answers with its
-        /// value, while a user __floor__ in the subclass wins because the MRO reaches it first
-        /// (measured: math.floor(FO) is 'user-floor', math.floor(PF) is 0, math.floor(PI) is 0).
-        /// The previous code tested exact CLR PyFloat/PyInt here, which is why every subclass got
-        /// "must be real number".
-        /// </summary>
-        private static PyObject SlotNumeric(PyObject value, string slotName)
-        {
-            var method = value.LookupSpecialMethodUncached(slotName);
-            if (method != null)
-                return value.BindSpecialMethod(method).Call(System.Array.Empty<PyObject>(), null);
-            throw PyTypeError.Create($"must be real number, not {value.GetTypeName()}");
-        }
-
-        private PyObject CallCeil(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create("ceil() takes exactly one argument ({args.Length} given)");
-
-            return SlotNumeric(args[0], "__ceil__");
-        }
-
-        // CPython 3.12: Modules/mathmodule.c:math_floor (lines 2282-2293)
-        // Delegates to __floor__ special method
-        private PyObject CallFloor(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create("floor() takes exactly one argument ({args.Length} given)");
-
-            return SlotNumeric(args[0], "__floor__");
-        }
-
-        // CPython 3.12: Modules/mathmodule.c:math_trunc (lines 2265-2276)
-        // Delegates to __trunc__ special method
-        private PyObject CallTrunc(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create("trunc() takes exactly one argument ({args.Length} given)");
-
-            return SlotNumeric(args[0], "__trunc__");
-        }
-
-        private PyObject CallRound(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"round() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(Math.Round(x));
-        }
-
-        private PyObject CallCopysign(PyObject[] args)
-        {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"copysign() takes exactly two arguments ({args.Length} given)");
-
-            var mag = GetFloatValue(args[0]);
-            var sign = GetFloatValue(args[1]);
-            return new PyFloat(Math.CopySign(mag, sign));
-        }
-
-        private PyObject CallFabs(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"fabs() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(Math.Abs(x));
-        }
-
-        private PyObject CallFactorial(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"factorial() takes exactly one argument ({args.Length} given)");
-
-            if (args[0] is PyInt n)
+            if (double.IsNaN(x) || double.IsNaN(y))
+                return double.NaN;
+            if (double.IsInfinity(y))
             {
-                if (n.Value < 0)
-                    throw PyValueError.Create("factorial() not defined for negative values");
-
-                long result = 1;
-                for (int i = 2; i <= n.Value; i++)
-                    result *= i;
-
-                return new PyInt((int)result);
+                if (double.IsInfinity(x))
+                    return Math.CopySign(Math.CopySign(1.0, x) == 1.0 ? 0.25 * Math.PI : 0.75 * Math.PI, y);
+                return Math.CopySign(0.5 * Math.PI, y);
             }
-            else
-            {
-                throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
-            }
+            if (double.IsInfinity(x) || y == 0)
+                return Math.CopySign(Math.CopySign(1.0, x) == 1.0 ? 0.0 : Math.PI, y);
+            return Math.Atan2(y, x);
         }
 
-        // Modules/mathmodule.c m_tgamma, lanczos_sum and gamma_integral, line for line.
+        // m_remainder
+        private static double M_Remainder(double x, double y)
+        {
+            if (double.IsFinite(x) && double.IsFinite(y))
+            {
+                if (y == 0.0)
+                    return double.NaN;
+                double absx = Math.Abs(x), absy = Math.Abs(y);
+                double m = absx % absy;
+                double c = absy - m, r;
+                if (m < c) r = m;
+                else if (m > c) r = -c;
+                else r = m - 2.0 * ((0.5 * (absx - m)) % absy);
+                return Math.CopySign(1.0, x) * r;
+            }
+            if (double.IsNaN(x)) return x;
+            if (double.IsNaN(y)) return y;
+            if (double.IsInfinity(x)) return double.NaN;
+            return x;
+        }
+
+        private static double M_Log(double x)
+        {
+            if (double.IsFinite(x))
+            {
+                if (x > 0.0) return Math.Log(x);
+                return x == 0.0 ? double.NegativeInfinity : double.NaN;
+            }
+            if (double.IsNaN(x)) return x;
+            return x > 0.0 ? x : double.NaN;
+        }
+
+        private static double M_Log2(double x)
+        {
+            if (!double.IsFinite(x))
+                return double.IsNaN(x) ? x : x > 0.0 ? x : double.NaN;
+            if (x > 0.0) return Math.Log2(x);
+            return x == 0.0 ? double.NegativeInfinity : double.NaN;
+        }
+
+        private static double M_Log10(double x)
+        {
+            if (double.IsFinite(x))
+            {
+                if (x > 0.0) return Math.Log10(x);
+                return x == 0.0 ? double.NegativeInfinity : double.NaN;
+            }
+            if (double.IsNaN(x)) return x;
+            return x > 0.0 ? x : double.NaN;
+        }
+
+        // _Py_log1p: 1+x loses the low bits of a small x, and log(u)/(u-1) puts them back.
+        private static double M_Log1p(double x)
+        {
+            if (x == 0.0)
+                return x;
+            if (x < -1.0)
+                return double.NaN;
+            if (x == -1.0)
+                return double.NegativeInfinity;
+            if (double.IsPositiveInfinity(x))
+                return x;
+            double u = 1.0 + x;
+            if (u == 1.0)
+                return x;
+            return Math.Log(u) * (x / (u - 1.0));
+        }
+
+        private static double M_Expm1(double x)
+        {
+            if (x == 0.0)
+                return x;
+            if (Math.Abs(x) < 0.7)
+            {
+                double u = Math.Exp(x);
+                if (u == 1.0)
+                    return x;
+                double um1 = u - 1.0;
+                return um1 == -1.0 ? -1.0 : um1 * x / Math.Log(u);
+            }
+            return Math.Exp(x) - 1.0;
+        }
+
+        // loghelper
+        private static PyObject LogHelper(PyObject arg, Func<double, double> function)
+        {
+            if ((arg is PyInt || arg is PyBool || arg is PyIntSubclass) && PyObject.TryGetIndex(arg) is { } integer)
+            {
+                var value = integer.Value;
+                if (value.Sign <= 0)
+                    throw Raise(Fault.Domain);
+                double x = (double)value;
+                if (double.IsInfinity(x))
+                {
+                    // _PyLong_Frexp: the top 64 bits are enough for a double.
+                    long bits = (long)value.GetBitLength();
+                    double fraction = Math.ScaleB((double)(value >> (int)(bits - 64)), -64);
+                    return new PyFloat(function(fraction) + function(2.0) * bits);
+                }
+                return new PyFloat(function(x));
+            }
+            return Math1(arg, function, false);
+        }
+
+        // Modules/mathmodule.c m_tgamma, lanczos_sum and gamma_integral.
         private const double LanczosG = 6.024680040776729583740234375;
         private const double LanczosGMinusHalf = 5.524680040776729583740234375;
+        private const double LogPi = 1.144729885849400174143427351353058711647;
         private static readonly double[] LanczosNum = {
             23531376880.410759688572007674451636754734846804940,
             42919803642.649098768957899047001988850926355848959,
@@ -583,12 +241,11 @@ namespace SharpPy.Modules
             return num / den;
         }
 
-        // m_sinpi: sin(pi*x), giving accurate zeros.
+        // m_sinpi
         private static double SinPi(double x)
         {
-            double y = Math.IEEERemainder(Math.Abs(x), 2.0);
-            if (y < 0) y += 2.0;
-            int n = (int)Math.Round(2.0 * y, MidpointRounding.ToEven);
+            double y = Math.Abs(x) % 2.0;
+            int n = (int)Math.Round(2.0 * y, MidpointRounding.AwayFromZero);
             double r = n switch
             {
                 0 => Math.Sin(Math.PI * y),
@@ -600,25 +257,39 @@ namespace SharpPy.Modules
             return Math.CopySign(1.0, x) * r;
         }
 
-        private PyObject CallGamma(PyObject[] args)
+        private static double M_Gamma(double x)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"math.gamma() takes exactly one argument ({args.Length} given)");
-            double x = args[0].ToFloat();
-            if (double.IsNaN(x) || double.IsPositiveInfinity(x)) return new PyFloat(x);
-            if (double.IsNegativeInfinity(x) || x == 0.0)
-                throw PyValueError.Create("math domain error");
-            if (x == Math.Floor(x))
+            if (!double.IsFinite(x))
             {
-                if (x < 0.0) throw PyValueError.Create("math domain error");
-                if (x <= GammaIntegral.Length) return new PyFloat(GammaIntegral[(int)x - 1]);
+                if (double.IsNaN(x) || x > 0.0)
+                    return x;
+                _errno = Fault.Domain;
+                return double.NaN;
             }
+            if (x == Math.Floor(x) && x <= 2.0)
+            {
+                if (x <= 0.0)
+                {
+                    _errno = Fault.Domain;
+                    return double.NaN;
+                }
+            }
+            if (x == Math.Floor(x) && x <= GammaIntegral.Length)
+                return GammaIntegral[(int)x - 1];
             double absx = Math.Abs(x);
-            if (absx < 1e-20) return new PyFloat(1.0 / x);
+            if (absx < 1e-20)
+            {
+                double inverse = 1.0 / x;
+                if (double.IsInfinity(inverse))
+                    _errno = Fault.Range;
+                return inverse;
+            }
             if (absx > 200.0)
             {
-                if (x < 0.0) return new PyFloat(0.0 / SinPi(x));
-                throw PyOverflowError.Create("math range error");
+                if (x < 0.0)
+                    return 0.0 / SinPi(x);
+                _errno = Fault.Range;
+                return double.PositiveInfinity;
             }
             double y = absx + LanczosGMinusHalf;
             double z;
@@ -638,7 +309,8 @@ namespace SharpPy.Modules
             {
                 r = -Math.PI / SinPi(absx) / absx * Math.Exp(y) / LanczosSum(absx);
                 r -= z * r;
-                if (absx < 140.0) r /= Math.Pow(y, absx - 0.5);
+                if (absx < 140.0)
+                    r /= Math.Pow(y, absx - 0.5);
                 else
                 {
                     double sqrtpow = Math.Pow(y, absx / 2.0 - 0.25);
@@ -650,7 +322,8 @@ namespace SharpPy.Modules
             {
                 r = LanczosSum(absx) / Math.Exp(y);
                 r += z * r;
-                if (absx < 140.0) r *= Math.Pow(y, absx - 0.5);
+                if (absx < 140.0)
+                    r *= Math.Pow(y, absx - 0.5);
                 else
                 {
                     double sqrtpow = Math.Pow(y, absx / 2.0 - 0.25);
@@ -658,24 +331,216 @@ namespace SharpPy.Modules
                     r *= sqrtpow;
                 }
             }
-            if (double.IsInfinity(r)) throw PyOverflowError.Create("math range error");
-            return new PyFloat(r);
+            if (double.IsInfinity(r))
+                _errno = Fault.Range;
+            return r;
+        }
+
+        private static double M_LGamma(double x)
+        {
+            if (!double.IsFinite(x))
+                return double.IsNaN(x) ? x : double.PositiveInfinity;
+            if (x == Math.Floor(x) && x <= 2.0)
+            {
+                if (x <= 0.0)
+                {
+                    _errno = Fault.Domain;
+                    return double.PositiveInfinity;
+                }
+                return 0.0;
+            }
+            double absx = Math.Abs(x);
+            if (absx < 1e-20)
+                return -Math.Log(absx);
+            double r = Math.Log(LanczosSum(absx)) - LanczosG;
+            r += (absx - 0.5) * (Math.Log(absx + LanczosG - 0.5) - 1);
+            if (x < 0.0)
+                r = LogPi - Math.Log(Math.Abs(SinPi(absx))) - Math.Log(absx) - r;
+            if (double.IsInfinity(r))
+                _errno = Fault.Range;
+            return r;
+        }
+
+        // m_erf_series and m_erfc_contfrac, the portable forms mathmodule.c carried before libm.
+        private const double SqrtPi = 1.772453850905516027298167483341145182798;
+
+        private static double ErfSeries(double x)
+        {
+            double x2 = x * x, acc = 0.0, fk = 25 + 0.5;
+            for (int i = 0; i < 25; i++)
+            {
+                acc = 2.0 + x2 * acc / fk;
+                fk -= 1.0;
+            }
+            return acc * x * Math.Exp(-x2) / SqrtPi;
+        }
+
+        private static double ErfcContinuedFraction(double x)
+        {
+            if (x >= 30.0)
+                return 0.0;
+            double x2 = x * x, a = 0.0, da = 0.5, p = 1.0, pLast = 0.0;
+            double q = da + x2, qLast = 1.0;
+            for (int i = 0; i < 50; i++)
+            {
+                a += da;
+                da += 2.0;
+                double b = da + x2;
+                (p, pLast) = (b * p - a * pLast, p);
+                (q, qLast) = (b * q - a * qLast, q);
+            }
+            return p / q * x * Math.Exp(-x2) / SqrtPi;
+        }
+
+        private static double M_Erf(double x)
+        {
+            if (double.IsNaN(x))
+                return x;
+            double absx = Math.Abs(x);
+            if (absx < 1.5)
+                return ErfSeries(x);
+            double cf = ErfcContinuedFraction(absx);
+            return x > 0.0 ? 1.0 - cf : cf - 1.0;
+        }
+
+        private static double M_Erfc(double x)
+        {
+            if (double.IsNaN(x))
+                return x;
+            double absx = Math.Abs(x);
+            if (absx < 1.5)
+                return 1.0 - ErfSeries(x);
+            double cf = ErfcContinuedFraction(absx);
+            return x > 0.0 ? cf : 2.0 - cf;
+        }
+
+        // ceil, floor: a type's own slot, then the double.
+        private static PyObject Rounded(string name, string slot, PyObject value, Func<double, double> function)
+        {
+            if (value.GetType() != typeof(PyFloat) && value.LookupSpecialMethodUncached(slot) is { } method)
+                return value.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+            return Whole(function(RealNumber(value)));
+        }
+
+        // PyLong_FromDouble
+        private static PyObject Whole(double value)
+        {
+            if (double.IsInfinity(value))
+                throw PyOverflowError.Create("cannot convert float infinity to integer");
+            if (double.IsNaN(value))
+                throw PyValueError.Create("cannot convert float NaN to integer");
+            return new PyInt(new BigInteger(value));
+        }
+
+        private static BigInteger Index(PyObject value) =>
+            (PyObject.TryGetIndex(value) ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer")).Value;
+
+        private static PyObject Factorial(PyObject value)
+        {
+            var n = Index(value);
+            if (n.Sign < 0)
+                throw PyValueError.Create("factorial() not defined for negative values");
+            if (n > int.MaxValue)
+                throw PyOverflowError.Create($"factorial() argument should not exceed {long.MaxValue}");
+            return new PyInt(Product(1, (long)n));
+        }
+
+        // The product of first..last, halved so that the big multiplications are between like sizes.
+        private static BigInteger Product(long first, long last)
+        {
+            if (first > last)
+                return BigInteger.One;
+            if (last - first < 16)
+            {
+                var result = new BigInteger(first);
+                for (long i = first + 1; i <= last; i++)
+                    result *= i;
+                return result;
+            }
+            long middle = first + (last - first) / 2;
+            return Product(first, middle) * Product(middle + 1, last);
+        }
+
+        private static PyObject Gcd(PyObject[] args)
+        {
+            var result = BigInteger.Zero;
+            foreach (var arg in args)
+                result = BigInteger.GreatestCommonDivisor(result, Index(arg));
+            return new PyInt(result);
+        }
+
+        private static PyObject Lcm(PyObject[] args)
+        {
+            var result = BigInteger.One;
+            foreach (var arg in args)
+            {
+                var value = BigInteger.Abs(Index(arg));
+                result = result.IsZero || value.IsZero ? BigInteger.Zero : result / BigInteger.GreatestCommonDivisor(result, value) * value;
+            }
+            return new PyInt(result);
+        }
+
+        private static PyObject ISqrt(PyObject value)
+        {
+            var n = Index(value);
+            if (n.Sign < 0)
+                throw PyValueError.Create("isqrt() argument must be nonnegative");
+            if (n.IsZero)
+                return new PyInt(0);
+            var x = BigInteger.One << (int)((n.GetBitLength() + 1) / 2);
+            while (true)
+            {
+                var y = (x + n / x) >> 1;
+                if (y >= x)
+                    return new PyInt(x);
+                x = y;
+            }
+        }
+
+        private static PyObject Perm(PyObject[] args)
+        {
+            if (args.Length is < 1 or > 2)
+                throw PyTypeError.Create(args.Length < 1 ? $"perm expected at least 1 argument, got {args.Length}" : $"perm expected at most 2 arguments, got {args.Length}");
+            if (args.Length == 1 || args[1] is PyNone)
+                return Factorial(args[0]);
+            BigInteger n = Index(args[0]), k = Index(args[1]);
+            if (n.Sign < 0) throw PyValueError.Create("n must be a non-negative integer");
+            if (k.Sign < 0) throw PyValueError.Create("k must be a non-negative integer");
+            if (k > n) return new PyInt(0);
+            if (k > long.MaxValue) throw PyOverflowError.Create($"k must not exceed {long.MaxValue}");
+            var result = BigInteger.One;
+            for (long i = 0; i < (long)k; i++)
+                result *= n - i;
+            return new PyInt(result);
+        }
+
+        private static PyObject Comb(PyObject[] args)
+        {
+            Check2("comb", args);
+            BigInteger n = Index(args[0]), k = Index(args[1]);
+            if (n.Sign < 0) throw PyValueError.Create("n must be a non-negative integer");
+            if (k.Sign < 0) throw PyValueError.Create("k must be a non-negative integer");
+            if (k > n) return new PyInt(0);
+            k = BigInteger.Min(k, n - k);
+            if (k > long.MaxValue) throw PyOverflowError.Create($"min(n - k, k) must not exceed {long.MaxValue}");
+            var result = BigInteger.One;
+            for (long i = 0; i < (long)k; i++)
+                result = result * (n - i) / (i + 1);
+            return new PyInt(result);
         }
 
         // math_fsum: Shewchuk partials, with the half-even correction at the end.
-        private PyObject CallFsum(PyObject[] args)
+        private static PyObject FSum(PyObject iterable)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"math.fsum() takes exactly one argument ({args.Length} given)");
             var p = new List<double>();
             double specialSum = 0.0, infSum = 0.0;
-            var iterator = args[0].GetIterator();
+            var iterator = iterable.GetIterator();
             while (true)
             {
                 PyObject item;
                 try { item = iterator.Next(); }
                 catch (PythonException ex) when (ex.PyException is PyStopIteration) { break; }
-                double x = item.ToFloat();
+                double x = RealNumber(item);
                 double xsave = x;
                 int i = 0;
                 for (int j = 0; j < p.Count; j++)
@@ -700,9 +565,7 @@ namespace SharpPy.Modules
                         p.Clear();
                     }
                     else
-                    {
                         p.Add(x);
-                    }
                 }
             }
             if (specialSum != 0.0)
@@ -737,638 +600,505 @@ namespace SharpPy.Modules
             return new PyFloat(result);
         }
 
-        // m_erf_series and m_erfc_contfrac, the portable forms mathmodule.c carried before libm.
-        private const double SqrtPi = 1.772453850905516027298167483341145182798;
+        private readonly record struct DoubleLength(double Hi, double Lo);
+        private readonly record struct TripleLength(double Hi, double Lo, double Tiny);
 
-        private static double ErfSeries(double x)
+        private static DoubleLength FastSum(double a, double b)
         {
-            double x2 = x * x, acc = 0.0, fk = 25 + 0.5;
-            for (int i = 0; i < 25; i++)
+            double x = a + b;
+            return new DoubleLength(x, (a - x) + b);
+        }
+
+        private static DoubleLength Sum(double a, double b)
+        {
+            double x = a + b, z = x - a;
+            return new DoubleLength(x, (a - (x - z)) + (b - z));
+        }
+
+        private static DoubleLength Mul(double x, double y)
+        {
+            double z = x * y;
+            return new DoubleLength(z, Math.FusedMultiplyAdd(x, y, -z));
+        }
+
+        private static TripleLength Fma(double x, double y, TripleLength total)
+        {
+            var pr = Mul(x, y);
+            var sm = Sum(total.Hi, pr.Hi);
+            var r1 = Sum(total.Lo, pr.Lo);
+            var r2 = Sum(r1.Hi, sm.Lo);
+            return new TripleLength(sm.Hi, r2.Hi, total.Tiny + r1.Lo + r2.Lo);
+        }
+
+        // vector_norm
+        private static double VectorNorm(double[] vec, double max, bool foundNan)
+        {
+            if (double.IsInfinity(max)) return max;
+            if (foundNan) return double.NaN;
+            if (max == 0.0 || vec.Length <= 1) return max;
+            int exponent = Math.ILogB(max) + 1;
+            const double smallest = 2.2250738585072014e-308;
+            if (exponent < -1023)
             {
-                acc = 2.0 + x2 * acc / fk;
-                fk -= 1.0;
+                for (int i = 0; i < vec.Length; i++)
+                    vec[i] /= smallest;
+                return smallest * VectorNorm(vec, max / smallest, foundNan);
             }
-            return acc * x * Math.Exp(-x2) / SqrtPi;
-        }
-
-        private static double ErfcContinuedFraction(double x)
-        {
-            if (x >= 30.0) return 0.0;
-            double x2 = x * x, a = 0.0, da = 0.5, p = 1.0, pLast = 0.0;
-            double q = da + x2, qLast = 1.0;
-            for (int i = 0; i < 50; i++)
+            double scale = Math.ScaleB(1.0, -exponent), csum = 1.0, frac1 = 0.0, frac2 = 0.0;
+            DoubleLength pr, sm;
+            foreach (double value in vec)
             {
-                a += da;
-                da += 2.0;
-                double b = da + x2;
-                (p, pLast) = (b * p - a * pLast, p);
-                (q, qLast) = (b * q - a * qLast, q);
+                double x = value * scale;
+                pr = Mul(x, x);
+                sm = FastSum(csum, pr.Hi);
+                csum = sm.Hi;
+                frac1 += pr.Lo;
+                frac2 += sm.Lo;
             }
-            return p / q * x * Math.Exp(-x2) / SqrtPi;
+            double h = Math.Sqrt(csum - 1.0 + (frac1 + frac2));
+            pr = Mul(-h, h);
+            sm = FastSum(csum, pr.Hi);
+            csum = sm.Hi;
+            frac1 += pr.Lo;
+            frac2 += sm.Lo;
+            h += (csum - 1.0 + (frac1 + frac2)) / (2.0 * h);
+            return h / scale;
         }
 
-        private PyObject CallErf(PyObject[] args)
+        private static PyObject Hypot(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"math.erf() takes exactly one argument ({args.Length} given)");
-            double x = args[0].ToFloat();
-            if (double.IsNaN(x)) return new PyFloat(x);
-            double absx = Math.Abs(x);
-            if (absx < 1.5) return new PyFloat(ErfSeries(x));
-            double cf = ErfcContinuedFraction(absx);
-            return new PyFloat(x > 0.0 ? 1.0 - cf : cf - 1.0);
-        }
-
-        private PyObject CallErfc(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"math.erfc() takes exactly one argument ({args.Length} given)");
-            double x = args[0].ToFloat();
-            if (double.IsNaN(x)) return new PyFloat(x);
-            double absx = Math.Abs(x);
-            if (absx < 1.5) return new PyFloat(1.0 - ErfSeries(x));
-            double cf = ErfcContinuedFraction(absx);
-            return new PyFloat(x > 0.0 ? cf : 2.0 - cf);
-        }
-
-        // --- Python 3.9+ / 3.11+ / 3.12+ math functions ---
-
-        private PyObject CallCbrt(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"cbrt() takes exactly one argument ({args.Length} given)");
-            double x = args[0].ToFloat();
-            return new PyFloat(Math.Cbrt(x));
-        }
-
-        private PyObject CallComb(PyObject[] args)
-        {
-            // Modules/mathmodule.c m_comb
-            if (args.Length < 2 || args.Length > 3)
-                throw PyTypeError.Create($"comb() takes at least 2 arguments ({args.Length} given)");
-
-            if (args[0] is not PyInt nObj)
-                throw PyTypeError.Create($"'{(args[0] is PyInt ? args[1] : args[0]).GetTypeName()}' object cannot be interpreted as an integer");
-            if (args[1] is not PyInt kObj)
-                throw PyTypeError.Create($"'{(args[0] is PyInt ? args[1] : args[0]).GetTypeName()}' object cannot be interpreted as an integer");
-
-            BigInteger n = nObj.Value;
-            BigInteger k = kObj.Value;
-
-            if (n < 0)
-                throw PyValueError.Create("n must be a non-negative integer");
-            if (k < 0)
-                throw PyValueError.Create("k must be a non-negative integer");
-
-            if (k > n)
-                return new PyInt(0);
-
-            // C(n, k) = n! / (k! * (n-k)!)
-            // Use the smaller of k and n-k for efficiency
-            if (k > n - k)
-                k = n - k;
-
-            BigInteger result = BigInteger.One;
-            for (BigInteger i = 0; i < k; i++)
+            var vec = new double[args.Length];
+            double max = 0.0;
+            bool foundNan = false;
+            for (int i = 0; i < args.Length; i++)
             {
-                result = result * (n - i) / (i + 1);
+                double x = Math.Abs(RealNumber(args[i]));
+                foundNan |= double.IsNaN(x);
+                if (x > max) max = x;
+                vec[i] = x;
             }
-            return new PyInt(result);
+            return new PyFloat(VectorNorm(vec, max, foundNan));
         }
 
-        private PyObject CallPerm(PyObject[] args)
+        private static PyObject Dist(PyObject[] args)
         {
-            // Modules/mathmodule.c m_perm
-            if (args.Length < 1 || args.Length > 3)
-                throw PyTypeError.Create($"perm() takes at least 1 argument ({args.Length} given)");
-
-            if (args[0] is not PyInt nObj)
-                throw PyTypeError.Create($"'{(args[0] is PyInt ? args[1] : args[0]).GetTypeName()}' object cannot be interpreted as an integer");
-
-            BigInteger n = nObj.Value;
-            if (n < 0)
-                throw PyValueError.Create("n must be a non-negative integer");
-
-            BigInteger k;
-            if (args.Length >= 2 && args[1] is not PyNone)
+            Check2("dist", args);
+            var p = (args[0] as PyTuple ?? args[0].AsTuple()).Items;
+            var q = (args[1] as PyTuple ?? args[1].AsTuple()).Items;
+            if (p.Length != q.Length)
+                throw PyValueError.Create("both points must have the same number of dimensions");
+            var vec = new double[p.Length];
+            double max = 0.0;
+            bool foundNan = false;
+            for (int i = 0; i < p.Length; i++)
             {
-                if (args[1] is not PyInt kObj)
-                    throw PyTypeError.Create($"'{(args[0] is PyInt ? args[1] : args[0]).GetTypeName()}' object cannot be interpreted as an integer");
-                k = kObj.Value;
-                if (k < 0)
-                    throw PyValueError.Create("k must be a non-negative integer");
+                double x = Math.Abs(RealNumber(p[i]) - RealNumber(q[i]));
+                foundNan |= double.IsNaN(x);
+                if (x > max) max = x;
+                vec[i] = x;
             }
-            else
+            return new PyFloat(VectorNorm(vec, max, foundNan));
+        }
+
+        private static PyObject Add(PyObject a, PyObject b) => PyVM.Instance.ExecuteBinaryOpType(a, b, BinaryOpType.ADD);
+        private static PyObject Multiply(PyObject a, PyObject b) => PyVM.Instance.ExecuteBinaryOpType(a, b, BinaryOpType.MULTIPLY);
+
+        private static bool ExactInt(PyObject value) => value.GetType() == typeof(PyInt);
+        private static bool ExactFloat(PyObject value) => value.GetType() == typeof(PyFloat);
+
+        private static bool Next(PyObject iterator, out PyObject item)
+        {
+            try
             {
-                k = n; // perm(n) = n!
+                item = iterator.Next();
+                return true;
             }
-
-            if (k > n)
-                return new PyInt(0);
-
-            BigInteger result = BigInteger.One;
-            for (BigInteger i = 0; i < k; i++)
+            catch (PythonException error) when (error.PyException is PyStopIteration)
             {
-                result *= (n - i);
+                item = null;
+                return false;
             }
-            return new PyInt(result);
         }
 
-        private PyObject CallExp2(PyObject[] args)
+        // math_sumprod_impl: ints together, floats in triple length, and anything else by the operators.
+        private static PyObject SumProd(PyObject[] args)
         {
-            // Modules/mathmodule.c m_exp2
-            if (args.Length != 1)
-                throw PyTypeError.Create($"exp2() takes exactly one argument ({args.Length} given)");
-            double x = args[0].ToFloat();
-            return new PyFloat(Math.Pow(2.0, x));
-        }
-
-        private PyObject CallExpm1(PyObject[] args)
-        {
-            // Modules/mathmodule.c m_expm1 - accurate for small x
-            if (args.Length != 1)
-                throw PyTypeError.Create($"expm1() takes exactly one argument ({args.Length} given)");
-            double x = args[0].ToFloat();
-            if (double.IsNaN(x)) return new PyFloat(double.NaN);
-            if (x == 0) return new PyFloat(0);
-            if (double.IsPositiveInfinity(x)) return new PyFloat(double.PositiveInfinity);
-            if (double.IsNegativeInfinity(x)) return new PyFloat(-1);
-
-            // Kahan's identity: exact division by log(u) cancels the rounding of u.
-            double u = Math.Exp(x);
-            if (u == 1.0) return new PyFloat(x);
-            double uMinusOne = u - 1.0;
-            if (uMinusOne == -1.0) return new PyFloat(-1.0);
-            if (double.IsInfinity(u)) throw PyOverflowError.Create("math range error");
-            return new PyFloat(uMinusOne * x / Math.Log(u));
-        }
-
-        private PyObject CallLog1p(PyObject[] args)
-        {
-            // Modules/mathmodule.c m_log1p - accurate for small x
-            if (args.Length != 1)
-                throw PyTypeError.Create($"log1p() takes exactly one argument ({args.Length} given)");
-            double x = args[0].ToFloat();
-            if (double.IsNaN(x)) return new PyFloat(double.NaN);
-            if (x == 0) return new PyFloat(0);
-            if (x == -1) return new PyFloat(double.NegativeInfinity);
-            if (x < -1)
-                throw PyValueError.Create("math domain error");
-            if (double.IsPositiveInfinity(x)) return new PyFloat(double.PositiveInfinity);
-
-            // For small |x|, use series: log(1+x) = x - x^2/2 + x^3/3 - ...
-            if (Math.Abs(x) < 1e-4)
-            {
-                double result = x;
-                double term = x;
-                for (int n = 2; n <= 30; n++)
-                {
-                    term *= -x;
-                    double contrib = term / n;
-                    result += contrib;
-                    if (Math.Abs(contrib) < Math.Abs(result) * 1e-17) break;
-                }
-                return new PyFloat(result);
-            }
-            return new PyFloat(Math.Log(1.0 + x));
-        }
-
-        private PyObject CallFmod(PyObject[] args)
-        {
-            // Modules/mathmodule.c m_fmod - C fmod semantics
-            if (args.Length != 2)
-                throw PyTypeError.Create($"fmod() takes exactly two arguments ({args.Length} given)");
-            double x = args[0].ToFloat();
-            double y = args[1].ToFloat();
-
-            if (double.IsNaN(x) || double.IsNaN(y))
-                return new PyFloat(double.NaN);
-            if (double.IsInfinity(x))
-                throw PyValueError.Create("math domain error");
-            if (y == 0)
-                throw PyValueError.Create("math domain error");
-
-            // C fmod: result has same sign as x, |result| < |y|
-            double result = x - y * Math.Truncate(x / y);
-            // Handle -0.0
-            if (result == 0 && x < 0) result = -0.0;
-            return new PyFloat(result);
-        }
-
-        private PyObject CallRemainder(PyObject[] args)
-        {
-            // Modules/mathmodule.c m_remainder - IEEE 754 remainder
-            if (args.Length != 2)
-                throw PyTypeError.Create($"remainder() takes exactly two arguments ({args.Length} given)");
-            double x = args[0].ToFloat();
-            double y = args[1].ToFloat();
-
-            if (double.IsNaN(x) || double.IsNaN(y))
-                return new PyFloat(double.NaN);
-            if (double.IsInfinity(x))
-                throw PyValueError.Create("math domain error");
-            if (y == 0)
-                throw PyValueError.Create("math domain error");
-
-            return new PyFloat(Math.IEEERemainder(x, y));
-        }
-
-        private PyObject CallNextafter(PyObject[] args)
-        {
-            // Modules/mathmodule.c m_nextafter
-            if (args.Length < 2 || args.Length > 3)
-                throw PyTypeError.Create($"nextafter() takes at least 2 arguments ({args.Length} given)");
-
-            double x = args[0].ToFloat();
-            double y = args[1].ToFloat();
-
-            int steps = 1;
-            if (args.Length >= 3 && args[2] is not PyNone)
-            {
-                if (args[2] is PyInt stepObj)
-                    steps = (int)stepObj.Value;
-                else
-                    throw PyTypeError.Create("steps must be an integer");
-            }
-
-            if (double.IsNaN(x) || double.IsNaN(y))
-                return new PyFloat(double.NaN);
-
-            for (int i = 0; i < steps; i++)
-            {
-                if (x == y) break;
-                if (x < y)
-                    x = Math.BitIncrement(x);
-                else
-                    x = Math.BitDecrement(x);
-            }
-            return new PyFloat(x);
-        }
-
-        private PyObject CallUlp(PyObject[] args)
-        {
-            // Modules/mathmodule.c m_ulp
-            if (args.Length != 1)
-                throw PyTypeError.Create($"ulp() takes exactly one argument ({args.Length} given)");
-            double x = args[0].ToFloat();
-
-            if (double.IsNaN(x)) return new PyFloat(double.NaN);
-            if (double.IsInfinity(x)) return new PyFloat(double.PositiveInfinity);
-
-            double ax = Math.Abs(x);
-            if (ax == 0) return new PyFloat(double.Epsilon);
-
-            return new PyFloat(Math.BitIncrement(ax) - ax);
-        }
-
-        private PyObject CallProd(PyObject[] args)
-        {
-            // Modules/mathmodule.c m_prod
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"prod() takes at least 1 argument ({args.Length} given)");
-
-            PyObject start = args.Length >= 2 ? args[1] : new PyInt(1);
-            var iterator = args[0].GetIterator();
-
-            PyObject result = start;
+            Check2("sumprod", args);
+            PyObject pIterator = args[0].GetIterator(), qIterator = args[1].GetIterator();
+            PyObject total = new PyInt(0);
+            bool intPath = true, intInUse = false, floatPath = true, floatInUse = false;
+            var intTotal = BigInteger.Zero;
+            var floatTotal = new TripleLength(0, 0, 0);
             while (true)
             {
-                PyObject item;
-                try { item = iterator.Next(); }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration) { break; }
-                result = PyVM.Instance.ExecuteBinaryOpType(result, item, BinaryOpType.MULTIPLY);
+                bool hasP = Next(pIterator, out var p), hasQ = Next(qIterator, out var q);
+                if (hasP != hasQ)
+                    throw PyValueError.Create("Inputs are not the same length");
+                bool finished = !hasP;
+                if (intPath)
+                {
+                    if (!finished && ExactInt(p) && ExactInt(q))
+                    {
+                        var product = ((PyInt)p).Value * ((PyInt)q).Value;
+                        intTotal += product;
+                        intInUse = true;
+                        continue;
+                    }
+                    intPath = false;
+                    if (intInUse)
+                    {
+                        total = Add(total, new PyInt(intTotal));
+                        intInUse = false;
+                    }
+                }
+                if (floatPath)
+                {
+                    if (!finished)
+                    {
+                        double x = 0, y = 0;
+                        bool usable = true;
+                        bool pFloat = ExactFloat(p), qFloat = ExactFloat(q);
+                        try
+                        {
+                            if (pFloat && qFloat) { x = ((PyFloat)p).Value; y = ((PyFloat)q).Value; }
+                            else if (pFloat && (ExactInt(q) || q is PyBool)) { x = ((PyFloat)p).Value; y = RealNumber(q); }
+                            else if (qFloat && (ExactInt(p) || p is PyBool)) { y = ((PyFloat)q).Value; x = RealNumber(p); }
+                            else usable = false;
+                        }
+                        catch (PythonException)
+                        {
+                            usable = false;
+                        }
+                        if (usable)
+                        {
+                            var next = Fma(x, y, floatTotal);
+                            if (double.IsFinite(next.Hi))
+                            {
+                                floatTotal = next;
+                                floatInUse = true;
+                                continue;
+                            }
+                        }
+                    }
+                    floatPath = false;
+                    if (floatInUse)
+                    {
+                        total = Add(total, new PyFloat(floatTotal.Hi + floatTotal.Lo + floatTotal.Tiny));
+                        floatInUse = false;
+                    }
+                }
+                if (finished)
+                    return total;
+                total = Add(total, Multiply(p, q));
             }
+        }
+
+        private static PyObject Prod(PyObject[] args, PyDict kwargs)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"prod() takes exactly 1 positional argument ({args.Length} given)");
+            PyObject result = new PyInt(1);
+            if (kwargs != null)
+                foreach (var pair in kwargs.InternalDict)
+                {
+                    if ((pair.Key as PyString)?.Value != "start")
+                        throw PyTypeError.Create($"prod() got an unexpected keyword argument '{pair.Key.ToStr().Value}'");
+                    result = pair.Value;
+                }
+            var iterator = args[0].GetIterator();
+            while (Next(iterator, out var item))
+                result = Multiply(result, item);
             return result;
         }
 
-        private PyObject CallSumprod(PyObject[] args)
+        private static PyObject Pow(PyObject[] args)
         {
-            // Modules/mathmodule.c m_sumprod
-            if (args.Length != 2)
-                throw PyTypeError.Create($"sumprod() takes exactly two arguments ({args.Length} given)");
-
-            var iter1 = args[0].GetIterator();
-            var iter2 = args[1].GetIterator();
-
-            bool allInts = true;
-            BigInteger intAccum = BigInteger.Zero;
-            double dblAccum = 0;
-
-            while (true)
+            Check2("pow", args);
+            double x = RealNumber(args[0]), y = RealNumber(args[1]), r;
+            var fault = Fault.None;
+            if (!double.IsFinite(x) || !double.IsFinite(y))
             {
-                PyObject a, b;
-                try { a = iter1.Next(); }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                if (double.IsNaN(x))
+                    r = y == 0.0 ? 1.0 : x;
+                else if (double.IsNaN(y))
+                    r = x == 1.0 ? 1.0 : y;
+                else if (double.IsInfinity(x))
                 {
-                    // Check if iter2 also ended
-                    try { iter2.Next(); throw PyValueError.Create("Inputs are not the same length"); }
-                    catch (PythonException ex2) when (ex2.PyException is PyStopIteration) { break; }
+                    bool oddY = double.IsFinite(y) && Math.Abs(y) % 2.0 == 1.0;
+                    if (y > 0.0) r = oddY ? x : Math.Abs(x);
+                    else if (y == 0.0) r = 1.0;
+                    else r = oddY ? Math.CopySign(0.0, x) : 0.0;
                 }
-
-                try { b = iter2.Next(); }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                else if (Math.Abs(x) == 1.0)
+                    r = 1.0;
+                else if (y > 0.0 && Math.Abs(x) > 1.0)
+                    r = y;
+                else if (y < 0.0 && Math.Abs(x) < 1.0)
                 {
-                    throw PyValueError.Create("Inputs are not the same length");
-                }
-
-                if (allInts && a is PyInt ai && b is PyInt bi)
-                {
-                    intAccum += ai.Value * bi.Value;
+                    r = -y;
                 }
                 else
-                {
-                    if (allInts)
-                    {
-                        dblAccum = (double)intAccum;
-                        allInts = false;
-                    }
-                    dblAccum += a.ToFloat() * b.ToFloat();
-                }
+                    r = 0.0;
             }
-
-            if (allInts)
-                return new PyInt(intAccum);
-            return new PyFloat(dblAccum);
+            else
+            {
+                r = x == 1.0 || y == 0.0 ? 1.0 : Math.Pow(x, y);
+                if (double.IsNaN(r))
+                    fault = Fault.Domain;
+                else if (double.IsInfinity(r))
+                    fault = x == 0.0 ? Fault.Domain : Fault.Range;
+            }
+            if (fault != Fault.None)
+                throw Raise(fault);
+            return new PyFloat(r);
         }
 
-        private PyObject CallLGamma(PyObject[] args)
+        private static PyObject FMod(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"lgamma() takes exactly one argument ({args.Length} given)");
+            Check2("fmod", args);
+            double x = RealNumber(args[0]), y = RealNumber(args[1]);
+            if (double.IsInfinity(y) && double.IsFinite(x))
+                return new PyFloat(x);
+            double r = x % y;
+            if (double.IsNaN(r) && !double.IsNaN(x) && !double.IsNaN(y))
+                throw Raise(Fault.Domain);
+            return new PyFloat(r == 0.0 ? Math.CopySign(0.0, x) : r);
+        }
 
-            double x = args[0].ToFloat();
+        private static PyObject FrExp(double x)
+        {
+            if (double.IsNaN(x) || double.IsInfinity(x) || x == 0.0)
+                return new PyTuple(new PyObject[] { new PyFloat(x), new PyInt(0) });
+            int exponent = Math.ILogB(x) + 1;
+            return new PyTuple(new PyObject[] { new PyFloat(Math.ScaleB(x, -exponent)), new PyInt(exponent) });
+        }
 
-            // lgamma(x) = log(abs(gamma(x)))
-            // Modules/mathmodule.c m_loggamma uses m_tgamma internally
+        private static PyObject LdExp(PyObject[] args)
+        {
+            Check2("ldexp", args);
+            double x = RealNumber(args[0]);
+            if (!(args[1] is PyInt or PyBool or PyIntSubclass))
+                throw PyTypeError.Create("Expected an int as second argument to ldexp.");
+            var exponent = PyObject.TryGetIndex(args[1]).Value;
+            double r;
+            if (x == 0.0 || !double.IsFinite(x))
+                r = x;
+            else if (exponent > int.MaxValue)
+                throw Raise(Fault.Range);
+            else if (exponent < int.MinValue)
+                r = Math.CopySign(0.0, x);
+            else
+            {
+                r = Math.ScaleB(x, (int)exponent);
+                if (double.IsInfinity(r))
+                    throw Raise(Fault.Range);
+            }
+            return new PyFloat(r);
+        }
 
+        private static PyObject ModF(double x)
+        {
+            if (double.IsInfinity(x))
+                return new PyTuple(new PyObject[] { new PyFloat(Math.CopySign(0.0, x)), new PyFloat(x) });
             if (double.IsNaN(x))
-                return new PyFloat(double.NaN);
-
-            if (double.IsPositiveInfinity(x))
-                return new PyFloat(double.PositiveInfinity);
-
-            if (double.IsNegativeInfinity(x) || x == 0)
-                return new PyFloat(double.PositiveInfinity);
-
-            if (x < 0 && x == Math.Floor(x))
-                throw PyValueError.Create("lgamma() not defined for negative integers");
-
-            // Use built-in .NET approximation
-            // This is a simplified implementation - for production use, consider a more accurate algorithm
-            double result = LogGammaApproximation(x);
-            return new PyFloat(result);
+                return new PyTuple(new PyObject[] { new PyFloat(x), new PyFloat(x) });
+            double whole = Math.Truncate(x);
+            return new PyTuple(new PyObject[] { new PyFloat(Math.CopySign(x - whole, x)), new PyFloat(whole) });
         }
 
-        // Log-gamma approximation using Stirling's formula
-        private double LogGammaApproximation(double x)
+        private static double NextToward(double x, double y)
         {
-            // For x > 0, use Stirling's approximation
-            // ln(Gamma(x)) ≈ (x - 0.5) * ln(x) - x + 0.5 * ln(2π) + correction terms
-
-            if (x <= 0)
-            {
-                // Use reflection formula for negative values
-                // Gamma(x) * Gamma(1-x) = pi / sin(pi*x)
-                double sinPiX = Math.Sin(Math.PI * x);
-                if (Math.Abs(sinPiX) < 1e-10)
-                    return double.PositiveInfinity;
-                return Math.Log(Math.PI / Math.Abs(sinPiX)) - LogGammaApproximation(1 - x);
-            }
-
-            // Lanczos approximation coefficients
-            double[] coef = {
-                76.18009172947146,
-                -86.50532032941677,
-                24.01409824083091,
-                -1.231739572450155,
-                0.001208650973866179,
-                -0.000005395239384953
-            };
-
-            double temp = x + 5.5;
-            temp = (x + 0.5) * Math.Log(temp) - temp;
-            double ser = 1.000000000190015;
-
-            for (int i = 0; i < 6; i++)
-            {
-                ser += coef[i] / (x + i + 1);
-            }
-
-            return temp + Math.Log(2.5066282746310005 * ser / x);
+            if (double.IsNaN(x)) return x;
+            if (double.IsNaN(y)) return y;
+            if (x == y) return y;
+            return y > x ? Math.BitIncrement(x) : Math.BitDecrement(x);
         }
 
-        private static BigInteger IntArgument(PyObject value) => value switch
+        // math_nextafter_impl
+        private static PyObject NextAfter(PyObject[] args, PyDict kwargs)
         {
-            PyBool truth => truth.Value ? BigInteger.One : BigInteger.Zero,
-            PyInt number => number.Value,
-            PyIntSubclass subclass => subclass.GetIntValue().Value,
-            _ => throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer"),
-        };
-
-        private PyObject CallGcd(PyObject[] args)
-        {
-            var result = BigInteger.Zero;
-            foreach (var arg in args)
-                result = BigInteger.GreatestCommonDivisor(result, IntArgument(arg));
-            return new PyInt(result);
-        }
-
-        private PyObject CallLcm(PyObject[] args)
-        {
-            var result = BigInteger.One;
-            foreach (var arg in args)
-            {
-                var value = BigInteger.Abs(IntArgument(arg));
-                if (value.IsZero) return new PyInt(0);
-                result = result / BigInteger.GreatestCommonDivisor(result, value) * value;
-            }
-            return new PyInt(result);
-        }
-
-        // === 부동소수점 관련 ===
-
-        private PyObject CallIsFinite(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"isfinite() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return PyBool.FromBool(double.IsFinite(x));
-        }
-
-        private PyObject CallIsInf(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"isinf() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return PyBool.FromBool(double.IsInfinity(x));
-        }
-
-        private PyObject CallIsNaN(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"isnan() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return PyBool.FromBool(double.IsNaN(x));
-        }
-
-        private PyObject CallModf(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"modf() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            var fractional = x - Math.Truncate(x);
-            var integral = Math.Truncate(x);
-            return new PyTuple(new PyFloat(fractional), new PyFloat(integral));
-        }
-
-        private PyObject CallFrexp(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"frexp() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            
-            if (x == 0)
-                return new PyTuple(new PyFloat(0.0), new PyInt(0));
-
-            var exponent = (int)Math.Floor(Math.Log2(Math.Abs(x))) + 1;
-            var mantissa = x / Math.Pow(2, exponent);
-
-            return new PyTuple(new PyFloat(mantissa), new PyInt(exponent));
-        }
-
-        private PyObject CallLdexp(PyObject[] args)
-        {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"ldexp() takes exactly two arguments ({args.Length} given)");
-
-            // CPython 3.12: Modules/mathmodule.c:1466-1485 - math_ldexp
-            var x = GetFloatValue(args[0]);
-            if (args[1] is PyInt exp)
-            {
-                return new PyFloat(x * Math.Pow(2, (double)exp.Value));
-            }
-            else
-            {
-                throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
-            }
-        }
-
-        // === 추가 함수들 ===
-
-        private PyObject CallIsqrt(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"math.isqrt() takes exactly one argument ({args.Length} given)");
-            if (args[0] is not PyInt && args[0] is not PyIntSubclass && args[0] is not PyBool)
-                throw PyTypeError.Create($"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
-            var n = args[0] is PyBool truth ? (truth.Value ? 1 : 0) : (args[0] as PyInt ?? ((PyIntSubclass)args[0]).GetIntValue()).Value;
-            if (n.Sign < 0)
-                throw PyValueError.Create("isqrt() argument must be nonnegative");
-            if (n.IsZero) return new PyInt(0);
-            // Newton's method from above; the C version's adaptive precision is an optimization of the same result.
-            var x = System.Numerics.BigInteger.One << (int)((n.GetBitLength() + 1) / 2);
-            while (true)
-            {
-                var y = (x + n / x) >> 1;
-                if (y >= x) return new PyInt(x);
-                x = y;
-            }
-        }
-
-        private PyObject CallDist(PyObject[] args)
-        {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"dist() takes exactly two arguments ({args.Length} given)");
-
-            // 간단한 2D 거리 구현
-            if (args[0] is PyTuple p1 && args[1] is PyTuple p2)
-            {
-                if (p1.Items.Length != 2 || p2.Items.Length != 2)
-                    throw PyValueError.Create("dist() requires 2D points");
-
-                var x1 = GetFloatValue(p1.Items[0]);
-                var y1 = GetFloatValue(p1.Items[1]);
-                var x2 = GetFloatValue(p2.Items[0]);
-                var y2 = GetFloatValue(p2.Items[1]);
-
-                return new PyFloat(Math.Sqrt(Math.Pow(x2 - x1, 2) + Math.Pow(y2 - y1, 2)));
-            }
-            else
-            {
-                throw PyTypeError.Create("dist() requires tuple arguments");
-            }
-        }
-
-        private PyObject CallHypot(PyObject[] args)
-        {
-            if (args.Length < 2)
-                throw PyTypeError.Create($"hypot() takes at least two arguments ({args.Length} given)");
-
-            double sumOfSquares = 0;
-            foreach (var arg in args)
-            {
-                var val = GetFloatValue(arg);
-                sumOfSquares += val * val;
-            }
-
-            return new PyFloat(Math.Sqrt(sumOfSquares));
-        }
-
-        // === 헬퍼 메서드들 ===
-
-        private static PyBool CallIsClose(PyObject[] args, PyDict kwargs)
-        {
-            int total = args.Length + (kwargs?.Length() ?? 0);
-            if (total > 4) throw PyTypeError.Create($"isclose() takes at most 4 arguments ({total} given)");
-            if (args.Length > 2) throw PyTypeError.Create($"isclose() takes exactly 2 positional arguments ({args.Length} given)");
-            PyObject a = args.Length > 0 ? args[0] : null, b = args.Length > 1 ? args[1] : null;
-            PyObject relative = null, absolute = null;
+            Check2("nextafter", args);
+            double x = RealNumber(args[0]), y = RealNumber(args[1]);
+            PyObject steps = null;
             if (kwargs != null)
+                foreach (var pair in kwargs.InternalDict)
+                {
+                    if ((pair.Key as PyString)?.Value != "steps")
+                        throw PyTypeError.Create($"nextafter() got an unexpected keyword argument '{pair.Key.ToStr().Value}'");
+                    steps = pair.Value;
+                }
+            if (steps == null || steps is PyNone)
+                return new PyFloat(NextToward(x, y));
+            var count = Index(steps);
+            if (count.Sign < 0)
+                throw PyValueError.Create("steps must be a non-negative integer");
+            if (count.IsZero) return new PyFloat(x);
+            if (double.IsNaN(x)) return new PyFloat(x);
+            if (double.IsNaN(y)) return new PyFloat(y);
+            ulong usteps = count > ulong.MaxValue ? ulong.MaxValue : (ulong)count;
+            ulong ux = BitConverter.DoubleToUInt64Bits(x), uy = BitConverter.DoubleToUInt64Bits(y);
+            if (ux == uy) return new PyFloat(x);
+            const ulong sign = 1UL << 63;
+            ulong ax = ux & ~sign, ay = uy & ~sign;
+            if (((ux ^ uy) & sign) != 0)
             {
-                if (kwargs.TryGetStoredValue(StringCache.GetOrCreate("a"), out var namedA))
-                {
-                    if (a != null) throw PyTypeError.Create("argument for isclose() given by name ('a') and position (1)");
-                    a = namedA;
-                }
-                if (kwargs.TryGetStoredValue(StringCache.GetOrCreate("b"), out var namedB))
-                {
-                    if (b != null) throw PyTypeError.Create("argument for isclose() given by name ('b') and position (2)");
-                    b = namedB;
-                }
+                if (ax + ay <= usteps) return new PyFloat(y);
+                if (ax < usteps) return new PyFloat(BitConverter.UInt64BitsToDouble((uy & sign) | (usteps - ax)));
+                return new PyFloat(BitConverter.UInt64BitsToDouble(ux - usteps));
             }
-            if (a == null) throw PyTypeError.Create("isclose() missing required argument 'a' (pos 1)");
-            if (b == null) throw PyTypeError.Create("isclose() missing required argument 'b' (pos 2)");
+            if (ax > ay)
+                return new PyFloat(ax - ay >= usteps ? BitConverter.UInt64BitsToDouble(ux - usteps) : y);
+            return new PyFloat(ay - ax >= usteps ? BitConverter.UInt64BitsToDouble(ux + usteps) : y);
+        }
+
+        private static PyObject Ulp(double x)
+        {
+            if (double.IsNaN(x)) return new PyFloat(x);
+            x = Math.Abs(x);
+            if (double.IsInfinity(x)) return new PyFloat(x);
+            double next = NextToward(x, double.PositiveInfinity);
+            return new PyFloat(double.IsInfinity(next) ? x - NextToward(x, double.NegativeInfinity) : next - x);
+        }
+
+        private static PyObject IsClose(PyObject[] args, PyDict kwargs)
+        {
+            PyObject a = args.Length > 0 ? args[0] : null, b = args.Length > 1 ? args[1] : null, relative = null, absolute = null;
+            // _PyArg_UnpackKeywords: the count, the names that are taken, what is missing, then the rest.
+            if (args.Length > 2)
+                throw PyTypeError.Create($"isclose() takes exactly 2 positional arguments ({args.Length} given)");
+            string unknown = null;
             if (kwargs != null)
-            {
                 foreach (var pair in kwargs.GetInternalDict())
                 {
                     string name = pair.Key.ToStr().Value;
                     switch (name)
                     {
-                        case "a": case "b": break;
+                        case "a":
+                            if (a != null) throw PyTypeError.Create("argument for isclose() given by name ('a') and position (1)");
+                            a = pair.Value;
+                            break;
+                        case "b":
+                            if (b != null) throw PyTypeError.Create("argument for isclose() given by name ('b') and position (2)");
+                            b = pair.Value;
+                            break;
                         case "rel_tol": relative = pair.Value; break;
                         case "abs_tol": absolute = pair.Value; break;
-                        default: throw PyTypeError.Create($"'{name}' is an invalid keyword argument for isclose()");
+                        default: unknown ??= name; break;
                     }
                 }
-            }
+            if (a == null) throw PyTypeError.Create("isclose() missing required argument 'a' (pos 1)");
+            if (b == null) throw PyTypeError.Create("isclose() missing required argument 'b' (pos 2)");
+            if (unknown != null) throw PyTypeError.Create($"'{unknown}' is an invalid keyword argument for isclose()");
             double left = RealNumber(a), right = RealNumber(b);
             double rel = relative == null ? 1e-9 : RealNumber(relative);
             double abs = absolute == null ? 0 : RealNumber(absolute);
-            // CPython 3.12 Modules/mathmodule.c: math_isclose_impl.
-            if (rel < 0 || abs < 0) throw PyValueError.Create("tolerances must be non-negative");
+            if (rel < 0 || abs < 0)
+                throw PyValueError.Create("tolerances must be non-negative");
             if (left == right) return PyBool.True;
             if (double.IsInfinity(left) || double.IsInfinity(right)) return PyBool.False;
             double difference = Math.Abs(right - left);
-            return PyBool.FromBool(difference <= Math.Abs(rel * right) ||
-                difference <= Math.Abs(rel * left) || difference <= abs);
+            return PyBool.FromBool(difference <= Math.Abs(rel * right) || difference <= Math.Abs(rel * left) || difference <= abs);
         }
 
+        public static PyModule CreateMathModule()
+        {
+            var module = new PyModule("math");
+            var names = module.ModuleDict;
+            names["pi"] = new PyFloat(Math.PI);
+            names["e"] = new PyFloat(Math.E);
+            names["tau"] = new PyFloat(2 * Math.PI);
+            names["inf"] = new PyFloat(double.PositiveInfinity);
+            names["nan"] = new PyFloat(PyFloat.QuietNaN);
+
+            void Func1(string name, Func<double, double> function, bool canOverflow = false) =>
+                names[name] = new PyBuiltinFunction(name, args => One(name, args, arg => Math1(arg, function, canOverflow)));
+            void Func1a(string name, Func<double, double> function) =>
+                names[name] = new PyBuiltinFunction(name, args => One(name, args, arg => Math1a(arg, function)));
+            void Func2(string name, Func<double, double, double> function) =>
+                names[name] = new PyBuiltinFunction(name, args => Math2(args, function, name));
+            void FuncO(string name, Func<PyObject, PyObject> body) =>
+                names[name] = new PyBuiltinFunction(name, args => One(name, args, body));
+            void Func(string name, Func<PyObject[], PyObject> body) => names[name] = new PyBuiltinFunction(name, body);
+            void FuncK(string name, Func<PyObject[], PyDict, PyObject> body) => names[name] = new PyBuiltinFunction(name, body);
+
+            Func1("acos", Math.Acos);
+            Func1("acosh", Math.Acosh);
+            Func1("asin", Math.Asin);
+            Func1("asinh", Math.Asinh);
+            Func1("atan", Math.Atan);
+            Func1("atanh", Math.Atanh);
+            Func1("cbrt", Math.Cbrt);
+            Func1("cos", Math.Cos);
+            Func1("cosh", Math.Cosh, true);
+            Func1("exp", Math.Exp, true);
+            Func1("exp2", x => Math.Pow(2.0, x), true);
+            Func1("expm1", M_Expm1, true);
+            Func1("fabs", Math.Abs);
+            Func1("log1p", M_Log1p);
+            Func1("sin", Math.Sin);
+            Func1("sinh", Math.Sinh, true);
+            Func1("sqrt", Math.Sqrt);
+            Func1("tan", Math.Tan);
+            Func1("tanh", Math.Tanh);
+            Func1a("erf", M_Erf);
+            Func1a("erfc", M_Erfc);
+            Func1a("gamma", M_Gamma);
+            Func1a("lgamma", M_LGamma);
+            Func2("atan2", M_Atan2);
+            Func2("copysign", Math.CopySign);
+            Func2("remainder", M_Remainder);
+
+            FuncO("ceil", value => Rounded("ceil", "__ceil__", value, Math.Ceiling));
+            FuncO("floor", value => Rounded("floor", "__floor__", value, Math.Floor));
+            FuncO("trunc", value =>
+            {
+                var method = value.LookupSpecialMethodUncached("__trunc__")
+                    ?? throw PyTypeError.Create($"type {value.GetTypeName()} doesn't define __trunc__ method");
+                return value.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+            });
+            FuncO("factorial", Factorial);
+            FuncO("fsum", FSum);
+            FuncO("isqrt", ISqrt);
+            FuncO("isfinite", value => PyBool.FromBool(double.IsFinite(RealNumber(value))));
+            FuncO("isinf", value => PyBool.FromBool(double.IsInfinity(RealNumber(value))));
+            FuncO("isnan", value => PyBool.FromBool(double.IsNaN(RealNumber(value))));
+            FuncO("frexp", value => FrExp(RealNumber(value)));
+            FuncO("modf", value => ModF(RealNumber(value)));
+            FuncO("ulp", value => Ulp(RealNumber(value)));
+            FuncO("degrees", value => new PyFloat(RealNumber(value) * (180.0 / Math.PI)));
+            FuncO("radians", value => new PyFloat(RealNumber(value) * (Math.PI / 180.0)));
+            FuncO("log2", value => LogHelper(value, M_Log2));
+            FuncO("log10", value => LogHelper(value, M_Log10));
+            Func("log", args =>
+            {
+                if (args.Length is < 1 or > 2)
+                    throw PyTypeError.Create(args.Length < 1 ? "log expected at least 1 argument, got 0" : $"log expected at most 2 arguments, got {args.Length}");
+                var number = LogHelper(args[0], M_Log);
+                if (args.Length == 1)
+                    return number;
+                var divisor = LogHelper(args[1], M_Log);
+                return PyVM.Instance.ExecuteBinaryOpType(number, divisor, BinaryOpType.TRUE_DIVIDE);
+            });
+            Func("gcd", Gcd);
+            Func("lcm", Lcm);
+            Func("perm", Perm);
+            Func("comb", Comb);
+            Func("hypot", Hypot);
+            Func("dist", Dist);
+            Func("pow", Pow);
+            Func("fmod", FMod);
+            Func("ldexp", LdExp);
+            Func("sumprod", SumProd);
+            FuncK("prod", Prod);
+            FuncK("nextafter", NextAfter);
+            FuncK("isclose", IsClose);
+            return module;
+        }
+    }
+
+    /// <summary>The conversion str % and bytes % share with math.</summary>
+    public static class PyMathFunction
+    {
         // PyFloat_AsDouble
         internal static double RealNumber(PyObject value)
         {
@@ -1392,40 +1122,6 @@ namespace SharpPy.Modules
             double result = (double)value.Value;
             if (double.IsInfinity(result)) throw PyOverflowError.Create("int too large to convert to float");
             return result;
-        }
-
-        private double GetFloatValue(PyObject obj)
-        {
-            return obj switch
-            {
-                PyFloat f => f.Value,
-                PyInt i => (double)i.Value,
-                PyBool b => b.Value ? 1.0 : 0.0,
-                _ => throw PyTypeError.Create("a float is required")
-            };
-        }
-
-        private int GcdHelper(int a, int b)
-        {
-            while (b != 0)
-            {
-                int temp = b;
-                b = a % b;
-                a = temp;
-            }
-            return a;
-        }
-
-        public override string ToString() => $"<built-in function {Name}>";
-
-        public override PyObject GetAttribute(string name)
-        {
-            return name switch
-            {
-                "__name__" => new PyString(Name),
-                "__module__" => new PyString("math"),
-                _ => throw PyAttributeError.Create($"'builtin_function_or_method' object has no attribute '{name}'")
-            };
         }
     }
 }

@@ -291,9 +291,11 @@ namespace SharpPy
                 return _implementation(processedArgs);
             }
 
-            // 기존 구현이 있으면 사용 (kwargs 무시)
+            // METH_FASTCALL and METH_O: a function that takes no keywords says so.
             if (_implementation != null)
             {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create($"{Name}() takes no keyword arguments");
 #if DEBUG_LOG
                 Console.WriteLine($"[PyBuiltinFunction.Call] Using _implementation for {Name}");
 #endif

@@ -470,9 +470,8 @@ namespace SharpPy.Modules
 
         private int ToIndex(PyObject index)
         {
-            int i;
-            try { i = index.ToInt(); }
-            catch { throw PyTypeError.Create("sequence index must be integer, not '" + index.GetTypeName() + "'"); }
+            var converted = TryGetIndex(index) ?? throw PyTypeError.Create("sequence index must be integer, not '" + index.GetTypeName() + "'");
+            int i = converted.ToInt();
             return i < 0 ? i + _count : i;
         }
 

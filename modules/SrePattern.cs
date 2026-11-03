@@ -37,6 +37,8 @@ namespace SharpPy.Modules
                 case PyByteArray array:
                     return new SreText(source, Widen(array.ToByteArrayCopy()), true);
                 default:
+                    if (BytesMethods.Buffer(source) is { } exported)
+                        return new SreText(source, Widen(exported), true);
                     throw PyTypeError.Create($"expected string or bytes-like object, got '{source.GetTypeName()}'");
             }
         }

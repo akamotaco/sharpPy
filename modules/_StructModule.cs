@@ -324,9 +324,7 @@ namespace SharpPy.Modules
 
         private static byte[] GetBuffer(PyObject obj)
         {
-            if (obj is PyBytes pb) return pb.Value;
-            if (obj is PyByteArray pba) return pba.ToByteArrayCopy();
-            throw PyTypeError.Create("a bytes-like object is required");
+            return BytesMethods.Buffer(obj) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{obj.GetTypeName()}'");
         }
 
         private static int OffsetArgument(PyObject[] args, int position, PyDict kwargs)
@@ -382,16 +380,29 @@ namespace SharpPy.Modules
             {
                 if (args.Length < 3) throw PyTypeError.Create("pack_into() requires at least three arguments");
                 var (bo, entries) = ParseFormat(GetFormat(args[0]));
-                if (!(args[1] is PyByteArray pba)) throw PyTypeError.Create("pack_into() argument must be a bytearray");
+                if (!args[1].SupportsBuffer()) throw PyTypeError.Create($"a bytes-like object is required, not '{args[1].GetTypeName()}'");
+                var target = args[1].GetBuffer(0);
+                if (target.GetAttribute("readonly").IsTrue()) throw PyTypeError.Create($"a read-write bytes-like object is required, not '{args[1].GetTypeName()}'");
                 int offset = (int)IntOf(args[2]);
                 int expected = GetItemCount(entries);
                 int got = args.Length - 3;
                 if (expected != got) throw Error($"pack_into expected {expected} items for packing (got {got})");
                 int size = CalcSize(bo, entries);
-                if (offset + size > pba.Length())
-                    throw Error("pack_into requires a buffer of at least " + (offset + size) + " bytes");
+                int capacity = target.GetAttribute("nbytes").ToInt();
+                if (offset < 0)
+                {
+                    if (offset + size > 0)
+                        throw Error($"no space to pack {size} bytes at offset {offset}");
+                    if (offset + capacity < 0)
+                        throw Error($"offset {offset} out of range for {capacity}-byte buffer");
+                    offset += capacity;
+                }
+                if (capacity - offset < size)
+                    throw Error($"pack_into requires a buffer of at least {offset + size} bytes for packing {size} bytes at offset {offset} (actual buffer size is {capacity})");
                 byte[] packed = PackValues(bo, entries, args, 3);
-                pba.WriteAt(offset, packed, size);
+                var bytes = target.GetAttribute("cast").Call(new PyObject[] { new PyString("B") }, null);
+                for (int i = 0; i < size; i++)
+                    bytes.SetItem(new PyInt(offset + i), new PyInt(packed[i]));
                 return PyNone.Instance;
             });
 

@@ -408,6 +408,8 @@ namespace SharpPy
                 return GetSlice(start, stop, step);
             }
 
+            if (TryGetIndex(key) is { } tupleIndex)
+                return GetItem(tupleIndex);
             throw PyTypeError.Create($"tuple indices must be integers or slices, not {key.GetTypeName()}");
         }
 

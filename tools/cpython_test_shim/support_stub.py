@@ -34,6 +34,10 @@ _1M, _1G, _2G, _4G = 1 << 20, 1 << 30, 2 << 30, 4 << 30
 TESTFN = "@test_sharppy_tmp"
 
 
+def requires_mac_ver(*min_version):
+    return lambda func: func
+
+
 class _Stand_in:
     def __init__(self, name):
         self.name = name

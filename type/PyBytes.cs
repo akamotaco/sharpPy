@@ -1296,6 +1296,8 @@ namespace SharpPy
                 }
             }
             
+            if (TryGetIndex(index) is { } byteIndex)
+                return GetItem(byteIndex);
             throw PyTypeError.Create($"byte indices must be integers or slices, not {index.GetTypeName()}");
         }
 

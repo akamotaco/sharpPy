@@ -13,7 +13,7 @@
 
 | 검증 | 값 | 재현 |
 |---|---|---|
-| CPython 언어 테스트 | 3416 / 3475 통과 | `python tools/run_cpython_tests.py` |
+| CPython 언어 테스트 | 3417 / 3475 통과 (내장 객체 모듈 61개를 더하면 5739 / 7142) | `python tools/run_cpython_tests.py` |
 | AST (Lib/*.py) | 5550 / 5550 문장, 위치 포함 5550 | `python tools/compare_ast.py --dotnet <dotnet> [--attributes] <files>` |
 | AST (프로브) | 6397 / 6397 문장 | `python tools/compare_ast.py --dotnet <dotnet> --attributes` |
 | 바이트코드 (Lib/*.py) | 코드 객체 8039개 전부 `co_code`, `co_linetable`(열 번호 포함), `co_exceptiontable`, `co_stacksize` 바이트 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level raw <files>` |
@@ -88,6 +88,9 @@
 - 5-2. `os.open` 20건, `tempfile` 없음.
 - 5-4. `weakref` 프록시, `bytearray %`.
 - 5-5. 그 밖의 라이브러리 목록은 P0-83. 필요성이 확인된 것만 한다.
+- 5-6. `io` 계층: `open()`은 `FileIO`/`Buffered*`/`TextIOWrapper` 세 층이 아니라 `PyFileContextManager` 하나다. `sys.stdout`은 `TextIOWrapper` 타입을 보이지만 별도 클래스다. `_io`를 세 층으로 다시 짜거나 `_pyio.py`를 쓰는 결정이 필요하다.
+- 5-7. 2026-11-03 새로 돌린 모듈의 큰 묶음: `test_array` 404건(메서드 인자 검사, `fromfile`), `test_itertools`·`test_weakref` 시간 초과, `test_types` `_testinternalcapi`, `test_collections` doctest가 `inspect.getmodule`에서 멈춤, `test_time` `mktime`, `test_sys` 13건, `test_frame` 11건(`frame.clear`, `f_locals`), `test_memoryview` 18건(다차원 형식), `test_struct` 23건.
+- 5-8. `sys.path_hooks`, `sys.path_importer_cache`는 빈 목록이다. 파일 찾기는 C# `PathFinder` 하나다.
 
 ## 6. PEP 695
 

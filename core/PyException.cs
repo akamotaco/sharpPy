@@ -2206,6 +2206,22 @@ namespace SharpPy
 
         internal static readonly PyType TracebackPyType = TracebackType();
 
+        // tb_next_set: another traceback or None, and never a loop.
+        internal void SetNext(PyObject value)
+        {
+            if (value is PyNone)
+            {
+                Next = null;
+                return;
+            }
+            if (value is not PyTraceback next)
+                throw PyTypeError.Create($"expected traceback object or None, got '{value.GetTypeName()}'");
+            for (var cursor = next; cursor != null; cursor = cursor.Next)
+                if (ReferenceEquals(cursor, this))
+                    throw PyValueError.Create("traceback loop detected");
+            Next = next;
+        }
+
         private static PyType TracebackType()
         {
             var type = new PyType("traceback", new[] { PyType.ObjectType });

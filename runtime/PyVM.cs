@@ -1328,6 +1328,9 @@ namespace SharpPy
             PyFrame.CallingQualName = null;
             var entryFrame = frame;
             var outerDepth = _frameStack.Count;
+            // f_back: a frame made by a host call has no caller yet; the running frame is it.
+            if (frame.ParentFrame == null && outerDepth > 0)
+                frame.ParentFrame = _frameStack.Peek();
             _frameStack.Push(frame);
 
 #if DEBUG_LOG

@@ -641,7 +641,7 @@ namespace SharpPy
             return other switch
             {
                 PyFloat otherFloat => new PyFloat(Value + otherFloat.Value),
-                PyInt otherInt => new PyFloat(Value + (double)otherInt.Value),
+                PyInt otherInt => new PyFloat(Value + Modules.PyMathFunction.RealNumber(otherInt)),
                 PyBool otherBool => new PyFloat(Value + (otherBool.Value ? 1.0 : 0.0)),
                 PyComplex otherComplex => new PyComplex(Value + otherComplex.Real, otherComplex.Imag),
                 _ => PyNotImplemented.Instance
@@ -654,7 +654,7 @@ namespace SharpPy
             return other switch
             {
                 PyFloat otherFloat => new PyFloat(Value - otherFloat.Value),
-                PyInt otherInt => new PyFloat(Value - (double)otherInt.Value),
+                PyInt otherInt => new PyFloat(Value - Modules.PyMathFunction.RealNumber(otherInt)),
                 PyBool otherBool => new PyFloat(Value - (otherBool.Value ? 1.0 : 0.0)),
                 PyComplex otherComplex => new PyComplex(Value - otherComplex.Real, -otherComplex.Imag),
                 _ => PyNotImplemented.Instance
@@ -667,7 +667,7 @@ namespace SharpPy
             return other switch
             {
                 PyFloat otherFloat => new PyFloat(Value * otherFloat.Value),
-                PyInt otherInt => new PyFloat(Value * (double)otherInt.Value),
+                PyInt otherInt => new PyFloat(Value * Modules.PyMathFunction.RealNumber(otherInt)),
                 PyBool otherBool => new PyFloat(Value * (otherBool.Value ? 1.0 : 0.0)),
                 PyComplex otherComplex => new PyComplex(Value * otherComplex.Real, Value * otherComplex.Imag),
                 _ => PyNotImplemented.Instance
@@ -781,7 +781,7 @@ namespace SharpPy
             if (PyFloat.TryFloatSelf(left, out var leftFloat))
                 leftValue = leftFloat.Value;
             else if (PyInt.TryLongSelf(left, out var leftInt))
-                leftValue = (double)leftInt.Value;
+                leftValue = Modules.PyMathFunction.RealNumber(leftInt);
             else if (left is PyBool leftBool)
                 leftValue = leftBool.Value ? 1.0 : 0.0;
             else
@@ -791,7 +791,7 @@ namespace SharpPy
             if (PyFloat.TryFloatSelf(right, out var rightFloat))
                 rightValue = rightFloat.Value;
             else if (PyInt.TryLongSelf(right, out var rightInt))
-                rightValue = (double)rightInt.Value;
+                rightValue = Modules.PyMathFunction.RealNumber(rightInt);
             else if (right is PyBool rightBool)
                 rightValue = rightBool.Value ? 1.0 : 0.0;
             else
@@ -1298,7 +1298,7 @@ namespace SharpPy
             return obj switch
             {
                 PyFloat pyFloat => pyFloat,
-                PyInt pyInt => new PyFloat((double)pyInt.Value),
+                PyInt pyInt => new PyFloat(Modules.PyMathFunction.RealNumber(pyInt)),
                 PyBool pyBool => new PyFloat(pyBool.Value ? 1.0 : 0.0),
                 _ => throw PyTypeError.Create($"float() argument must be a string or a real number, not '{obj.GetTypeName()}'")
             };
