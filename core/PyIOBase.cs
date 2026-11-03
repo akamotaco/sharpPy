@@ -90,7 +90,23 @@ public class PyIOBaseInstance : PyObject, IDictBackedInstance
     /// the dict of a PyClassInstance, so this CLR-side io object routes the write itself.
     /// </summary>
     protected override void PySetAttribute(string name, PyObject value)
-        => dict[name] = value;
+    {
+        // PyObject_GenericSetAttr: a data descriptor of the type comes before the dict.
+        foreach (var type in GetPyType().MRO)
+        {
+            var entries = type is PyClass cls ? cls.ClassDict : type.TypeDict;
+            if (entries != null && entries.TryGetValue(name, out var found))
+            {
+                if (found is IDescriptor descriptor && descriptor.IsDataDescriptor())
+                {
+                    descriptor.Set(this, value);
+                    return;
+                }
+                break;
+            }
+        }
+        dict[name] = value;
+    }
 
     protected override void PyDelAttribute(string name)
     {
@@ -285,28 +301,45 @@ public static class PyIOBaseSlots
                 throw PyUnsupportedOperation.Create("truncate");
             }, minArgs: 0, maxArgs: 1);
 
+        // _io__IOBase_readline_impl: peek() says how far to read ahead, read() reads it.
         IOBaseType.TypeDict["readline"] = new PyMethodDescriptor(
             "readline", IOBaseType, (self, args, kwargs) =>
             {
-                // iobase readline is a fallback built on peek()/read(); _IOBase has neither,
-                // so the AttributeError from looking up read() is the observable result.
+                long limit = args.Length > 0 && args[0] is not PyNone ? BytesMethods.AsSsize(args[0]) : -1;
                 CheckClosed(self);
-                bool hasPeek;
-                try
+                PyObject peek = null;
+                try { peek = self.GetAttribute("peek"); }
+                catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                var buffer = new List<byte>();
+                while (limit < 0 || buffer.Count < limit)
                 {
-                    self.GetAttribute("peek");
-                    hasPeek = true;
+                    long ahead = 1;
+                    if (peek != null)
+                    {
+                        var readahead = peek.Call(new PyObject[] { new PyInt(1) }, null);
+                        if (readahead is not PyBytes peeked)
+                            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyString(
+                                $"peek() should have returned a bytes object, not '{readahead.GetTypeName()}'") }, null));
+                        if (peeked.Value.Length > 0)
+                        {
+                            int n = 0;
+                            while (n < peeked.Value.Length && (limit < 0 || n < limit))
+                                if (peeked.Value[n++] == (byte)'\n')
+                                    break;
+                            ahead = n;
+                        }
+                    }
+                    var read = CallWith(self, "read", One(new PyInt(ahead)));
+                    if (read is not PyBytes chunk)
+                        throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyString(
+                            $"read() should have returned a bytes object, not '{read.GetTypeName()}'") }, null));
+                    if (chunk.Value.Length == 0)
+                        break;
+                    buffer.AddRange(chunk.Value);
+                    if (buffer[buffer.Count - 1] == (byte)'\n')
+                        break;
                 }
-                catch (System.Exception)
-                {
-                    hasPeek = false;
-                }
-                if (hasPeek)
-                    return CallWith(self, "readline", args);
-                // Looking up read() on a type that has none is what raises, with CPython's
-                // message: '_io._IOBase' object has no attribute 'read'.
-                self.GetAttribute("read");
-                return PyString.Empty;
+                return new PyBytes(buffer.ToArray());
             }, minArgs: 0, maxArgs: 1);
 
         IOBaseType.TypeDict["readlines"] = new PyMethodDescriptor(
@@ -339,6 +372,9 @@ public static class PyIOBaseSlots
         IOBaseType.TypeDict["writelines"] = new PyMethodDescriptor(
             "writelines", IOBaseType, (self, args, kwargs) =>
             {
+                // METH_O: the count is checked before the file is.
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"_IOBase.writelines() takes exactly one argument ({args.Length} given)");
                 CheckClosed(self);
                 foreach (var line in Enumerate(args[0]))
                     CallWith(self, "write", One(line));

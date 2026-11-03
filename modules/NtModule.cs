@@ -349,7 +349,10 @@ namespace SharpPy.Modules
         private static string PathOf(PyObject value)
         {
             var path = Fspath(new[] { value });
-            return path is PyBytes bytes ? System.Text.Encoding.UTF8.GetString(bytes.Value) : ((PyString)path).Value;
+            string text = path is PyBytes bytes ? System.Text.Encoding.UTF8.GetString(bytes.Value) : ((PyString)path).Value;
+            if (text.Contains('\0'))
+                throw PyValueError.Create("embedded null character in path");
+            return text;
         }
 
         internal static PyObject StatPath(string path) => Stat(new PyObject[] { new PyString(path) });
@@ -490,7 +493,8 @@ namespace SharpPy.Modules
         private static PyObject Write(PyObject[] args)
         {
             var stream = PyFileDescriptors.Get(Descriptor(args[0]));
-            var data = BytesMethods.Buffer(args[1]);
+            var data = BytesMethods.Buffer(args[1])
+                ?? throw PyTypeError.Create($"a bytes-like object is required, not '{args[1].GetTypeName()}'");
             PyGil.AllowThreads(() =>
             {
                 stream.Write(data, 0, data.Length);
@@ -517,7 +521,12 @@ namespace SharpPy.Modules
 
         private static PyObject Ftruncate(PyObject[] args)
         {
-            PyFileDescriptors.Get(Descriptor(args[0])).SetLength((long)PyObject.TryGetIndex(args[1]).Value);
+            // ftruncate leaves the position where it was.
+            var stream = PyFileDescriptors.Get(Descriptor(args[0]));
+            long at = stream.CanSeek ? stream.Position : -1;
+            stream.SetLength((long)PyObject.TryGetIndex(args[1]).Value);
+            if (at >= 0)
+                stream.Position = at;
             return PyNone.Instance;
         }
 

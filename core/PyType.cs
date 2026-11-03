@@ -191,7 +191,8 @@ namespace SharpPy
         {
             "async_generator" or "builtin_function_or_method" or "code" or "coroutine" or "frozenset"
                 or "function" or "generator" or "memoryview" or "method" or "module" or "set" or "type"
-                or "GenericAlias" or "deque" or "array" or "Pattern" or "partial"
+                or "GenericAlias" or "deque" or "array" or "Pattern" or "partial" or "FileIO" or "BytesIO" or "StringIO"
+                or "TextIOWrapper" or "BufferedReader" or "BufferedWriter" or "BufferedRandom" or "BufferedRWPair"
                 => PyTypeFlags.ManagedWeakRef,
             _ => PyTypeFlags.None,
         };
@@ -1251,6 +1252,8 @@ namespace SharpPy
                     return new PyBlockingIOError(args, kwargs);
                 case "OSError":
                     return PyOSError.FromArguments(args, kwargs);
+                case "UnsupportedOperation" when ReferenceEquals(this, PyUnsupportedOperation.UnsupportedOperationPyType):
+                    return new PyUnsupportedOperation(args, kwargs);
                 case "FileNotFoundError":
                     return new PyFileNotFoundError(args, kwargs);
                 case "PermissionError":

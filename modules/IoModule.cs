@@ -56,7 +56,7 @@ namespace SharpPy.Modules
             module.ModuleDict["BufferedReader"] = PyFileContextManager.ReaderType;
             module.ModuleDict["BufferedWriter"] = PyFileContextManager.WriterType;
             module.ModuleDict["BufferedRandom"] = PyFileContextManager.RandomType;
-            module.ModuleDict["FileIO"] = FileIOType;
+            module.ModuleDict["FileIO"] = PyFileIO.FileIOType;
             module.ModuleDict["BufferedRWPair"] = BufferedRWPairType;
             module.ModuleDict["IncrementalNewlineDecoder"] = IncrementalNewlineDecoderType;
             module.ModuleDict["UnsupportedOperation"] = PyUnsupportedOperation.UnsupportedOperationPyType;

@@ -1692,6 +1692,8 @@ namespace SharpPy
     {
         public PyUnsupportedOperation(string message = "operation not supported") : base(message) { }
 
+        internal PyUnsupportedOperation(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public static readonly PyType UnsupportedOperationPyType =
             new PyType("UnsupportedOperation", new[] { PyType.OSErrorType, PyType.ValueErrorType }, "io");
 

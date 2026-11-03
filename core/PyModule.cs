@@ -498,6 +498,7 @@ public class PyModule : PyObject
             // CPython 3.12 Built-in C 모듈 (성능 중요)
             ["math"] = () => SharpPy.Modules.MathModule.CreateMathModule(),
             ["cmath"] = () => SharpPy.Modules.CmathModule.CreateModule(),
+            ["msvcrt"] = () => SharpPy.Modules.MsvcrtModule.CreateModule(),
             ["_wmi"] = () => SharpPy.Modules.WmiModule.CreateModule(),
             ["time"] = () => new TimeModule(),
             ["itertools"] = () => ItertoolsModule.Instance,

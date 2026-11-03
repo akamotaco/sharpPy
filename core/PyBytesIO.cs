@@ -221,6 +221,8 @@ public class PyBytesIO : PyIOBaseInstance
         BytesType.TypeDict["write"] = new PyMethodDescriptor(
             "write", BytesType, (self, args, kwargs) =>
             {
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"BytesIO.write() takes exactly one argument ({args.Length} given)");
                 var s = Self(self);
                 CheckClosed(s);
                 var data = BytesLike(args[0]);
