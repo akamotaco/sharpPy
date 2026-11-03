@@ -3254,7 +3254,14 @@ namespace SharpPy
                                 Console.WriteLine($"   → Object has custom GetAttribute override: {objType.Name}");
                             #endif
 
-                            if (hasCustomGetAttribute)
+                            // _PyObject_GetMethod: a method descriptor of the type is not bound;
+                            // the stack gets [descriptor, self], and CALL runs method_vectorcall_*.
+                            if (attr is PyBoundMethodDescriptor boundDescriptor && ReferenceEquals(boundDescriptor.Instance, obj))
+                            {
+                                frame.ValueStack.Push(boundDescriptor.MethodDescriptor);
+                                frame.ValueStack.Push(obj);
+                            }
+                            else if (hasCustomGetAttribute)
                             {
                                 // CPython: Custom tp_getattro → push [NULL, attr]
                                 frame.ValueStack.Push(PyNull.Instance); // NULL marker

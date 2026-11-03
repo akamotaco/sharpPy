@@ -16,6 +16,8 @@ internal enum PyCall
     Fast,
     /// <summary>METH_METHOD|METH_FASTCALL|METH_KEYWORDS over positional-only parameters: _PyArg_UnpackKeywords.</summary>
     Defining,
+    /// <summary>METH_VARARGS read by PyArg_ParseTuple: "name() takes at most 3 arguments (4 given)".</summary>
+    ParseTuple,
 }
 
 /// <summary>Python/getargs.c: the checks the argument clinic makes before a method runs.</summary>
@@ -51,6 +53,17 @@ internal static class PyArgs
             throw PyTypeError.Create($"{name} expected {(min == max ? "" : "at least ")}{min} argument{Plural(min)}, got {nargs}");
         if (nargs > max)
             throw PyTypeError.Create($"{name} expected {(min == max ? "" : "at most ")}{max} argument{Plural(max)}, got {nargs}");
+    }
+
+    // vgetargs1_impl: the count of a format with min required and max in all.
+    internal static void ParseTuple(string name, PyObject[] args, int min, int max)
+    {
+        int len = args.Length;
+        if (len >= min && len <= max)
+            return;
+        int count = len < min ? min : max;
+        string how = min == max ? "exactly" : len < min ? "at least" : "at most";
+        throw PyTypeError.Create($"{name}() takes {how} {count} argument{Plural(count)} ({len} given)");
     }
 
     /// <summary>

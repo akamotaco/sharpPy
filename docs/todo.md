@@ -39,8 +39,8 @@
 |---|---|---|---|
 | AST | ASDL 하나 | ASDL 하나. 구형 AST와 `Bridge`는 지웠다 | 끝 |
 | 이항 연산 | `binary_op1`, `binary_iop1`, `SLOT1BINFULL`, `sequence_repeat` | 같은 구조로 포팅 (`PyVM.BinaryOp1`, `SlotNumberBinary`, `InPlaceNumber`). C# 진입점도 모두 `ExecuteBinaryOpType`을 지난다. `int`, `float`, `str` 하위 클래스의 이항 슬롯은 값의 슬롯만 부른다. 단항 연산은 아직 CLR 가상 메서드다 | 끝 (단항은 3절) |
-| 속성 조회 | `tp_getattro` 슬롯, 대부분 `PyObject_GenericGetAttr` | `_PyType_Lookup`은 `PyType.FindNameInMro` 하나다. 내장 타입의 Python 하위 클래스는 `slot_tp_getattr_hook`(`SubclassInstanceSupport.GetAttribute`)과 `GenericGetAttr`로 나뉘고 `object.__getattribute__`는 뒤쪽을 부른다. 남은 것: 내장 타입 자체의 `GetAttribute` override가 이름별 switch로 답하는 곳, `TypeMethodCache`의 리플렉션 대체 조회, `LOAD_ATTR`의 메서드 판정 | 진행 중 |
-| 호출 | `tp_call`, vectorcall | Python 클래스의 인스턴스는 `slot_tp_call`(`PyObject.Call`): 타입의 `__call__`을 `lookup_maybe_method`로 묶는다. 남은 것: 내장 타입의 `Call` override 대조 | 진행 중 |
+| 속성 조회 | `tp_getattro` 슬롯, 대부분 `PyObject_GenericGetAttr` | `_PyType_Lookup`은 `PyType.FindNameInMro` 하나다. 내장 타입의 Python 하위 클래스는 `slot_tp_getattr_hook`(`SubclassInstanceSupport.GetAttribute`)과 `GenericGetAttr`로 나뉘고 `object.__getattribute__`는 뒤쪽을 부른다. `LOAD_ATTR`은 타입의 메서드 디스크립터를 묶지 않고 `[descriptor, self]`를 쌓는다(`_PyObject_GetMethod`). 남은 것: 내장 타입 자체의 `GetAttribute` override가 이름별 switch로 답하는 곳 | 진행 중 |
+| 호출 | `tp_call`, vectorcall | Python 클래스의 인스턴스는 `slot_tp_call`(`PyObject.Call`): 타입의 `__call__`을 `lookup_maybe_method`로 묶는다. 내장 메서드의 인자 개수 오류는 호출 규약 표(`core/BuiltinArity.g.cs`, `tools/gen_builtin_arity.py`)를 따른다: `METH_NOARGS`, `METH_O`, clinic, `PyArg_ParseTuple`. `**mapping`으로 부른 `METH_VARARGS` 메서드의 키워드 거부 문구(`tp_call` 경로)는 구분하지 않는다 | 끝 |
 | 인스턴스 생성 | `tp_new` + `tp_init` | 내장 `__new__`는 `tp_new_wrapper`(`PyType.CheckNewArguments`)를 지난다. 클래스 본문에 둔 내장 `__new__`는 `update_one_slot`처럼 물려받은 `tp_new`를 바로 부른다. 남은 것: 가상 메서드 `CreateInstance` | 진행 중 |
 | 오류 전달 | NULL 반환과 스레드 상태 | CLR 예외. `ExecuteFrame`이 어떤 CLR 예외든 Python 예외로 바꾼다 | 유지 |
 | `FOR_ITER`/`END_FOR` | 3.12의 `FOR_ITER`는 소진 시 이터레이터를 꺼내고 `END_FOR`를 건너뛴다(`JUMPBY(oparg + 1)`). `END_FOR`는 `FOR_ITER_GEN` 경로에서만 실행된다 | `FOR_ITER`가 꺼낸다. `FOR_ITER_GEN` 특수화는 없다 | 같음. 점프 계산이 코드 종류별로 셋이다 |

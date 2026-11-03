@@ -31,9 +31,19 @@ namespace SharpPy
                     System.Array.Copy(args, 1, rest, 0, rest.Length);
                     return method._implementation(args[0], rest, kwargs);
                 }) { OwnerClass = ownerType?.Name };
-            _callable = callable;
             if (callable is PyBuiltinFunction function)
                 function.OwnerClass = ownerType.Name;
+            // The method's calling convention checks what follows the class (PyArity).
+            if (PyArity.Of(ownerType, name) is { } convention)
+            {
+                var checkedCallable = callable;
+                callable = new PyBuiltinFunction(name, (args, kwargs) =>
+                {
+                    PyArity.Check(convention, ownerType, name, args[1..], kwargs);
+                    return checkedCallable.Call(args, kwargs);
+                }) { OwnerClass = ownerType.Name };
+            }
+            _callable = callable;
         }
 
         /// <summary>

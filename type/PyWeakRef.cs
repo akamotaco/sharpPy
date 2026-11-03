@@ -130,12 +130,19 @@ namespace SharpPy
         /// ref() - the object, or None. tp_call of PyWeakReference_Type
         /// (Objects/weakrefobject.c weakref_call).
         /// </summary>
-        public override PyObject Call(PyObject[] args, PyDict kwargs) => SlotCall(args);
+        public override PyObject Call(PyObject[] args, PyDict kwargs)
+        {
+            // _PyArg_NoKeywords("weakref", kw)
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("weakref() takes no keyword arguments");
+            return SlotCall(args);
+        }
 
+        // PyArg_UnpackTuple(args, "weakref", 0, 0)
         internal PyObject SlotCall(PyObject[] args)
         {
             if (args != null && args.Length != 0)
-                throw PyTypeError.Create("__call__() takes no arguments");
+                throw PyTypeError.Create($"weakref expected 0 arguments, got {args.Length}");
             return Referent ?? PyNone.Instance;
         }
     }

@@ -937,6 +937,9 @@ namespace SharpPy
             // tp_new_wrapper: a type's __new__ checks the subtype before tp_new.
             if (_owner != null && Name == "__new__")
                 PyType.CheckNewArguments(_owner, args);
+            // METH_STATIC: the method's calling convention (PyArity).
+            else if (_owner != null && PyArity.Of(_owner, Name) is { } convention)
+                PyArity.Check(convention, _owner, Name, args, kwargs);
             return Method(args, kwargs);
         }
 

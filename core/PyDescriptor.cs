@@ -22,6 +22,25 @@ namespace SharpPy
         private readonly int _minArgs;
         private readonly int _maxArgs;
         private readonly bool _acceptsKwargs;
+        private PyArity.Convention _convention;
+        private bool _conventionKnown;
+
+        /// <summary>
+        /// method_vectorcall_*: the checks of the method's calling convention, after descr_check
+        /// and before the body. Without a known convention, the descriptor's own keyword rule.
+        /// </summary>
+        internal void CheckCall(PyObject[] args, PyDict kwargs, bool bound = false)
+        {
+            if (!_conventionKnown)
+            {
+                _convention = PyArity.Of(OwnerType, Name);
+                _conventionKnown = true;
+            }
+            if (_convention != null)
+                PyArity.Check(_convention, OwnerType, Name, args, kwargs, bound);
+            else
+                RejectUnwantedKeywords(kwargs);
+        }
 
         public PyMethodDescriptor(
             string name,
@@ -115,7 +134,8 @@ namespace SharpPy
 
         public override PyObject Call(PyObject[] args, PyDict kwargs)
         {
-            RejectUnwantedKeywords(kwargs);
+            if (Name == "__new__")
+                RejectUnwantedKeywords(kwargs);
 
             // Unbound method call: 첫 번째 인자가 self여야 함
             if (args.Length < 1)
@@ -128,6 +148,8 @@ namespace SharpPy
                 throw PyTypeError.Create($"descriptor '{Name}' for '{OwnerType.FullName}' objects doesn't apply to a '{self.GetTypeName()}' object");
             var actualArgs = new PyObject[args.Length - 1];
             Array.Copy(args, 1, actualArgs, 0, args.Length - 1);
+            if (Name != "__new__")
+                CheckCall(actualArgs, kwargs);
 
             return _implementation(self, actualArgs, kwargs);
         }
@@ -264,7 +286,7 @@ namespace SharpPy
             Console.WriteLine($"   Instance GetTypeName: {Instance?.GetTypeName()}");
 #endif
             // Bound method: self는 이미 바인딩되어 있음
-            MethodDescriptor.RejectUnwantedKeywords(kwargs);
+            MethodDescriptor.CheckCall(args, kwargs, bound: true);
             var result = MethodDescriptor._implementation(Instance, args, kwargs);
 #if DEBUG_DESCRIPTORS_LOG
             Console.WriteLine($"   Result: {result?.GetType().Name}");
