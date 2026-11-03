@@ -644,15 +644,8 @@ namespace SharpPy
                 intType,
                 (args, kwargs) =>
                 {
-                    // args[0] is cls
-                    if (args.Length < 1)
-                        throw PyTypeError.Create("int.__new__(): not enough arguments");
-
-                    PyType cls = args[0] as PyType;
-                    if (cls == null && args[0] is PyClass pyClass)
-                        cls = pyClass.GetPyType();
-                    if (cls == null)
-                        throw PyTypeError.Create("int.__new__(X): X is not a type object");
+                    // args[0] is the type, which tp_new_wrapper has checked.
+                    var cls = (PyType)args[0];
 
                     var converted = FromArguments(args, kwargs, 1);
                     Py_int_t value = converted.Value;

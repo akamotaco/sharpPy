@@ -1560,7 +1560,6 @@ namespace SharpPy
             switch (_kind)
             {
                 case TypeKind.Str:
-                    InitializeStrTypeDescriptors();
                     break;
 
                 case TypeKind.Int:
@@ -1611,74 +1610,11 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// str 타입의 descriptor 테이블 초기화 (CPython unicodeobject.c 참조)
-        /// 실제 descriptor 등록은 PyString.InitializeStringDescriptors()에서 수행됨
-        /// </summary>
-        private void InitializeStrTypeDescriptors()
-        {
-            // str.__new__() - CPython Objects/unicodeobject.c:14871 (tp_new = unicode_new)
-            // This is critical for enum._find_data_type_() to recognize str as a data type
-            TypeDict["__new__"] = new PyBuiltinFunction(
-                "__new__",
-                (args, kwargs) => {
-                    // str.__new__(cls, object='', encoding='utf-8', errors='strict')
-                    if (args.Length == 0)
-                        throw PyTypeError.Create("str.__new__(): not enough arguments");
-
-                    var cls = args[0];
-                    if (cls is not PyType)
-                        throw PyTypeError.Create($"str.__new__(X): X is not a type object ({cls.GetTypeName()})");
-
-                    // If called with just the class, return empty string
-                    if (args.Length == 1)
-                        return new PyString("");
-
-                    var obj = args[1];
-
-                    // Convert object to string
-                    if (obj is PyString pyStr)
-                        return pyStr;
-                    else if (obj is PyInt pyInt)
-                        return pyInt.ToStr();
-                    else if (obj is PyFloat pyFloat)
-                        return new PyString(pyFloat.Value.ToString());
-                    else if (obj is PyBool pyBool)
-                        return new PyString(pyBool.Value ? "True" : "False");
-                    else if (obj is PyNone)
-                        return new PyString("None");
-                    else
-                        // Call __str__ method
-                        return new PyString(obj.ToString());
-                }
-            );
-
-            // PyString.InitializeStringDescriptors()에서 모든 str descriptor를 등록하므로
-            // 여기서는 __new__ 외에는 아무것도 하지 않음 (중복 방지)
-        }
-
-        /// <summary>
         /// int 타입의 descriptor 테이블 초기화 (CPython longobject.c 참조)
         /// </summary>
         private void InitializeIntTypeDescriptors()
         {
             var intType = this;
-
-            // int.__new__() - CPython Objects/longobject.c:5598-5642 (long_new_impl), line 6342 (tp_new = long_new)
-            // This is critical for enum._find_data_type_() to recognize int as a data type
-            TypeDict["__new__"] = new PyBuiltinFunction(
-                "__new__",
-                (args, kwargs) => {
-                    // int.__new__(cls, x=0, base=10)
-                    if (args.Length == 0)
-                        throw PyTypeError.Create("int.__new__(): not enough arguments");
-
-                    var cls = args[0];
-                    if (cls is not PyType)
-                        throw PyTypeError.Create($"int.__new__(X): X is not a type object ({cls.GetTypeName()})");
-
-                    return PyInt.FromArguments(args, kwargs, 1);
-                }
-            );
 
             // int.__repr__() - CPython Objects/longobject.c:long_to_decimal_string
             TypeDict["__repr__"] = new PyMethodDescriptor(
@@ -3338,12 +3274,6 @@ namespace SharpPy
                     if (args.Length > 1)
                         throw PyTypeError.Create(
                             $"tuple expected at most 1 argument, got {args.Length}");
-                    if (!(cls is PyType newCls) || !newCls.IsSubclassOf(TupleType))
-                    {
-                        string clsName = cls is PyType asType ? asType.Name : cls.GetTypeName();
-                        throw PyTypeError.Create(
-                            $"tuple.__new__({clsName}): {clsName} is not a subtype of tuple");
-                    }
 
                     // Get the iterable argument (default to empty tuple)
                     PyObject iterable = null;

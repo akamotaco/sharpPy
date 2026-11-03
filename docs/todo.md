@@ -41,7 +41,7 @@
 | 이항 연산 | `binary_op1`, `binary_iop1`, `SLOT1BINFULL`, `sequence_repeat` | 같은 구조로 포팅 (`PyVM.BinaryOp1`, `SlotNumberBinary`, `InPlaceNumber`). C# 진입점도 모두 `ExecuteBinaryOpType`을 지난다. `int`, `float`, `str` 하위 클래스의 이항 슬롯은 값의 슬롯만 부른다. 단항 연산은 아직 CLR 가상 메서드다 | 끝 (단항은 3절) |
 | 속성 조회 | `tp_getattro` 슬롯, 대부분 `PyObject_GenericGetAttr` | `_PyType_Lookup`은 `PyType.FindNameInMro` 하나다. 내장 타입의 Python 하위 클래스는 `slot_tp_getattr_hook`(`SubclassInstanceSupport.GetAttribute`)과 `GenericGetAttr`로 나뉘고 `object.__getattribute__`는 뒤쪽을 부른다. 남은 것: 내장 타입 자체의 `GetAttribute` override가 이름별 switch로 답하는 곳, `TypeMethodCache`의 리플렉션 대체 조회, `LOAD_ATTR`의 메서드 판정 | 진행 중 |
 | 호출 | `tp_call`, vectorcall | Python 클래스의 인스턴스는 `slot_tp_call`(`PyObject.Call`): 타입의 `__call__`을 `lookup_maybe_method`로 묶는다. 남은 것: 내장 타입의 `Call` override 대조 | 진행 중 |
-| 인스턴스 생성 | `tp_new` + `tp_init` | 내장 `__new__`는 `tp_new_wrapper`(`PyType.CheckNewArguments`)를 지난다. 클래스 본문에 둔 내장 `__new__`는 `update_one_slot`처럼 물려받은 `tp_new`를 바로 부른다. 남은 것: 타입별 `__new__`에 중복된 하위 타입 검사, 가상 메서드 `CreateInstance` | 진행 중 |
+| 인스턴스 생성 | `tp_new` + `tp_init` | 내장 `__new__`는 `tp_new_wrapper`(`PyType.CheckNewArguments`)를 지난다. 클래스 본문에 둔 내장 `__new__`는 `update_one_slot`처럼 물려받은 `tp_new`를 바로 부른다. 남은 것: 가상 메서드 `CreateInstance` | 진행 중 |
 | 오류 전달 | NULL 반환과 스레드 상태 | CLR 예외. `ExecuteFrame`이 어떤 CLR 예외든 Python 예외로 바꾼다 | 유지 |
 | `FOR_ITER`/`END_FOR` | 3.12의 `FOR_ITER`는 소진 시 이터레이터를 꺼내고 `END_FOR`를 건너뛴다(`JUMPBY(oparg + 1)`). `END_FOR`는 `FOR_ITER_GEN` 경로에서만 실행된다 | `FOR_ITER`가 꺼낸다. `FOR_ITER_GEN` 특수화는 없다 | 같음. 점프 계산이 코드 종류별로 셋이다 |
 | 프레임 | `localsplus` 안에 셀 | 같은 구조. `MAKE_CELL`, `COPY_FREE_VARS`가 슬롯에 셀을 두고 `f_locals`는 `frame_get_var`를 따른다 | 끝 |
@@ -89,7 +89,7 @@
 - 5-6. `io` 계층: `open()`과 표준 스트림 모두 `FileIO`→`Buffered*`→`TextIOWrapper`이다(`_iomodule.c`, `pylifecycle.c create_stdio`). 남은 차이: fd 0~2는 설계상 콘솔이라, 표준 출력이 파일로 리디렉션되어도 `seekable()`이 False다(CPython은 True). `sys.stdin`의 `isatty`는 NUL 장치에서 False다(Windows CPython은 True).
 - 5-6a. 수명 모델: CPython gc는 순환 쓰레기의 약한 참조를 `tp_finalize`보다 먼저 지운다(`handle_weakrefs`). SharpPy 가드는 종결자 뒤에 지우므로, 종결자가 `ResourceWarning(source=...)` 등으로 객체를 되살리면 `test_io`의 `test_garbage_collection` 6건처럼 약한 참조가 살아 있다.
 - 5-7. 2026-11-03 새로 돌린 모듈의 큰 묶음: `test_array` 404건(메서드 인자 검사, `fromfile`), `test_itertools`·`test_weakref` 시간 초과, `test_types` `_testinternalcapi`, `test_collections` doctest가 `inspect.getmodule`에서 멈춤, `test_time` `mktime`, `test_sys` 13건, `test_frame` 11건(`frame.clear`, `f_locals`), `test_memoryview` 18건(다차원 형식), `test_struct` 23건.
-- 5-8. `sys.path_hooks`, `sys.path_importer_cache`는 빈 목록이다. 파일 찾기는 C# `PathFinder` 하나다. 테스트 드라이버 밖의 자식 SharpPy에서 `import test.test_threading`은 CPython `importlib/_bootstrap_external.py`가 `winreg`를 찾다 실패한다(`test_4_daemon_threads`를 드라이버에서 건너뛰는 이유). `importlib.util.cache_from_source`는 `__pycache__`와 태그 없이 `a/b.pyc`를 돌려준다.
+- 5-8. `sys.path_hooks`, `sys.path_importer_cache`는 빈 목록이다. C# 내장 모듈(`math` 등)에 `__spec__`이 없다. 파일 찾기는 C# `PathFinder` 하나다. 테스트 드라이버 밖의 자식 SharpPy에서 `import test.test_threading`은 CPython `importlib/_bootstrap_external.py`가 `winreg`를 찾다 실패한다(`test_4_daemon_threads`를 드라이버에서 건너뛰는 이유). `importlib.util.cache_from_source`는 `__pycache__`와 태그 없이 `a/b.pyc`를 돌려준다.
 
 ## 6. PEP 695
 

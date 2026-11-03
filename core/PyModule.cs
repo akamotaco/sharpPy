@@ -208,8 +208,9 @@ public class PyModule : PyObject
             return _cachedDict;
         }
 
-        // PyObject_GenericGetAttr over the type of a module subclass.
-        var declared = (_type as PyClass)?.LookupInMRO(name);
+        // PyObject_GenericGetAttr over the module's type: a data descriptor (object's __class__)
+        // comes before md_dict.
+        var declared = GetPyType().FindNameInMro(name);
         if (declared != null && PyClassInstance.IsDescriptor(declared) && PyClassInstance.IsDataDescriptor(declared))
             return BindSpecialMethod(declared);
 

@@ -222,9 +222,6 @@ namespace SharpPy
                     var rest = args.Length > 1 ? args[1..] : System.Array.Empty<PyObject>();
                     if (requested is PyClass requestedClass && !ReferenceEquals(requestedClass, bytesType))
                         return PyBytesSubclass.BytesSubtypeNew(requestedClass, rest, kwargs);
-                    if (!(requested is PyType))
-                        throw PyTypeError.Create(
-                            $"bytes.__new__(X): X is not a type object ({requested.GetTypeName()})");
                     return PyBuiltinFunction.CallBytes(rest, kwargs);
                 });
 
