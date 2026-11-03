@@ -809,8 +809,12 @@ namespace SharpPy
                 "f_trace_lines" => PyBool.FromBool(TraceLines),
                 "f_trace_opcodes" => PyBool.False,  // Default to False
 
-                // frame_clear: nothing here holds locals past the frame.
-                "clear" => new PyBuiltinFunction("clear", args => PyNone.Instance),
+                "clear" => new PyBuiltinFunction("clear", args =>
+                {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"frame.clear() takes no arguments ({args.Length} given)");
+                    return FrameClear();
+                }),
 
                 _ => GenericGetAttribute(name)
             };
@@ -925,26 +929,45 @@ namespace SharpPy
             return result;
         }
 
+        /// <summary>The generator, coroutine or async generator this frame belongs to (FRAME_OWNED_BY_GENERATOR).</summary>
+        internal PyObject OwnerGenerator;
+
+        // frame_clear (Objects/frameobject.c): a generator's frame closes its generator unless it is
+        // running; a frame on a thread's stack cannot be cleared; any other frame lets go of its locals.
+        private PyObject FrameClear()
+        {
+            var running = PyRuntimeError.Create("cannot clear an executing frame");
+            if (OwnerGenerator != null)
+            {
+                if (State == FrameState.Executing)
+                    throw running;
+                // _PyGen_Finalize: close() unless never started or already done; failures are unraisable.
+                if (State == FrameState.Suspended)
+                {
+                    try { OwnerGenerator.GetAttribute("close").Call(Array.Empty<PyObject>(), null); }
+                    catch (PythonException error) { PyUnraisable.Report(error, OwnerGenerator); }
+                }
+            }
+            else if (PyVM.Instance.IsOnStack(this))
+                throw running;
+            else
+                Clear();
+            return PyNone.Instance;
+        }
+
         /// <summary>
-        /// CPython 3.12: Clear frame locals to break reference cycles
-        /// Called when frame is no longer needed
+        /// frame_tp_clear: the frame drops f_trace, its fast locals, its cells and its value stack. A
+        /// cell is let go, not emptied, since a closure may still share it; a locals dict (module,
+        /// class body) is not the frame's to clear.
         /// </summary>
         public void Clear()
         {
-            // Clear LocalsPlus array
+            Trace = null;
             for (int i = 0; i < LocalsPlus.Length; i++)
-            {
                 LocalsPlus[i] = PyNull.Instance;
-            }
-
-            // Clear cells
-            foreach (var cell in Cells)
-            {
-                cell.Value = PyNull.Instance;
-            }
-
-            // Clear local scope
-            LocalScope?.Variables.Clear();
+            for (int i = 0; i < Cells.Length; i++)
+                Cells[i] = new PyCell();
+            ValueStack.Clear();
         }
     }
 
@@ -965,6 +988,15 @@ namespace SharpPy
 
         // Current frame for zero-argument super() calls
         public static PyFrame? CurrentFrame => Instance._frameStack.Count > 0 ? Instance._frameStack.Peek() : null;
+
+        // FRAME_OWNED_BY_THREAD: the frame is on this thread's stack, running or waiting on a call.
+        internal bool IsOnStack(PyFrame frame)
+        {
+            foreach (var entry in _frameStack)
+                if (ReferenceEquals(entry, frame))
+                    return true;
+            return false;
+        }
 
         // CPython 3.12: Get current frame for sys.exc_info() and other introspection
         public static PyFrame? GetCurrentFrame() => CurrentFrame;

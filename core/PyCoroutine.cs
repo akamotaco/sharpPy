@@ -133,6 +133,7 @@ namespace SharpPy.Core
             _frame = frame ?? throw new ArgumentNullException(nameof(frame));
             _vm = vm ?? throw new ArgumentNullException(nameof(vm));
             Name = name;
+            _frame.OwnerGenerator = this;
 
             // Coroutine frame은 특별한 플래그를 가짐
             _frame.IsGenerator = true; // 내부적으로는 generator 메커니즘 사용

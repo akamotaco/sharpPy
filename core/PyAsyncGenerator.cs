@@ -72,6 +72,7 @@ namespace SharpPy.Core
         {
             _frame = frame;
             _generator = new PyGenerator(frame, vm, name);
+            frame.OwnerGenerator = this;
             Name = name;
             NameValue = new PyString(name);
             Qualname = new PyString(qualname ?? frame.Code.QualName ?? name);

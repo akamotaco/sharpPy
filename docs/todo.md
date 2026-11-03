@@ -43,7 +43,7 @@
 | 호출 | `tp_call`, vectorcall | `Call` override 34개 | 대조 필요 |
 | 인스턴스 생성 | `tp_new` + `tp_init` | 가상 메서드 `CreateInstance`, 일부만 `ConstructedByNewSlot` | 대조 필요 |
 | 오류 전달 | NULL 반환과 스레드 상태 | CLR 예외. `ExecuteFrame`이 어떤 CLR 예외든 Python 예외로 바꾼다 | 유지 |
-| `FOR_ITER`/`END_FOR` | 소진 시 이터레이터를 스택에 남기고 `END_FOR`가 둘을 꺼낸다 | `FOR_ITER`가 꺼내고 `END_FOR`는 표시만 한다 | 고친다 |
+| `FOR_ITER`/`END_FOR` | 3.12의 `FOR_ITER`는 소진 시 이터레이터를 꺼내고 `END_FOR`를 건너뛴다(`JUMPBY(oparg + 1)`). `END_FOR`는 `FOR_ITER_GEN` 경로에서만 실행된다 | `FOR_ITER`가 꺼낸다. `FOR_ITER_GEN` 특수화는 없다 | 같음. 점프 계산이 코드 종류별로 셋이다 |
 | 프레임 | `localsplus` 안에 셀 | `Cells`가 따로 있음 (P0-81) | 고친다 |
 | 컴파일러 | `symtable.c`, `ast_opt.c`, `compile.c` | `runtime/symtable.cs`, `runtime/future.cs`, `runtime/compiler/`가 같은 함수 이름으로 대응한다. 진입점은 `Compiler.CompileSource` 하나 | 끝 |
 | import | `importlib._bootstrap` | C# 로더 | 라이브러리 정책과 함께 결정 |
@@ -84,7 +84,6 @@
 
 - 5-0. 라이브러리 복사: `encodings`, `pickle`, `warnings`, `_collections_abc`, `dis`, `opcode`, `inspect`, `dataclasses`, `tokenize`, `linecache`, `tracemalloc`, `abc`, `types`, `keyword`, `io`, `stat`, `colorsys`, `collections.abc`는 CPython 원본이다. `_warnings`는 `Lib/_warnings.py`, `_tracemalloc`는 추적 없는 스텁이다. `collections/__init__.py`, `os.py`, `pathlib.py`, `hashlib.py`, `shutil.py`, `asyncio`는 아직 수정본이다.
 - 5-1. `importlib`: `Lib/importlib/`는 네이티브 import 위의 얇은 패키지다. `machinery`의 클래스는 이름만 있다.
-- 5-1a. `TextIOWrapper`를 직접 호출하면 `core/PyTextWrapper.cs`가 버퍼를 한 번에 읽는다. `open()`의 경로와 합칠 대상이다.
 - 5-2. `os.open` 20건, `tempfile` 없음.
 - 5-4. `weakref` 프록시, `bytearray %`.
 - 5-5. 그 밖의 라이브러리 목록은 P0-83. 필요성이 확인된 것만 한다.

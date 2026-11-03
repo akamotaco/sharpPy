@@ -110,6 +110,7 @@ namespace SharpPy
             _frame = frame ?? throw new ArgumentNullException(nameof(frame));
             _vm = vm ?? throw new ArgumentNullException(nameof(vm));
             _finished = false;
+            _frame.OwnerGenerator = this;
             Name = name;
             Qualname = new PyString(frame.Code.QualName ?? name);
             
