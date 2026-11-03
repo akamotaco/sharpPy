@@ -52,28 +52,19 @@ namespace SharpPy
 
         #region Arithmetic - float semantics, result reported as plain float (CPython)
 
-        /// <summary>
-        /// CPython resolves the arithmetic slot through the subclass, so a dunder the user declared
-        /// wins and the base slot on the value only runs when they declared none (measured: a float
-        /// subclass with __add__ answers 'user-add', an int subclass with __add__ answers
-        /// 'user-iadd'; SharpPy answered 4.5 and 7). Only user frames are consulted here, because
-        /// going through the full MRO would land on int's/float's own slot delegate, which reads the
-        /// value back through this same CLR virtual and recurses.
-        /// </summary>
-        private PyObject Num(string dunder, PyObject other, System.Func<PyObject> valueOp)
-            => CallUserSpecialOrNull(dunder, new[] { other }) ?? valueOp();
-
+        // The unary slots dispatch on the CLR virtual, so a written __neg__ is read here.
         private PyObject Num0(string dunder, System.Func<PyObject> valueOp)
             => CallUserSpecialOrNull(dunder, System.Array.Empty<PyObject>()) ?? valueOp();
 
-
-        public override PyObject Add(PyObject other) => Num("__add__", other, () => _floatValue.Add(other));
-        public override PyObject Subtract(PyObject other) => Num("__sub__", other, () => _floatValue.Subtract(other));
-        public override PyObject Multiply(PyObject other) => Num("__mul__", other, () => _floatValue.Multiply(other));
-        public override PyObject Divide(PyObject other) => Num("__truediv__", other, () => _floatValue.Divide(other));
-        public override PyObject FloorDivide(PyObject other) => Num("__floordiv__", other, () => _floatValue.FloorDivide(other));
-        public override PyObject Modulo(PyObject other) => Num("__mod__", other, () => _floatValue.Modulo(other));
-        public override PyObject Power(PyObject other) => Num("__pow__", other, () => _floatValue.Power(other));
+        // The binary slots are the base type's on the value. A dunder the class writes is
+        // slot_nb_* on the type, which binary_op1 and SLOT1BINFULL (PyVM.BinaryOp1) call first.
+        public override PyObject Add(PyObject other) => _floatValue.Add(other);
+        public override PyObject Subtract(PyObject other) => _floatValue.Subtract(other);
+        public override PyObject Multiply(PyObject other) => _floatValue.Multiply(other);
+        public override PyObject Divide(PyObject other) => _floatValue.Divide(other);
+        public override PyObject FloorDivide(PyObject other) => _floatValue.FloorDivide(other);
+        public override PyObject Modulo(PyObject other) => _floatValue.Modulo(other);
+        public override PyObject Power(PyObject other) => _floatValue.Power(other);
         public override PyObject Negative() => Num0("__neg__", () => _floatValue.Negative());
         public override PyObject Positive() => Num0("__pos__", () => _floatValue.Positive());
 

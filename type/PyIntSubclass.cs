@@ -54,50 +54,41 @@ namespace SharpPy
 
         #region Arithmetic Operations - Delegate to PyInt
 
-        /// <summary>
-        /// CPython resolves the arithmetic slot through the subclass, so a dunder the user declared
-        /// wins and the base slot on the value only runs when they declared none (measured: a float
-        /// subclass with __add__ answers 'user-add', an int subclass with __add__ answers
-        /// 'user-iadd'; SharpPy answered 4.5 and 7). Only user frames are consulted here, because
-        /// going through the full MRO would land on int's/float's own slot delegate, which reads the
-        /// value back through this same CLR virtual and recurses.
-        /// </summary>
-        private PyObject Num(string dunder, PyObject other, System.Func<PyObject> valueOp)
-            => CallUserSpecialOrNull(dunder, new[] { other }) ?? valueOp();
-
+        // The unary slots dispatch on the CLR virtual, so a written __neg__ is read here.
         private PyObject Num0(string dunder, System.Func<PyObject> valueOp)
             => CallUserSpecialOrNull(dunder, System.Array.Empty<PyObject>()) ?? valueOp();
 
-
+        // The binary slots are the base type's on the value. A dunder the class writes is
+        // slot_nb_* on the type, which binary_op1 and SLOT1BINFULL (PyVM.BinaryOp1) call first.
         public override PyObject Add(PyObject other)
         {
             // CPython: int 연산 결과는 base int 타입 반환
-            return Num("__add__", other, () => _intValue.Add(other));
+            return _intValue.Add(other);
         }
 
         public override PyObject Subtract(PyObject other)
         {
-            return Num("__sub__", other, () => _intValue.Subtract(other));
+            return _intValue.Subtract(other);
         }
 
         public override PyObject Multiply(PyObject other)
         {
-            return Num("__mul__", other, () => _intValue.Multiply(other));
+            return _intValue.Multiply(other);
         }
 
         public override PyObject Divide(PyObject other)
         {
-            return Num("__truediv__", other, () => _intValue.Divide(other));
+            return _intValue.Divide(other);
         }
 
         public override PyObject FloorDivide(PyObject other)
         {
-            return Num("__floordiv__", other, () => _intValue.FloorDivide(other));
+            return _intValue.FloorDivide(other);
         }
 
         public override PyObject Modulo(PyObject other)
         {
-            return Num("__mod__", other, () => _intValue.Modulo(other));
+            return _intValue.Modulo(other);
         }
 
         /// <summary>
@@ -133,7 +124,7 @@ namespace SharpPy
 
         public override PyObject Power(PyObject other)
         {
-            return Num("__pow__", other, () => _intValue.Power(other));
+            return _intValue.Power(other);
         }
 
         #endregion
@@ -154,130 +145,16 @@ namespace SharpPy
 
         #region Bitwise Operations - Use Python special methods
 
-        // CPython 3.12: IntFlag bitwise operations are handled by Python-level __or__, __and__, etc.
-        // Lib/enum.py:1550-1596 - Flag.__or__, Flag.__and__, Flag.__xor__, Flag.__invert__
-        //
-        // These methods call self.__class__(value | other_value) to create a new instance
-        // of the same type with the combined flags.
-        //
-        // IMPORTANT: We must check for __or__ etc. in the MRO first, before falling back
-        // to the default int bitwise operations. This matches CPython's special method lookup.
+        // nb_and, nb_or, nb_xor, nb_lshift, nb_rshift: int's on the value; a written __or__ (Flag)
+        // is reached through binary_op1 first.
+        public override PyObject BitwiseAnd(PyObject other) => _intValue.BitwiseAnd(other);
+        public override PyObject BitwiseOr(PyObject other) => _intValue.BitwiseOr(other);
+        public override PyObject BitwiseXor(PyObject other) => _intValue.BitwiseXor(other);
+        public override PyObject LeftShift(PyObject other) => _intValue.LeftShift(other);
+        public override PyObject RightShift(PyObject other) => _intValue.RightShift(other);
 
-        public override PyObject BitwiseAnd(PyObject other)
-        {
-            // CPython: Objects/typeobject.c:8110-8130 - slot_nb_and calls __and__
-            // Check if class defines __and__ method
-            try
-            {
-                var andMethod = LookupSpecialMethod("__and__");
-                if (andMethod != null)
-                {
-                    // Call the Python __and__ method
-                    return andMethod.Call(new PyObject[] { this, other }, null);
-                }
-            }
-            catch
-            {
-                // If special method lookup fails, fall through to default
-            }
-
-            // Fallback: use int's bitwise and
-            return _intValue.BitwiseAnd(other);
-        }
-
-        public override PyObject BitwiseOr(PyObject other)
-        {
-            // CPython: Objects/typeobject.c:8110-8130 - slot_nb_or calls __or__
-            // Check if class defines __or__ method (e.g., Flag.__or__)
-            try
-            {
-                var orMethod = LookupSpecialMethod("__or__");
-                if (orMethod != null)
-                {
-                    return orMethod.Call(new PyObject[] { this, other }, null);
-                }
-            }
-            catch
-            {
-                // Fallback
-            }
-
-            return _intValue.BitwiseOr(other);
-        }
-
-        public override PyObject BitwiseXor(PyObject other)
-        {
-            // CPython: Objects/typeobject.c:8110-8130 - slot_nb_xor calls __xor__
-            try
-            {
-                var xorMethod = LookupSpecialMethod("__xor__");
-                if (xorMethod != null)
-                {
-                    return xorMethod.Call(new PyObject[] { this, other }, null);
-                }
-            }
-            catch
-            {
-                // Fallback
-            }
-
-            return _intValue.BitwiseXor(other);
-        }
-
-        public override PyObject BitwiseNot()
-        {
-            // CPython: Objects/typeobject.c:8110-8130 - slot_nb_invert calls __invert__
-            try
-            {
-                var invertMethod = LookupSpecialMethod("__invert__");
-                if (invertMethod != null)
-                {
-                    return invertMethod.Call(new PyObject[] { this }, null);
-                }
-            }
-            catch
-            {
-                // Fallback
-            }
-
-            return _intValue.BitwiseNot();
-        }
-
-        public override PyObject LeftShift(PyObject other)
-        {
-            try
-            {
-                var lshiftMethod = LookupSpecialMethod("__lshift__");
-                if (lshiftMethod != null)
-                {
-                    return lshiftMethod.Call(new PyObject[] { this, other }, null);
-                }
-            }
-            catch
-            {
-                // Fallback
-            }
-
-            return _intValue.LeftShift(other);
-        }
-
-        public override PyObject RightShift(PyObject other)
-        {
-            try
-            {
-                var rshiftMethod = LookupSpecialMethod("__rshift__");
-                if (rshiftMethod != null)
-                {
-                    return rshiftMethod.Call(new PyObject[] { this, other }, null);
-                }
-            }
-            catch
-            {
-                // Fallback
-            }
-
-            return _intValue.RightShift(other);
-        }
+        // nb_invert: a unary slot, dispatched on the CLR virtual, so a written __invert__ is read here.
+        public override PyObject BitwiseNot() => Num0("__invert__", () => _intValue.BitwiseNot());
 
         #endregion
 

@@ -53,27 +53,11 @@ namespace SharpPy
 
         #region String Operations - Delegate to PyString
 
-        /// <summary>
-        /// Same rule that closed P0-23 for the numeric wrappers: CPython resolves sq_concat,
-        /// sq_length, sq_item and tp_richcompare through type(v), and for a heap type those slots
-        /// are the wrapper around whatever dunder the class publishes. So a user declaration wins
-        /// and the payload slot only runs when they declared none. Only user frames are consulted,
-        /// because the full MRO lands on str's own slot delegate, which comes back through this
-        /// same virtual.
-        /// </summary>
-        private PyObject StrOp(string dunder, PyObject[] args, System.Func<PyObject> valueOp)
-            => CallUserSpecialOrNull(dunder, args) ?? valueOp();
-
-        public override PyObject Add(PyObject other) =>
-            StrOp("__add__", new[] { other }, () => _strValue.Add(other));
-
-        public override PyObject Multiply(PyObject other) =>
-            StrOp("__mul__", new[] { other }, () => _strValue.Multiply(other));
-
-        // SS("%s") % 7 dispatches the % operator virtually; without this override
-        // the subclass fell through to the generic unsupported-operand error.
-        public override PyObject Modulo(PyObject other) =>
-            StrOp("__mod__", new[] { other }, () => _strValue.Modulo(other));
+        // sq_concat, sq_repeat and nb_remainder of str on the value. A written __add__, __mul__ or
+        // __mod__ is slot_nb_* on the type, which binary_op1 (PyVM.BinaryOp1) calls first.
+        public override PyObject Add(PyObject other) => _strValue.Add(other);
+        public override PyObject Multiply(PyObject other) => _strValue.Multiply(other);
+        public override PyObject Modulo(PyObject other) => _strValue.Modulo(other);
 
         // CPython 3.12: str subclasses inherit the whole unicode protocol; these slots
         // were missing, so len()/indexing/slices/`in`/iteration failed on subclasses.
