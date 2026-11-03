@@ -11,7 +11,7 @@ internal static class FrameChecks
             new PyScopeChain(function.GlobalsDict, "probe"));
         var other = new PyFrame(function.CodeObject, Array.Empty<PyObject>(),
             new PyScopeChain(function.GlobalsDict, "probe"));
-        if (frame.Cells.Length != 0 || frame.Closure.Length != 0 || frame.LocalsPlus.Length != 0)
+        if (frame.Closure.Length != 0 || frame.LocalsPlus.Length != 0)
             throw new InvalidOperationException("Empty frame storage changed");
         frame.PopExceptionHandler();
         if (frame.GetExceptionHandler() != null) throw new InvalidOperationException("Empty handler result changed");
@@ -49,24 +49,5 @@ internal static class FrameChecks
         var observed = (PyDict)scopeFrame.GetAttribute("f_locals");
         if (((PyInt)observed.GetItem(new PyString("value"))).Value != 1)
             throw new InvalidOperationException("Initial locals key cache changed values");
-        try
-        {
-            probeCode.VarNames[0] = "renamed";
-            observed = (PyDict)scopeFrame.GetAttribute("f_locals");
-            if (((PyInt)observed.GetItem(new PyString("renamed"))).Value != 1)
-                throw new InvalidOperationException("Locals key cache retained a stale metadata name");
-            probeCode.VarNames.Add("later");
-            var resized = new PyFrame(probeCode, new PyObject[] { SmallIntCache.One },
-                new PyScopeChain(probe.GlobalsDict, "probe"));
-            resized.LocalsPlus[1] = new PyInt(2);
-            observed = (PyDict)resized.GetAttribute("f_locals");
-            if (((PyInt)observed.GetItem(new PyString("later"))).Value != 2)
-                throw new InvalidOperationException("Locals key cache did not resize with metadata");
-        }
-        finally
-        {
-            probeCode.VarNames[0] = "value";
-            if (probeCode.VarNames.Count > 1) probeCode.VarNames.RemoveAt(1);
-        }
     }
 }

@@ -98,9 +98,6 @@ namespace SharpPy
         public int CurrentColumnOffset { get; set; } = -1;
         public string? CurrentFileName { get; set; }
 
-        // CPython-style closure support
-        public PyCell[] Cells { get; set; } = Array.Empty<PyCell>();     // 클로저 셀들 (freevars + cellvars)
-
         // CPython 3.12: Keyword names for next CALL instruction
         public PyTuple? KeywordNamesForNextCall { get; set; }
         public PyCell[] Closure { get; set; } = Array.Empty<PyCell>();   // 부모로부터 받은 클로저 셀들
@@ -170,14 +167,12 @@ namespace SharpPy
             // 부모 스코프 체인이 있으면 상속, 없으면 새로 생성
             ScopeChain = parentScope ?? new PyScopeChain();
 
-            // CPython 3.12: Initialize LocalsPlus array for fast local variable access
-            int nlocals = code.VarNames.Count;
-            LocalsPlus = nlocals == 0 ? Array.Empty<PyObject>() : new PyObject[nlocals];
-            // Initialize all to PyNull (uninitialized marker)
-            for (int i = 0; i < nlocals; i++)
-            {
+            // _PyFrame_Initialize: co_nlocalsplus slots, all NULL. The cells and free variables
+            // are in them too, put there by MAKE_CELL and COPY_FREE_VARS.
+            int nlocalsplus = code.NLocalsPlus;
+            LocalsPlus = nlocalsplus == 0 ? Array.Empty<PyObject>() : new PyObject[nlocalsplus];
+            for (int i = 0; i < nlocalsplus; i++)
                 LocalsPlus[i] = PyNull.Instance;
-            }
 
             InstructionPointer = 0;
 
@@ -190,29 +185,8 @@ namespace SharpPy
             // Initialize filename from code object
             CurrentFileName = code.FileName;
 
-            // 클로저 정보 설정
+            // func_closure, which COPY_FREE_VARS copies into the free slots.
             Closure = closure ?? Array.Empty<PyCell>();
-
-            // CPython 3.12: Cells array includes both FreeVars (first) and CellVars (after)
-            int freeVarCount = code.FreeVars?.Count ?? 0;
-            int cellVarCount = code.CellVars?.Count ?? 0;
-            int totalCellCount = freeVarCount + cellVarCount;
-
-            if (totalCellCount > 0)
-            {
-                Cells = new PyCell[totalCellCount];
-                for (int i = 0; i < Cells.Length; i++)
-                {
-                    Cells[i] = new PyCell(); // 빈 셀로 초기화
-                }
-#if DEBUG_LOG
-                Console.WriteLine($"🆕 Frame Cells initialized: {freeVarCount} FreeVars + {cellVarCount} CellVars = {totalCellCount} total cells");
-#endif
-            }
-            else
-            {
-                Cells = Array.Empty<PyCell>();
-            }
 
             // 함수 스코프 생성 (모듈 실행인 경우 제외)
             if (!IsModuleExecution(code.Name))
@@ -855,28 +829,58 @@ namespace SharpPy
             return new PyDict(localsDict);
         }
 
-        internal (string Name, int CellIndex, bool IsFree) ResolveDerefOperand(int offset)
+        /// <summary>GETLOCAL(oparg) of a *_DEREF instruction: the cell MAKE_CELL or COPY_FREE_VARS put there.</summary>
+        internal PyCell CellAt(int index) => (PyCell)LocalsPlus[index];
+
+        /// <summary>format_exc_unbound (Python/ceval.c): a cell is a local, a free variable is not.</summary>
+        internal Exception UnboundDeref(int index)
         {
-            int freeCount = Code.FreeVars.Count;
-            if (offset < Code.VarNames.Count)
+            string name = Code.LocalsPlusNames[index];
+            return index < Code.FirstFree
+                ? PyUnboundLocalError.Create($"cannot access local variable '{name}' where it is not associated with a value")
+                : PyNameError.Create($"cannot access free variable '{name}' where it is not associated with a value in enclosing scope", name);
+        }
+
+        /// <summary>
+        /// _PyFrame_OpAlreadyRan (Objects/frameobject.c): whether an instruction before the current one
+        /// is opcode with oparg.
+        /// </summary>
+        private bool OpAlreadyRan(ByteCodeOp opcode, int oparg)
+        {
+            var code = Code.Tables.Code;
+            int checkOparg = 0;
+            for (int unit = 0; unit < LastInstruction && 2 * unit + 1 < code.Length; unit++)
             {
-                string name = Code.VarNames[offset];
-                if (Code.CellVarIndexMap.TryGetValue(name, out int index))
-                    return (name, freeCount + index, false);
+                var checkOpcode = (ByteCodeOp)code[2 * unit];
+                checkOparg |= code[2 * unit + 1];
+                if (checkOpcode == opcode && checkOparg == oparg)
+                    return true;
+                checkOparg = checkOpcode == ByteCodeOp.EXTENDED_ARG ? checkOparg << 8 : 0;
+                unit += PyAssemble.GetInlineCacheSize(checkOpcode);
             }
-            else
-            {
-                int remaining = offset - Code.VarNames.Count;
-                for (int i = 0; i < Code.CellVars.Count; i++)
-                    if (!Code.VarNameSet.Contains(Code.CellVars[i]))
-                    {
-                        if (remaining == 0) return (Code.CellVars[i], freeCount + i, false);
-                        remaining--;
-                    }
-                if (remaining >= 0 && remaining < freeCount)
-                    return (Code.FreeVars[remaining], remaining, true);
-            }
-            throw PyRuntimeError.Create($"Invalid closure localsplus offset {offset}");
+            return false;
+        }
+
+        /// <summary>
+        /// frame_get_var (Objects/frameobject.c): the value of localsplus slot i as f_locals sees it,
+        /// or false when an unoptimized namespace leaves a free variable out. A free slot holds its
+        /// cell; a cell slot holds its cell once MAKE_CELL has run, and the argument before that.
+        /// </summary>
+        internal bool FrameGetVar(int index, out PyObject value)
+        {
+            byte kind = Code.LocalsPlusKinds[index];
+            value = null;
+            if ((kind & PyCodeObject.FastFree) != 0 && (Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0)
+                return false;
+            var slot = LocalsPlus[index];
+            if (PyNull.IsNull(slot))
+                return true;
+            if ((kind & PyCodeObject.FastFree) != 0)
+                slot = ((PyCell)slot).Value;
+            else if ((kind & PyCodeObject.FastCell) != 0 && slot is PyCell cell && OpAlreadyRan(ByteCodeOp.MAKE_CELL, index))
+                slot = cell.Value;
+            value = slot == null || PyNull.IsNull(slot) ? null : slot;
+            return true;
         }
 
         internal void RecordParameterInScope(string name, PyObject value)
@@ -887,45 +891,30 @@ namespace SharpPy
 
         internal void RefreshScopeLocals(IDictionary<string, PyObject> result)
         {
-            static void Sync(IDictionary<string, PyObject> result, string name, PyObject value)
+            for (int i = 0; i < LocalsPlus.Length; i++)
             {
-                if (value != null && !PyNull.IsNull(value)) result[name] = value;
-                else result.Remove(name);
+                if (!FrameGetVar(i, out var value))
+                    continue;
+                if (value != null) result[Code.LocalsPlusNames[i]] = value;
+                else result.Remove(Code.LocalsPlusNames[i]);
             }
-            for (int i = 0; i < Code.VarNames.Count && i < LocalsPlus.Length; i++)
-                Sync(result, Code.VarNames[i], LocalsPlus[i]);
-            int freeCount = Code.FreeVars?.Count ?? 0;
-            for (int i = 0; i < (Code.CellVars?.Count ?? 0) && freeCount + i < Cells.Length; i++)
-                Sync(result, Code.CellVars[i], Cells[freeCount + i].Value);
-            for (int i = 0; i < freeCount && i < Cells.Length; i++)
-                Sync(result, Code.FreeVars[i], Cells[i].Value);
         }
 
-        // CPython 3.12 Objects/frameobject.c: _PyFrame_GetLocals refreshes
-        // one retained dictionary from fast locals/cells. Dictionary writes
-        // alone do not write back to fast locals (tracing is a separate path).
+        // _PyFrame_GetLocals (Objects/frameobject.c): one retained dict, refreshed from the
+        // localsplus slots. Writes to the dict alone do not reach the slots.
         internal PyDict GetOptimizedLocals()
         {
             var result = _localsDict ??= new PyDict();
-            static void Sync(PyDict result, PyString key, PyObject value)
+            var keys = Code.LocalsPlusKeys;
+            for (int i = 0; i < LocalsPlus.Length; i++)
             {
-                if (value != null && !PyNull.IsNull(value))
-                    result.SetItem(key, value);
-                else if (result.InternalDict.ContainsKey(key))
-                    result.DelItem(key);
+                if (!FrameGetVar(i, out var value))
+                    continue;
+                if (value != null)
+                    result.SetItem(keys[i], value);
+                else if (result.InternalDict.ContainsKey(keys[i]))
+                    result.DelItem(keys[i]);
             }
-            var localNames = Code.GetLocalNameKeys();
-            var cellNames = Code.GetCellNameKeys();
-            var freeNames = Code.GetFreeNameKeys();
-            for (int i = 0; i < localNames.Length && i < LocalsPlus.Length; i++)
-                Sync(result, localNames[i], LocalsPlus[i]);
-            int freeCount = freeNames.Length;
-            int cellCount = cellNames.Length;
-            for (int i = 0; i < cellCount; i++)
-                if (freeCount + i < Cells.Length)
-                    Sync(result, cellNames[i], Cells[freeCount + i].Value);
-            for (int i = 0; i < freeCount && i < Cells.Length; i++)
-                Sync(result, freeNames[i], Cells[i].Value);
             return result;
         }
 
@@ -956,17 +945,15 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// frame_tp_clear: the frame drops f_trace, its fast locals, its cells and its value stack. A
-        /// cell is let go, not emptied, since a closure may still share it; a locals dict (module,
-        /// class body) is not the frame's to clear.
+        /// frame_tp_clear: the frame drops f_trace, its localsplus slots and its value stack. A cell
+        /// is let go, not emptied, since a closure may still share it; a locals dict (module, class
+        /// body) is not the frame's to clear.
         /// </summary>
         public void Clear()
         {
             Trace = null;
             for (int i = 0; i < LocalsPlus.Length; i++)
                 LocalsPlus[i] = PyNull.Instance;
-            for (int i = 0; i < Cells.Length; i++)
-                Cells[i] = new PyCell();
             ValueStack.Clear();
         }
     }
@@ -5611,153 +5598,66 @@ namespace SharpPy
                         ?? throw CreateNameErrorWithSuggestion(mappedName, frame));
                     break;
 
+                // The deref instructions (Python/bytecodes.c): oparg is a localsplus slot holding a cell.
                 case ByteCodeOp.LOAD_FROM_DICT_OR_DEREF:
-                    var closureMapping = frame.ValueStack.Pop();
-                    var closureOperand = frame.ResolveDerefOperand(argument);
-                    var closureNameKey = new PyString(closureOperand.Name);
-                    PyObject mappedClosureValue = LookupNamespaceMapping(closureMapping, closureNameKey);
-                    if (mappedClosureValue != null)
-                        frame.ValueStack.Push(mappedClosureValue);
-                    else if (closureOperand.CellIndex >= 0 && closureOperand.CellIndex < frame.Cells.Length &&
-                             frame.Cells[closureOperand.CellIndex].HasValue)
-                        frame.ValueStack.Push(frame.Cells[closureOperand.CellIndex].Value);
-                    else if (closureOperand.IsFree)
-                        throw PyNameError.Create($"cannot access free variable '{closureOperand.Name}' where it is not associated with a value in enclosing scope", closureOperand.Name);
-                    else
-                        throw PyUnboundLocalError.Create($"cannot access local variable '{closureOperand.Name}' where it is not associated with a value");
+                {
+                    var classDict = frame.ValueStack.Pop();
+                    var mappedClosureValue = LookupNamespaceMapping(classDict, frame.Code.LocalsPlusKeys[argument]);
+                    if (mappedClosureValue == null)
+                    {
+                        var cell = frame.CellAt(argument);
+                        if (!cell.HasValue)
+                            throw frame.UnboundDeref(argument);
+                        mappedClosureValue = cell.Value;
+                    }
+                    frame.ValueStack.Push(mappedClosureValue);
                     break;
+                }
 
                 case ByteCodeOp.LOAD_DEREF:
-                    var loadOperand = frame.ResolveDerefOperand(argument);
-                    var loadedCell = frame.Cells[loadOperand.CellIndex];
-                    if (loadedCell.HasValue)
-                        frame.ValueStack.Push(loadedCell.Value!);
-                    else if (loadOperand.IsFree)
-                        throw PyNameError.Create($"cannot access free variable '{loadOperand.Name}' where it is not associated with a value in enclosing scope", loadOperand.Name);
-                    else
-                        throw PyUnboundLocalError.Create($"cannot access local variable '{loadOperand.Name}' where it is not associated with a value");
+                {
+                    var cell = frame.CellAt(argument);
+                    if (!cell.HasValue)
+                        throw frame.UnboundDeref(argument);
+                    frame.ValueStack.Push(cell.Value);
                     break;
+                }
 
                 case ByteCodeOp.STORE_DEREF:
-                    var storeOperand = frame.ResolveDerefOperand(argument);
-                    frame.Cells[storeOperand.CellIndex].SetValue(frame.ValueStack.Pop());
+                    frame.CellAt(argument).SetValue(frame.ValueStack.Pop());
                     break;
 
                 case ByteCodeOp.DELETE_DEREF:
-                    var deleteOperand = frame.ResolveDerefOperand(argument);
-                    var deletedCell = frame.Cells[deleteOperand.CellIndex];
-                    if (deletedCell.HasValue)
-                        deletedCell.Clear();
-                    else if (deleteOperand.IsFree)
-                        throw PyNameError.Create($"cannot access free variable '{deleteOperand.Name}' where it is not associated with a value in enclosing scope", deleteOperand.Name);
-                    else
-                        throw PyUnboundLocalError.Create($"cannot access local variable '{deleteOperand.Name}' where it is not associated with a value");
+                {
+                    var cell = frame.CellAt(argument);
+                    if (!cell.HasValue)
+                        throw frame.UnboundDeref(argument);
+                    cell.Clear();
                     break;
+                }
 
+                // LOAD_CLOSURE: LOAD_FAST_CHECK under another name, kept for readable bytecode.
                 case ByteCodeOp.LOAD_CLOSURE:
-                    // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
-                    var closureLocalsPlusOffset = argument;
-                    int closureNlocals = frame.Code.VarNames.Count;
-                    int closureNcellvars = frame.Code.CellVars.Count;
-                    int closureNfreevars = frame.Code.FreeVars.Count;
-
-                    // Convert to SharpPy Cells index
-                    int closureCellIndex;
-                    if (closureLocalsPlusOffset < closureNlocals)
-                    {
-                        string varName = frame.Code.VarNames[closureLocalsPlusOffset];
-                        closureCellIndex = closureNfreevars + frame.Code.CellVars.IndexOf(varName);
-                    }
-                    else
-                    {
-                        // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
-                        var closureNonParamCellNames = new List<string>();
-                        for (int i = 0; i < closureNcellvars; i++)
-                        {
-                            if (!frame.Code.VarNames.Contains(frame.Code.CellVars[i]))
-                                closureNonParamCellNames.Add(frame.Code.CellVars[i]);
-                        }
-                        int closureNumNonParamCells = closureNonParamCellNames.Count;
-
-                        int offsetAfterLocals = closureLocalsPlusOffset - closureNlocals;
-                        if (offsetAfterLocals < closureNumNonParamCells)
-                        {
-                            // Non-param cell: find by name
-                            string closureCellVarName = closureNonParamCellNames[offsetAfterLocals];
-                            int closureCellVarIdx = frame.Code.CellVars.IndexOf(closureCellVarName);
-                            closureCellIndex = closureNfreevars + closureCellVarIdx;
-                        }
-                        else
-                        {
-                            // Free var
-                            int freeVarIdx = offsetAfterLocals - closureNumNonParamCells;
-                            closureCellIndex = freeVarIdx;
-                        }
-                    }
-
-                    PyCell closureCell;
-                    if (closureCellIndex < frame.Cells.Length)
-                    {
-                        closureCell = frame.Cells[closureCellIndex];
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔐 LOAD_CLOSURE: localsplus[{closureLocalsPlusOffset}] → Cells[{closureCellIndex}]");
-                        #endif
-                    }
-                    else
-                    {
-                        // Create new cell if needed (shouldn't happen in correct code)
-                        closureCell = new PyCell();
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   ⚠️  LOAD_CLOSURE: Creating new empty cell for index {closureCellIndex}");
-                        #endif
-                    }
-
-                    frame.ValueStack.Push(closureCell);
+                {
+                    var cell = frame.LocalsPlus[argument];
+                    if (PyNull.IsNull(cell))
+                        throw PyUnboundLocalError.Create($"cannot access local variable '{frame.Code.LocalsPlusNames[argument]}' where it is not associated with a value");
+                    frame.ValueStack.Push(cell);
                     break;
+                }
 
+                // COPY_FREE_VARS: func_closure into the last oparg slots.
                 case ByteCodeOp.COPY_FREE_VARS:
-                    // CPython 3.12: COPY_FREE_VARS initializes free variable cells from closure
-                    var freeVarCount = argument;
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 COPY_FREE_VARS: Initializing {freeVarCount} free variables");
-                    #endif
-
-                    // Copy closure cells to frame's free variable cells
-                    if (frame.Closure != null && frame.Closure.Length >= freeVarCount)
-                    {
-                        for (int i = 0; i < freeVarCount; i++)
-                        {
-                            if (i < frame.Cells.Length && i < frame.Closure.Length)
-                            {
-                                // Copy closure cell to frame cell (free variables start from cell index 0)
-                                frame.Cells[i] = frame.Closure[i];
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   ✅ Copied closure[{i}] to cell[{i}]: {frame.Closure[i]?.Value}");
-                                #endif
-                            }
-                            else
-                            {
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   ⚠️ Cannot copy closure[{i}]: frame.Cells.Length={frame.Cells.Length}, closure.Length={frame.Closure.Length}");
-                                #endif
-                            }
-                        }
-                    }
-                    else
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   ⚠️ No closure available or insufficient closure cells. Closure: {frame.Closure?.Length ?? -1}, needed: {freeVarCount}");
-                        #endif
-                    }
+                {
+                    int offset = frame.Code.NLocalsPlus - argument;
+                    for (int i = 0; i < argument; i++)
+                        frame.LocalsPlus[offset + i] = frame.Closure[i];
                     break;
+                }
 
+                // MAKE_CELL: the slot's value, NULL unless an argument, moves into a new cell.
                 case ByteCodeOp.MAKE_CELL:
-                    var makeOperand = frame.ResolveDerefOperand(argument);
-                    // Captured arguments retain their value, including None.
-                    // Other local cells start empty, not initialized to None.
-                    frame.Cells[makeOperand.CellIndex].SetValue(
-                        argument < frame.Code.VarNames.Count
-                            ? frame.LocalsPlus[argument] : PyNull.Instance);
+                    frame.LocalsPlus[argument] = new PyCell(frame.LocalsPlus[argument]);
                     break;
 
                 // Generator Implementation

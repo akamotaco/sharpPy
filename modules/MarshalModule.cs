@@ -19,7 +19,7 @@ namespace SharpPy.Modules
             System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? 1000 : 2000;
         private const byte FlagRef = 0x80;
         // Include/internal/pycore_code.h: _PyLocals_Kind
-        private const byte FastLocal = 0x20, FastCell = 0x40, FastFree = 0x80;
+        private const byte FastLocal = PyCodeObject.FastLocal, FastCell = PyCodeObject.FastCell, FastFree = PyCodeObject.FastFree;
         private const int FloatRepr = 17;
 
         internal static PyModule CreateMarshalModule()
@@ -266,22 +266,8 @@ namespace SharpPy.Modules
             {
                 // co_localsplusnames and co_localspluskinds. The CO_FAST_HIDDEN bit of inlined
                 // comprehensions is not kept after compiling, so it is not written.
-                var names = new List<string>(code.VarNames);
-                var kinds = new List<byte>();
-                foreach (var name in code.VarNames)
-                    kinds.Add((byte)(code.CellVars.Contains(name) ? FastLocal | FastCell : FastLocal));
-                foreach (var name in code.CellVars)
-                {
-                    if (code.VarNames.Contains(name))
-                        continue;
-                    names.Add(name);
-                    kinds.Add(FastCell);
-                }
-                foreach (var name in code.FreeVars)
-                {
-                    names.Add(name);
-                    kinds.Add(FastFree);
-                }
+                var names = code.LocalsPlusNames;
+                var kinds = code.LocalsPlusKinds;
                 Type('c', flag);
                 Long(code.ArgCount - code.KwonlyArgCount);
                 Long(code.PosonlyArgCount);
@@ -292,7 +278,7 @@ namespace SharpPy.Modules
                 Object(new PyTuple(code.Constants.ToArray()));
                 Object(InternedNames(code.Names));
                 Object(InternedNames(names));
-                Object(new PyBytes(kinds.ToArray()));
+                Object(new PyBytes((byte[])kinds.Clone()));
                 Object(PySysFunction.Intern((PyString)code.GetAttribute("co_filename")));
                 Object(PySysFunction.Intern((PyString)code.GetAttribute("co_name")));
                 Object(PySysFunction.Intern((PyString)code.GetAttribute("co_qualname")));

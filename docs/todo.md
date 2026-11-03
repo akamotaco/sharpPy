@@ -13,7 +13,7 @@
 
 | 검증 | 값 | 재현 |
 |---|---|---|
-| CPython 언어 테스트 | 3417 / 3475 통과 (내장 객체 모듈 61개를 더하면 5739 / 7142) | `python tools/run_cpython_tests.py` |
+| CPython 언어 테스트 | 3430 / 3475 통과 (새로 돌린 모듈을 더하면 5847 / 7223) | `python tools/run_cpython_tests.py` |
 | AST (Lib/*.py) | 5550 / 5550 문장, 위치 포함 5550 | `python tools/compare_ast.py --dotnet <dotnet> [--attributes] <files>` |
 | AST (프로브) | 6397 / 6397 문장 | `python tools/compare_ast.py --dotnet <dotnet> --attributes` |
 | 바이트코드 (Lib/*.py) | 코드 객체 8039개 전부 `co_code`, `co_linetable`(열 번호 포함), `co_exceptiontable`, `co_stacksize` 바이트 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level raw <files>` |
@@ -44,7 +44,7 @@
 | 인스턴스 생성 | `tp_new` + `tp_init` | 가상 메서드 `CreateInstance`, 일부만 `ConstructedByNewSlot` | 대조 필요 |
 | 오류 전달 | NULL 반환과 스레드 상태 | CLR 예외. `ExecuteFrame`이 어떤 CLR 예외든 Python 예외로 바꾼다 | 유지 |
 | `FOR_ITER`/`END_FOR` | 3.12의 `FOR_ITER`는 소진 시 이터레이터를 꺼내고 `END_FOR`를 건너뛴다(`JUMPBY(oparg + 1)`). `END_FOR`는 `FOR_ITER_GEN` 경로에서만 실행된다 | `FOR_ITER`가 꺼낸다. `FOR_ITER_GEN` 특수화는 없다 | 같음. 점프 계산이 코드 종류별로 셋이다 |
-| 프레임 | `localsplus` 안에 셀 | `Cells`가 따로 있음 (P0-81) | 고친다 |
+| 프레임 | `localsplus` 안에 셀 | 같은 구조. `MAKE_CELL`, `COPY_FREE_VARS`가 슬롯에 셀을 두고 `f_locals`는 `frame_get_var`를 따른다 | 끝 |
 | 컴파일러 | `symtable.c`, `ast_opt.c`, `compile.c` | `runtime/symtable.cs`, `runtime/future.cs`, `runtime/compiler/`가 같은 함수 이름으로 대응한다. 진입점은 `Compiler.CompileSource` 하나 | 끝 |
 | import | `importlib._bootstrap` | C# 로더 | 라이브러리 정책과 함께 결정 |
 
@@ -78,7 +78,6 @@
 
 - 4-1. 이터레이터의 `__reduce__`, `__setstate__`, `__length_hint__`는 끝났다. `list()`, `tuple()`이 길이 힌트를 호출하는지는 대조가 남았다.
 - 4-3. 제너레이터와 코루틴: test_generators 22/39, test_coroutines 70/89. `cr_frame` 등.
-- 4-4. 프레임의 셀이 `LocalsPlus` 밖의 `Cells`에 있다 (P0-81). 컴파일러 쪽 `push_inlined_comprehension_state`는 끝났다.
 
 ## 5. 모듈 표면
 

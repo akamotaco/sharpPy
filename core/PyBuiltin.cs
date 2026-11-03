@@ -2333,29 +2333,34 @@ namespace SharpPy
 
             if (args.Length == 0)
             {
-                // CPython 3.12: super_init_without_args. SharpPy keeps Cells in
-                // freevars-first order, separate from the ordinary local values.
+                // super_init_without_args (Objects/typeobject.c): localsplus[0], through its cell
+                // once MAKE_CELL has made one, and the __class__ among the free variables.
                 var frame = PyVM.CurrentFrame;
                 if (frame == null || frame.Code.ArgCount - frame.Code.KwonlyArgCount == 0)
                     throw PyRuntimeError.Create("super(): no arguments");
 
                 var code = frame.Code;
                 PyObject instance = frame.LocalsPlus[0];
-                if (code.CellVarIndexMap.TryGetValue(code.VarNames[0], out int firstCell))
-                    instance = frame.Cells[code.FreeVars.Count + firstCell].Value;
-                if (PyNull.IsNull(instance))
+                if ((code.LocalsPlusKinds[0] & PyCodeObject.FastCell) != 0 && instance is PyCell firstCell)
+                    instance = firstCell.Value;
+                if (instance == null || PyNull.IsNull(instance))
                     throw PyRuntimeError.Create("super(): arg[0] deleted");
 
-                // Only a free __class__ cell supplies the defining class.
-                if (!code.FreeVarIndexMap.TryGetValue("__class__", out int classIndex))
+                PyType type = null;
+                for (int i = code.FirstFree; i < code.NLocalsPlus; i++)
+                {
+                    if (code.LocalsPlusNames[i] != "__class__")
+                        continue;
+                    if (frame.LocalsPlus[i] is not PyCell classCell)
+                        throw PyRuntimeError.Create("super(): bad __class__ cell");
+                    if (!classCell.HasValue)
+                        throw PyRuntimeError.Create("super(): empty __class__ cell");
+                    type = classCell.Value as PyType
+                        ?? throw PyRuntimeError.Create($"super(): __class__ is not a type ({classCell.Value.GetPyType().Name})");
+                    break;
+                }
+                if (type == null)
                     throw PyRuntimeError.Create("super(): __class__ cell not found");
-                if (classIndex >= frame.Cells.Length || frame.Cells[classIndex] == null)
-                    throw PyRuntimeError.Create("super(): bad __class__ cell");
-                var classCell = frame.Cells[classIndex];
-                if (!classCell.HasValue)
-                    throw PyRuntimeError.Create("super(): empty __class__ cell");
-                if (classCell.Value is not PyType type)
-                    throw PyRuntimeError.Create($"super(): __class__ is not a type ({classCell.Value.GetPyType().Name})");
                 return new PySuper(type, instance);
             }
             else if (args.Length == 1)

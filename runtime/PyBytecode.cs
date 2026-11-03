@@ -450,38 +450,6 @@ namespace SharpPy
         public List<string> FreeVars { get; set; } = new List<string>();   // co_freevars - 자유 변수
         public List<string> CellVars { get; set; } = new List<string>();   // co_cellvars - 셀 변수
 
-        private PyString[] _localNameKeys;
-        private PyString[] _cellNameKeys;
-        private PyString[] _freeNameKeys;
-
-        internal PyString[] GetLocalNameKeys() => GetNameKeys(VarNames, ref _localNameKeys);
-        internal PyString[] GetCellNameKeys() => GetNameKeys(CellVars, ref _cellNameKeys);
-        internal PyString[] GetFreeNameKeys() => GetNameKeys(FreeVars, ref _freeNameKeys);
-
-        // CPython keeps Python name objects in co_localsplusnames. SharpPy's
-        // public C# metadata lists are mutable, so validate names before reuse.
-        private static PyString[] GetNameKeys(List<string> names, ref PyString[] cache)
-        {
-            int count = names?.Count ?? 0;
-            if (count == 0) return Array.Empty<PyString>();
-            if (cache == null || cache.Length != count) cache = new PyString[count];
-            for (int i = 0; i < count; i++)
-                if (cache[i] == null || !string.Equals(cache[i].Value, names[i], StringComparison.Ordinal))
-                    cache[i] = new PyString(names[i]);
-            return cache;
-        }
-
-        // CPython 3.12: Cached index for __class__ cell variable
-        // Computed at compile time, used at runtime for fast lookup (avoids IndexOf)
-        // -1 means __class__ is not in FreeVars/CellVars
-        public int ClassCellIndex { get; private set; } = -1;
-
-        /// <summary>
-        /// CPython 3.12: Fast check if this code object has __class__ cell
-        /// Replaces: FreeVars.Contains("__class__") || CellVars.Contains("__class__")
-        /// </summary>
-        public bool HasClassCell => ClassCellIndex >= 0;
-
         /// <summary>
         /// CPython 3.12: Cached name→index mappings for O(1) lookup
         /// Replaces O(n) CellVars.IndexOf(), FreeVars.IndexOf(), VarNames.IndexOf() calls
@@ -545,7 +513,6 @@ namespace SharpPy
 
             // CPython 3.12: Build cached index maps for O(1) lookup at runtime
             BuildIndexMaps();
-            ComputeClassCellIndex();
         }
 
         /// <summary>
@@ -577,38 +544,46 @@ namespace SharpPy
 
             // Build VarNameSet for O(1) Contains() check
             VarNameSet = new HashSet<string>(VarNames);
+
+            // _Py_set_localsplus_info (compile.c compute_localsplus_info): the locals, a cell that
+            // is an argument sharing its slot, then the other cells, then the free variables.
+            var localsPlusNames = new List<string>(VarNames);
+            var localsPlusKinds = new List<byte>();
+            foreach (var local in VarNames)
+                localsPlusKinds.Add((byte)(CellVarIndexMap.ContainsKey(local) ? FastLocal | FastCell : FastLocal));
+            foreach (var cell in CellVars)
+                if (!VarNameSet.Contains(cell))
+                {
+                    localsPlusNames.Add(cell);
+                    localsPlusKinds.Add(FastCell);
+                }
+            FirstFree = localsPlusNames.Count;
+            foreach (var free in FreeVars)
+            {
+                localsPlusNames.Add(free);
+                localsPlusKinds.Add(FastFree);
+            }
+            LocalsPlusNames = localsPlusNames.ToArray();
+            LocalsPlusKinds = localsPlusKinds.ToArray();
+            LocalsPlusKeys = new PyString[LocalsPlusNames.Length];
+            for (int i = 0; i < LocalsPlusNames.Length; i++)
+                LocalsPlusKeys[i] = new PyString(LocalsPlusNames[i]);
         }
 
-        /// <summary>
-        /// CPython 3.12: Compute cached index for __class__ in FreeVars/CellVars
-        /// Called once at construction time, result stored in ClassCellIndex
-        /// Uses pre-built index maps for O(1) lookup
-        /// </summary>
-        private void ComputeClassCellIndex()
-        {
-            // First check FreeVars (more common case for methods using super())
-            // Use cached FreeVarIndexMap for O(1) lookup
-            if (FreeVarIndexMap.TryGetValue(PyGlobalStrings.Id.__class__, out int freeIndex))
-            {
-                // __class__ found in FreeVars
-                // Combined index: CellVars.Count + freeIndex
-                ClassCellIndex = CellVars.Count + freeIndex;
-                return;
-            }
+        // _PyLocals_Kind (Include/internal/pycore_code.h)
+        internal const byte FastHidden = 0x10, FastLocal = 0x20, FastCell = 0x40, FastFree = 0x80;
 
-            // Then check CellVars
-            // Use cached CellVarIndexMap for O(1) lookup
-            if (CellVarIndexMap.TryGetValue(PyGlobalStrings.Id.__class__, out int cellIndex))
-            {
-                ClassCellIndex = cellIndex;
-                return;
-            }
+        /// <summary>co_localsplusnames, co_localspluskinds, and the names as keys for f_locals.</summary>
+        internal string[] LocalsPlusNames { get; private set; }
+        internal byte[] LocalsPlusKinds { get; private set; }
+        internal PyString[] LocalsPlusKeys { get; private set; }
 
-            // Not found
-            ClassCellIndex = -1;
-        }
-        
-        
+        /// <summary>co_nlocalsplus.</summary>
+        internal int NLocalsPlus => LocalsPlusNames.Length;
+
+        /// <summary>PyCode_GetFirstFree: co_nlocalsplus - co_nfreevars.</summary>
+        internal int FirstFree { get; private set; }
+
         public override string GetTypeName() => "code";
 
         // CPython: type(code).__name__ == 'code'
@@ -883,16 +858,10 @@ namespace SharpPy
                 "co_lines" => new PyBuiltinFunction("co_lines", CoLinesMethod),
                 "_varname_from_oparg" => new PyBuiltinFunction("_varname_from_oparg", args =>
                 {
-                    // co_localsplusnames: the locals, the cells that are not arguments, the free variables.
-                    var names = new List<string>(VarNames);
-                    foreach (var cell in CellVars)
-                        if (!names.Contains(cell))
-                            names.Add(cell);
-                    names.AddRange(FreeVars);
                     int index = args[0].ToInt();
-                    if (index < 0 || index >= names.Count)
+                    if (index < 0 || index >= NLocalsPlus)
                         throw PyIndexError.Create("tuple index out of range");
-                    return new PyString(names[index]);
+                    return LocalsPlusKeys[index];
                 }),
                 "co_lnotab" => LineNumberNotes(),
                 "co_positions" => new PyBuiltinFunction("co_positions", CoPositionsMethod),
