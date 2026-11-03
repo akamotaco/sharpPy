@@ -326,7 +326,7 @@ namespace SharpPy
                 throw PyValueError.Create("type name must not contain null characters");
 
             foreach (var item in bases.Items)
-                if (item is not PyType && item.LookupSpecialMethodUncached("__mro_entries__") != null)
+                if (item is not PyType && item.HasTypeSlot("__mro_entries__"))
                     throw PyTypeError.Create("type() doesn't support MRO entry resolution; use types.new_class()");
             if (CalculateMetaclass(metatype, bases.Items) is not PyClass winner)
                 throw PyTypeError.Create("metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases");
@@ -770,11 +770,9 @@ namespace SharpPy
         // Descriptor protocol: instance.method → bound method
         public PyObject Get(PyObject instance, PyType owner)
         {
-            if (instance == null || instance == PyNone.Instance)
-            {
-                // 클래스에서 접근: Class.method → unbound
+            // 클래스에서 접근: Class.method → unbound. None is an instance like any other.
+            if (instance == null)
                 return this;
-            }
 
             // 인스턴스에서 접근: instance.method → bound method
             return new PyBoundBuiltinMethod(instance, this);

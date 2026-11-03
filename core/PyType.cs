@@ -1525,6 +1525,12 @@ namespace SharpPy
                     written = false;
                     return typeValue;
                 }
+                // add_operators: the slot wrappers are in the builtin's dict in CPython.
+                if (mroType is not SharpPy.PyClass && mroType.SlotDict.TryGetValue(name, out var slotValue))
+                {
+                    written = false;
+                    return slotValue;
+                }
             }
             written = false;
             return null;
@@ -2147,22 +2153,10 @@ namespace SharpPy
 
             // object.__init_subclass__() - CPython PEP 487
             // Reference: Objects/typeobject.c:6414 (object_init_subclass)
-            // This is a classmethod (METH_CLASS | METH_NOARGS) that does nothing by default
-            // It's called automatically when a class is subclassed
-            TypeDict["__init_subclass__"] = new PyBuiltinFunction(
-                "__init_subclass__",
-                (args, kwargs) => {
-                    // object.__init_subclass__() is METH_CLASS|METH_NOARGS: keyword
-                    // arguments are refused. Through a super() binding the reported
-                    // name is the runtime class (descrobject.c method_check_args /
-                    // _PyObject_FunctionStr).
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                    {
-                        throw PyTypeError.Create($"{PyBuiltinFunction.QualifiedClassLabel(args.Length > 0 ? args[0] : null)}.__init_subclass__() takes no keyword arguments");
-                    }
-                    return PyNone.Instance;
-                }
-            );
+            // METH_CLASS|METH_NOARGS: a classmethod_descriptor, whose convention (PyArity) refuses
+            // arguments in the name of the class it is bound to.
+            TypeDict["__init_subclass__"] = new PyClassMethodDescriptor("__init_subclass__", objectType,
+                new PyBuiltinFunction("__init_subclass__", (args, kwargs) => PyNone.Instance));
 
             // object.__class__ getset (CPython object.c get_class): makes __class__
             // visible through GenericGetAttribute/MRO for builtin instances too.
@@ -4194,7 +4188,7 @@ namespace SharpPy
                 if (mappingObj is PyMappingProxy existingProxy)
                     return existingProxy;
                 // mappingproxy_check_mapping
-                if (mappingObj is PyList or PyTuple || mappingObj.LookupSpecialMethodUncached("__getitem__") == null &&
+                if (mappingObj is PyList or PyTuple || !mappingObj.HasTypeSlot("__getitem__") &&
                     mappingObj is not PyDict)
                     throw PyTypeError.Create($"mappingproxy() argument must be a mapping, not {mappingObj.GetTypeName()}");
                 return new PyMappingWrapper(mappingObj);

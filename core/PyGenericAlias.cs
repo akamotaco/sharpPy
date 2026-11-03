@@ -173,7 +173,7 @@ namespace SharpPy
                     {
                         var param = parameters.Items[iparam];
                         arg = argitems[iparam];
-                        if (param.LookupSpecialMethodUncached("__iter__") != null && arg is PyTuple unpacked) // TypeVarTuple
+                        if (param.HasTypeSlot("__iter__") && arg is PyTuple unpacked) // TypeVarTuple
                         {
                             subargs.AddRange(unpacked.Items);
                             continue;

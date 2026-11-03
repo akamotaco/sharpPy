@@ -26,10 +26,13 @@ namespace SharpPy
             return Table.TryGetValue(owner.Name + "." + name, out var found) ? found : null;
         }
 
-        /// <summary>The checks of the convention, before the body runs.</summary>
-        internal static void Check(Convention convention, PyType owner, string name, PyObject[] args, PyDict kwargs, bool bound = false)
+        /// <summary>
+        /// The checks of the convention, before the body runs. A METH_CLASS method is named
+        /// after the class it is bound to (meth_get__qualname__ of a type self), given as cls.
+        /// </summary>
+        internal static void Check(Convention convention, PyType owner, string name, PyObject[] args, PyDict kwargs, bool bound = false, PyObject cls = null)
         {
-            string qualname = owner.Name + "." + name;
+            string qualname = (cls != null ? PyBuiltinFunction.QualifiedClassLabel(cls) : owner.Name) + "." + name;
             bool keywords = kwargs != null && kwargs.Length() != 0;
             bool qualified = !bound || convention.QualifiedKeywordRefusal;
             switch (convention.Kind)

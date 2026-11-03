@@ -83,7 +83,7 @@ namespace SharpPy
         public override PyObject Next()
         {
             var target = Target;
-            if (target.LookupSpecialMethodUncached("__next__") == null)
+            if (!target.HasTypeSlot("__next__"))
                 throw PyTypeError.Create($"Weakref proxy referenced a non-iterator '{target.GetTypeName()}' object");
             return target.Next();
         }

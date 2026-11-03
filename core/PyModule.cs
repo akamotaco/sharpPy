@@ -217,9 +217,6 @@ public class PyModule : PyObject
         if (ModuleDict.TryGetValue(name, out PyObject value))
             return value;
 
-        if (declared != null && _type is PyClass && !ReferenceEquals(declared, PyType.ObjectType.TypeDict.GetValueOrDefault(name)))
-            return BindSpecialMethod(declared);
-
         // module_get_annotations: a module without any gets an empty dict of its own.
         if (name == "__annotations__")
         {
@@ -228,10 +225,10 @@ public class PyModule : PyObject
             return annotations;
         }
 
-        // module_getattro: the type, then the module's own __getattr__ (PEP 562).
-        foreach (var type in GetPyType().MRO)
-            if (type.TypeDict != null && type.TypeDict.ContainsKey(name))
-                return GenericGetAttribute(name);
+        // The rest of _PyObject_GenericGetAttrWithDict: a non-data descriptor or plain value of
+        // the type; then module_getattro's own __getattr__ (PEP 562).
+        if (declared != null)
+            return BindSpecialMethod(declared);
         if (ModuleDict.TryGetValue("__getattr__", out var hook))
             return hook.Call(new PyObject[] { new PyString(name) }, null);
 

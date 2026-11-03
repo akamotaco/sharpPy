@@ -49,7 +49,7 @@ namespace SharpPy
             Buffer(value) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{value.GetTypeName()}'");
 
         private static bool HasIndex(PyObject value) =>
-            value is PyInt or PyBool or PyIntSubclass || value.LookupSpecialMethodUncached("__index__") != null;
+            value is PyInt or PyBool or PyIntSubclass || value.HasTypeSlot("__index__");
 
         private static BigInteger IndexValue(PyObject value) =>
             (PyObject.TryGetIndex(value) ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer")).Value;
@@ -566,7 +566,7 @@ namespace SharpPy
             {
                 items = iterable is PyList list ? list.Items : iterable is PyTuple tuple ? tuple.Items : Items(iterable);
             }
-            catch (PythonException error) when (error.PyException is PyTypeError && iterable.LookupSpecialMethodUncached("__iter__") == null)
+            catch (PythonException error) when (error.PyException is PyTypeError && !iterable.HasTypeSlot("__iter__"))
             {
                 throw PyTypeError.Create("can only join an iterable");
             }

@@ -64,7 +64,9 @@ namespace SharpPy
             // CPython 3.12: Try to call __repr__ method if it exists
             try
             {
-                var reprAttr = PyGetAttribute("__repr__");
+                // lookup_maybe_method: the type's __repr__, not an attribute of the instance.
+                var reprMethod = LookupSpecialMethodUncached("__repr__");
+                var reprAttr = reprMethod == null ? null : BindSpecialMethod(reprMethod);
                 if (reprAttr != null && reprAttr != PyNone.Instance)
                 {
                     var result = reprAttr.Call(new PyObject[0], null);
@@ -92,7 +94,8 @@ namespace SharpPy
             PyObject strAttr;
             try
             {
-                strAttr = PyGetAttribute("__str__");
+                var strMethod = LookupSpecialMethodUncached("__str__");
+                strAttr = strMethod == null ? null : BindSpecialMethod(strMethod);
             }
             catch
             {
@@ -204,9 +207,9 @@ namespace SharpPy
         /// <summary>PyNumber_Check: complex has neither __int__ nor __float__.</summary>
         internal static bool NumberCheck(PyObject value) =>
             value is PyInt or PyBool or PyIntSubclass or PyFloat or PyComplex ||
-            value.LookupSpecialMethodUncached("__index__") != null ||
-            value.LookupSpecialMethodUncached("__int__") != null ||
-            value.LookupSpecialMethodUncached("__float__") != null;
+            value.HasTypeSlot("__index__") ||
+            value.HasTypeSlot("__int__") ||
+            value.HasTypeSlot("__float__");
 
         public static PyInt? TryGetIndex(PyObject obj)
         {
@@ -538,89 +541,10 @@ namespace SharpPy
             if (_customType is PyClass heap && this is not IDictBackedInstance)
                 return SubclassInstanceSupport.GetAttribute(this, heap, name);
 
-            // Instance-level access: handle special cases
-            switch (name)
-            {
-                case "__class__":
-                    return PyClass;
-                case "__dict__":
-                    // CPython 3.12: Objects/object.c:4200-4250 (PyObject_GenericGetDict)
-                    // A class of value type with empty __slots__ has no dict to show.
-                    if (this is IDictBackedInstance dictAccessor && (GetPyType() is not PyClass heapOwner || heapOwner.InstancesHaveDict()))
-                        return PyGlobalsDict.OfInstance(dictAccessor.InstanceDict);
-                    // CPython 3.12: Non-instance objects should delegate to type's __dict__ descriptor
-                    // For objects like None, functions, etc., __dict__ access should go through the type
-                    return PyGetAttribute(name);
-                case "__str__":
-                case "__repr__":
-                {
-                    // CPython 3.12: __str__/__repr__ resolve through the type's MRO and bind
-                    // via the descriptor protocol. The previous code returned an *unbound*
-                    // PyBuiltinMethod, so x.__str__() / x.__repr__() raised
-                    // "missing required 'self' argument" for every exact builtin type.
-                    var selfType = GetPyType();
-                    foreach (var mroType in selfType.MRO)
-                    {
-                        // ClassDict (user-defined, this MRO frame) wins before any
-                        // inherited/merged TypeDict descriptor view.
-                        if (mroType is PyClass userClass &&
-                            userClass.ClassDict.TryGetValue(name, out var classAttr))
-                        {
-                            // User-defined: bind directly (CPython method object).
-                            if (classAttr is PyFunction userFunc)
-                                return new PyMethod(this, userFunc);
-                            if (classAttr.IsCallable())
-                                return PyGetAttribute(name);
-                        }
-                        if (mroType.TypeDict != null &&
-                            mroType.TypeDict.TryGetValue(name, out var typeAttr))
-                        {
-                            if (typeAttr is IDescriptor descriptor)
-                                return descriptor.Get(this, selfType);
-                            if (typeAttr.IsCallable())
-                                return PyGetAttribute(name);
-                        }
-                    }
-                    // Fall back to object-level behavior, bound to this instance.
-                    string dunder = name;
-                    var fallback = new PyBuiltinMethod(dunder, (self, args) => {
-                        if (args.Length != 0) // self is separate
-                            throw PyTypeError.Create($"{dunder}() takes no arguments ({args.Length} given)");
-                        return dunder == "__str__" ? self.ToStr() : self.ToRepr();
-                    }, 1);
-                    return fallback.Get(this, selfType);
-                }
-                case "__init__":
-                {
-                    // CPython 3.12: __init__ resolves through the MRO like __str__/__repr__;
-                    // the previous hardcoded unbound PyBuiltinMethod misreported its type
-                    // and skipped type-level overrides.
-                    var initType = GetPyType();
-                    foreach (var mroType in initType.MRO)
-                    {
-                        if (mroType is PyClass initClass &&
-                            initClass.ClassDict.TryGetValue("__init__", out var initFunc))
-                        {
-                            if (initFunc is PyFunction userInit)
-                                return new PyMethod(this, userInit);
-                            if (initFunc.IsCallable())
-                                return PyGetAttribute(name);
-                        }
-                        if (mroType.TypeDict != null &&
-                            mroType.TypeDict.TryGetValue("__init__", out var initAttr))
-                        {
-                            if (initAttr is IDescriptor initDesc)
-                                return initDesc.Get(this, initType);
-                            if (initAttr.IsCallable())
-                                return PyGetAttribute(name);
-                        }
-                    }
-                    var initFallback = new PyBuiltinMethod("__init__", (self, args) => PyNone.Instance, 1);
-                    return initFallback.Get(this, initType);
-                }
-                default:
-                    return PyGetAttribute(name);
-            }
+            // An instance dict kept beside a native value (IDictBackedInstance) is its __dict__.
+            if (name == "__dict__" && this is IDictBackedInstance dictAccessor && (GetPyType() is not PyClass heapOwner || heapOwner.InstancesHaveDict()))
+                return PyGlobalsDict.OfInstance(dictAccessor.InstanceDict);
+            return PyGetAttribute(name);
         }
 
         /// <summary>
@@ -759,7 +683,18 @@ namespace SharpPy
         /// CPython v3.12.15, Objects/typeobject.c: lookup_maybe_method / slot_nb_inplace_*.
         /// Deliberately uncached: the global cache does not yet invalidate descendants.
         /// </summary>
-        internal PyObject LookupSpecialMethodUncached(string name) => GetPyType().FindNameInMro(name);
+        internal PyObject LookupSpecialMethodUncached(string name)
+        {
+            var found = GetPyType().FindNameInMro(name);
+            // The wrapper of a builtin's slot is the virtual this dispatch runs in: its C slot.
+            return found is PyWrapperDescriptor { CallsVirtual: true } ? null : found;
+        }
+
+        /// <summary>
+        /// Whether the type fills the slot (tp_iter != NULL and the like): _PyType_Lookup found
+        /// something, a builtin's own slot wrapper included.
+        /// </summary>
+        internal bool HasTypeSlot(string name) => GetPyType().FindNameInMro(name) != null;
 
         /// <summary>
         /// Looks up a special method declared by user classes only, stopping where the C slots take

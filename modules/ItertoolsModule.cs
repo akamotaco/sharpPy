@@ -170,7 +170,7 @@ namespace SharpPy
             PyObject start = args.Length >= 1 ? args[0] : new PyInt(0);
             PyObject step = args.Length >= 2 ? args[1] : new PyInt(1);
             foreach (var value in new[] { start, step })
-                if (value.LookupSpecialMethodUncached("__add__") == null)
+                if (!value.HasTypeSlot("__add__"))
                     throw PyTypeError.Create("a number is required");
             return new CountIterator(start, step);
         }

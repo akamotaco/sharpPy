@@ -39,7 +39,7 @@
 |---|---|---|---|
 | AST | ASDL 하나 | ASDL 하나. 구형 AST와 `Bridge`는 지웠다 | 끝 |
 | 이항 연산 | `binary_op1`, `binary_iop1`, `SLOT1BINFULL`, `sequence_repeat` | 같은 구조로 포팅 (`PyVM.BinaryOp1`, `SlotNumberBinary`, `InPlaceNumber`). C# 진입점도 모두 `ExecuteBinaryOpType`을 지난다. `int`, `float`, `str` 하위 클래스의 이항 슬롯은 값의 슬롯만 부른다. 단항 연산은 아직 CLR 가상 메서드다 | 끝 (단항은 3절) |
-| 속성 조회 | `tp_getattro` 슬롯, 대부분 `PyObject_GenericGetAttr` | `_PyType_Lookup`은 `PyType.FindNameInMro` 하나다. 내장 타입의 Python 하위 클래스는 `slot_tp_getattr_hook`(`SubclassInstanceSupport.GetAttribute`)과 `GenericGetAttr`로 나뉘고 `object.__getattribute__`는 뒤쪽을 부른다. `LOAD_ATTR`은 타입의 메서드 디스크립터를 묶지 않고 `[descriptor, self]`를 쌓는다(`_PyObject_GetMethod`). 남은 것: 내장 타입 자체의 `GetAttribute` override가 이름별 switch로 답하는 곳 | 진행 중 |
+| 속성 조회 | `tp_getattro` 슬롯, 대부분 `PyObject_GenericGetAttr` | `_PyType_Lookup`은 `PyType.FindNameInMro` 하나다. 내장 타입의 Python 하위 클래스는 `slot_tp_getattr_hook`(`SubclassInstanceSupport.GetAttribute`)과 `GenericGetAttr`로 나뉘고 `object.__getattribute__`는 뒤쪽을 부른다. `LOAD_ATTR`은 타입의 메서드 디스크립터를 묶지 않고 `[descriptor, self]`를 쌓는다(`_PyObject_GetMethod`). 슬롯 래퍼(`SlotDict`)도 `FindNameInMro`가 찾고, 모듈은 `md_dict`를 인스턴스 사전으로 쓰는 일반 조회다. `object`의 기본 `GetAttribute`에 있던 `__class__`/`__str__`/`__repr__`/`__init__` switch는 지웠다. 남은 것: 예외 타입들이 멤버(`name`, `errno` 등)를 디스크립터와 별개로 `GetAttribute` switch로 답하는 곳(타입 사전에는 이미 `member_descriptor`가 있다), 함수·코드 객체 등 | 진행 중 |
 | 호출 | `tp_call`, vectorcall | Python 클래스의 인스턴스는 `slot_tp_call`(`PyObject.Call`): 타입의 `__call__`을 `lookup_maybe_method`로 묶는다. 내장 메서드의 인자 개수 오류는 호출 규약 표(`core/BuiltinArity.g.cs`, `tools/gen_builtin_arity.py`)를 따른다: `METH_NOARGS`, `METH_O`, clinic, `PyArg_ParseTuple`. `**mapping`으로 부른 `METH_VARARGS` 메서드의 키워드 거부 문구(`tp_call` 경로)는 구분하지 않는다 | 끝 |
 | 인스턴스 생성 | `tp_new` + `tp_init` | 내장 `__new__`는 `tp_new_wrapper`(`PyType.CheckNewArguments`)를 지난다. 클래스 본문에 둔 내장 `__new__`는 `update_one_slot`처럼 물려받은 `tp_new`를 바로 부른다. 남은 것: 가상 메서드 `CreateInstance` | 진행 중 |
 | 오류 전달 | NULL 반환과 스레드 상태 | CLR 예외. `ExecuteFrame`이 어떤 CLR 예외든 Python 예외로 바꾼다 | 유지 |
@@ -66,7 +66,7 @@
 
 `Objects/typeobject.c`, `Objects/descrobject.c`, `Objects/funcobject.c`와 대조한다.
 
-- 3-0. `add_operators`: `PySlotWrappers`와 생성 표 `core/SlotTable.g.cs`가 슬롯 래퍼를 준다. `PyType.SlotDict`에 따로 두었고 디스패치는 읽지 않는다(`vars`, `dir`, 속성 조회만). 슬롯이 `TypeDict`로 들어가면 특수 메서드 조회가 같은 CLR 가상 메서드로 되돌아오기 때문이다. `tools/type_surface_probe.py`로 비교하면 빠진 항목이 273개 남았다(`co_*`, `f_*`, `tb_*`, `start` 같은 getset과 `__sizeof__`, `__reduce__` 등).
+- 3-0. `add_operators`: `PySlotWrappers`와 생성 표 `core/SlotTable.g.cs`가 슬롯 래퍼를 준다. `PyType.SlotDict`에 두고 `_PyType_Lookup`(`FindNameInMro`)이 각 MRO 단계에서 함께 본다. CLR 가상 메서드를 부르는 래퍼(`CallsVirtual`)는 디스패치(`LookupSpecialMethodUncached`)가 건너뛴다. 그 가상 메서드가 곧 타입의 C 슬롯이기 때문이다. 슬롯이 있는지만 묻는 곳은 `HasTypeSlot`이다. 남은 차이: `float.__repr__`, `tuple.__len__`, `BaseException.__str__`, `builtin_function_or_method.__call__`처럼 메서드나 함수로 등록된 슬롯. `tools/type_surface_probe.py`로 비교하면 빠진 항목이 273개 남았다(`co_*`, `f_*`, `tb_*`, `start` 같은 getset과 `__sizeof__`, `__reduce__` 등).
 - 3-1. C# 클래스로 된 내장 타입의 상속: `StringIO`, `BytesIO`, `bytearray`, `classmethod`, `staticmethod`는 `tp_new`가 하위 타입을 할당한다. `complex` 등 남은 타입은 같은 방식으로 옮긴다. test_descr 112/148, 남은 항목은 개별 동작 차이다. test_extcall이 여기에 걸린다.
 - 3-2. `object.__init__` 인자 규칙 9건, `__init_subclass__`의 키워드 전달. `object_init`, `excess_args`.
 - 3-4. 함수 속성: `__defaults__` 등 setter (P0-71). test_funcattrs 15/33.

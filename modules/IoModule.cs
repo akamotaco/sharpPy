@@ -155,7 +155,7 @@ namespace SharpPy.Modules
             bool closefd = values[6] == null || values[6].IsTrue();
             var opener = values[7] ?? PyNone.Instance;
 
-            bool isNumber = file is PyInt or PyBool or PyIntSubclass or PyFloat || file.LookupSpecialMethodUncached("__index__") != null;
+            bool isNumber = file is PyInt or PyBool or PyIntSubclass or PyFloat || file.HasTypeSlot("__index__");
             PyObject pathOrFd = isNumber ? file : NtModule.FsPathObject(file);
             if (!isNumber && pathOrFd is not PyString && pathOrFd is not PyBytes)
                 throw PyTypeError.Create($"invalid file: {file.ToRepr().Value}");

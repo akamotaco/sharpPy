@@ -626,7 +626,7 @@ namespace SharpPy.Modules
             {
                 if (args.Length < 1) throw PyTypeError.Create("writerow() requires an iterable argument");
                 var row = args[0];
-                if (row.LookupSpecialMethodUncached("__iter__") == null && row.LookupSpecialMethodUncached("__getitem__") == null)
+                if (!row.HasTypeSlot("__iter__") && !row.HasTypeSlot("__getitem__"))
                     throw PyExceptionSlots.Raise(ErrorType, $"iterable expected, not {row.GetTypeName()}");
                 var sb = new StringBuilder();
                 bool first = true;

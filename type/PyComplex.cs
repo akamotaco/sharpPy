@@ -205,27 +205,6 @@ namespace SharpPy
 
         #endregion
 
-        #region Attribute Access
-
-        /// <summary>
-        /// real, imag and conjugate are published in the type dict now (Objects/complexobject.c:398-410),
-        /// so they reach here through the normal descriptor path. Only __abs__ is still answered here;
-        /// CPython exposes it as a slot wrapper, and moving it belongs to the type-surface item P0-28.
-        /// </summary>
-        public override PyObject GetAttribute(string name)
-        {
-            switch (name)
-            {
-                case "__abs__":
-                    var absMethod = new PyBuiltinMethod("__abs__", (s, args) => ((PyComplex)s).Absolute(), 0);
-                    return new PyBoundBuiltinMethod(this, absMethod);
-                default:
-                    return base.GetAttribute(name);
-            }
-        }
-
-        #endregion
-
         #region Hash and Equality
 
         // complex_hash: _PyHASH_IMAG is 1000003.

@@ -60,13 +60,19 @@ namespace SharpPy
             return (int)(self ^ (self >> 32)) ^ (int)_callable.GetPythonHash();
         }
 
-        // m_self is the class, the rest is the function's.
+        // m_self is the class, the rest is the function's. meth_get__qualname__ names a type
+        // self by its own __qualname__.
         public override PyObject GetAttribute(string name) => name switch
         {
             "__self__" => _boundClass,
-            "__name__" or "__qualname__" => _callable.GetAttribute(name),
+            "__name__" => _callable.GetAttribute(name),
+            "__qualname__" => new PyString(PyBuiltinFunction.QualifiedClassLabel(_boundClass) + "." + _callable.GetAttribute("__name__").AsString().Value),
             _ => base.GetAttribute(name),
         };
+
+        // meth_repr: "<built-in method %s of %s object at %p>" with the type of m_self.
+        public override PyString ToRepr() => new PyString(
+            $"<built-in method {_callable.GetAttribute("__name__").AsString().Value} of {_boundClass.GetPyType().Name} object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_boundClass):x}>");
 
         public override string GetTypeName() => "builtin_function_or_method";
         // CPython: builtin classmethods (dict.fromkeys) are seen as PyCFunction.

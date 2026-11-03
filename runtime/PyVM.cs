@@ -3005,8 +3005,8 @@ namespace SharpPy
                         }
                         // check_args_iterable: only what has neither __iter__ nor __getitem__.
                         catch (PythonException ex) when (ex.PyException is PyTypeError &&
-                            argsIterable.LookupSpecialMethodUncached("__iter__") == null &&
-                            argsIterable.LookupSpecialMethodUncached("__getitem__") == null)
+                            !argsIterable.HasTypeSlot("__iter__") &&
+                            !argsIterable.HasTypeSlot("__getitem__"))
                         {
                             // CPython 3.12 measured wording includes the callee name.
                             throw PyTypeError.Create($"{PyFrame.FunctionStr(functionToCall)} argument after * must be an iterable, not {argsIterable.GetTypeName()}");
@@ -3124,7 +3124,7 @@ namespace SharpPy
                     PyObject mergeCallee = frame.ValueStack.Count >= 2 ? frame.ValueStack.PeekAt(1) : null;
 
                     // Merge sourceDict into targetDict
-                    if (sourceDict is not PyDict && sourceDict.LookupSpecialMethodUncached("keys") == null)
+                    if (sourceDict is not PyDict && !sourceDict.HasTypeSlot("keys"))
                     {
                         // CPython 3.12 measured wording for f(**non_mapping).
                         string mapPrefix = mergeCallee != null ? PyFrame.FunctionStr(mergeCallee) + " " : "";
@@ -3897,8 +3897,8 @@ namespace SharpPy
                         ((PyList)frame.ValueStack.Peek()).Extend(extendIterable);
                     }
                     catch (PythonException ex) when (ex.PyException is PyTypeError &&
-                        extendIterable.LookupSpecialMethodUncached("__iter__") == null &&
-                        extendIterable.LookupSpecialMethodUncached("__getitem__") == null)
+                        !extendIterable.HasTypeSlot("__iter__") &&
+                        !extendIterable.HasTypeSlot("__getitem__"))
                     {
                         throw PyTypeError.Create($"Value after * must be an iterable, not {extendIterable.GetTypeName()}");
                     }
@@ -4042,7 +4042,7 @@ namespace SharpPy
                     // 주로 {**d} 딕셔너리 리터럴 언패킹에 사용됨
                     // Stack: [..., target_dict, source_dict] → [..., target_dict] (target_dict 수정됨)
                     var dictUpdateSource = frame.ValueStack.Pop();
-                    if (dictUpdateSource is not PyDict && dictUpdateSource.LookupSpecialMethodUncached("keys") == null)
+                    if (dictUpdateSource is not PyDict && !dictUpdateSource.HasTypeSlot("keys"))
                         throw PyTypeError.Create($"'{dictUpdateSource.GetTypeName()}' object is not a mapping");
                     PyDict.UpdateCommon((PyDict)frame.ValueStack.PeekAt(argument - 1), dictUpdateSource);
                     break;
@@ -7239,7 +7239,7 @@ namespace SharpPy
             var result = obj.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
             if (result is SharpPy.Core.PyCoroutine || result is PyGenerator { IsIterableCoroutine: true })
                 throw PyTypeError.Create("__await__() returned a coroutine");
-            if (result is not PyIterator && result.LookupSpecialMethodUncached("__next__") == null)
+            if (result is not PyIterator && !result.HasTypeSlot("__next__"))
                 throw PyTypeError.Create($"__await__() returned non-iterator of type '{result.GetTypeName()}'");
             return result;
         }
@@ -7253,7 +7253,7 @@ namespace SharpPy
             if (method == null)
                 throw PyTypeError.Create($"'{args[0].GetTypeName()}' object is not an async iterable");
             var iterator = args[0].BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-            if (iterator.LookupSpecialMethodUncached("__anext__") == null)
+            if (!iterator.HasTypeSlot("__anext__"))
                 throw PyTypeError.Create($"aiter() returned not an async iterator of type '{iterator.GetTypeName()}'");
             return iterator;
         }
@@ -7277,7 +7277,7 @@ namespace SharpPy
             if (method == null)
                 throw PyTypeError.Create($"'async for' requires an object with __aiter__ method, got {obj.GetTypeName()}");
             var iterator = obj.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-            if (iterator.LookupSpecialMethodUncached("__anext__") == null)
+            if (!iterator.HasTypeSlot("__anext__"))
                 throw PyTypeError.Create($"'async for' received an object from __aiter__ that does not implement __anext__: {iterator.GetTypeName()}");
             return iterator;
         }

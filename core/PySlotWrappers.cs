@@ -38,7 +38,7 @@ namespace SharpPy
                 string slot = name;
                 var owner = type;
                 type.SlotDict[name] = new PyWrapperDescriptor(name, type,
-                    (self, args, kwargs) => Run(owner, self, slot, args, kwargs));
+                    (self, args, kwargs) => Run(owner, self, slot, args, kwargs)) { CallsVirtual = true };
             }
         }
 

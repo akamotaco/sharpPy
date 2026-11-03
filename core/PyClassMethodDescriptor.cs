@@ -39,7 +39,7 @@ namespace SharpPy
                 var checkedCallable = callable;
                 callable = new PyBuiltinFunction(name, (args, kwargs) =>
                 {
-                    PyArity.Check(convention, ownerType, name, args[1..], kwargs);
+                    PyArity.Check(convention, ownerType, name, args[1..], kwargs, cls: args[0]);
                     return checkedCallable.Call(args, kwargs);
                 }) { OwnerClass = ownerType.Name };
             }
@@ -129,6 +129,9 @@ namespace SharpPy
         }
 
         public override bool IsCallable() => true;
+
+        // method_repr
+        public override PyString ToRepr() => new PyString($"<method '{_name}' of '{_ownerType.Name}' objects>");
 
         public override string GetTypeName() => "classmethod_descriptor";
         public override PyType GetPyType() => PyType.ClassMethodDescriptorType;

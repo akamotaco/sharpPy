@@ -2823,7 +2823,7 @@ namespace SharpPy
 
             // PyUnicode_Format: ctx.dict is a mapping that is no tuple or str.
             if ((positional && ai < args.Length) || (!positional && !singleUsed &&
-                (arg is PyString or PyStrSubclass || arg.LookupSpecialMethodUncached("__getitem__") == null)))
+                (arg is PyString or PyStrSubclass || !arg.HasTypeSlot("__getitem__"))))
                 throw PyTypeError.Create("not all arguments converted during string formatting");
             return sb.ToString();
         }

@@ -441,7 +441,7 @@ namespace SharpPy.Modules
             {
                 number = found.ToInt();
             }
-            else if (group.LookupSpecialMethodUncached("__index__") != null)
+            else if (group.HasTypeSlot("__index__"))
             {
                 number = group.GetAttribute("__index__").Call(Array.Empty<PyObject>(), null).ToInt();
             }

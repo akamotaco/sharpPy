@@ -159,8 +159,9 @@ namespace SharpPy
         private static void InstallObject()
         {
             Method(PyType.ObjectType, "__sizeof__", (self, args) => new PyInt(16));
-            if (!PyType.ObjectType.TypeDict.ContainsKey("__subclasshook__"))
-                PyType.ObjectType.TypeDict["__subclasshook__"] = new PyBuiltinClassMethod("__subclasshook__", (cls, arg) => PyNotImplemented.Instance);
+            // object_subclasshook: METH_CLASS|METH_VARARGS, NotImplemented whatever it is given.
+            PyType.ObjectType.TypeDict["__subclasshook__"] = new PyClassMethodDescriptor("__subclasshook__", PyType.ObjectType,
+                new PyBuiltinFunction("__subclasshook__", (args, kwargs) => PyNotImplemented.Instance));
         }
 
         private static PyObject Int(PyObject value) => value is PyIntSubclass subclass ? subclass.GetIntValue() : value;

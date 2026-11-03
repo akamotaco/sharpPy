@@ -1154,7 +1154,7 @@ namespace SharpPy
 
         private static bool IsNumberLike(PyObject value) =>
             value is PyComplex or PyFloat or PyFloatSubclass or PyInt or PyBool or PyIntSubclass ||
-            value.LookupSpecialMethodUncached("__float__") != null || value.LookupSpecialMethodUncached("__index__") != null;
+            value.HasTypeSlot("__float__") || value.HasTypeSlot("__index__");
 
         // complex_new_impl
         internal static PyObject CallComplex(PyObject[] args, PyDict kwargs = null)
@@ -1227,7 +1227,7 @@ namespace SharpPy
 
         // PyMapping_Check
         private static bool IsMapping(PyObject value) =>
-            value is PyDict || value.LookupSpecialMethodUncached("__getitem__") != null;
+            value is PyDict || value.HasTypeSlot("__getitem__");
 
         // What eval and exec share. Names resolve in a dict's storage. A dict subclass given as
         // globals, or any other mapping as locals, also takes LOAD_NAME and STORE_NAME through
@@ -2084,7 +2084,7 @@ namespace SharpPy
             try { prepare = metaclass.GetAttribute("__prepare__"); }
             catch (PythonException error) when (error.PyException is PyAttributeError) { }
             var ns = prepare == null ? new PyDict() : prepare.Call(new[] { name, bases }, classKeywords);
-            if (ns is not PyDict && ns.LookupSpecialMethodUncached("__getitem__") == null)
+            if (ns is not PyDict && !ns.HasTypeSlot("__getitem__"))
                 throw PyTypeError.Create(
                     $"{(metaclass is PyType named ? named.Name : "<metaclass>")}.__prepare__() must return a mapping, not {ns.GetTypeName()}");
 
@@ -3088,21 +3088,6 @@ namespace SharpPy
                 #endif
                 return attr;
             }
-            else if (attr is PyBuiltinFunction classModeBuiltin && name == "__init_subclass__")
-            {
-                // CPython: object.__init_subclass__ is METH_CLASS|METH_NOARGS; the
-                // super lookup yields a method-wrapper already bound to obj_type.
-                var boundCls = (PyObject)ObjectType;
-                var inner = classModeBuiltin;
-                return new PyBuiltinFunction(name, (a, kw) =>
-                {
-                    var merged = new PyObject[a.Length + 1];
-                    merged[0] = boundCls;
-                    Array.Copy(a, 0, merged, 1, a.Length);
-                    return inner.Call(merged, kw);
-                });
-            }
-
             // Not a descriptor - return as-is
             #if DEBUG_LOG
             Console.WriteLine($"🔧 PySuper returning non-descriptor attr: {attr.GetType().Name}");

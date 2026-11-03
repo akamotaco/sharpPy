@@ -419,7 +419,7 @@ namespace SharpPy.Core
             if (awaitable is not PyCoroutine)
                 return awaitable;
             var iterator = awaitable.GetAttribute("__await__").Call(Array.Empty<PyObject>(), null);
-            if (iterator is not PyIterator && iterator.LookupSpecialMethodUncached("__next__") == null)
+            if (iterator is not PyIterator && !iterator.HasTypeSlot("__next__"))
                 throw PyTypeError.Create("__await__ returned a non-iterable");
             return iterator;
         }

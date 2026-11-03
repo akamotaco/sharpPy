@@ -70,14 +70,13 @@ namespace SharpPy
         // Descriptor protocol
         public PyObject Get(PyObject instance, PyType owner)
         {
-            if (instance == null)
-            {
-                // 클래스에서 접근 시 descriptor 자체 반환
+            // A type's __new__ is tp_new_methoddef, a builtin function already bound to the type
+            // (add_tp_new_wrapper): it has no tp_descr_get, so an instance hands it back as is.
+            if (instance == null || Name == "__new__")
                 return this;
-            }
 
             // method_get: descr_check.
-            if (Name != "__new__" && !AppliesTo(OwnerType, instance))
+            if (!AppliesTo(OwnerType, instance))
                 throw PyTypeError.Create($"descriptor '{Name}' for '{OwnerType.FullName}' objects doesn't apply to a '{instance.GetTypeName()}' object");
 
             // 인스턴스에서 접근 시 bound method 반환
@@ -253,7 +252,10 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
         public override string GetTypeName() => "builtin_function_or_method";
 
-        internal string QualifiedName => $"{MethodDescriptor.OwnerType.FullName}.{MethodDescriptor.Name}";
+        // meth_get__qualname__: the receiver's type (or the receiver, when it is a type), not
+        // the type that defines the method. A module receiver leaves the bare name.
+        internal string QualifiedName => Instance is PyModule ? MethodDescriptor.Name :
+            $"{PyBuiltinFunction.QualifiedClassLabel(Instance as PyType ?? Instance.GetPyType())}.{MethodDescriptor.Name}";
 
         /// <summary>
         /// The same CPython object as PyBuiltinBoundMethod above, so the same slot: two bound
@@ -531,6 +533,12 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => PyType.WrapperDescriptorType;
+
+        /// <summary>
+        /// A wrapper of the type's slot (PySlotWrappers), whose slot is the CLR virtual itself: a
+        /// dispatch from that virtual finding it is the type's own C slot, not a method to call.
+        /// </summary>
+        internal bool CallsVirtual { get; init; }
 
         public override PyObject GetAttribute(string name) =>
             PyMethodDescriptor.DescriptorAttribute(name, OwnerType, Name) ?? base.GetAttribute(name);
