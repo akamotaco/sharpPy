@@ -135,14 +135,10 @@ namespace SharpPy
                 sys.ModuleDict.TryGetValue("stderr", out stream);
             if (stream is PyNone) return;
             if (sys != null && stream == null) return;
-            bool console = stream == null || stream is Modules.PyFile;
+            bool console = stream == null;
             void Write(string value)
             {
-                if (console)
-                {
-                    if (stream is Modules.PyFile file && file.Name == "stdout") Console.Out.Write(value);
-                    else Console.Error.Write(value);
-                }
+                if (console) Console.Error.Write(value);
                 else stream.GetAttribute("write").Call(new PyObject[] { new PyString(value) }, null);
             }
             var value = args.Items[1];
@@ -193,11 +189,7 @@ namespace SharpPy
                 Write(text);
             }
             Write("\n");
-            if (console)
-            {
-                if (stream is Modules.PyFile file && file.Name == "stdout") Console.Out.Flush();
-                else Console.Error.Flush();
-            }
+            if (console) Console.Error.Flush();
             else stream.GetAttribute("flush").Call(Array.Empty<PyObject>(), null);
         }
     }

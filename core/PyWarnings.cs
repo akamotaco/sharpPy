@@ -58,8 +58,7 @@ namespace SharpPy
             PyObject stream = null;
             if (PyImportSystem.TryGetModule("sys", out var sys)) sys.ModuleDict.TryGetValue("stderr", out stream);
             if (stream is PyNone) return;
-            if (stream == null || stream is Modules.PyFile file && file.Name == "stderr") Console.Error.Write(output);
-            else if (stream is Modules.PyFile stdout && stdout.Name == "stdout") Console.Out.Write(output);
+            if (stream == null) Console.Error.Write(output);
             else stream.GetAttribute("write").Call(new PyObject[] { new PyString(output) }, null);
         }
     }

@@ -48,6 +48,8 @@ namespace SharpPy.Core
                     return;
                 }
 
+                // pymain_run_file runs after init_interp_main: the streams exist before the source is read.
+                var interpreter = new IntegratedPythonInterpreter();
                 string code;
                 try
                 {
@@ -61,7 +63,6 @@ namespace SharpPy.Core
                         new PyObject[] { failure.GetPyType(), failure, PyNone.Instance }, null);
                     throw;
                 }
-                var interpreter = new IntegratedPythonInterpreter();
 
                 if (compileOnly)
                 {

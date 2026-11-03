@@ -362,29 +362,15 @@ namespace SharpPy
             // 출력 생성 - CPython 3.12: print는 str()을 사용, repr()이 아님
             // Performance: Eliminated LINQ - manual iteration instead of Select
 
-            // builtin_print: file=None means sys.stdout, whatever it is now. Only the original goes to the console.
+            // builtin_print_impl: file=None means sys.stdout, whatever it is now.
             if (file == null || file is PyNone)
             {
                 PyObject stream = null;
-                SharpPy.Modules.SysModule.Current?.ModuleDict.TryGetValue("stdout", out stream);
-                file = stream is SharpPy.Modules.PyFile || stream == null ? null : stream;
-                if (file is PyNone) return PyNone.Instance;
+                if (SharpPy.Modules.SysModule.Current?.ModuleDict.TryGetValue("stdout", out stream) != true)
+                    throw PyRuntimeError.Create("lost sys.stdout");
+                if (stream is PyNone) return PyNone.Instance;
+                file = stream;
             }
-            if (file == null)
-            {
-                // builtin_print writes as it goes: a __str__ that prints or raises comes after what is out.
-                for (int i = 0; i < args.Length; i++)
-                {
-                    if (i > 0) Console.Write(sep.Value);
-                    Console.Write(args[i].ToStr().Value);
-                }
-                Console.Write(end.Value);
-                if (flush.Value)
-                {
-                    Console.Out.Flush();
-                }
-            }
-            else
             {
                 // CPython print.c: print delegates to file.write(str) - errors
                 // (missing attribute, closed file) propagate to the caller.
@@ -427,6 +413,12 @@ namespace SharpPy
                 throw PyRuntimeError.Create("input(): lost sys.stdin");
             if (output is PyNone)
                 throw PyRuntimeError.Create("input(): lost sys.stdout");
+            // builtin_input_impl: stderr is flushed first, and a failing flush is cleared.
+            if (sys.ModuleDict.TryGetValue("stderr", out var ferr) && ferr is not PyNone)
+            {
+                try { ferr.GetAttribute("flush").Call(new PyObject[0], null); }
+                catch (PythonException) { }
+            }
             if (args.Length == 1)
             {
                 output.GetAttribute("write").Call(new PyObject[] { new PyString(args[0].ToStr().Value) }, null);
@@ -434,7 +426,6 @@ namespace SharpPy
                 try { output.GetAttribute("flush").Call(new PyObject[0], null); }
                 catch (PythonException) { }
             }
-            if (input is not Modules.PyFile)
             {
                 var answer = input.GetAttribute("readline").Call(new PyObject[0], null);
                 if (answer is not PyString text)

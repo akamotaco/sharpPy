@@ -646,8 +646,11 @@ namespace SharpPy
             }
             try { Modules.AtexitModule.RunCallbacks(); }
             catch { /* a teardown step that fails must not stop the next one */ }
+            // Py_FinalizeEx: flush_std_files before the interpreter is torn down, and again after.
+            Modules.SysModule.FlushStdFiles();
             PyGil.BeginFinalizing();
             RunAtShutdown();
+            Modules.SysModule.FlushStdFiles();
         }
 
         /// <summary>

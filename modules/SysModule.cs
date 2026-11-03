@@ -19,6 +19,92 @@ namespace SharpPy.Modules
         /// <summary>The sys module of this interpreter: print reads sys.stdout from it.</summary>
         internal static PyModule Current;
 
+        private static bool _streamsReady;
+        private static string stdioEncoding = "utf-8";
+
+        /// <summary>
+        /// Python/pylifecycle.c init_sys_streams and create_stdio: each standard stream is
+        /// open(fd, mode, buffering=-1, closefd=False) under a TextIOWrapper, line buffered when
+        /// it is a terminal and always for stderr, with "\n" translated on Windows. Runs once, after
+        /// the import system can reach the codecs; the fd table maps 0, 1 and 2 to the console.
+        /// </summary>
+        internal static void InitStdStreams()
+        {
+            if (_streamsReady || Current == null)
+                return;
+            _streamsReady = true;
+            PyObject Create(int fd, bool write, string name, string errors)
+            {
+                var kwargs = new PyDict();
+                kwargs.SetItem(new PyString("closefd"), PyBool.False);
+                var buffer = IoModule.Open(new PyObject[] { new PyInt(fd), new PyString(write ? "wb" : "rb"), new PyInt(-1) }, kwargs);
+                var raw = buffer.GetAttribute("raw");
+                raw.SetAttribute("name", new PyString(name));
+                bool isatty = raw.GetAttribute("isatty").Call(Array.Empty<PyObject>(), null).IsTrue();
+                bool lineBuffering = isatty || fd == 2;
+                PyObject newline = OperatingSystem.IsWindows() ? PyNone.Instance : new PyString("\n");
+                var stream = PyTextIOWrapper.WrapperType.Call(new PyObject[]
+                {
+                    buffer, new PyString(stdioEncoding), new PyString(errors), newline, PyBool.FromBool(lineBuffering), PyBool.False,
+                }, null);
+                stream.SetAttribute("mode", new PyString(write ? "w" : "r"));
+                // The interpreter keeps these to its very end (flush_std_files), so no finalizer
+                // pass closes them under a __del__ that still prints.
+                foreach (var layer in new[] { stream, buffer, raw })
+                    PyFinalizer.Detach(PyFinalizer.Attach(layer));
+                return stream;
+            }
+            // config_init_stdio_encoding: PYTHONIOENCODING is "encoding[:errors]"; the errors apply
+            // to stdin and stdout, stderr keeps backslashreplace.
+            string encoding = "utf-8", errors = "strict";
+            var setting = Environment.GetEnvironmentVariable("PYTHONIOENCODING");
+            if (!string.IsNullOrEmpty(setting))
+            {
+                int colon = setting.IndexOf(':');
+                string name = colon < 0 ? setting : setting.Substring(0, colon);
+                if (name.Length != 0)
+                    encoding = name;
+                if (colon >= 0 && colon + 1 < setting.Length)
+                    errors = setting.Substring(colon + 1);
+            }
+            stdioEncoding = encoding;
+            var dict = Current.ModuleDict;
+            dict["stdin"] = dict["__stdin__"] = Create(0, false, "<stdin>", errors);
+            dict["stdout"] = dict["__stdout__"] = Create(1, true, "<stdout>", errors);
+            dict["stderr"] = dict["__stderr__"] = Create(2, true, "<stderr>", "backslashreplace");
+        }
+
+        /// <summary>
+        /// flush_std_files: sys.stdout and sys.stderr, if they are still open. A failing stdout
+        /// flush is reported; CPython also turns it into exit status 120.
+        /// </summary>
+        internal static bool FlushStdFiles()
+        {
+            bool ok = true;
+            if (Current == null)
+                return ok;
+            foreach (var name in new[] { "stdout", "stderr" })
+            {
+                if (!Current.ModuleDict.TryGetValue(name, out var stream) || stream is PyNone)
+                    continue;
+                try
+                {
+                    if (stream.GetAttribute("closed").IsTrue())
+                        continue;
+                    stream.GetAttribute("flush").Call(Array.Empty<PyObject>(), null);
+                }
+                catch (PythonException error)
+                {
+                    if (name == "stdout")
+                    {
+                        PyUnraisable.Report(error, stream);
+                        ok = false;
+                    }
+                }
+            }
+            return ok;
+        }
+
         public static PyModule CreateSysModule()
         {
             // CPython 3.12: sys is a builtin module implemented in C (Python/sysmodule.c)
@@ -120,15 +206,10 @@ namespace SharpPy.Modules
             // 종료 함수
             module.ModuleDict["exit"] = new PySysFunction("exit");
 
-            // stdin, stdout, stderr (간단한 구현)
-            module.ModuleDict["stdin"] = new PyFile("stdin");
-            module.ModuleDict["stdout"] = new PyFile("stdout");
+            // sys.stdin, stdout and stderr come later, from InitStdStreams (init_sys_streams).
             Current = module;
             foreach (var prefix in new[] { "prefix", "exec_prefix", "base_prefix", "base_exec_prefix" })
                 module.ModuleDict[prefix] = new PyString("");
-            module.ModuleDict["stderr"] = new PyFile("stderr");
-            foreach (var stream in new[] { "stdin", "stdout", "stderr" })
-                module.ModuleDict[$"__{stream}__"] = module.ModuleDict[stream];
 
             // sys.argv is a copy of what the host put in PyConfig.argv
             // (Python/sysmodule.c:3612 COPY_LIST("argv", config->argv)). Program.Main fills it for the
@@ -830,7 +911,8 @@ namespace SharpPy.Modules
                 return PyNone.Instance;
             var builtins = PyBuiltinsModule.Instance;
             builtins.SetAttribute("_", PyNone.Instance);
-            if (!PyImportSystem.TryGetModule("sys", out var sys) || sys.GetAttribute("stdout") is not { } stdout || stdout is PyNone)
+            // _PySys_GetAttr: a missing attribute is lost the same as None.
+            if (!PyImportSystem.TryGetModule("sys", out var sys) || !sys.ModuleDict.TryGetValue("stdout", out var stdout) || stdout is PyNone)
                 throw PyRuntimeError.Create("lost sys.stdout");
             var write = stdout.GetAttribute("write");
             write.Call(new PyObject[] { value.ToRepr() }, null);
@@ -843,215 +925,4 @@ namespace SharpPy.Modules
     // CPython 3.12: sys.modules is a regular PyDict (Python/import.c:185)
     // No need for custom PySysModules class - use PyDict directly
 
-    /// <summary>
-    /// sys.stdin/stdout/stderr: TextIOWrapper-shaped stream object.
-    /// CPython 3.12: Modules/_io/textio.c (public surface subset).
-    /// </summary>
-    public class PyFile : PyObject
-    {
-        public string Name { get; }
-        private bool _closed;
-
-        public PyFile(string name)
-        {
-            Name = name;
-        }
-
-        private string DisplayName => $"<{Name}>";
-        private string Mode => Name == "stdin" ? "r" : "w";
-        private System.IO.TextWriter Writer => Name switch
-        {
-            "stderr" => Console.Error,
-            "stdout" => Console.Out,
-            _ => Console.Out
-        };
-
-        // Until create_stdio builds these over FileIO, Buffered and TextIOWrapper, they report the type.
-        public override PyType GetPyType() => PyTextIOWrapper.WrapperType;
-        public override string GetTypeName() => "_io.TextIOWrapper";
-        public override PyString ToRepr() => new PyString($"<{GetTypeName()} name='{DisplayName}' mode='{Mode}' encoding='utf-8'>");
-
-        private PyObject _buffer;
-
-        // The bytes under the text: unbuffered, so that it keeps its place among the text writes.
-        private PyObject Buffer() => _buffer ??= new PyFileContextManager(Name switch { "stdin" => 0, "stderr" => 2, _ => 1 },
-            Name == "stdin" ? "rb" : "wb", null, null, null, 0, false);
-
-        private void CheckOpen()
-        {
-            if (_closed)
-                throw PyValueError.Create("I/O operation on closed file.");
-        }
-
-        private void CheckReadable()
-        {
-            CheckOpen();
-            if (Name != "stdin")
-                throw PyUnsupportedOperation.Create("not readable");
-        }
-
-        private string ReadLine()
-        {
-            CheckReadable();
-            var line = Console.In.ReadLine();
-            return line == null ? "" : line + '\n';
-        }
-
-        public override PyObject GetIterator() => this;
-
-        public override PyObject Next()
-        {
-            string line = ReadLine();
-            return line.Length != 0 ? new PyString(line) : throw PyStopIteration.Create();
-        }
-
-        private PyObject Method(string name, Func<PyObject[], PyObject> body) =>
-            new PyBoundBuiltinMethod(this, new PyBuiltinMethod(name, (self, args) => body(args), -1));
-        public override string ToString() => ToRepr().Value;
-
-        public override PyObject GetAttribute(string name)
-        {
-            switch (name)
-            {
-                case "name":
-                    return new PyString(DisplayName);
-                case "mode":
-                    return new PyString(Mode);
-                case "encoding":
-                    return new PyString("utf-8");
-                case "errors":
-                    return new PyString("strict");
-                case "closed":
-                    return PyBool.FromBool(_closed);
-                case "line_buffering":
-                    return PyBool.FromBool(Name != "stdin" && !Console.IsOutputRedirected);
-                case "newlines":
-                    return PyNone.Instance;
-                case "write":
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("write", (self, args) =>
-                    {
-                        if (args.Length != 1)
-                            throw PyTypeError.Create($"write() takes exactly one argument ({args.Length} given)");
-                        CheckOpen();
-                        if (Name == "stdin")
-                            throw PyUnsupportedOperation.Create("not writable");
-                        if (args[0] is not PyString && args[0] is not PyStrSubclass)
-                            throw PyTypeError.Create($"write() argument must be str, not {args[0].GetTypeName()}");
-                        string text = args[0].ToStr().Value;
-                        var w = ((PyFile)self).Writer;
-                        w.Write(text);
-                        w.Flush();
-                        return new PyInt(text.Length);
-                    }, 1));
-                case "writelines":
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("writelines", (self, args) =>
-                    {
-                        if (args.Length != 1)
-                            throw PyTypeError.Create($"writelines() takes exactly one argument ({args.Length} given)");
-                        var f = (PyFile)self;
-                        var iter = args[0].GetIterator();
-                        try
-                        {
-                            while (true)
-                            {
-                                var item = iter.Next();
-                                string text = item is PyString ps ? ps.Value : item.ToStr().Value;
-                                f.Writer.Write(text);
-                            }
-                        }
-                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                        {
-                        }
-                        f.Writer.Flush();
-                        return PyNone.Instance;
-                    }, 1));
-                case "flush":
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("flush", (self, args) =>
-                    {
-                        ((PyFile)self).Writer.Flush();
-                        return PyNone.Instance;
-                    }, 0));
-                case "close":
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("close", (self, args) =>
-                    {
-                        ((PyFile)self)._closed = true;
-                        return PyNone.Instance;
-                    }, 0));
-                case "isatty":
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("isatty", (self, args) =>
-                    {
-                        var f = (PyFile)self;
-                        bool tty = f.Name switch
-                        {
-                            "stderr" => !Console.IsErrorRedirected,
-                            "stdin" => !Console.IsInputRedirected,
-                            _ => !Console.IsOutputRedirected
-                        };
-                        return PyBool.FromBool(tty);
-                    }, 0));
-                case "writable":
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("writable", (self, args) =>
-                        PyBool.FromBool(((PyFile)self).Name != "stdin"), 0));
-                case "readable":
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("readable", (self, args) =>
-                        PyBool.FromBool(((PyFile)self).Name == "stdin"), 0));
-                case "seekable":
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("seekable", (self, args) => PyBool.False, 0));
-                case "buffer":
-                    return Buffer();
-                case "detach":
-                    return Method(name, args => Buffer());
-                case "write_through":
-                    return PyBool.False;
-                case "__enter__":
-                    return Method(name, args => this);
-                case "__exit__":
-                    return Method(name, args =>
-                    {
-                        _closed = true;
-                        return PyNone.Instance;
-                    });
-                case "__iter__":
-                    return Method(name, args => this);
-                case "__next__":
-                    return Method(name, args => Next());
-                case "reconfigure":
-                    return Method(name, args => PyNone.Instance);
-                case "read":
-                    return Method(name, args =>
-                    {
-                        CheckReadable();
-                        int size = args.Length > 0 && args[0] is not PyNone ? args[0].ToInt() : -1;
-                        if (size < 0)
-                            return new PyString(Console.In.ReadToEnd());
-                        var chars = new char[size];
-                        return new PyString(new string(chars, 0, Console.In.Read(chars, 0, size)));
-                    });
-                case "readline":
-                    return Method(name, args => new PyString(ReadLine()));
-                case "readlines":
-                    return Method(name, args =>
-                    {
-                        var lines = new List<PyObject>();
-                        for (string line = ReadLine(); line.Length != 0; line = ReadLine())
-                            lines.Add(new PyString(line));
-                        return new PyList(lines.ToArray());
-                    });
-                case "seek":
-                case "tell":
-                case "truncate":
-                    return Method(name, args => throw PyUnsupportedOperation.Create($"underlying stream is not seekable"));
-                case "fileno":
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("fileno", (self, args) =>
-                        new PyInt(((PyFile)self).Name switch
-                        {
-                            "stdin" => 0,
-                            "stderr" => 2,
-                            _ => 1
-                        }), 0));
-                default:
-                    return base.GetAttribute(name);
-            }
-        }
-    }
 }

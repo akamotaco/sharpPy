@@ -57,6 +57,13 @@ namespace SharpPy
             // This ensures globals() returns the same object as sys.modules['__main__'].__dict__
             _globalScope = new PyScopeChain(mainModule.ModuleDict, "__main__", mainModule);
 
+            // init_interp_main: the standard streams, once the import system is up.
+            using (PyHost.Enter())
+            {
+                PyImportSystem.Import("sys");
+                Modules.SysModule.InitStdStreams();
+            }
+
             SetupBuiltinHelpers();
         }
         
@@ -97,6 +104,19 @@ namespace SharpPy
         public PyObject Execute(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode, CompileMode mode = CompileMode.File)
         {
             using var hostScope = PyHost.Enter();
+            // A host reads the console when a run returns, so what the streams buffered is out by then.
+            try
+            {
+                return ExecuteUnflushed(sourceCode, fileName, showTokenize, showAst, showBytecode, mode);
+            }
+            finally
+            {
+                Modules.SysModule.FlushStdFiles();
+            }
+        }
+
+        private PyObject ExecuteUnflushed(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode, CompileMode mode)
+        {
             // CPython 3.12: Python/pythonrun.c - co_filename uses absolute path for file execution
             // Convert relative paths to absolute paths (like CPython does for __file__)
             // But keep special names like "<string>", "<stdin>", "<module>" as-is

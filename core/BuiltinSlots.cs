@@ -23,7 +23,6 @@ namespace SharpPy
             InstallText();
             PyGenericAlias.Install();
             PySlotWrappers.Install();
-            PyTextWrapper.Install();
             PyComplex.InstallNew();
             // bool_new
             PyType.BoolType.TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__", (args, kwargs) =>
