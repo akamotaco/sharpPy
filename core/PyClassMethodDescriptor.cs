@@ -16,6 +16,9 @@ namespace SharpPy
         private readonly PyType _ownerType;
         private readonly PyObject _callable;
 
+        internal string Name => _name;
+        internal PyType OwnerType => _ownerType;
+
         public PyClassMethodDescriptor(string name, PyType ownerType, PyObject callable)
         {
             _name = name;
@@ -27,7 +30,7 @@ namespace SharpPy
                     var rest = new PyObject[args.Length - 1];
                     System.Array.Copy(args, 1, rest, 0, rest.Length);
                     return method._implementation(args[0], rest, kwargs);
-                });
+                }) { OwnerClass = ownerType?.Name };
             _callable = callable;
             if (callable is PyBuiltinFunction function)
                 function.OwnerClass = ownerType.Name;

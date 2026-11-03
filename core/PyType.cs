@@ -1532,6 +1532,7 @@ namespace SharpPy
             // CPython 3.12: Objects/typeobject.c:1410-1412
             // All types have __doc__ attribute (tp_doc)
             // If not already set by specific type initializer, default to None
+            // The builtins fill in their tp_doc once the builtins module exists (PyDocs.SetTypeDocs).
             if (!TypeDict.ContainsKey("__doc__"))
             {
                 TypeDict["__doc__"] = PyNone.Instance;

@@ -694,6 +694,15 @@ namespace SharpPy
         }
 
         // _Py_strhex_impl
+        // bytes.hex, bytearray.hex and memoryview.hex: one _Py_strhex_with_sep.
+        internal static PyObject HexMethod(byte[] data, PyObject[] args, PyDict kwargs)
+        {
+            if (args.Length > 2)
+                throw PyTypeError.Create($"hex() takes at most 2 arguments ({args.Length} given)");
+            CheckKeywords("hex", kwargs, "sep", "bytes_per_sep");
+            return Hex(data, Named(args, 0, kwargs, "sep"), Named(args, 1, kwargs, "bytes_per_sep"));
+        }
+
         private static PyObject Hex(byte[] text, PyObject sep, PyObject bytesPerSep)
         {
             int group = bytesPerSep == null ? 1 : (int)Math.Clamp((long)IndexValue(bytesPerSep), int.MinValue, int.MaxValue);
@@ -1134,13 +1143,7 @@ namespace SharpPy
             Transform(type, "title", Title);
             Transform(type, "capitalize", Capitalize);
             Def(type, "decode", Decode, keywords: true);
-            Def(type, "hex", (self, args, kwargs) =>
-            {
-                if (args.Length > 2)
-                    throw PyTypeError.Create($"hex() takes at most 2 arguments ({args.Length} given)");
-                CheckKeywords("hex", kwargs, "sep", "bytes_per_sep");
-                return Hex(Self(self), Named(args, 0, kwargs, "sep"), Named(args, 1, kwargs, "bytes_per_sep"));
-            }, keywords: true);
+            Def(type, "hex", (self, args, kwargs) => HexMethod(Self(self), args, kwargs), keywords: true);
             type.TypeDict["fromhex"] = new PyClassMethodDescriptor("fromhex", type, new PyBuiltinFunction("fromhex", (args, kwargs) =>
             {
                 if (kwargs != null && kwargs.Length() != 0)

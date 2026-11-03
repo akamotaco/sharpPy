@@ -11,6 +11,8 @@ namespace SharpPy
         private readonly PyObject _callable;
         private readonly PyType _boundClass;
 
+        internal PyObject Callable => _callable;
+
         /// <summary>
         /// CPython 3.12: Objects/methodobject.c:87-92
         /// Create a PyCMethod with the class bound as the first argument.

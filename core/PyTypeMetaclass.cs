@@ -229,6 +229,10 @@ namespace SharpPy
             typeClass.ClassDict["__subclasses__"] = new PyMethodDescriptor("__subclasses__", typeClass, (self, args, kwargs) =>
                 new PyList(((PyType)self).LiveSubclasses().ConvertAll(subclass => (PyObject)subclass)), minArgs: 0, maxArgs: 0);
 
+            // type_get_text_signature: from the internal doc of a static type.
+            typeClass.ClassDict["__text_signature__"] = new PyGetSetDescriptor("__text_signature__", typeClass,
+                self => self is PyClass ? PyNone.Instance : PyDocs.TextSignature(self));
+
             // Add type.__format__ - CPython 3.12 (defaults to __str__)
             // This descriptor is for type objects themselves
             // Must be added AFTER typeClass is created so we can set OwnerType
@@ -1296,6 +1300,10 @@ namespace SharpPy
             if (instance == null || instance == PyNone.Instance)
                 return this;
 
+            // type_get_doc: a static type cuts its tp_doc, when it has one.
+            if (instance is PyType withDoc && PyDocs.Of(withDoc) is { Doc: not null } internalDoc)
+                return PyDocs.DocFromInternal(internalDoc.Name, internalDoc.Doc);
+
             if (instance is PyClass pyClass)
             {
                 // CPython: PyDict_GetItemWithError(dict, &_Py_ID(__doc__))
@@ -1307,6 +1315,9 @@ namespace SharpPy
                 return PyNone.Instance;
             }
 
+            // Otherwise the dict's entry, asked as a descriptor with no instance.
+            if (instance is PyType native && native.TypeDict.TryGetValue("__doc__", out var stored))
+                return PyClassInstance.CallDescriptorGet(stored, null, native);
             return PyNone.Instance;
         }
 

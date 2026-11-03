@@ -183,23 +183,8 @@ namespace SharpPy
                 if (self is not PyMemoryView view)
                     throw PyTypeError.Create($"descriptor 'hex' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
                 view.CheckReleased();
-                string sep = "";
-                if (args.Length > 0 && args[0] is PyString sepStr)
-                {
-                    sep = sepStr.Value;
-                }
-                var data = view.Data;
-                var sb = new System.Text.StringBuilder();
-                for (int i = 0; i < data.Length; i++)
-                {
-                    if (i > 0 && sep.Length > 0)
-                    {
-                        sb.Append(sep);
-                    }
-                    sb.Append(data[i].ToString("x2"));
-                }
-                return new PyString(sb.ToString());
-            });
+                return BytesMethods.HexMethod(view.Data, args, kwargs);
+            }, acceptsKwargs: true);
             type.TypeDict["__bytes__"] = new PyMethodDescriptor("__bytes__", type, (self, args, kwargs) =>
             {
                 if (self is not PyMemoryView view)

@@ -154,9 +154,16 @@ namespace SharpPy
                 });
             }
             GetSets<PyObject>(PyType.MethodWrapperType, Field, "__name__", "__qualname__", "__objclass__");
+            // method_get_doc, method_get_text_signature and their wrapper_ counterparts cut the
+            // internal doc; getset_get_doc and member_get_doc hand it over as it is.
             foreach (var type in new[] { PyType.BuiltinFunctionOrMethodType, PyType.MethodDescriptorType, PyType.WrapperDescriptorType,
                          PyType.ClassMethodDescriptorType, PyType.MethodWrapperType })
-                GetSets<PyObject>(type, (self, name) => PyNone.Instance, "__text_signature__");
+            {
+                GetSets<PyObject>(type, (self, name) => PyDocs.Doc(self), "__doc__");
+                GetSets<PyObject>(type, (self, name) => PyDocs.TextSignature(self), "__text_signature__");
+            }
+            foreach (var type in new[] { PyType.GetSetDescriptorType, PyType.MemberDescriptorType })
+                GetSets<PyObject>(type, (self, name) => PyDocs.PlainDoc(self), "__doc__");
             Members<PyObject>(PyType.MethodWrapperType, Field, "__self__");
             Members<PyGenericAlias>(PyType.GenericAliasType, Field, "__origin__", "__args__", "__unpacked__");
             GetSets<PyGenericAlias>(PyType.GenericAliasType, Field, "__parameters__", "__typing_unpacked_tuple_args__");

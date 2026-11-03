@@ -1875,7 +1875,6 @@ namespace SharpPy
                 "__qualname__" => new PyString(OwnerClass != null ? $"{OwnerClass}.{Name}" : Name),
                 "__call__" => this,
                 "__module__" => new PyString(OwnerModule),
-                "__text_signature__" => PyNone.Instance,
                 "__self__" => PyImportSystem.Import(OwnerModule),
                 // meth_reduce: a module's function pickles by name
                 "__reduce__" => new PyBuiltinFunction("__reduce__", (args, kwargs) => new PyString(Name)),
