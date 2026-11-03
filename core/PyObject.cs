@@ -1108,28 +1108,44 @@ namespace SharpPy
         public virtual PyObject Call(PyObject[] args, PyDict kwargs)
         {
             CheckNativeStack(" while calling a Python object");
+            // slot_tp_call (Objects/typeobject.c): __call__ from the type, never the instance.
+            // lookup_maybe_method: a function is called with self prepended, anything else is
+            // bound through its __get__ (a staticmethod drops self). What the call raises propagates.
+            if (GetPyType() is PyClass heap)
+            {
+                var declared = heap.FindNameInMro("__call__");
+                if (declared != null)
+                {
+                    if (declared is PyFunction function)
+                    {
+                        var withSelf = new PyObject[args.Length + 1];
+                        withSelf[0] = this;
+                        Array.Copy(args, 0, withSelf, 1, args.Length);
+                        return function.Call(withSelf, kwargs);
+                    }
+                    return BindSpecialMethod(declared).Call(args, kwargs);
+                }
+                throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
+            }
+
+            // A builtin whose __call__ is only reachable as an attribute.
+            PyObject callMethod;
             try
             {
-                var callMethod = GetAttribute("__call__");
-                if (callMethod is PyMethod method)
-                    return method.Call(args, kwargs);
-                else if (callMethod is PyFunction func)
-                {
-                    // unbound function이면 self를 첫 번째 인자로 추가
-                    var newArgs = new PyObject[args.Length + 1];
-                    newArgs[0] = this;
-                    Array.Copy(args, 0, newArgs, 1, args.Length);
-                    return func.Call(newArgs, kwargs);
-                }
-                else if (callMethod.IsCallable())
-                    return callMethod.Call(args, kwargs);
+                callMethod = GetAttribute("__call__");
             }
             catch (PythonException pe) when (pe.PyException is PyAttributeError)
             {
-                // If __call__ attribute doesn't exist, fall through to TypeError below
+                throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
             }
-
-            throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
+            if (callMethod is PyFunction func)
+            {
+                var newArgs = new PyObject[args.Length + 1];
+                newArgs[0] = this;
+                Array.Copy(args, 0, newArgs, 1, args.Length);
+                return func.Call(newArgs, kwargs);
+            }
+            return callMethod.Call(args, kwargs);
         }
 
         #endregion

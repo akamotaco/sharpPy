@@ -303,7 +303,7 @@ namespace SharpPy
 
             // Step 1: Call __new__ to create the object
             // CPython 3.12: Objects/typeobject.c:1667
-            var newMethod = LookupInMRO("__new__");
+            var newMethod = FindNameInMro("__new__", out bool newWritten);
 
             // No builtin family is special-cased here any more. Each base type builds its own
             // subtype instance in its own tp_new, the way CPython does (float_subtype_new
@@ -340,20 +340,27 @@ namespace SharpPy
             var newArgs = new PyObject[args.Length + 1];
             newArgs[0] = this;
             Array.Copy(args, 0, newArgs, 1, args.Length);
-            if (newMethod is not (PyFunction or PyStaticBuiltinMethod or PyBuiltinMethod or PyMethodDescriptor))
+            PyObject instance;
+            // A builtin __new__ written into a class body leaves the inherited tp_new in place.
+            if (newWritten && PyType.IsBuiltinNew(newMethod) && PyType.InheritedBuiltinNew(this) is { } inheritedNew)
+                instance = PyType.CallTpNew(inheritedNew, newArgs, kwargs);
+            else
             {
-                if (newMethod is IDescriptor newDescriptor)
+                if (newMethod is not (PyFunction or PyStaticBuiltinMethod or PyBuiltinMethod or PyMethodDescriptor))
                 {
-                    newMethod = newDescriptor.Get(null, this);
+                    if (newMethod is IDescriptor newDescriptor)
+                    {
+                        newMethod = newDescriptor.Get(null, this);
+                    }
+                    else
+                    {
+                        var newGet = newMethod.LookupSpecialMethodUncached("__get__");
+                        if (newGet != null)
+                            newMethod = newMethod.BindSpecialMethod(newGet).Call(new PyObject[] { PyNone.Instance, this }, null);
+                    }
                 }
-                else
-                {
-                    var newGet = newMethod.LookupSpecialMethodUncached("__get__");
-                    if (newGet != null)
-                        newMethod = newMethod.BindSpecialMethod(newGet).Call(new PyObject[] { PyNone.Instance, this }, null);
-                }
+                instance = newMethod.Call(newArgs, kwargs);
             }
-            PyObject instance = newMethod.Call(newArgs, kwargs);
 
             // Step 2: Check if returned object is an instance of this type
             // CPython 3.12: Objects/typeobject.c:1672-1675
@@ -943,246 +950,14 @@ namespace SharpPy
             return new PyString($"<{modulePrefix}{name} object at 0x{self.GetHashCode():x}>");
         }
 
+        // A builtin type's own dict, then the slot wrappers SharpPy keeps beside it (PyType.SlotDict).
         private static PyObject? BuildTypeAttribute(PyType pyType, string name)
         {
-            // CPython 3.12: 내장 타입의 속성을 직접 조회
-            // 재귀를 방지하기 위해 PyType의 내부 구조를 직접 사용
-
-            try
-            {
-                // FIRST: Check TypeDict for descriptors (like __setattr__, __getattribute__, etc.)
-                // This is critical for finding dynamically added descriptors
-                if (pyType.TypeDict != null && pyType.TypeDict.TryGetValue(name, out PyObject descriptor))
-                {
-                    return descriptor;
-                }
-                if (pyType.SlotDict.TryGetValue(name, out var slotWrapper))
-                    return slotWrapper;
-
-                // SECOND: Fall back to hardcoded switch for legacy/special attributes
-                // object 타입의 기본 속성들
-                if (pyType == PyType.ObjectType)
-                {
-                    return name switch
-                    {
-                        "__class__" => PyType.TypeType,
-                        _ => null
-                    };
-                }
-
-                // type 타입의 기본 속성들
-                if (pyType == PyType.TypeType)
-                {
-                    return name switch
-                    {
-                        "__mro__" => null, // 이미 PyClass.GetAttribute에서 처리됨
-                        "__bases__" => null, // 이미 PyClass.GetAttribute에서 처리됨
-                        "__name__" => null, // 이미 PyClass.GetAttribute에서 처리됨
-                        _ => null
-                    };
-                }
-
-                // dict 타입의 메서드들 - CPython 3.12 compatible
-                if (pyType == PyType.DictType)
-                {
-                    // Helper to get PyDict from self (works for both PyDict and dict subclasses)
-                    static PyDict GetDictStorage(PyObject self)
-                    {
-                        if (self is PyDict dict)
-                            return dict;
-
-                        if (self is PyClassInstance instance && instance.InstanceType.BaseTypes.Any(bt => bt == PyType.DictType))
-                        {
-                            // Access the _dictStorage field via reflection or provide public accessor
-                            var field = typeof(PyClassInstance).GetField("_dictStorage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                            return (PyDict)field?.GetValue(instance);
-                        }
-
-                        throw PyTypeError.Create($"descriptor requires a 'dict' object but received a '{self.GetTypeName()}'");
-                    }
-
-                    return name switch
-                    {
-                        // Note: dict.__init__ is now implemented in PyType.cs DictType initialization
-                        // The TypeDict lookup in GetTypeAttribute will find it there
-
-                        // CPython 3.12: __getitem__ wrapper descriptor (mp_subscript slot)
-                        "__getitem__" => new PyWrapperDescriptor(
-                            "__getitem__",
-                            PyType.DictType,
-                            (self, args, kwargs) =>
-                            {
-                                if (args.Length != 1)
-                                    throw PyTypeError.Create($"__getitem__() takes exactly 1 argument ({args.Length} given)");
-
-                                var key = args[0];
-                                // CPython 3.12: Call self.GetItem() which allows subclass override
-                                return self.GetItem(key);
-                            }),
-
-                        // CPython 3.12: __setitem__ wrapper descriptor (mp_ass_subscript slot)
-                        "__setitem__" => new PyWrapperDescriptor(
-                            "__setitem__",
-                            PyType.DictType,
-                            (self, args, kwargs) =>
-                            {
-                                if (args.Length != 2)
-                                    throw PyTypeError.Create($"__setitem__() takes exactly 2 arguments ({args.Length} given)");
-
-                                var key = args[0];
-                                var value = args[1];
-
-                                // CPython 3.12: Direct storage access (dict_ass_sub in C)
-                                // This wrapper descriptor represents the C-level slot, not Python method
-                                PyDict dict;
-                                if (self is PyDict d)
-                                {
-                                    dict = d;
-                                }
-                                else if (self is PyClassInstance ci && ci.IsDictSubclass())
-                                {
-                                    dict = ci.GetDictStorage();
-                                }
-                                else
-                                {
-                                    throw PyTypeError.Create($"descriptor '__setitem__' for 'dict' objects doesn't apply to a '{self.GetTypeName()}'  object");
-                                }
-
-                                dict.SetItem(key, value);
-                                return PyNone.Instance;
-                            }),
-
-                        "get" => new PyBuiltinFunction("get", (args, kwargs) =>
-                        {
-                            if (args.Length < 2 || args.Length > 3)
-                                throw PyTypeError.Create($"get() takes from 2 to 3 positional arguments but {args.Length} were given");
-
-                            var self = args[0];
-                            var key = args[1];
-                            var defaultValue = args.Length > 2 ? args[2] : PyNone.Instance;
-
-                            // CPython 3.12: Use GetItem with exception handling (works for both PyDict and dict subclasses)
-                            try
-                            {
-                                return self.GetItem(key);
-                            }
-                            catch (PythonException ex) when (ex.PyException is PyKeyError)
-                            {
-                                return defaultValue;
-                            }
-                        }),
-
-                        "keys" => new PyBuiltinFunction("keys", (args, kwargs) =>
-                        {
-                            if (args.Length != 1)
-                                throw PyTypeError.Create($"keys() takes exactly 1 argument ({args.Length} given)");
-
-                            var dict = GetDictStorage(args[0]);
-                            return new PyDictView(dict, DictViewKind.Keys);
-                        }),
-
-                        "values" => new PyBuiltinFunction("values", (args, kwargs) =>
-                        {
-                            if (args.Length != 1)
-                                throw PyTypeError.Create($"values() takes exactly 1 argument ({args.Length} given)");
-
-                            var dict = GetDictStorage(args[0]);
-                            return new PyDictView(dict, DictViewKind.Values);
-                        }),
-
-                        "items" => new PyBuiltinFunction("items", (args, kwargs) =>
-                        {
-                            if (args.Length != 1)
-                                throw PyTypeError.Create($"items() takes exactly 1 argument ({args.Length} given)");
-
-                            var dict = GetDictStorage(args[0]);
-                            return new PyDictView(dict, DictViewKind.Items);
-                        }),
-
-                        "pop" => new PyBuiltinFunction("pop", (args, kwargs) =>
-                        {
-                            if (args.Length < 2 || args.Length > 3)
-                                throw PyTypeError.Create($"pop() takes from 2 to 3 positional arguments but {args.Length} were given");
-
-                            var dict = GetDictStorage(args[0]);
-                            var key = args[1];
-                            var defaultValue = args.Length > 2 ? args[2] : null;
-                            return dict.Pop(key, defaultValue);
-                        }),
-
-                        "clear" => new PyBuiltinFunction("clear", (args, kwargs) =>
-                        {
-                            if (args.Length != 1)
-                                throw PyTypeError.Create($"clear() takes exactly 1 argument ({args.Length} given)");
-
-                            var dict = GetDictStorage(args[0]);
-                            dict.Clear();
-                            return PyNone.Instance;
-                        }),
-
-                        "update" => new PyBuiltinFunction("update", (args, kwargs) =>
-                        {
-                            if (args.Length != 2)
-                                throw PyTypeError.Create($"update() takes exactly 2 arguments ({args.Length} given)");
-
-                            var dict = GetDictStorage(args[0]);
-
-                            if (args[1] is PyDict otherDict)
-                            {
-                                dict.Update(otherDict);
-                            }
-                            else if (args[1] is PyClassInstance otherInstance && otherInstance.InstanceType.BaseTypes.Any(bt => bt == PyType.DictType))
-                            {
-                                // Dict subclass - get its storage
-                                var otherStorage = GetDictStorage(args[1]);
-                                dict.Update(otherStorage);
-                            }
-                            else
-                            {
-                                throw PyTypeError.Create($"update() argument must be dict, not '{args[1].GetTypeName()}'");
-                            }
-                            return PyNone.Instance;
-                        }),
-
-                        "setdefault" => new PyBuiltinFunction("setdefault", (args, kwargs) =>
-                        {
-                            if (args.Length < 2 || args.Length > 3)
-                                throw PyTypeError.Create($"setdefault() takes from 2 to 3 positional arguments but {args.Length} were given");
-
-                            var dict = GetDictStorage(args[0]);
-                            var key = args[1];
-                            var defaultValue = args.Length > 2 ? args[2] : PyNone.Instance;
-                            return dict.SetDefault(key, defaultValue);
-                        }),
-
-                        "copy" => new PyBuiltinFunction("copy", (args, kwargs) =>
-                        {
-                            if (args.Length != 1)
-                                throw PyTypeError.Create($"copy() takes exactly 1 argument ({args.Length} given)");
-
-                            var dict = GetDictStorage(args[0]);
-                            return dict.Copy();
-                        }),
-
-                        _ => null
-                    };
-                }
-
-                // list item-protocol descriptors (__getitem__/__setitem__/__delitem__/__contains__)
-                // are materialized in type/PyList.cs InitializeListDescriptors, so MRO lookup
-                // finds them in TypeDict before reaching this reflection fallback.
-
-                // 다른 내장 타입들은 기본적으로 object의 속성을 상속
-                if (pyType.Name == "object")
-                    return null;
-
-                // 기본적으로는 null 반환 (속성 없음)
-                return null;
-            }
-            catch
-            {
-                return null;
-            }
+            if (pyType.TypeDict != null && pyType.TypeDict.TryGetValue(name, out PyObject descriptor))
+                return descriptor;
+            if (pyType.SlotDict.TryGetValue(name, out var slotWrapper))
+                return slotWrapper;
+            return ReferenceEquals(pyType, PyType.ObjectType) && name == "__class__" ? PyType.TypeType : null;
         }
 
         /// <summary>

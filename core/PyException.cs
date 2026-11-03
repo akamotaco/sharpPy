@@ -1790,7 +1790,7 @@ namespace SharpPy
             foreach (var type in new[] { PyType.UnicodeEncodeErrorType, PyType.UnicodeDecodeErrorType, PyType.UnicodeTranslateErrorType })
             {
                 var owner = type;
-                var inherited = PyType.BaseExceptionType.TypeDict["__new__"];
+                var inherited = (PyNewMethodDescriptor)PyType.BaseExceptionType.TypeDict["__new__"];
                 owner.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", owner, (cls, args, kwargs) =>
                 {
                     // A subclass allocates as every exception class does.
@@ -1799,7 +1799,7 @@ namespace SharpPy
                         var forwarded = new PyObject[args.Length + 1];
                         forwarded[0] = cls;
                         Array.Copy(args, 0, forwarded, 1, args.Length);
-                        return inherited.Call(forwarded, kwargs);
+                        return inherited.CallTpNew(forwarded, kwargs);
                     }
                     AllocatingBlank = true;
                     try
@@ -1810,7 +1810,7 @@ namespace SharpPy
                     {
                         AllocatingBlank = false;
                     }
-                }, acceptsKwargs: true);
+                }, acceptsKwargs: true) { TpNew = inherited };
             }
         }
 

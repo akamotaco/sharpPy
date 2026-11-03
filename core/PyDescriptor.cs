@@ -188,6 +188,23 @@ namespace SharpPy
 
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
         public override string GetTypeName() => "builtin_function_or_method";
+
+        /// <summary>
+        /// The C tp_new this __new__ stands for, which tp_new_wrapper compares. Itself, unless the
+        /// type shares a base's tp_new in CPython and only allocates differently here.
+        /// </summary>
+        internal PyObject TpNew { get; init; }
+
+        // tp_new_wrapper: the subtype is checked before tp_new.
+        public override PyObject Call(PyObject[] args, PyDict kwargs)
+        {
+            PyType.CheckNewArguments(OwnerType, args);
+            return base.Call(args, kwargs);
+        }
+
+        // type->tp_new(subtype, args, kwds) from C: no tp_new_wrapper.
+        internal PyObject CallTpNew(PyObject[] args, PyDict kwargs) => base.Call(args, kwargs);
+
         // tp_new_methoddef: a builtin method of the type, which copyreg compares with the type.
         public override PyObject GetAttribute(string name) => name switch
         {

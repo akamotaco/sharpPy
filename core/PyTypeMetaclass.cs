@@ -874,6 +874,8 @@ namespace SharpPy
 
         private readonly PyType _owner;
 
+        internal bool HasOwner => _owner != null;
+
         /// <summary>tp_new_wrapper: every builtin type's __new__, a method of the type object.</summary>
         internal static PyStaticBuiltinMethod ForNew(PyType owner, Func<PyObject[], PyDict, PyObject> method) =>
             new PyStaticBuiltinMethod("__new__", method, owner);
@@ -932,6 +934,9 @@ namespace SharpPy
         // CPython 3.12: Objects/typeobject.c - tp_new receives kwargs
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
+            // tp_new_wrapper: a type's __new__ checks the subtype before tp_new.
+            if (_owner != null && Name == "__new__")
+                PyType.CheckNewArguments(_owner, args);
             return Method(args, kwargs);
         }
 

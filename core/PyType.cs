@@ -61,44 +61,17 @@ namespace SharpPy
         /// Search through MRO for attribute (cache miss fallback)
         /// CPython reference: Objects/typeobject.c:4696-4733 (find_name_in_mro)
         /// </summary>
-        private PyObject SearchMRO(PyType type, string name)
+        private static PyObject SearchMRO(PyType type, string name)
         {
             foreach (var mroType in type.MRO)
             {
-                // Check PyClass.ClassDict first (user-defined classes)
                 if (mroType is PyClass customType && customType.ClassDict.TryGetValue(name, out var value))
-                {
                     return value;
-                }
-
-                // Check PyType.TypeDict (built-in types)
-                if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue(name, out var typeValue))
-                {
-                    return typeValue;
-                }
-
-                // Fallback: Check hardcoded descriptors via GetTypeAttribute
-                // This handles cases like list.__delitem__ which are defined in PyClass but not in TypeDict
-                // Note: Must be in SharpPy.PyClass (forward reference through dynamic lookup)
-                try
-                {
-                    var getTypeAttrMethod = typeof(SharpPy.PyClass).GetMethod(
-                        "GetTypeAttribute",
-                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static
-                    );
-                    if (getTypeAttrMethod != null)
-                    {
-                        var result = (PyObject)getTypeAttrMethod.Invoke(null, new object[] { mroType, name });
-                        if (result != null)
-                            return result;
-                    }
-                }
-                catch
-                {
-                    // Ignore reflection errors
-                }
+                // The type's dict, then its slot wrappers (PyClass.GetTypeAttribute).
+                var found = PyClass.GetTypeAttribute(mroType, name);
+                if (found != null)
+                    return found;
             }
-
             return null;
         }
     }
@@ -598,6 +571,80 @@ namespace SharpPy
 
         private PyType _tpBase;
         private TypeLayout _builtinLayout;
+
+        // tp_new of a type, as the __new__ object its own dict or a tp_base's holds; slot is true for
+        // slot_tp_new, which a class that writes __new__ has. Builtins that share one C tp_new
+        // (BaseException_new) share the object.
+        private static PyObject TpNew(PyType type, out bool slot)
+        {
+            for (var level = type; level != null; level = level.TpBase)
+            {
+                if (level is PyClass written && level is not PyTypeMetaclass)
+                {
+                    if (written.ClassDict.TryGetValue("__new__", out var declared))
+                    {
+                        slot = true;
+                        return declared;
+                    }
+                    continue;
+                }
+                if (level.TypeDict != null && level.TypeDict.TryGetValue("__new__", out var builtin))
+                {
+                    slot = false;
+                    return builtin is PyNewMethodDescriptor { TpNew: { } shared } ? shared : builtin;
+                }
+            }
+            slot = false;
+            return null;
+        }
+
+        // A builtin type's __new__, the tp_new_wrapper method of tp_new_methoddef.
+        internal static bool IsBuiltinNew(PyObject value) =>
+            value is PyNewMethodDescriptor || value is PyStaticBuiltinMethod { Name: "__new__", HasOwner: true };
+
+        /// <summary>
+        /// update_one_slot (Objects/typeobject.c) for __new__: a class whose dict holds a builtin
+        /// type's __new__ keeps the tp_new it inherited, and type_call runs that directly, without
+        /// tp_new_wrapper's checks. Null when the inherited tp_new is a Python __new__.
+        /// </summary>
+        internal static PyObject InheritedBuiltinNew(PyClass type)
+        {
+            bool slot = false;
+            var inherited = type.TpBase == null ? null : TpNew(type.TpBase, out slot);
+            return inherited != null && !slot ? inherited : null;
+        }
+
+        // type->tp_new(subtype, args, kwds) from C, which tp_new_wrapper does not stand in front of.
+        internal static PyObject CallTpNew(PyObject tpNew, PyObject[] args, PyDict kwargs) => tpNew switch
+        {
+            PyNewMethodDescriptor descriptor => descriptor.CallTpNew(args, kwargs),
+            PyStaticBuiltinMethod method => method.Method(args, kwargs),
+            _ => tpNew.Call(args, kwargs),
+        };
+
+        // tp_name: a builtin's carries its module, a class's is its __name__.
+        private static string TpName(PyType type) => type is PyClass ? type.Name : type.FullName;
+
+        /// <summary>
+        /// tp_new_wrapper (Objects/typeobject.c): the checks of type.__new__(subtype, ...) before the
+        /// type's tp_new runs. The subtype must be a type and a subtype, and its most derived base
+        /// whose tp_new is not slot_tp_new must have this tp_new, so object.__new__(dict) is refused.
+        /// </summary>
+        internal static void CheckNewArguments(PyType type, PyObject[] args)
+        {
+            string name = TpName(type);
+            if (args.Length < 1)
+                throw PyTypeError.Create($"{name}.__new__(): not enough arguments");
+            if (args[0] is not PyType subtype)
+                throw PyTypeError.Create($"{name}.__new__(X): X is not a type object ({args[0].GetTypeName()})");
+            if (!subtype.IsSubclassOf(type))
+                throw PyTypeError.Create($"{name}.__new__({TpName(subtype)}): {TpName(subtype)} is not a subtype of {name}");
+            var staticBase = subtype;
+            while (staticBase != null && TpNew(staticBase, out bool slot) != null && slot)
+                staticBase = staticBase.TpBase;
+            if (staticBase != null && !ReferenceEquals(TpNew(staticBase, out _), TpNew(type, out _)))
+                throw PyTypeError.Create($"{name}.__new__({TpName(subtype)}) is not safe, use {TpName(staticBase)}.__new__()");
+        }
 
         /// <summary>tp_base: best_base of a class, the base of a builtin.</summary>
         internal PyType TpBase => _tpBase ??= this is PyClass && this is not PyTypeMetaclass
@@ -1534,8 +1581,6 @@ namespace SharpPy
                         InitializeSetTypeDescriptors();
                     else if (Name == "frozenset")
                         InitializeFrozenSetTypeDescriptors();
-                    else if (Name == "list")
-                        InitializeListTypeDescriptors();
                     else if (Name == "tuple")
                         InitializeTupleTypeDescriptors();
                     else if (Name == "dict")
@@ -3264,25 +3309,6 @@ namespace SharpPy
             );
         }
 
-        /// <summary>
-        /// list 타입의 descriptor 테이블 초기화
-        /// </summary>
-        private void InitializeListTypeDescriptors()
-        {
-            // CPython 3.12: Objects/listobject.c
-            // Register essential list descriptors into TypeDict for proper method resolution
-            // Note: The full implementations are in PyClass.GetTypeAttribute, we register them here to TypeDict
-
-            // For now, we'll register the descriptors by marking them as present
-            // The actual lookup will still go through PyClass.GetTypeAttribute via the fallback mechanism
-            // TODO: Migrate full descriptor implementations from PyClass.GetTypeAttribute to here
-
-            // Since we can't easily call PyClass.GetTypeAttribute from here due to circular dependencies,
-            // we'll add a marker that tells the system these methods exist
-            // The SearchMRO will be updated to use GetTypeAttribute as a fallback
-
-            // Temporary: Do nothing here - we'll fix SearchMRO instead to call GetTypeAttribute
-        }
 
         /// <summary>
         /// tuple 타입의 descriptor 테이블 초기화
