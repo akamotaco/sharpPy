@@ -16,7 +16,7 @@ namespace SharpPy
                 type.TypeDict["__contains__"] = new PyMethodDescriptor("__contains__", type,
                     (self, args, kwargs) => ((PyDictView)self).Contains(args[0]), minArgs: 1, maxArgs: 1);
                 type.TypeDict["mapping"] = new PyGetSetDescriptor("mapping", type,
-                    self => new PyMappingWrapper(((PyDictView)self)._dictionary));
+                    self => new PyMappingProxy((PyObject)((PyDictView)self)._dictionary));
                 type.TypeDict["__repr__"] = new PyMethodDescriptor("__repr__", type,
                     (self, args, kwargs) => ((PyDictView)self).ToRepr(), minArgs: 0, maxArgs: 0);
             }

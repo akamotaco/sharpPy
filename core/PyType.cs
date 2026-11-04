@@ -1250,18 +1250,7 @@ namespace SharpPy
                     // CPython 3.12: mappingproxy(dict) - create read-only dict proxy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"mappingproxy expected 1 argument, got {args.Length}");
-                    if (PyNativeStorage.ForDict(args[0]) is PyDict dict)
-                    {
-                        // Convert PyDict to Dictionary<string, PyObject>
-                        var stringDict = new Dictionary<string, PyObject>();
-                        foreach (var kv in dict.InternalDict)
-                        {
-                            if (kv.Key is PyString keyStr)
-                                stringDict[keyStr.Value] = kv.Value;
-                        }
-                        return new PyMappingProxy(stringDict);
-                    }
-                    throw PyTypeError.Create($"mappingproxy() argument must be dict, not '{args[0].GetTypeName()}'");
+                    return PyMappingProxy.New(args[0]);
                 case "set":
                     // set() constructor - create a new set. CPython's set_new rejects keywords first.
                     if (kwargs != null && kwargs.Length() != 0)
@@ -1752,9 +1741,27 @@ namespace SharpPy
             }
         }
 
-        /// <summary>object_getstate_default (Objects/typeobject.c): __dict__, with the slots beside it.</summary>
-        private static PyObject ObjectGetState(PyObject self)
+        /// <summary>
+        /// object_getstate_default (Objects/typeobject.c): __dict__, with the slots beside it. When the
+        /// state is required (no new arguments, not a list or dict), an object whose struct holds more
+        /// than its dict, weakref and slots cannot be rebuilt from it. The struct sizes are CPython's
+        /// for the builtin types (TypeLayout.g.cs); a class is laid out by SharpPy and is not judged.
+        /// </summary>
+        private static PyObject ObjectGetState(PyObject self, bool required = false)
         {
+            var type = self.GetPyType();
+            if (required && type is not SharpPy.PyClass)
+            {
+                var layout = type.Layout;
+                if (layout.ItemSize != 0)
+                    throw PyTypeError.Create($"cannot pickle {type.FullName} objects");
+                int basicSize = ObjectType.Layout.BasicSize;
+                if (layout.DictOffset > 0) basicSize += 8;
+                if (layout.WeakOffset > 0) basicSize += 8;
+                basicSize += 8 * (layout.Slots?.Length ?? 0);
+                if (layout.BasicSize > basicSize)
+                    throw PyTypeError.Create($"cannot pickle '{type.FullName}' object");
+            }
             var state = AttributeOrNull(self, "__dict__") ?? PyNone.Instance;
             if (state is PyDict { } instanceDict && instanceDict.Length() == 0) state = PyNone.Instance;
             var names = (PyList)PyImportSystem.Import("copyreg").GetAttribute("_slotnames")
@@ -1815,7 +1822,14 @@ namespace SharpPy
                 arguments.AddRange(values.Items);
             }
 
-            var state = self.GetAttribute("__getstate__").Call(Array.Empty<PyObject>(), null);
+            // object_getstate: object.__getstate__ itself gets the required flag.
+            bool required = newArgsEx == null && newArgs == null && !type.IsSubclassOf(ListType) && !type.IsSubclassOf(DictType)
+                && !ReferenceEquals(type, ListType) && !ReferenceEquals(type, DictType);
+            var getState = self.GetAttribute("__getstate__");
+            var state = getState is PyBoundMethodDescriptor { MethodDescriptor: var defining } bound
+                && ReferenceEquals(bound.Instance, self) && ReferenceEquals(defining, ObjectType.TypeDict["__getstate__"])
+                ? ObjectGetState(self, required)
+                : getState.Call(Array.Empty<PyObject>(), null);
             PyObject listItems = type.IsSubclassOf(ListType) ? self.GetIterator() : PyNone.Instance;
             PyObject dictItems = type.IsSubclassOf(DictType)
                 ? self.GetAttribute("items").Call(Array.Empty<PyObject>(), null).GetIterator() : PyNone.Instance;
@@ -4079,15 +4093,7 @@ namespace SharpPy
                 // args[1] is the mapping object
                 var mappingObj = args[1];
 
-                // CPython 3.12: Objects/descrobject.c:1237 - Check if mapping is a mapping
-                // We accept PyDict or any object with dict-like interface
-                if (mappingObj is PyMappingProxy existingProxy)
-                    return existingProxy;
-                // mappingproxy_check_mapping
-                if (mappingObj is PyList or PyTuple || !mappingObj.HasTypeSlot("__getitem__") &&
-                    mappingObj is not PyDict)
-                    throw PyTypeError.Create($"mappingproxy() argument must be a mapping, not {mappingObj.GetTypeName()}");
-                return new PyMappingWrapper(mappingObj);
+                return PyMappingProxy.New(mappingObj);
             });
 
             // mappingproxy.__getitem__(key)

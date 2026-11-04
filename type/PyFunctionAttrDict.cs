@@ -85,7 +85,7 @@ namespace SharpPy
                     SetItem(kv.Key, kv.Value);  // SetItem handles sync
                 }
             }
-            else if (other is PyMappingProxy mappingProxy)
+            else if (other is PyMappingProxy { Keys: not null } mappingProxy)
             {
                 // PyMappingProxy uses string keys
                 foreach (var key in mappingProxy.Keys)

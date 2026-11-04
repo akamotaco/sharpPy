@@ -125,7 +125,6 @@ namespace SharpPy
             GetSets<PyMemoryView>(PyType.MemoryViewType, (self, name) => self.Read(name), "obj", "nbytes", "readonly", "itemsize",
                 "format", "ndim", "shape", "strides", "suboffsets", "c_contiguous", "f_contiguous", "contiguous");
 
-            Methods<PyMappingProxy>(PyType.MappingProxyType, (self, name) => self.Forward(name), "keys", "values", "items", "get");
 
             // The ones that keep a tp_getattro of their own, or have several implementations
             // behind one type: the object already answers these names.

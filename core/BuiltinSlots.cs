@@ -339,11 +339,8 @@ namespace SharpPy
             PyBaseExceptionGroup.InstallOn(PyType.BaseExceptionGroupType);
 
             var proxy = PyType.MappingProxyType;
-            Method(proxy, "copy", (self, args) => ((PyMappingProxy)self).Snapshot());
             Slot(proxy, "__iter__", (self, args) => self.GetIterator());
-            Method(proxy, "__reversed__", (self, args) => ((PyMappingProxy)self).Snapshot().GetAttribute("__reversed__").Call(new PyObject[0], null));
-            Slot(proxy, "__or__", (self, args) => ((PyMappingProxy)self).Snapshot().BitwiseOr(args[0]));
-            Slot(proxy, "__ror__", (self, args) => args[0].BitwiseOr(((PyMappingProxy)self).Snapshot()));
+            PyMappingProxy.Install();
         }
 
         private static PyType ViewType(string name) => name switch
