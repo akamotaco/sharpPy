@@ -22,51 +22,38 @@ namespace SharpPy.Modules
         }
 
         // reduce - CPython 3.12 compatible implementation
+        // functools_reduce: PyArg_UnpackTuple("reduce", 2, 3), PyObject_GetIter, then PyIter_Next
+        // until it ends; only the end of the iterator stops the loop, every other error propagates.
         public static PyObject PyReduce(PyObject[] args, PyDict? kwargs)
         {
-            if (args.Length < 2 || args.Length > 3)
-                throw PyTypeError.Create($"reduce expected 2 or 3 arguments, got {args.Length}");
-
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("reduce() takes no keyword arguments");
+            PyArgs.Positional("reduce", args, null, 2, 3);
             var function = args[0];
-            var sequence = args[1];
-
-            // Get iterator from sequence
-            var iterator = sequence.GetIterator();
-            PyObject? accumulator = null;
-
-            // If initial value provided, use it
-            if (args.Length == 3)
+            PyObject? result = args.Length == 3 ? args[2] : null;
+            PyObject iterator;
+            try
             {
-                accumulator = args[2];
+                iterator = args[1].GetIterator();
             }
-            else
+            catch (PythonException error) when (error.PyException is PyTypeError)
             {
-                // Otherwise, use first element of sequence
-                try
-                {
-                    accumulator = iterator.Next();
-                }
-                catch
-                {
-                    throw PyTypeError.Create("reduce() of empty iterable with no initial value");
-                }
+                throw PyTypeError.Create("reduce() arg 2 must support iteration");
             }
-
-            // Apply function to each element
             while (true)
             {
+                PyObject item;
                 try
                 {
-                    var item = iterator.Next();
-                    accumulator = function.Call(new[] { accumulator, item }, null);
+                    item = iterator.Next();
                 }
                 catch (PythonException ex) when (ex.PyException is PyStopIteration)
                 {
                     break;
                 }
+                result = result == null ? item : function.Call(new[] { result, item }, null);
             }
-
-            return accumulator;
+            return result ?? throw PyTypeError.Create("reduce() of empty iterable with no initial value");
         }
 
         /// <summary>
@@ -86,51 +73,22 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create("cmp_to_key() missing required argument 'mycmp' (pos 1)");
             if (args.Length + (kwargs?.Length() ?? 0) > 1)
                 throw PyTypeError.Create($"cmp_to_key() takes at most 1 argument ({args.Length + kwargs.Length()} given)");
-            return new PyCmpToKeyWrapper(compare);
+            // functools_cmp_to_key_impl: a keyobject with no object yet.
+            return new PyKeyWrapper(compare, null);
         }
     }
 
     /// <summary>
-    /// cmp_to_key wrapper - CPython 3.12: Modules/_functoolsmodule.c:100-150 (keyobject)
-    /// This is callable and produces KeyWrapper objects when called with a value
-    /// </summary>
-    public class PyCmpToKeyWrapper : PyObject
-    {
-        private readonly PyObject _cmpFunc;  // The comparison function
-
-        public PyCmpToKeyWrapper(PyObject cmpFunc)
-        {
-            _cmpFunc = cmpFunc;
-        }
-
-        public override string GetTypeName() => "cmp_to_key";
-
-        /// <summary>
-        /// When called with a value, produce a KeyWrapper that wraps that value
-        /// CPython 3.12: Modules/_functoolsmodule.c:138-158 (keyobject_call)
-        /// </summary>
-        public override PyObject Call(PyObject[] args, PyDict? kwargs)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create("cmp_to_key wrapper expected exactly 1 argument");
-
-            return new PyKeyWrapper(_cmpFunc, args[0]);
-        }
-
-        public override PyString ToRepr()
-        {
-            return new PyString("<functools.cmp_to_key object>");
-        }
-    }
-
-    /// <summary>
-    /// KeyWrapper - wraps a value and uses the comparison function for ordering
-    /// CPython 3.12: Modules/_functoolsmodule.c:54-100 (keyobject)
+    /// keyobject (Modules/_functoolsmodule.c): functools.KeyWrapper, what cmp_to_key returns and
+    /// what calling it makes. The first holds no object; each call wraps one in a new keyobject.
     /// </summary>
     public class PyKeyWrapper : PyObject
     {
-        private readonly PyObject _cmpFunc;  // CPython: cmp
-        private readonly PyObject _object;   // CPython: object (the wrapped value)
+        private static readonly PyType KeyWrapperType = MakeType();
+
+        private readonly PyObject _cmpFunc;
+        // keyobject.object, the T_OBJECT member obj; null is NULL.
+        private PyObject _object;
 
         public PyKeyWrapper(PyObject cmpFunc, PyObject obj)
         {
@@ -138,68 +96,46 @@ namespace SharpPy.Modules
             _object = obj;
         }
 
-        public override string GetTypeName() => "KeyWrapper";
-
-        public override PyString ToRepr()
+        private static PyType MakeType()
         {
-            return new PyString($"<functools.KeyWrapper object at 0x{GetHashCode():x}>");
+            var type = new PyType("KeyWrapper", new[] { PyType.ObjectType }, "functools");
+            type.TypeDict["obj"] = new PyMemberDescriptor("obj", type,
+                self => ((PyKeyWrapper)self)._object ?? PyNone.Instance,
+                (self, value) => ((PyKeyWrapper)self)._object = value,
+                deleter: self => ((PyKeyWrapper)self)._object = null);
+            type.TypeDict["__call__"] = new PyWrapperDescriptor("__call__", type, (self, args, kwargs) => self.Call(args, kwargs));
+            // tp_richcompare without tp_hash: unhashable.
+            type.TypeDict["__hash__"] = PyNone.Instance;
+            foreach (var (name, op) in new[] { ("__lt__", CompareOp.LT), ("__le__", CompareOp.LE), ("__eq__", CompareOp.EQ),
+                         ("__ne__", CompareOp.NE), ("__gt__", CompareOp.GT), ("__ge__", CompareOp.GE) })
+                type.TypeDict[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) => self.RichCompare(args[0], op));
+            return type;
         }
 
-        /// <summary>
-        /// Rich comparison - CPython 3.12: Modules/_functoolsmodule.c:60-98 (keyobject_richcompare)
-        /// </summary>
+        public override PyType GetPyType() => KeyWrapperType;
+        public override string GetTypeName() => "functools.KeyWrapper";
+
+        internal override long GetPythonHash() => throw PyTypeError.Create("unhashable type: 'functools.KeyWrapper'");
+
+        // keyobject_call: PyArg_ParseTupleAndKeywords(args, kwds, "O:K", {"obj"}).
+        public override PyObject Call(PyObject[] args, PyDict? kwargs)
+        {
+            var parsed = PyArgs.Unpack("K", args, kwargs, new[] { "obj" }, 0, 1, 1);
+            return new PyKeyWrapper(_cmpFunc, parsed[0]);
+        }
+
+        public override PyString ToRepr() => new PyString($"<functools.KeyWrapper object at 0x{PyObjectId.Of(this):x}>");
+
+        // keyobject_richcompare: both keyobjects of the same type, the user's three-way result
+        // compared with zero by PyObject_RichCompare.
         public override PyObject RichCompare(PyObject other, CompareOp op)
         {
-            if (other is PyKeyWrapper otherKey)
-            {
-                // Call the comparison function: cmp(self.object, other.object)
-                var cmpResult = _cmpFunc.Call(new[] { _object, otherKey._object }, null);
-
-                // Convert result to int
-                int cmp;
-                if (cmpResult is PyInt pyInt)
-                {
-                    cmp = (int)pyInt.Value;
-                }
-                else if (cmpResult is PyBool pyBool)
-                {
-                    cmp = pyBool.Value ? 1 : 0;
-                }
-                else
-                {
-                    throw PyTypeError.Create("comparison function must return int");
-                }
-
-                // Apply the comparison operator
-                bool result;
-                switch (op)
-                {
-                    case CompareOp.LT:
-                        result = cmp < 0;
-                        break;
-                    case CompareOp.LE:
-                        result = cmp <= 0;
-                        break;
-                    case CompareOp.EQ:
-                        result = cmp == 0;
-                        break;
-                    case CompareOp.NE:
-                        result = cmp != 0;
-                        break;
-                    case CompareOp.GT:
-                        result = cmp > 0;
-                        break;
-                    case CompareOp.GE:
-                        result = cmp >= 0;
-                        break;
-                    default:
-                        return PyNotImplemented.Instance;
-                }
-
-                return PyBool.FromBool(result);
-            }
-
-            return PyNotImplemented.Instance;
+            if (other is not PyKeyWrapper otherKey)
+                throw PyTypeError.Create("other argument must be K instance");
+            if (_object == null || otherKey._object == null)
+                throw PyAttributeError.Create("object");
+            var result = _cmpFunc.Call(new[] { _object, otherKey._object }, null);
+            return Compare(result, new PyInt(0), op);
         }
     }
 }

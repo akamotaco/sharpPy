@@ -626,6 +626,9 @@ public class PyModule : PyObject
             {
                 return cachedModule;
             }
+            // _find_and_load: None in sys.modules stops the import.
+            if (SysModules.InternalDict.TryGetValue(new PyString(moduleName), out var blocked) && blocked is PyNone)
+                throw PyModuleNotFoundError.Create($"import of {moduleName} halted; None in sys.modules", moduleName);
 
             // 2. 점으로 구분된 모듈명 처리 (예: package.submodule)
             if (moduleName.Contains('.'))

@@ -73,33 +73,17 @@ namespace SharpPy
 
         public override PyObject RichCompare(PyObject other, CompareOp op) => SlotCompare(other, op);
 
+        // weakref_richcompare: == and != only; with a dead side the references themselves are
+        // compared, otherwise PyObject_RichCompare of the referents.
         internal PyObject SlotCompare(PyObject other, CompareOp op)
         {
-            if (!(other is PyWeakRef reference)) return PyNotImplemented.Instance;
+            if (!(other is PyWeakRef reference) || (op != CompareOp.EQ && op != CompareOp.NE))
+                return PyNotImplemented.Instance;
             var mine = Referent;
             var theirs = reference.Referent;
-            bool equal;
-            if (mine != null && theirs != null)
-            {
-                var result = mine.RichCompare(theirs, CompareOp.EQ);
-                equal = ReferenceEquals(result, PyNotImplemented.Instance)
-                    ? ReferenceEquals(mine, theirs)
-                    : result is PyBool flag && flag.Value;
-            }
-            else if (mine == null && theirs == null)
-            {
-                equal = ReferenceEquals(this, other);
-            }
-            else
-            {
-                equal = false;
-            }
-            return op switch
-            {
-                CompareOp.EQ => PyBool.FromBool(equal),
-                CompareOp.NE => PyBool.FromBool(!equal),
-                _ => PyNotImplemented.Instance,
-            };
+            if (mine == null || theirs == null)
+                return PyBool.FromBool(ReferenceEquals(this, other) == (op == CompareOp.EQ));
+            return Compare(mine, theirs, op);
         }
 
         /// <summary>
@@ -115,9 +99,17 @@ namespace SharpPy
             var target = Referent;
             if (target == null)
                 throw PyTypeError.Create("weak object has gone away");
-            var value = target.ToHash();
+            // weakref_hash: PyObject_Hash of the referent, kept.
+            var value = target.GetPythonHash();
             _hash = value;
-            return value;
+            return (int)value;
+        }
+
+        internal override long GetPythonHash()
+        {
+            if (_hash.HasValue) return _hash.Value;
+            SlotHash();
+            return _hash.Value;
         }
 
         public override void SetAttribute(string name, PyObject value)
