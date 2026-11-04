@@ -141,16 +141,8 @@ namespace SharpPy
             }
             foreach (var type in new[] { PyType.GetSetDescriptorType, PyType.MemberDescriptorType })
             {
-                Wrapper(type, "__set__", (self, args) =>
-                {
-                    ((IDescriptor)self).Set(args[0], args[1]);
-                    return PyNone.Instance;
-                });
-                Wrapper(type, "__delete__", (self, args) =>
-                {
-                    ((IDescriptor)self).Delete(args[0]);
-                    return PyNone.Instance;
-                });
+                Wrapper(type, "__set__", DescriptorSet);
+                Wrapper(type, "__delete__", DescriptorDelete);
             }
             PyMethodWrapper.Install();
             // method_get_doc, method_get_text_signature and their wrapper_ counterparts cut the
@@ -252,13 +244,35 @@ namespace SharpPy
         }
 
         // wrap_descr_get
+        // wrap_descr_get (Objects/typeobject.c): PyArg_UnpackTuple(args, "", 1, 2), None is NULL.
         private static PyObject DescriptorGet(PyObject self, PyObject[] args)
         {
-            var instance = args.Length > 0 && args[0] is not PyNone ? args[0] : null;
-            var owner = args.Length > 1 && args[1] is not PyNone ? args[1] as PyType : null;
+            PyArgs.Positional("", args, null, 1, 2);
+            var instance = args[0] is not PyNone ? args[0] : null;
+            var owner = args.Length > 1 && args[1] is not PyNone ? args[1] : null;
             if (instance == null && owner == null)
                 throw PyTypeError.Create("__get__(None, None) is invalid");
-            return ((IDescriptor)self).Get(instance, owner);
+            // classmethod_get is the one tp_descr_get here that reads a type that is not a type.
+            if (self is PyClassMethodDescriptor classMethod)
+                return classMethod.ClassMethodGet(instance, owner);
+            return ((IDescriptor)self).Get(instance, owner as PyType);
+        }
+
+        // wrap_descr_set: PyArg_UnpackTuple(args, "", 2, 2).
+        private static PyObject DescriptorSet(PyObject self, PyObject[] args)
+        {
+            PyArgs.Positional("", args, null, 2, 2);
+            ((IDescriptor)self).Set(args[0], args[1]);
+            return PyNone.Instance;
+        }
+
+        // wrap_descr_delete: check_num_args(args, 1).
+        private static PyObject DescriptorDelete(PyObject self, PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+            ((IDescriptor)self).Delete(args[0]);
+            return PyNone.Instance;
         }
     }
 }

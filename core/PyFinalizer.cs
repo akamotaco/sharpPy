@@ -432,7 +432,13 @@ namespace SharpPy
                 }
             }
             if (armed != null)
+            {
+                // The CLR finalizer thread hands guards over in no particular order. Oldest first:
+                // an object made earlier and dropped by the same point would have been finalized
+                // earlier by refcounting.
+                armed.Sort((a, b) => a.Sequence.CompareTo(b.Sequence));
                 StepOuterFirst(armed, Step);
+            }
             if (releases == null) return handled;
             foreach (var guard in releases)
             {

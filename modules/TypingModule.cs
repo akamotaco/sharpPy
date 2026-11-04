@@ -102,12 +102,7 @@ namespace SharpPy.Modules
         {
             foreach (var type in Types)
             {
-                if (type is PyBuiltinType builtinType)
-                {
-                    if (value.GetPyType().Name == builtinType.Name)
-                        return true;
-                }
-                else if (type.ToClrString() == value.GetPyType().Name)
+                if (type.ToClrString() == value.GetPyType().Name)
                 {
                     return true;
                 }

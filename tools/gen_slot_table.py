@@ -31,7 +31,7 @@ def main():
         types.AsyncGeneratorType, types.CodeType, types.FrameType, types.TracebackType, types.CellType,
         types.MappingProxyType, types.SimpleNamespace, types.GenericAlias,
         types.BuiltinFunctionType, types.WrapperDescriptorType, types.MethodWrapperType, types.MethodDescriptorType,
-        types.GetSetDescriptorType,
+        types.GetSetDescriptorType, types.ClassMethodDescriptorType, types.MemberDescriptorType,
         type(iter([])), type(iter(())), type(iter({})), type(iter("")), type(iter(b"")), type(iter(set())), type(iter(range(1))),
         type({}.keys()), type({}.values()), type({}.items()),
     ]

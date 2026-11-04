@@ -134,11 +134,15 @@ internal static class PyArgs
     /// A method of a native type with the clinic's checks for its kind in front of the body.
     /// For Defining, min and max count the positional-only parameters.
     /// </summary>
-    internal static void Define(PyType type, string name, PyCall kind, Func<PyObject, PyObject[], PyObject> body, int min = 0, int max = 0)
+    internal static void Define(PyType type, string name, PyCall kind, Func<PyObject, PyObject[], PyObject> body, int min = 0, int max = 0) =>
+        type.TypeDict[name] = Method(type, name, kind, body, min, max);
+
+    /// <summary>PyDescr_NewMethod of one PyMethodDef: the method_descriptor Define stores.</summary>
+    internal static PyMethodDescriptor Method(PyType type, string name, PyCall kind, Func<PyObject, PyObject[], PyObject> body, int min = 0, int max = 0)
     {
         string qualname = type.Name + "." + name;
         var names = new string[max];
-        type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) =>
+        return new PyMethodDescriptor(name, type, (self, args, kwargs) =>
         {
             switch (kind)
             {

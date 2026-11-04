@@ -9,41 +9,6 @@ namespace SharpPy
     /// </summary>
     public class PyClass : PyType
     {
-        static PyClass()
-        {
-            InitializeTypeTypeDescriptors();
-        }
-
-        private static void InitializeTypeTypeDescriptors()
-        {
-            var typeType = PyType.TypeType;
-
-            // mro() method descriptor - CPython 3.12 호환
-            if (!typeType.TypeDict.ContainsKey("mro"))
-            {
-                typeType.TypeDict["mro"] = new PyMethodDescriptor(
-                    "mro", typeType,
-                    (self, args, kwargs) => {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create("mro() takes no arguments");
-                        if (self is not PyType type)
-                            throw PyTypeError.Create($"descriptor 'mro' requires a 'type' object but received a '{self.GetTypeName()}'");
-                        return new PyList(type.MRO.Cast<PyObject>().ToList());
-                    },
-                    minArgs: 0, maxArgs: 0
-                );
-            }
-
-            // CPython 3.12: Objects/typeobject.c:4482
-            // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
-            if (!typeType.TypeDict.ContainsKey("__class_getitem__"))
-            {
-                typeType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
-                    (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
-                );
-            }
-        }
-
         public Dictionary<string, PyObject> ClassDict { get; }
 
         private ComparisonMisses _comparisonMisses;
@@ -343,7 +308,7 @@ namespace SharpPy
                 instance = PyType.CallTpNew(inheritedNew, newArgs, kwargs);
             else
             {
-                if (newMethod is not (PyFunction or PyStaticBuiltinMethod or PyBuiltinMethod or PyMethodDescriptor))
+                if (newMethod is not (PyFunction or PyStaticBuiltinMethod or PyMethodDescriptor))
                 {
                     if (newMethod is IDescriptor newDescriptor)
                     {
@@ -497,14 +462,6 @@ namespace SharpPy
 
         // 클래스는 항상 호출 가능 (인스턴스 생성)
         public override bool IsCallable() => true;
-
-        // PEP 695: Generic class subscript support (Stack[int])
-        public override PyObject GetItem(PyObject key)
-        {
-            // CPython 3.12: PEP 560 - Check for __class_getitem__ first
-            // Delegate to PyType.GetItem() which handles the full protocol
-            return base.GetItem(key);
-        }
 
         // CPython 3.12: Override GetPyType to return metaclass if set
         public override PyType GetPyType()
@@ -1941,11 +1898,6 @@ namespace SharpPy
                 if (IsDescriptor(classAttribute))
                 {
                     return CallDescriptorGet(classAttribute, this, InstanceType);
-                }
-                // PyBuiltinMethod: bind to instance (e.g., dict.items)
-                else if (classAttribute is PyBuiltinMethod builtinMethod)
-                {
-                    return builtinMethod.Get(this, InstanceType);
                 }
                 // PyBuiltinFunction: bind to instance (e.g., dict methods from GetTypeAttribute)
                 // What a Python class holds in its dict is no method: class C: f = len; C().f is len.

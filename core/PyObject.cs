@@ -582,34 +582,6 @@ namespace SharpPy
         protected virtual PyObject PyGetAttribute(string name)
         {
             // CPython 3.12 호환: GenericGetAttribute 사용
-            // wrap_descr_get and wrap_descr_set: a C descriptor's slots are reachable from Python, as inspect uses them.
-            if (this is IDescriptor descriptor && !(GetPyType() is PyClass))
-            {
-                if (name == "__get__")
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("__get__", (self, args) =>
-                    {
-                        if (args.Length is < 1 or > 2)
-                            throw PyTypeError.Create($"expected at least 1 argument, got {args.Length}");
-                        var target = args[0] is PyNone ? null : args[0];
-                        var type = args.Length > 1 && args[1] is PyType given ? given : null;
-                        if (target == null && type == null)
-                            throw PyTypeError.Create("__get__(None, None) is invalid");
-                        return descriptor.Get(target, type ?? target.GetPyType());
-                    }));
-                if (name == "__set__")
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("__set__", (self, args) =>
-                    {
-                        descriptor.Set(args[0], args[1]);
-                        return PyNone.Instance;
-                    }));
-                if (name == "__delete__" && descriptor.IsDataDescriptor())
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("__delete__", (self, args) =>
-                    {
-                        descriptor.Delete(args[0]);
-                        return PyNone.Instance;
-                    }));
-            }
-
             // A heap subclass of a value type keeps its instance dict beside the value; __dict__ is the live view.
             if (name == "__dict__" && this is IDictBackedInstance owner &&
                 GetPyType() is PyClass { } heapClass && heapClass.InstancesHaveDict())

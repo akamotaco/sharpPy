@@ -30,6 +30,11 @@ namespace SharpPy
         /// </summary>
         internal readonly PyObject[] Exc;
 
+        // PyBaseExceptionGroupObject.msg and .excs, the slots of the READONLY members: the str the
+        // constructor was given, and the one tuple made from the sequence.
+        internal readonly PyObject Msg;
+        internal readonly PyTuple Excs;
+
         /// <summary>The Python object when this is the struct of a subclass instance.</summary>
         internal PyObject Owner;
 
@@ -40,6 +45,8 @@ namespace SharpPy
         protected PyBaseExceptionGroup(PyObject[] callArgs, PyObject[] excs) : base(callArgs)
         {
             Exc = excs;
+            Msg = callArgs[0];
+            Excs = new PyTuple(excs);
         }
 
         public override PyType GetPyType() => PyType.BaseExceptionGroupType;
@@ -55,46 +62,23 @@ namespace SharpPy
 
         public override string ToString() => AsString().Value;
 
-        public override PyObject GetAttribute(string name)
-        {
-            switch (name)
-            {
-                // BaseExceptionGroup_members: message and exceptions are read-only members.
-                case "message":
-                    return new PyString(Message);
-                case "exceptions":
-                    return new PyTuple(Exc);
-                case "derive":
-                    return new PyBoundBuiltinMethod(this,
-                        new PyBuiltinMethod("derive", DeriveImpl, 1));
-                case "split":
-                    return new PyBoundBuiltinMethod(this,
-                        new PyBuiltinMethod("split", SplitImpl, 1));
-                case "subgroup":
-                    return new PyBoundBuiltinMethod(this,
-                        new PyBuiltinMethod("subgroup", SubgroupImpl, 1));
-                default:
-                    return base.GetAttribute(name);
-            }
-        }
-
         /// <summary>
         /// BaseExceptionGroup_derive: CPython always builds a BaseExceptionGroup with
         /// (self.message, excs) - which then upgrades itself to ExceptionGroup when every member
         /// is an Exception subclass. So derive of an ExceptionGroup yields an ExceptionGroup, and
         /// derive of a BaseExceptionGroup holding KeyboardInterrupt stays a BaseExceptionGroup.
         /// </summary>
-        private PyObject DeriveImpl(PyObject self, PyObject[] args)
+        private PyObject DeriveImpl(PyObject[] args)
         {
             // PyArg_ParseTuple(args, "O", &excs) - the format has no function name, so CPython
             // reports the anonymous wording. Measured.
             if (args.Length != 1)
                 throw PyTypeError.Create(
                     $"function takes exactly 1 argument ({args.Length} given)");
-            return NewGroup(new PyObject[] { new PyString(Message), args[0] }, PyType.BaseExceptionGroupType);
+            return NewGroup(new PyObject[] { Msg, args[0] }, PyType.BaseExceptionGroupType);
         }
 
-        private PyObject SplitImpl(PyObject self, PyObject[] args)
+        private PyObject SplitImpl(PyObject[] args)
         {
             // PyArg_UnpackTuple(args, "split", 1, 1, &matcher) - "split expected 1 argument, got 0".
             if (args.Length != 1)
@@ -108,7 +92,7 @@ namespace SharpPy
             });
         }
 
-        private PyObject SubgroupImpl(PyObject self, PyObject[] args)
+        private PyObject SubgroupImpl(PyObject[] args)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"subgroup expected 1 argument, got {args.Length}");
@@ -244,13 +228,14 @@ namespace SharpPy
         internal static PyObject Create(string message, PyObject sequence)
             => NewGroup(new PyObject[] { new PyString(message), sequence }, PyType.BaseExceptionGroupType);
 
-        /// <summary>BaseExceptionGroup_members and methods, for what a subclass inherits.</summary>
+        /// <summary>BaseExceptionGroup_members and BaseExceptionGroup_methods (METH_VARARGS).</summary>
         internal static void InstallOn(PyType type)
         {
-            foreach (var name in new[] { "message", "exceptions" })
-                type.TypeDict[name] = new PyMemberDescriptor(name, type, self => Of(self).GetAttribute(name));
-            foreach (var name in new[] { "derive", "split", "subgroup" })
-                type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) => Of(self).GetAttribute(name).Call(args, null));
+            type.TypeDict["message"] = new PyMemberDescriptor("message", type, self => Of(self).Msg, readOnly: true);
+            type.TypeDict["exceptions"] = new PyMemberDescriptor("exceptions", type, self => Of(self).Excs, readOnly: true);
+            type.TypeDict["derive"] = new PyMethodDescriptor("derive", type, (self, args, kwargs) => Of(self).DeriveImpl(args));
+            type.TypeDict["split"] = new PyMethodDescriptor("split", type, (self, args, kwargs) => Of(self).SplitImpl(args));
+            type.TypeDict["subgroup"] = new PyMethodDescriptor("subgroup", type, (self, args, kwargs) => Of(self).SubgroupImpl(args));
         }
 
         /// <summary>BaseExceptionGroup_new for a Python subclass: the struct behind the instance.</summary>
@@ -347,17 +332,6 @@ namespace SharpPy
             // TypeError: second argument (exceptions) must be a sequence, while range(2) gets
             // far enough to report item 0 as not an exception.
             throw PyTypeError.Create("second argument (exceptions) must be a sequence");
-        }
-
-        /// <summary>
-        /// BaseExceptionGroup_members are declared READONLY in CPython, so assigning them fails
-        // with the member descriptor's own text rather than a missing-attribute error.
-        /// </summary>
-        public override void SetAttribute(string name, PyObject value)
-        {
-            if (name == "message" || name == "exceptions")
-                throw PyAttributeError.Create("readonly attribute");
-            base.SetAttribute(name, value);
         }
 
         internal struct SplitResult

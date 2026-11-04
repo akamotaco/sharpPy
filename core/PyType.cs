@@ -775,7 +775,7 @@ namespace SharpPy
 
         #region C3 Linearization Algorithm
 
-        private List<PyType> CalculateC3MRO()
+        internal List<PyType> CalculateC3MRO()
         {
             if (Name == "object")
             {
@@ -2610,12 +2610,6 @@ namespace SharpPy
                 minArgs: 1,
                 maxArgs: 1
             );
-
-            // CPython 3.12: Objects/typeobject.c:4482
-            // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
-            typeType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
-                (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
-            );
         }
 
         /// <summary>
@@ -3935,37 +3929,14 @@ namespace SharpPy
         /// </summary>
         public override PyObject GetItem(PyObject key)
         {
-            // CPython 3.12: PEP 560 - Check for __class_getitem__ first
-            // Reference: Objects/abstract.c:164-202 (PyObject_GetItem for types)
-
-            // Try to lookup __class_getitem__ attribute
-            // CPython uses _PyObject_LookupAttr which returns NULL if not found (no exception)
-            try
-            {
-                var classGetItem = GetAttribute("__class_getitem__");
-
-                if (classGetItem != null && classGetItem != PyNone.Instance && classGetItem.IsCallable())
-                {
-                    // Call __class_getitem__(key)
-                    // Note: __class_getitem__ is converted to classmethod automatically,
-                    // so it's already bound to the class
-                    return classGetItem.Call(new PyObject[] { key }, null);
-                }
-            }
-            catch (PythonException ex)
-            {
-                // No __class_getitem__, fall through to default behavior
-                // CPython's _PyObject_LookupAttr returns NULL without exception for AttributeError
-                if (!(ex.PyException is PyAttributeError))
-                {
-                    // Re-throw other exceptions
-                    throw;
-                }
-            }
-
-            // CPython 3.12: If no __class_getitem__ found, the type is not subscriptable
-            // All subscriptable types define __class_getitem__ in their TypeDict
-            // This error is only reached if the type doesn't define __class_getitem__
+            // PyObject_GetItem (Objects/abstract.c) for a type without a metatype mp_subscript:
+            // type[int] is special-cased, since type has no __class_getitem__ that str[int] could
+            // inherit; any other type answers through getattr(o, "__class_getitem__").
+            if (ReferenceEquals(this, TypeType))
+                return new PyGenericAlias(this, key);
+            var method = LookupAttribute("__class_getitem__");
+            if (method != null && method is not PyNone)
+                return method.Call(new PyObject[] { key }, null);
             throw PyTypeError.Create($"type '{Name}' is not subscriptable");
         }
 
@@ -4423,49 +4394,5 @@ namespace SharpPy
         // CPython: str(object()) == repr(object()) == '<object object at 0x...>'
         public override string ToString() => ToRepr().Value;
         public override PyString ToRepr() => new PyString($"<object object at 0x{GetHashCode():x}>");
-
-        // CPython 3.12: Handle builtin methods for object instances
-        public override PyObject GetAttribute(string name)
-        {
-            // Check if this is a builtin method from object type
-            var objectType = PyType.ObjectType;
-            var typeAttr = SharpPy.PyClass.GetTypeAttribute(objectType, name);
-
-            if (typeAttr != null)
-            {
-                // CPython 3.12: PyBuiltinMethod는 descriptor이므로 Get() 호출
-                if (typeAttr is PyBuiltinMethod builtinMethod)
-                {
-                    return builtinMethod.Get(this, objectType);
-                }
-                // CPython 3.12: PyBuiltinFunction도 bound method로 변환
-                if (typeAttr is PyBuiltinFunction builtinFunction)
-                {
-                    // Convert PyBuiltinFunction to PyBuiltinMethod
-                    // Performance: Eliminated LINQ - manual array construction instead of Concat + ToArray
-                    var method = new PyBuiltinMethod(builtinFunction.Name, (self, args) => {
-                        var newArgs = new PyObject[args.Length + 1];
-                        newArgs[0] = self;
-                        for (int i = 0; i < args.Length; i++)
-                        {
-                            newArgs[i + 1] = args[i];
-                        }
-                        return builtinFunction.Call(newArgs, null);
-                    });
-                    return new PyBoundBuiltinMethod(this, method);
-                }
-                if (typeAttr is PyFunction func)
-                {
-                    return new PyMethod(this, func);
-                }
-                // CPython: type-level descriptors (wrapper_descriptor etc.) must bind.
-                if (typeAttr is IDescriptor typeDescriptor)
-                    return typeDescriptor.Get(this, objectType);
-                return typeAttr;
-            }
-
-            // Fall back to base implementation
-            return base.GetAttribute(name);
-        }
     }
 }

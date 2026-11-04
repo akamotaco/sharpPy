@@ -77,7 +77,7 @@ namespace SharpPy
         public bool IsDataDescriptor() => false;
 
         // classmethod_get (Objects/descrobject.c)
-        private PyObject ClassMethodGet(PyObject target, PyObject type)
+        internal PyObject ClassMethodGet(PyObject target, PyObject type)
         {
             type ??= target?.GetPyType();
             if (type == null)
@@ -89,12 +89,13 @@ namespace SharpPy
             return new PyCMethod(_callable, given);
         }
 
-        // classmethoddescr_call: the class is the first argument.
+        // classmethoddescr_call: classmethod_get(descr, NULL, args[0]), then the rest to what it bound.
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1)
                 throw PyTypeError.Create($"descriptor '{_name}' of '{_ownerType.Name}' object needs an argument");
-            return _callable.Call(args, kwargs);
+            var bound = ClassMethodGet(null, args[0]);
+            return bound.Call(args[1..], kwargs);
         }
 
         public override bool IsCallable() => true;

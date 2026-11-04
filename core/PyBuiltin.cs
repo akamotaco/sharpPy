@@ -2631,7 +2631,7 @@ namespace SharpPy
                 Console.WriteLine();
                 Console.WriteLine($"class {objName}(object)");
             }
-            else if (obj is PyBuiltinFunction || obj is PyBuiltinMethod)
+            else if (obj is PyBuiltinFunction)
             {
                 Console.WriteLine($"Help on built-in function {objName} in module builtins:");
                 Console.WriteLine();
@@ -2676,7 +2676,6 @@ namespace SharpPy
                 PyClass c => c.Name,  // PyClass extends PyType, so check first
                 PyType t => t.Name,
                 PyBuiltinFunction b => b.Name,
-                PyBuiltinMethod bm => bm.Name,
                 PyFunction f => f.Name,
                 _ => obj.GetTypeName()
             };

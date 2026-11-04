@@ -45,6 +45,8 @@ namespace SharpPy
             Add(PyType.MethodWrapperType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __call__");
             Add(PyType.MethodDescriptorType, "__repr__ __call__ __get__");
             Add(PyType.GetSetDescriptorType, "__repr__ __get__ __set__ __delete__");
+            Add(PyType.ClassMethodDescriptorType, "__repr__ __call__ __get__");
+            Add(PyType.MemberDescriptorType, "__repr__ __get__ __set__ __delete__");
             Add(PyType.DictKeysType, "__repr__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__");
             Add(PyType.DictValuesType, "__repr__ __iter__ __len__");
             Add(PyType.DictItemsType, "__repr__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__");

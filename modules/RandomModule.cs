@@ -31,11 +31,14 @@ namespace SharpPy.Modules
         {
             var module = new PyModule("_random");
             var randomClass = new PyClass("Random", new[] { PyType.ObjectType }, new Dictionary<string, PyObject>());
-            randomClass.ClassDict["random"] = new PyBuiltinMethod("random", RandomMethod);
-            randomClass.ClassDict["seed"] = new PyBuiltinMethod("seed", SeedMethod);
-            randomClass.ClassDict["getstate"] = new PyBuiltinMethod("getstate", GetStateMethod);
-            randomClass.ClassDict["setstate"] = new PyBuiltinMethod("setstate", SetStateMethod);
-            randomClass.ClassDict["getrandbits"] = new PyBuiltinMethod("getrandbits", GetRandBitsMethod);
+            // random_methods: method descriptors of Random, with the clinic's calling conventions.
+            void Method(string name, PyCall kind, Func<PyObject, PyObject[], PyObject> body, int min = 0, int max = 0) =>
+                randomClass.ClassDict[name] = PyArgs.Method(randomClass, name, kind, body, min, max);
+            Method("random", PyCall.NoArgs, RandomMethod);
+            Method("seed", PyCall.Fast, SeedMethod, 0, 1);
+            Method("getstate", PyCall.NoArgs, GetStateMethod);
+            Method("setstate", PyCall.One, SetStateMethod);
+            Method("getrandbits", PyCall.One, GetRandBitsMethod);
             module.ModuleDict["Random"] = randomClass;
             return module;
         }
@@ -150,30 +153,56 @@ namespace SharpPy.Modules
 
         private static PyObject SetStateMethod(PyObject self, PyObject[] args)
         {
-            if (args.Length != 1 || !(args[0] is PyTuple state))
+            if (!(args[0] is PyTuple state))
                 throw PyTypeError.Create("state vector must be a tuple");
             if (state.Items.Length != N + 1)
                 throw PyValueError.Create("state vector is the wrong size");
-            var s = StateOf(self);
+            // PyLong_AsUnsignedLong and PyLong_AsLong, all read before anything is stored.
+            var words = new uint[N];
             for (int i = 0; i < N; i++)
-                s.Words[i] = (uint)((PyInt)state.Items[i]).Value;
-            var index = ((PyInt)state.Items[N]).Value;
+                words[i] = (uint)AsUnsignedLong(state.Items[i]);
+            var index = AsLong(state.Items[N]);
             if (index < 0 || index > N)
                 throw PyValueError.Create("invalid state");
+            var s = StateOf(self);
             s.Index = (int)index;
+            Array.Copy(words, s.Words, N);
             return PyNone.Instance;
+        }
+
+        // C long and unsigned long: 32 bits on Windows, 64 elsewhere.
+        private static BigInteger LongMax => OperatingSystem.IsWindows() ? int.MaxValue : long.MaxValue;
+        private static BigInteger UnsignedLongMax => OperatingSystem.IsWindows() ? uint.MaxValue : ulong.MaxValue;
+
+        // PyLong_AsUnsignedLong: an int only, no __index__.
+        private static BigInteger AsUnsignedLong(PyObject value)
+        {
+            if (value is not PyInt number)
+                throw PyTypeError.Create("an integer is required");
+            if (number.Value < 0)
+                throw PyOverflowError.Create("can't convert negative value to unsigned int");
+            if (number.Value > UnsignedLongMax)
+                throw PyOverflowError.Create("Python int too large to convert to C unsigned long");
+            return number.Value;
+        }
+
+        // PyLong_AsLong: __index__, then the range of a C long.
+        private static BigInteger AsLong(PyObject value)
+        {
+            var number = PyObject.TryGetIndex(value)
+                ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+            if (number.Value < -LongMax - 1 || number.Value > LongMax)
+                throw PyOverflowError.Create("Python int too large to convert to C long");
+            return number.Value;
         }
 
         // _random_Random_getrandbits_impl: one word for k <= 32, otherwise little-endian words.
         private static PyObject GetRandBitsMethod(PyObject self, PyObject[] args)
         {
-            if (args.Length == 0)
-                throw PyTypeError.Create("getrandbits() missing required argument: 'k' (pos 1)");
-            var requested = ((PyInt)args[0]).Value;
-            if (requested < 0)
+            int k = PyArgs.Int(args[0]);
+            if (k < 0)
                 throw PyValueError.Create("number of bits must be >= 0");
-            if (requested == 0) return new PyInt(0);
-            int k = (int)requested;
+            if (k == 0) return new PyInt(0);
             var s = StateOf(self);
             if (k <= 32) return new PyInt(Next(s) >> (32 - k));
             BigInteger result = 0;

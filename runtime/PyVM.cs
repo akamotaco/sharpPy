@@ -930,8 +930,14 @@ namespace SharpPy
             {
                 if (State == FrameState.Executing)
                     throw running;
-                // _PyGen_Finalize: close() unless never started or already done; failures are unraisable.
-                if (State == FrameState.Suspended)
+                // _PyGen_Finalize: a coroutine that never ran warns that it was never awaited, a
+                // suspended generator is closed; failures are unraisable.
+                if (OwnerGenerator is SharpPy.Core.PyCoroutine coroutine)
+                {
+                    try { coroutine.Finalize(); }
+                    catch (PythonException error) { PyUnraisable.Report(error, coroutine); }
+                }
+                else if (State == FrameState.Suspended)
                 {
                     try { OwnerGenerator.GetAttribute("close").Call(Array.Empty<PyObject>(), null); }
                     catch (PythonException error) { PyUnraisable.Report(error, OwnerGenerator); }
@@ -8067,7 +8073,7 @@ namespace SharpPy
         }
 
         private static bool IsExceptionClass(PyObject value) =>
-            value is PyBuiltinType || value is PyType type && DerivesFromBaseException(type);
+            value is PyType type && DerivesFromBaseException(type);
 
         // do_raise (Python/ceval.c)
         private void DoRaise(PyFrame frame, PyObject exc, PyObject cause, PyBaseException handled)
