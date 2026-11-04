@@ -136,8 +136,20 @@ namespace SharpPy
                 if (delay < 0)
                     throw PyValueError.Create("sleep() argument must be non-negative");
 
-                int delayMs = (int)(delay * 1000);
-                PyGil.AllowThreads(() => Thread.Sleep(delayMs));
+                // pysleep (Modules/timemodule.c): only a zero timeout is Sleep(0), which gives up the
+                // time slice; any other is rounded up (_PyTime_ROUND_CEILING) and slept at least that
+                // long. Truncating made sleep(0.0001) a Sleep(0), so a polling thread spun.
+                double delayMs = Math.Ceiling(delay * 1000);
+                PyGil.AllowThreads(() =>
+                {
+                    if (delayMs == 0)
+                    {
+                        Thread.Sleep(0);
+                        return;
+                    }
+                    for (double left = delayMs; left > 0; left -= int.MaxValue)
+                        Thread.Sleep((int)Math.Min(left, int.MaxValue));
+                });
 
                 return PyNone.Instance;
             }));

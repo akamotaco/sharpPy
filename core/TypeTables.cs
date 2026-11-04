@@ -160,7 +160,9 @@ namespace SharpPy
             Members<PyUnionType>(PyType.UnionType, (self, name) => new PyTuple(self.Args), "__args__");
             GetSets<PyUnionType>(PyType.UnionType, (self, name) => PyGenericAlias.MakeParameters(new PyTuple(self.Args)), "__parameters__");
             Wrapper(PyType.UnionType, "__getitem__", (self, args) => ((PyUnionType)self).Subscript(args[0]));
-            Repr(PyType.UnionType, PyType.GenericAliasType);
+            Repr(PyType.UnionType);
+            // ga_repr itself: the virtual ToRepr of a subclass instance comes back here through __repr__.
+            Wrapper(PyType.GenericAliasType, "__repr__", (self, args) => PyGenericAlias.Repr(self));
             Hashed(PyType.UnionType);
             Compared(PyType.UnionType);
 

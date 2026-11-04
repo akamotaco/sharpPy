@@ -19,6 +19,10 @@ namespace SharpPy.Modules
         {
             var module = new PyModule("_importlib_native");
 
+            // importlib/__init__.py: from ._bootstrap import __import__, the import statement's
+            // machinery. Here that machinery is PyImportSystem, which builtins.__import__ already is.
+            module.ModuleDict["__import__"] = PyImportSystem.Import("builtins").GetAttribute("__import__");
+
             module.ModuleDict["import_module"] = new PyBuiltinFunction("import_module", (args, kwargs) =>
             {
                 if (args.Length == 0)

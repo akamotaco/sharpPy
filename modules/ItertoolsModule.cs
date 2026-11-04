@@ -533,7 +533,8 @@ namespace SharpPy
     {
         private readonly PyObject _iterator;
         private readonly List<PyObject> _buffer = new List<PyObject>();
-        private bool _exhausted = false;
+        // teedataobject.running: the lead iterator is inside PyIter_Next.
+        private bool _running;
 
         public TeeShared(PyObject iterable)
         {
@@ -544,23 +545,30 @@ namespace SharpPy
         /// Get item at index, pulling from source if needed.
         /// Returns null if index is past the end.
         /// </summary>
+        // teedataobject_getitem: a branch behind the lead reads the buffer; the lead asks the source
+        // each time, so an exhausted source is asked again, and a source still running is re-entered.
         public PyObject GetItem(int index)
         {
-            while (_buffer.Count <= index && !_exhausted)
-            {
-                try
-                {
-                    _buffer.Add(_iterator.Next());
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                {
-                    _exhausted = true;
-                    break;
-                }
-            }
             if (index < _buffer.Count)
                 return _buffer[index];
-            return null;
+            if (_running)
+                throw PyRuntimeError.Create("cannot re-enter the tee iterator");
+            _running = true;
+            PyObject value;
+            try
+            {
+                value = _iterator.Next();
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+            {
+                return null;
+            }
+            finally
+            {
+                _running = false;
+            }
+            _buffer.Add(value);
+            return value;
         }
     }
 
