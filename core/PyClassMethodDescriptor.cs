@@ -10,8 +10,11 @@ namespace SharpPy
     /// - Delegates to wrapped callable's descriptor protocol if it has one
     /// - Otherwise creates a bound method with PyMethod_New(callable, type)
     /// </summary>
-    public class PyClassMethodDescriptor : PyObject, IDescriptor
+    public class PyClassMethodDescriptor : PyObject, IDescriptor, IDescrObject
     {
+        string IDescrObject.DescrName => _name;
+        PyType IDescrObject.DescrType => _ownerType;
+
         private readonly string _name;
         private readonly PyType _ownerType;
         private readonly PyObject _callable;
@@ -57,33 +60,8 @@ namespace SharpPy
         /// </summary>
         internal PyObject CallableForDelegation => _callable;
 
-        public PyObject Get(PyObject instance, PyType owner)
-        {
-            if (_callable == null)
-            {
-                throw PyRuntimeError.Create("uninitialized classmethod object");
-            }
-
-            // CPython 3.12: line 1043-1044
-            // if (type == NULL) type = (PyObject *)(Py_TYPE(obj));
-            PyType type = owner;
-            if (type == null && instance != null)
-            {
-                type = instance.GetPyType();
-            }
-
-            // CPython 3.12: line 1045-1048
-            // If the wrapped callable is itself a descriptor, call its __get__
-            if (_callable is IDescriptor descriptor)
-            {
-                return descriptor.Get(type, type);
-            }
-
-            // CPython 3.12: Objects/descrobject.c:146
-            // return PyCMethod_New(descr->d_method, type, NULL, cls);
-            // Create a PyCMethod object that binds the class as the first argument
-            return new PyCMethod(_callable, type);
-        }
+        // tp_descr_get is classmethod_get, from Python (__get__) and from attribute lookup alike.
+        public PyObject Get(PyObject instance, PyType owner) => ClassMethodGet(instance, owner);
 
         public void Set(PyObject instance, PyObject value)
         {
@@ -97,15 +75,6 @@ namespace SharpPy
 
         // classmethod는 non-data descriptor (no __set__)
         public bool IsDataDescriptor() => false;
-
-        public override PyObject GetAttribute(string name)
-        {
-            if (name == "__get__")
-                return new PyBuiltinFunction("__get__", args =>
-                    ClassMethodGet(args[0] is PyNone ? null : args[0],
-                                   args.Length > 1 && args[1] is not PyNone ? args[1] : null));
-            return PyMethodDescriptor.DescriptorAttribute(name, _ownerType, _name) ?? base.GetAttribute(name);
-        }
 
         // classmethod_get (Objects/descrobject.c)
         private PyObject ClassMethodGet(PyObject target, PyObject type)

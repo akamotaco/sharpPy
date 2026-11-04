@@ -4303,7 +4303,7 @@ namespace SharpPy
 
             // CPython 3.12: Objects/exceptions.c:42-71 (BaseException_init)
             // BaseException.__init__(self, *args) - stores args in self.args
-            TypeDict["__init__"] = new PyWrapperDescriptor("__init__", BaseExceptionType, (self, args, kwargs) =>
+            TypeDict["__init__"] = new PyWrapperDescriptor("__init__", this, (self, args, kwargs) =>
             {
                 if (!self.GetPyType().IsSubclassOf(BaseExceptionType))
                     throw PyTypeError.Create($"descriptor '__init__' requires a 'BaseException' object but received a '{self.GetTypeName()}'");
@@ -4344,7 +4344,7 @@ namespace SharpPy
             // CPython 3.12: Objects/exceptions.c:131 BaseException_repr. The name of the type and the
             // arguments, never "<module.Name object at 0x...>"; a Python subclass inherits it, which
             // is what repr(SubK(1)) shows in probes/l23_exit_fields.py.
-            TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", BaseExceptionType, (self, args, kwargs) =>
+            TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", this, (self, args, kwargs) =>
             {
                 if (!self.GetPyType().IsSubclassOf(BaseExceptionType))
                     throw PyTypeError.Create(

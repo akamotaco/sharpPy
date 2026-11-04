@@ -744,8 +744,10 @@ namespace SharpPy
     /// CPython 3.12 호환: Descriptor protocol을 구현한 builtin method
     /// 클래스에서 접근 시 unbound, 인스턴스에서 접근 시 자동으로 bound method 반환
     /// </summary>
-    public class PyBuiltinMethod : PyObject, IDescriptor
+    public class PyBuiltinMethod : PyObject, IDescriptor, IDescrObject
     {
+        string IDescrObject.DescrName => Name;
+        PyType IDescrObject.DescrType => PyType.ObjectType;
         public string Name { get; }
         public Func<PyObject, PyObject[], PyObject> Method { get; }
         public int ArgCount { get; } // -1 for variable args
@@ -815,8 +817,10 @@ namespace SharpPy
     /// <summary>
     /// Bound builtin method: self가 이미 바인딩된 메서드
     /// </summary>
-    public class PyBoundBuiltinMethod : PyObject
+    public class PyBoundBuiltinMethod : PyObject, IWrapperObject
     {
+        IDescrObject IWrapperObject.WrapperDescr => _method;
+        PyObject IWrapperObject.WrapperSelf => _instance;
         private PyObject _instance;
         private PyBuiltinMethod _method;
 
@@ -847,26 +851,20 @@ namespace SharpPy
             return true;
         }
 
-        // Bound method attributes
-        public override PyObject GetAttribute(string name)
-        {
-            return name switch
-            {
-                "__self__" => _instance,
-                "__func__" => _method,
-                "__module__" => PyNone.Instance,
-                "__name__" => new PyString(_method.Name),
-                _ => base.GetAttribute(name)
-            };
-        }
     }
 
     /// <summary>
     /// CPython 3.12: Static builtin method (like tp_new)
     /// Behaves like @staticmethod - does NOT bind to instance
     /// </summary>
-    public class PyStaticBuiltinMethod : PyObject, IDescriptor
+    public class PyStaticBuiltinMethod : PyObject, IDescriptor, ICFunction
     {
+        string ICFunction.MethodName => Name;
+        PyObject ICFunction.MethodSelf => _owner;
+        PyObject ICFunction.MethodModule => null;
+        // A type's static methods (str.maketrans); tp_new_methoddef is not one.
+        bool ICFunction.MethodIsStatic => Name != "__new__";
+
         public string Name { get; }
         public Func<PyObject[], PyDict, PyObject> Method { get; }
 
@@ -887,16 +885,6 @@ namespace SharpPy
             Method = method;
             _owner = owner;
         }
-
-        // tp_new_methoddef: __self__ is the type, which copyreg compares.
-        public override PyObject GetAttribute(string name) => name switch
-        {
-            "__self__" when _owner != null => _owner,
-            "__module__" => PyNone.Instance,
-            "__name__" => new PyString(Name),
-            "__qualname__" when _owner != null => new PyString($"{_owner.Name}.{Name}"),
-            _ => base.GetAttribute(name),
-        };
 
         public override string ToString()
         {
@@ -966,8 +954,10 @@ namespace SharpPy
     /// - getter: type_dict
     /// - setter: NULL (read-only)
     /// </summary>
-    public class PyDictDescriptor : PyObject, IDescriptor
+    public class PyDictDescriptor : PyObject, IDescriptor, IDescrObject
     {
+        string IDescrObject.DescrName => "__dict__";
+        PyType IDescrObject.DescrType => PyType.TypeType;
         public PyDictDescriptor()
         {
         }
@@ -981,14 +971,6 @@ namespace SharpPy
         {
             return PyType.GetSetDescriptorType;
         }
-
-        // PyDescrObject: inspect tells the type's own __dict__ descriptor from a shadowing one by these.
-        public override PyObject GetAttribute(string name) => name switch
-        {
-            "__name__" => new PyString("__dict__"),
-            "__objclass__" => PyType.TypeType,
-            _ => base.GetAttribute(name),
-        };
 
         public override string GetTypeName()
         {
@@ -1079,8 +1061,10 @@ namespace SharpPy
     /// Equivalent to CPython's type_get_bases getter/type_set_bases setter
     /// getsetdef: {"__bases__", (getter)type_get_bases, (setter)type_set_bases, NULL}
     /// </summary>
-    public class PyBasesDescriptor : PyObject, IDescriptor
+    public class PyBasesDescriptor : PyObject, IDescriptor, IDescrObject
     {
+        string IDescrObject.DescrName => "__bases__";
+        PyType IDescrObject.DescrType => PyType.TypeType;
         public override string ToString() => "<attribute '__bases__' of 'type' objects>";
         public override PyType GetPyType() => PyType.GetSetDescriptorType;
         public override string GetTypeName() => "getset_descriptor";
@@ -1145,8 +1129,10 @@ namespace SharpPy
     /// CPython 3.12: type_getseters {"__base__", type_get_base} - first base or None.
     /// For any valid class the first base equals MRO[1] (C3 keeps bases[0] first).
     /// </summary>
-    public class PyBaseDescriptor : PyObject, IDescriptor
+    public class PyBaseDescriptor : PyObject, IDescriptor, IDescrObject
     {
+        string IDescrObject.DescrName => "__base__";
+        PyType IDescrObject.DescrType => PyType.TypeType;
         public override string ToString() => "<attribute '__base__' of 'type' objects>";
         public override PyType GetPyType() => PyType.MemberDescriptorType;
         public override string GetTypeName() => "member_descriptor";
@@ -1183,8 +1169,10 @@ namespace SharpPy
     /// Equivalent to CPython's type_get_mro getter (setter=NULL, read-only)
     /// getsetdef: {"__mro__", (getter)type_get_mro, NULL, NULL}
     /// </summary>
-    public class PyMroDescriptor : PyObject, IDescriptor
+    public class PyMroDescriptor : PyObject, IDescriptor, IDescrObject
     {
+        string IDescrObject.DescrName => "__mro__";
+        PyType IDescrObject.DescrType => PyType.TypeType;
         public override string ToString() => "<attribute '__mro__' of 'type' objects>";
         public override PyType GetPyType() => PyType.GetSetDescriptorType;
         public override string GetTypeName() => "getset_descriptor";
@@ -1294,8 +1282,10 @@ namespace SharpPy
     /// Equivalent to CPython's type_get_doc getter/type_set_doc setter
     /// getsetdef: {"__doc__", (getter)type_get_doc, (setter)type_set_doc, NULL}
     /// </summary>
-    public class PyDocDescriptor : PyObject, IDescriptor
+    public class PyDocDescriptor : PyObject, IDescriptor, IDescrObject
     {
+        string IDescrObject.DescrName => "__doc__";
+        PyType IDescrObject.DescrType => PyType.TypeType;
         public override string ToString() => "<attribute '__doc__' of 'type' objects>";
         public override PyString ToRepr() => new PyString(ToString());
         public override PyType GetPyType() => PyType.GetSetDescriptorType;

@@ -107,7 +107,7 @@ namespace SharpPy
         }
     }
 
-    public class PyBuiltinFunction : PyObject
+    public class PyBuiltinFunction : PyObject, ICFunction
     {
         public string Name { get; }
         private readonly Func<PyObject[], PyObject>? _implementation;
@@ -1863,25 +1863,10 @@ namespace SharpPy
         // Built-in function은 항상 호출 가능
         public override bool IsCallable() => true;
 
-        public override PyObject GetAttribute(string name)
-        {
-            return name switch
-            {
-                "__name__" => new PyString(Name),
-                // CPython builtin functions expose __qualname__ (== __name__ for module
-                // builtins), __doc__, and, crucially, the ordinary object attributes
-                // (__class__, __dir__, ...). Previously every other name threw, so
-                // len.__class__ raised AttributeError.
-                "__qualname__" => new PyString(OwnerClass != null ? $"{OwnerClass}.{Name}" : Name),
-                "__call__" => this,
-                "__module__" => new PyString(OwnerModule),
-                "__self__" => PyImportSystem.Import(OwnerModule),
-                // meth_reduce: a module's function pickles by name
-                "__reduce__" => new PyBuiltinFunction("__reduce__", (args, kwargs) => new PyString(Name)),
-                "__reduce_ex__" => new PyBuiltinFunction("__reduce_ex__", (args, kwargs) => new PyString(Name)),
-                _ => base.GetAttribute(name)
-            };
-        }
+        // PyCFunctionObject of a module's function: m_self is the module, m_module its name.
+        string ICFunction.MethodName => Name;
+        PyObject ICFunction.MethodSelf => PyImportSystem.Import(OwnerModule);
+        PyObject ICFunction.MethodModule => new PyString(OwnerModule);
 
         private static PyObject CallDir(PyObject[] args, PyDict kwargs = null)
         {

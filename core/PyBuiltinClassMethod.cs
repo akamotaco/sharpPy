@@ -7,8 +7,12 @@ namespace SharpPy
     /// Like @classmethod but for built-in methods (e.g., __class_getitem__)
     /// Objects/descrobject.c: classmethod_descriptor_type
     /// </summary>
-    public class PyBuiltinClassMethod : PyObject, IDescriptor
+    public class PyBuiltinClassMethod : PyObject, IDescriptor, ICFunction
     {
+        string ICFunction.MethodName => Name;
+        PyObject ICFunction.MethodSelf => null;
+        PyObject ICFunction.MethodModule => null;
+
         public string Name { get; }
         private readonly Func<PyObject, PyObject, PyObject> _method;
 
@@ -23,7 +27,6 @@ namespace SharpPy
         // builtin_function_or_method both unbound and bound (a PyCFunction).
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
 
-        public override PyObject GetAttribute(string name) => name == "__module__" ? PyNone.Instance : base.GetAttribute(name);
         public override string GetTypeName() => "builtin_function_or_method";
 
         // IDescriptor implementation
@@ -84,8 +87,12 @@ namespace SharpPy
 
         public override bool IsCallable() => true;
 
-        private class PyBoundClassMethod : PyObject
+        private class PyBoundClassMethod : PyObject, ICFunction
         {
+            string ICFunction.MethodName => _method.Name;
+            PyObject ICFunction.MethodSelf => _class;
+            PyObject ICFunction.MethodModule => null;
+
             private readonly PyBuiltinClassMethod _method;
             private readonly PyObject _class;
 

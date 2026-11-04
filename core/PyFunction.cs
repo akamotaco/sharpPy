@@ -909,8 +909,12 @@ public partial class PyFunction : PyObject, IDescriptor
     /// CPython 3.12: Bound builtin method wrapper
     /// PyBuiltinFunction을 인스턴스에 바인딩하여 self를 자동으로 전달
     /// </summary>
-    public class PyBuiltinBoundMethod : PyObject
+    public class PyBuiltinBoundMethod : PyObject, ICFunction
     {
+        string ICFunction.MethodName => BuiltinFunction.Name;
+        PyObject ICFunction.MethodSelf => Instance;
+        PyObject ICFunction.MethodModule => null;
+
         public PyObject Instance { get; }
         public PyBuiltinFunction BuiltinFunction { get; }
 
@@ -920,7 +924,7 @@ public partial class PyFunction : PyObject, IDescriptor
             BuiltinFunction = builtinFunction;
         }
 
-        public override PyType GetPyType() => PyType.FunctionType;
+        public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
         public override string GetTypeName() => "builtin_function_or_method";
 
         /// <summary>
@@ -961,19 +965,6 @@ public partial class PyFunction : PyObject, IDescriptor
 
         // Method는 항상 호출 가능
         public override bool IsCallable() => true;
-
-        // Method attributes (__self__, __func__ 등)
-        public override PyObject GetAttribute(string name)
-        {
-            return name switch
-            {
-                "__self__" => Instance,
-                "__func__" => BuiltinFunction,
-                "__name__" => new PyString(BuiltinFunction.Name),
-                "__call__" => this,
-                _ => base.GetAttribute(name)
-            };
-        }
 
         // CPython builtin_method_repr: <built-in method NAME of TYPE object at 0xID>
         // where the address is the bound self object's identity.

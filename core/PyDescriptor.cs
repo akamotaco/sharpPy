@@ -6,8 +6,11 @@ namespace SharpPy
     /// CPython PyMethodDef 호환: 메서드 descriptor
     /// C 확장 모듈의 메서드를 표현하는 descriptor
     /// </summary>
-    public class PyMethodDescriptor : PyObject, IDescriptor
+    public class PyMethodDescriptor : PyObject, IDescriptor, IDescrObject
     {
+        string IDescrObject.DescrName => Name;
+        PyType IDescrObject.DescrType => OwnerType;
+
         // The methods of str work on the text: a subclass's own __len__ or __getitem__ is not its slot.
         internal static Func<PyObject, PyObject[], PyDict, PyObject> ReadingStoredText(
             PyType ownerType, string name, Func<PyObject, PyObject[], PyDict, PyObject> implementation) =>
@@ -92,18 +95,6 @@ namespace SharpPy
         {
             throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.FullName}' objects is not writable");
         }
-
-        // descr_members and descr_getset: what every descriptor of a type says about itself.
-        internal static PyObject DescriptorAttribute(string name, PyType owner, string descriptorName) => name switch
-        {
-            "__name__" => new PyString(descriptorName),
-            "__qualname__" => new PyString(owner != null ? $"{owner.Name}.{descriptorName}" : descriptorName),
-            "__objclass__" => owner,
-            _ => null,
-        };
-
-        public override PyObject GetAttribute(string name) =>
-            DescriptorAttribute(name, OwnerType, Name) ?? base.GetAttribute(name);
 
         public bool IsDataDescriptor() => false;
 
@@ -194,7 +185,7 @@ namespace SharpPy
     /// CPython: __new__ is a static builtin surface (builtin_function_or_method),
     /// not a method_descriptor, even when implemented with descriptor plumbing.
     /// </summary>
-    public class PyNewMethodDescriptor : PyMethodDescriptor
+    public class PyNewMethodDescriptor : PyMethodDescriptor, ICFunction
     {
         public PyNewMethodDescriptor(
             string name,
@@ -227,18 +218,15 @@ namespace SharpPy
         internal PyObject CallTpNew(PyObject[] args, PyDict kwargs) => base.Call(args, kwargs);
 
         // tp_new_methoddef: a builtin method of the type, which copyreg compares with the type.
-        public override PyObject GetAttribute(string name) => name switch
-        {
-            "__self__" => OwnerType,
-            "__module__" => PyNone.Instance,
-            _ => base.GetAttribute(name),
-        };
+        string ICFunction.MethodName => Name;
+        PyObject ICFunction.MethodSelf => OwnerType;
+        PyObject ICFunction.MethodModule => null;
 
         public override PyString ToRepr() => new PyString($"<built-in method {Name} of type object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(OwnerType):x}>");
         public override string ToString() => ToRepr().Value;
     }
 
-    public class PyBoundMethodDescriptor : PyObject
+    public class PyBoundMethodDescriptor : PyObject, ICFunction
     {
         public PyObject Instance { get; }
         public PyMethodDescriptor MethodDescriptor { get; }
@@ -296,24 +284,9 @@ namespace SharpPy
             return result;
         }
 
-        public override PyObject GetAttribute(string name)
-        {
-            switch (name)
-            {
-                case "__self__":
-                    return Instance;
-                case "__func__":
-                    return MethodDescriptor;
-                case "__module__":
-                    return PyNone.Instance;
-                case "__name__":
-                    return new PyString(MethodDescriptor.Name);
-                case "__qualname__":
-                    return new PyString(QualifiedName);
-                default:
-                    return base.GetAttribute(name);
-            }
-        }
+        string ICFunction.MethodName => MethodDescriptor.Name;
+        PyObject ICFunction.MethodSelf => Instance;
+        PyObject ICFunction.MethodModule => null;
 
         // CPython builtin_method_repr for a bound method_descriptor:
         // <built-in method NAME of TYPE object at 0xID> (address is the bound self).
@@ -325,8 +298,11 @@ namespace SharpPy
     /// <summary>
     /// CPython PyGetSetDef 호환: 속성 getter/setter descriptor
     /// </summary>
-    public class PyGetSetDescriptor : PyObject, IDescriptor
+    public class PyGetSetDescriptor : PyObject, IDescriptor, IDescrObject
     {
+        string IDescrObject.DescrName => Name;
+        PyType IDescrObject.DescrType => OwnerType;
+
         public string Name { get; }
         public PyType OwnerType { get; }
         private readonly Func<PyObject, PyObject> _getter;
@@ -359,8 +335,6 @@ namespace SharpPy
 
         public override PyType GetPyType() => PyType.GetSetDescriptorType;
 
-        public override PyObject GetAttribute(string name) =>
-            PyMethodDescriptor.DescriptorAttribute(name, OwnerType, Name) ?? base.GetAttribute(name);
         public override string GetTypeName() => "getset_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)
@@ -415,8 +389,11 @@ namespace SharpPy
     /// CPython PyMemberDef 호환: 구조체 멤버 descriptor
     /// C 구조체의 멤버를 직접 노출하는 descriptor
     /// </summary>
-    public class PyMemberDescriptor : PyObject, IDescriptor
+    public class PyMemberDescriptor : PyObject, IDescriptor, IDescrObject
     {
+        string IDescrObject.DescrName => Name;
+        PyType IDescrObject.DescrType => OwnerType;
+
         public string Name { get; }
         public PyType OwnerType { get; }
         private readonly Func<PyObject, PyObject> _getter;
@@ -442,8 +419,6 @@ namespace SharpPy
 
         public override PyType GetPyType() => PyType.MemberDescriptorType;
 
-        public override PyObject GetAttribute(string name) =>
-            PyMethodDescriptor.DescriptorAttribute(name, OwnerType, Name) ?? base.GetAttribute(name);
         public override string GetTypeName() => "member_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)
@@ -502,8 +477,11 @@ namespace SharpPy
     /// CPython wrapper_descriptor 호환: slot wrapper descriptor
     /// 타입의 특수 메서드 슬롯을 래핑하는 descriptor
     /// </summary>
-    public class PyWrapperDescriptor : PyObject, IDescriptor
+    public class PyWrapperDescriptor : PyObject, IDescriptor, IDescrObject
     {
+        string IDescrObject.DescrName => Name;
+        PyType IDescrObject.DescrType => OwnerType;
+
         public string Name { get; }
         public PyType OwnerType { get; }
         internal readonly Func<PyObject, PyObject[], PyDict, PyObject> _implementation;
@@ -540,8 +518,6 @@ namespace SharpPy
         /// </summary>
         internal bool CallsVirtual { get; init; }
 
-        public override PyObject GetAttribute(string name) =>
-            PyMethodDescriptor.DescriptorAttribute(name, OwnerType, Name) ?? base.GetAttribute(name);
         public override string GetTypeName() => "wrapper_descriptor";
 
         // CPython wrapper_descriptor_repr: <slot wrapper 'NAME' of 'TYPE' objects>
@@ -601,7 +577,7 @@ namespace SharpPy
     /// <summary>
     /// Bound wrapper descriptor
     /// </summary>
-    public class PyBoundWrapperDescriptor : PyObject
+    public class PyBoundWrapperDescriptor : PyObject, IWrapperObject
     {
         public PyObject Instance { get; }
         public PyWrapperDescriptor WrapperDescriptor { get; }
@@ -622,23 +598,8 @@ namespace SharpPy
             return WrapperDescriptor._implementation(Instance, args, kwargs);
         }
 
-        public override PyObject GetAttribute(string name)
-        {
-            switch (name)
-            {
-                case "__self__":
-                    return Instance;
-                case "__func__":
-                    return WrapperDescriptor;
-                case "__name__":
-                case "__qualname__":
-                case "__objclass__":
-                case "__doc__":
-                    return WrapperDescriptor.GetAttribute(name);
-                default:
-                    return base.GetAttribute(name);
-            }
-        }
+        IDescrObject IWrapperObject.WrapperDescr => WrapperDescriptor;
+        PyObject IWrapperObject.WrapperSelf => Instance;
 
         // wrapper_richcompare: the same slot of the same object, == and != only.
         public override PyObject RichCompare(PyObject other, CompareOp op)

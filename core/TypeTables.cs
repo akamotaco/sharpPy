@@ -132,12 +132,11 @@ namespace SharpPy
             Members<PySuper>(PyType.SuperType, (self, name) => self.Own(name), "__thisclass__", "__self__", "__self_class__");
             Wrapper(PyType.SuperType, "__get__", (self, args) => ((IDescriptor)self).Get(args[0] is PyNone ? null : args[0], args.Length > 1 ? args[1] as PyType : null));
             Members<PyObject>(PyType.MethodType, Field, "__func__", "__self__");
-            GetSets<PyObject>(PyType.BuiltinFunctionOrMethodType, Field, "__name__", "__qualname__", "__self__");
+            PyCFunction.Install();
             foreach (var type in new[] { PyType.MethodDescriptorType, PyType.WrapperDescriptorType, PyType.ClassMethodDescriptorType,
                          PyType.GetSetDescriptorType, PyType.MemberDescriptorType })
             {
-                Members<PyObject>(type, Field, "__name__", "__objclass__");
-                GetSets<PyObject>(type, Field, "__qualname__");
+                PyDescrObject.Install(type);
                 Wrapper(type, "__get__", DescriptorGet);
             }
             foreach (var type in new[] { PyType.GetSetDescriptorType, PyType.MemberDescriptorType })
@@ -153,7 +152,7 @@ namespace SharpPy
                     return PyNone.Instance;
                 });
             }
-            GetSets<PyObject>(PyType.MethodWrapperType, Field, "__name__", "__qualname__", "__objclass__");
+            PyMethodWrapper.Install();
             // method_get_doc, method_get_text_signature and their wrapper_ counterparts cut the
             // internal doc; getset_get_doc and member_get_doc hand it over as it is.
             foreach (var type in new[] { PyType.BuiltinFunctionOrMethodType, PyType.MethodDescriptorType, PyType.WrapperDescriptorType,
@@ -164,7 +163,6 @@ namespace SharpPy
             }
             foreach (var type in new[] { PyType.GetSetDescriptorType, PyType.MemberDescriptorType })
                 GetSets<PyObject>(type, (self, name) => PyDocs.PlainDoc(self), "__doc__");
-            Members<PyObject>(PyType.MethodWrapperType, Field, "__self__");
             Members<PyGenericAlias>(PyType.GenericAliasType, Field, "__origin__", "__args__", "__unpacked__");
             GetSets<PyGenericAlias>(PyType.GenericAliasType, Field, "__parameters__", "__typing_unpacked_tuple_args__");
             Members<PyUnionType>(PyType.UnionType, (self, name) => new PyTuple(self.Args), "__args__");
