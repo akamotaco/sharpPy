@@ -540,6 +540,13 @@ public class PyModule : PyObject
             ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
             ["_tokenize"] = () => SharpPy.Modules._TokenizeModule.Create(),
             ["_importlib_native"] = () => SharpPy.Modules.ImportlibModule.CreateImportlibModule(),
+            // The C functions Lib/_typing.py stands in front of (Objects/typevarobject.c, unionobject.c).
+            ["_typing_native"] = () =>
+            {
+                var module = new PyModule("_typing_native");
+                module.ModuleDict["union_type_or"] = new PyBuiltinFunction("union_type_or", args => PyUnionType.Or(args[0], args[1]));
+                return module;
+            },
             ["_io"] = () => SharpPy.Modules.IoModule.CreateIoModule(),  // io.py가 사용 (CPython Modules/_io)
 
             // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)

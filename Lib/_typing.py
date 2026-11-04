@@ -11,7 +11,8 @@ SharpPy implements these as pure Python stubs to support CPython 3.12's typing.p
 import sys
 from types import GenericAlias
 
-_union_type_or = type(int | str).__or__
+# _Py_union_type_or, the C function typealias_or and the others call.
+from _typing_native import union_type_or as _union_type_or
 
 
 def _idfunc(x):

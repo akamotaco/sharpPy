@@ -28,27 +28,37 @@ namespace SharpPy
             var parameters = PyGenericAlias.MakeParameters(arguments);
             var replaced = PyGenericAlias.SubsParameters(this, arguments, parameters, item);
             var result = replaced.Items.Length == 0 ? null : replaced.Items[0];
+            // PyNumber_Or of each substituted argument in turn.
             for (int i = 1; i < replaced.Items.Length; i++)
-                result = result.BitwiseOr(replaced.Items[i]);
+                result = PyVM.Instance.ExecuteBinaryOpType(result, replaced.Items[i], BinaryOpType.OR);
             return result;
         }
 
         public override string ToString()
         {
-            // Performance: Eliminated LINQ - manual conversion instead of Select + ToArray
             var argStrings = new string[Args.Length];
             for (int i = 0; i < Args.Length; i++)
-            {
-                // union_repr_item: None for NoneType, a class by its dotted name, anything else by repr.
-                argStrings[i] = Args[i] switch
-                {
-                    PyType type when type.Name == "NoneType" => "None",
-                    PyType type when string.IsNullOrEmpty(type.Module) || type.Module == "builtins" => type.Name,
-                    PyType type => $"{type.Module}.{type.Name}",
-                    var other => other.ToRepr().Value,
-                };
-            }
+                argStrings[i] = ReprItem(Args[i]);
             return string.Join(" | ", argStrings);
+        }
+
+        // union_repr_item: None for NoneType; what has __origin__ and __args__ by repr; a class by
+        // __module__.__qualname__, the builtins without the module; the rest by repr.
+        private static string ReprItem(PyObject p)
+        {
+            if (ReferenceEquals(p, PyType.NoneType))
+                return "None";
+            if (p.LookupAttribute("__origin__") != null && p.LookupAttribute("__args__") != null)
+                return p.ToRepr().Value;
+            var qualname = p.LookupAttribute("__qualname__");
+            if (qualname == null)
+                return p.ToRepr().Value;
+            var module = p.LookupAttribute("__module__");
+            if (module == null || module is PyNone)
+                return p.ToRepr().Value;
+            if (module is PyString { Value: "builtins" })
+                return qualname.ToStr().Value;
+            return $"{module.ToStr().Value}.{qualname.ToStr().Value}";
         }
 
         public override PyObject BitwiseOr(PyObject other) => Or(this, other);
@@ -115,10 +125,10 @@ namespace SharpPy
         /// <summary>
         /// Support subscript operations for compatibility
         /// </summary>
-        public override PyObject GetItem(PyObject key)
-        {
-            throw PyTypeError.Create("'UnionType' object is not subscriptable");
-        }
+        // mp_subscript is union_getitem.
+        public override PyObject GetItem(PyObject key) => Subscript(key);
+
+        public override string GetTypeName() => "types.UnionType";
 
         public override bool Equals(object? obj)
         {

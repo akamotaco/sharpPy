@@ -4046,6 +4046,18 @@ namespace SharpPy
             return PyBool.FromBool(ReferenceEquals(this, other));
         }
 
+        // slot_tp_richcompare: a class whose metaclass is a Python class compares through it.
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if (GetPyType() is PyClass meta && meta is not PyTypeMetaclass)
+            {
+                var result = TryCompareSpecial(other, op, TypeType);
+                if (result != null)
+                    return result;
+            }
+            return base.RichCompare(other, op);
+        }
+
         #endregion
 
         #region Union Type Support (PEP 585)
