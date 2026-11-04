@@ -24,6 +24,8 @@ namespace SharpPy.Modules
 
             // CPython 3.12: Core C extension types
             module.ModuleDict["deque"] = PyDequeModule.DequeType;
+            module.ModuleDict["_deque_iterator"] = PyDequeModule.DequeIterType;
+            module.ModuleDict["_deque_reverse_iterator"] = PyDequeModule.DequeRevIterType;
 
             return module;
         }

@@ -75,10 +75,24 @@ def collect():
             if raw is not None:
                 entries[f"builtins.{name}"] = raw
     # Native modules: "<module>.__doc__" for the module, "<module>.<name>" for what it holds.
-    import _bisect, _heapq, time
-    for module in (_bisect, _heapq, time):
+    import _bisect, _collections, _heapq, time
+    for module in (_bisect, _collections, _heapq, time):
         entries[f"{module.__name__}.__doc__"] = module.__doc__
         for name, obj in vars(module).items():
+            if isinstance(obj, type):
+                # A type of the module: "<__module__>.<name>" and its members under that.
+                key = f"{obj.__module__}.{obj.__name__}"
+                raw = internal(obj.__name__, obj)
+                if raw is not None:
+                    entries[key] = raw
+                for member, value in vars(obj).items():
+                    # Only what documents itself: methods and descriptors, not stored values.
+                    if member == "__doc__" or not (callable(value) or hasattr(type(value), "__get__")):
+                        continue
+                    raw = internal(member, value)
+                    if raw is not None:
+                        entries[f"{key}.{member}"] = raw
+                continue
             if name.startswith("_") or not callable(obj):
                 continue
             raw = internal(name, obj)

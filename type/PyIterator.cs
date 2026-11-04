@@ -103,9 +103,7 @@ namespace SharpPy
                 case "enumerate":
                     InstallMethods(type, false, true, false);
                     break;
-                // dequeiter_methods and repeat_methods: __length_hint__ beside __reduce__.
-                case "_deque_iterator":
-                case "_deque_reverse_iterator":
+                // repeat_methods: __length_hint__ beside __reduce__.
                 case "repeat":
                     InstallMethods(type, true, false, false);
                     break;

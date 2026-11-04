@@ -71,8 +71,11 @@ namespace SharpPy
         }
 
         // A static type of builtins; type itself is one, though SharpPy builds it as a class.
+        // A static type of another module is keyed by its module too.
         private static string TypeKey(PyType type) =>
-            (type is PyClass && type is not PyTypeMetaclass) || (type.Module != null && type.Module != "builtins") ? null : type.Name;
+            type is PyClass && type is not PyTypeMetaclass ? null
+            : type.Module != null && type.Module != "builtins" ? type.Module + "." + type.Name
+            : type.Name;
 
         /// <summary>The name a method descriptor is cut by (ml_name) and its internal doc.</summary>
         internal static (string Name, string Doc) Of(PyObject callable)

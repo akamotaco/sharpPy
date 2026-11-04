@@ -5920,7 +5920,7 @@ namespace SharpPy
         private static bool HasOnlySequenceSlot(PyObject value, BinaryOpType operation) =>
             operation is BinaryOpType.ADD or BinaryOpType.MULTIPLY &&
             PyNativeStorage.Unwrap(value) is PyList or PyTuple or PyString or PyStrSubclass or PyBytes
-                or PyBytesSubclass or PyByteArray;
+                or PyBytesSubclass or PyByteArray or SharpPy.Modules.PyDeque;
 
         // SQSLOT("__add__", sq_concat, NULL, ...): __add__ written in Python leaves the slot empty.
         private static bool HasSequenceSlot(PyObject value, BinaryOpType operation) =>
