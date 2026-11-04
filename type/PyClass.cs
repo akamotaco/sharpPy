@@ -215,9 +215,6 @@ namespace SharpPy
         }
         // Note: __dict__ does NOT cache in CPython 3.12 - each access returns new mappingproxy
 
-        // Note: Method lookups use global TypeMethodCache (CPython-style array cache)
-        // See PyType.GlobalMethodCache and LookupInMRO() below
-
         public PyClass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict = null, List<PyObject>? typeParams = null)
             : this(name, baseTypes, classDict, typeParams, null)
         {
@@ -475,12 +472,8 @@ namespace SharpPy
             return false;
         }
 
-        public PyObject LookupInMRO(string name)
-        {
-            // Phase 2: Use global TypeMethodCache (CPython-style array cache)
-            // This is faster than Dictionary (15-25 cycles vs 30-100+ cycles)
-            return PyType.GlobalMethodCache.Lookup(this, name, out _);
-        }
+        // _PyType_Lookup
+        public PyObject LookupInMRO(string name) => FindNameInMro(name);
 
         // 클래스 호출 시 인스턴스 생성
         // Py_TYPE(cls)->tp_call: a metaclass __call__ comes before type_call.
@@ -2088,23 +2081,13 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12: Lookup a special method in the class hierarchy, excluding object base class.
-        /// Returns null if only object's version is found.
+        /// slot_tp_setattro and slot_tp_delattro: the hook _PyType_Lookup finds, when a class body
+        /// wrote it. A builtin's own entry is the C slot this object already runs.
         /// </summary>
         private PyObject LookupSpecialMethod(string name)
         {
-            foreach (var mroType in InstanceType.MRO)
-            {
-                // Skip object type - we don't want object.__setattr__/__delattr__
-                if (mroType.Name == "object")
-                    continue;
-
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject method))
-                {
-                    return BindSpecialMethod(method);
-                }
-            }
-            return null;
+            var method = InstanceType.FindNameInMro(name, out bool written);
+            return written ? BindSpecialMethod(method) : null;
         }
 
         /// <summary>

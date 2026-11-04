@@ -3,80 +3,6 @@ using System.Collections.Generic;
 namespace SharpPy
 {
     /// <summary>
-    /// Global method cache for fast attribute lookup (CPython Objects/typeobject.c:_PyType_Lookup)
-    /// </summary>
-    internal class TypeMethodCache
-    {
-        /// <summary>
-        /// Cache entry structure (version tag + name -> value)
-        /// </summary>
-        private struct CacheEntry
-        {
-            public ulong VersionTag;
-            public string Name;
-            public PyObject Value;
-        }
-
-        // CPython uses 2^12 = 4096 entries
-        private const int CACHE_SIZE = 4096;
-        private readonly CacheEntry[] _cache = new CacheEntry[CACHE_SIZE];
-
-        /// <summary>
-        /// Lookup method in cache with version tag validation
-        /// CPython reference: Objects/typeobject.c:4650-4774 (_PyType_Lookup)
-        /// </summary>
-        public PyObject Lookup(PyType type, string name, out bool hit)
-        {
-            // CPython: MCACHE_HASH_METHOD(type, name)
-            // Simple hash: type's version tag XOR name's hash code
-            uint hash = (uint)((type.TypeVersionTag ^ (ulong)name.GetHashCode()) % CACHE_SIZE);
-            int index = (int)hash;
-
-            ref var entry = ref _cache[index];
-
-            // Cache hit check: version tag + name match
-            if (entry.VersionTag == type.TypeVersionTag && entry.Name == name)
-            {
-                hit = true;
-                return entry.Value;
-            }
-
-            // Cache miss - need to search MRO
-            hit = false;
-            PyObject result = SearchMRO(type, name);
-
-            // Update cache with new result
-            // CPython: Only cache if MCACHE_CACHEABLE_NAME and version tag is valid
-            if (type.TypeVersionTag != 0)
-            {
-                entry.VersionTag = type.TypeVersionTag;
-                entry.Name = name;
-                entry.Value = result;
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Search through MRO for attribute (cache miss fallback)
-        /// CPython reference: Objects/typeobject.c:4696-4733 (find_name_in_mro)
-        /// </summary>
-        private static PyObject SearchMRO(PyType type, string name)
-        {
-            foreach (var mroType in type.MRO)
-            {
-                if (mroType is PyClass customType && customType.ClassDict.TryGetValue(name, out var value))
-                    return value;
-                // The type's dict, then its slot wrappers (PyClass.GetTypeAttribute).
-                var found = PyClass.GetTypeAttribute(mroType, name);
-                if (found != null)
-                    return found;
-            }
-            return null;
-        }
-    }
-
-    /// <summary>
     /// Python type 시스템 - C3 선형화 MRO 구현
     /// </summary>
     public class PyType : PyObject
@@ -264,11 +190,6 @@ namespace SharpPy
         #endregion
 
         #region Type Version Tag System (CPython tp_version_tag)
-
-        /// <summary>
-        /// Global method cache (CPython: type_cache global variable)
-        /// </summary>
-        internal static readonly TypeMethodCache GlobalMethodCache = new TypeMethodCache();
 
         /// <summary>
         /// Next available version tag (CPython: next_version_tag)
@@ -1545,13 +1466,8 @@ namespace SharpPy
         /// <summary>_PyType_Lookup. written tells whether a Python class body holds the name.</summary>
         internal PyObject FindNameInMro(string name) => FindNameInMro(name, out _);
 
-        // Special method lookup (MRO 기반) with method cache
-        // CPython reference: Objects/typeobject.c:_PyType_Lookup
-        public PyObject LookupSpecial(string name)
-        {
-            // Use global method cache for fast lookup
-            return GlobalMethodCache.Lookup(this, name, out _);
-        }
+        // _PyType_Lookup
+        public PyObject LookupSpecial(string name) => FindNameInMro(name);
 
         #endregion
 

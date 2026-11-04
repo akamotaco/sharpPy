@@ -652,33 +652,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Lookup special method bypassing __getattribute__
-        /// CPython: Special method lookup uses _PyType_Lookup which bypasses tp_getattro
-        /// Reference: Objects/typeobject.c:2188 (lookup_maybe_method)
-        /// </summary>
-        protected PyObject LookupSpecialMethod(string name)
-        {
-            var type = GetPyType();
-
-            // For PyClass instances, use LookupInMRO
-            if (type is PyClass pyClass)
-            {
-                return pyClass.LookupInMRO(name);
-            }
-
-            // For PyType instances, search TypeDict
-            foreach (var mroType in type.MRO)
-            {
-                if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue(name, out PyObject value))
-                {
-                    return value;
-                }
-            }
-
-            return null;
-        }
-
-        /// <summary>
         /// Type-only special method lookup without invoking instance attribute hooks.
         /// CPython v3.12.15, Objects/typeobject.c: lookup_maybe_method / slot_nb_inplace_*.
         /// Deliberately uncached: the global cache does not yet invalidate descendants.
@@ -707,15 +680,8 @@ namespace SharpPy
         /// </summary>
         internal PyObject LookupUserSpecial(string name)
         {
-            foreach (var mroType in GetPyType().MRO)
-            {
-                if (mroType is PyClass userClass &&
-                    userClass.ClassDict.TryGetValue(name, out var declared))
-                    return declared;
-                if (!(mroType is PyClass))
-                    break;
-            }
-            return null;
+            var found = GetPyType().FindNameInMro(name, out bool written);
+            return written ? found : null;
         }
 
         /// <summary>Call a user-declared special method, or null when the user declared none.</summary>
@@ -1248,38 +1214,12 @@ namespace SharpPy
             return value;
         }
 
+        // PyObject_Size: sq_length or mp_length, which a class fills with slot_sq_length.
         public virtual int Length()
         {
-            try
-            {
-                // CPython: Special method lookup bypasses __getattribute__
-                // Uses _PyType_Lookup directly
-                var lenMethod = LookupSpecialMethod("__len__");
-                if (lenMethod == null)
-                {
-                    throw PyTypeError.Create($"object of type '{GetTypeName()}' has no len()");
-                }
-
-                // Apply descriptor protocol if needed
-                PyObject boundMethod = lenMethod;
-                if (lenMethod is IDescriptor desc)
-                {
-                    boundMethod = desc.Get(this, GetPyType());
-                }
-                else if (lenMethod is PyFunction func)
-                {
-                    boundMethod = new PyMethod(this, func);
-                }
-
-                var result = boundMethod.Call(new PyObject[] {  }, null);
-                if (result is PyInt pyInt)
-                    return (int)pyInt.Value;
-                throw PyTypeError.Create("__len__ should return an integer");
-            }
-            catch (PythonException pe) when (pe.PyException is PyAttributeError)
-            {
-                throw PyTypeError.Create($"object of type '{GetTypeName()}' has no len()");
-            }
+            var lenMethod = LookupSpecialMethodUncached("__len__")
+                ?? throw PyTypeError.Create($"object of type '{GetTypeName()}' has no len()");
+            return ToLengthResult(BindSpecialMethod(lenMethod).Call(System.Array.Empty<PyObject>(), null));
         }
 
         #endregion
