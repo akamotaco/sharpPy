@@ -1515,24 +1515,30 @@ namespace SharpPy
         {
             foreach (var mroType in MRO)
             {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out var classValue))
-                {
-                    written = true;
-                    return classValue;
-                }
-                if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue(name, out var typeValue))
-                {
-                    written = false;
-                    return typeValue;
-                }
-                // add_operators: the slot wrappers are in the builtin's dict in CPython.
-                if (mroType is not SharpPy.PyClass && mroType.SlotDict.TryGetValue(name, out var slotValue))
-                {
-                    written = false;
-                    return slotValue;
-                }
+                var found = mroType.LookupOwnDict(name, out written);
+                if (found != null)
+                    return found;
             }
             written = false;
+            return null;
+        }
+
+        /// <summary>
+        /// This type's tp_dict alone, as find_name_in_mro and _super_lookup_descr read each base.
+        /// </summary>
+        internal PyObject LookupOwnDict(string name, out bool written)
+        {
+            written = false;
+            if (this is SharpPy.PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out var classValue))
+            {
+                written = true;
+                return classValue;
+            }
+            if (TypeDict != null && TypeDict.TryGetValue(name, out var typeValue))
+                return typeValue;
+            // add_operators: the slot wrappers are in the builtin's dict in CPython.
+            if (this is not SharpPy.PyClass && SlotDict.TryGetValue(name, out var slotValue))
+                return slotValue;
             return null;
         }
 

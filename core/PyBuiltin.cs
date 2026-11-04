@@ -2896,32 +2896,13 @@ namespace SharpPy
                 ? new PyString($"<super: <class '{Type.Name}'>, <{ObjectType.Name} object>>")
                 : new PyString($"<super: <class '{Type.Name}'>, NULL>");
 
+        // super_getattro (Objects/typeobject.c): __class__ is the super object's own; every other
+        // name goes through do_super_lookup.
         public override PyObject GetAttribute(string name)
         {
-            // CPython super_getattro: __class__ is special-cased to type(self), a subclass included.
             if (name == "__class__")
-            {
-                return GetPyType();
-            }
-
-            // CPython do_super_lookup: search the MRO after __thisclass__ first, and
-            // only on a miss fall back to PyObject_GenericGetAttr on the super object,
-            // where the read-only members __thisclass__/__self__/__self_class__ live.
-            PyObject resolved = null;
-            bool found = true;
-            try
-            {
-                resolved = ObjectType == null
-                    ? LookupInMRO(name, bindDescriptor: false)
-                    : LookupInMRO(name, bindDescriptor: true);
-            }
-            catch (PythonException pex) when (pex.PyException is PyAttributeError)
-            {
-                found = false;
-            }
-            if (found) return resolved;
-
-            return base.GetAttribute(name);
+                return base.GetAttribute(name);
+            return DoSuperLookup(name);
         }
 
         // super_members
@@ -2936,163 +2917,47 @@ namespace SharpPy
             return null;
         }
 
-        /// <summary>
-        /// CPython 3.12: _super_lookup_descr() + descriptor protocol
-        /// Key insight: super() uses the MRO of the *instance's actual type*, not the type that called super()
-        /// See CPython Objects/typeobject.c: super_getattro() uses su->obj_type->tp_mro
-        /// </summary>
-        private PyObject LookupInMRO(string name, bool bindDescriptor)
+        // do_super_lookup: the bases after __thisclass__ answer first, with tp_descr_get applied;
+        // an unbound super or a miss falls to PyObject_GenericGetAttr on the super object.
+        private PyObject DoSuperLookup(string name)
         {
-            // CPython 3.12: Use the MRO of the actual instance's type (ObjectType), NOT Type!
-            // This is crucial for cooperative multiple inheritance
-            PyType startType = ObjectType ?? Type;
-
-            if (startType.MRO == null || startType.MRO.Count <= 1)
+            if (ObjectType != null)
             {
-                throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
-            }
-
-            // Find the position of Type in the MRO of startType
-            int skipUntil = -1;
-            for (int i = 0; i < startType.MRO.Count; i++)
-            {
-                if (ReferenceEquals(startType.MRO[i], Type))
+                var found = SuperLookupDescr(name);
+                if (found != null)
                 {
-                    skipUntil = i;
-                    break;
+                    var descriptor = found as IDescriptor
+                        ?? (IsPythonDescriptor(found) ? new PyDescriptorWrapper(found) : null);
+                    if (descriptor == null)
+                        return found;
+                    // Only pass obj if this is instance-mode super (SF ID #743627).
+                    return descriptor.Get(ReferenceEquals(Object, ObjectType) ? null : Object, ObjectType);
                 }
             }
-
-            if (skipUntil == -1)
-            {
-                throw PyAttributeError.Create($"super(type, obj): obj must be an instance or subtype of type");
-            }
-
-            // Look for the attribute starting from the class AFTER Type in the MRO
-            for (int i = skipUntil + 1; i < startType.MRO.Count; i++)
-            {
-                var baseType = startType.MRO[i];
-
-                    try
-                    {
-                        PyObject attr = null;
-
-                        // CPython 3.12: Look ONLY in the class's __dict__, NOT its MRO!
-                        // This is critical - we are already iterating through the MRO manually,
-                        // so we must NOT use GetAttribute which would follow the MRO again!
-                        // See CPython Objects/typeobject.c:10345: PyDict_GetItemWithError(dict, name)
-                        if (baseType is PyClass pyClass)
-                        {
-                            // For user-defined classes, look only in ClassDict
-                            if (!pyClass.ClassDict.TryGetValue(name, out attr))
-                                pyClass.TypeDict.TryGetValue(name, out attr);
-                        }
-                        else if (baseType is PyType pyType)
-                        {
-                            // For built-in types, use GetTypeAttribute
-                            // (built-in types don't have the double-MRO issue because they don't call GetAttribute recursively)
-                            attr = SharpPy.PyClass.GetTypeAttribute(pyType, name);
-                        }
-
-                        if (attr != null)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   ✅ Found '{name}' in {baseType.Name}: {attr.GetType().Name}");
-                            #endif
-
-                            if (!bindDescriptor || Object == null)
-                            {
-                                // Unbound super or no binding needed
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 PySuper returning unbound attr: {attr.GetType().Name}");
-                                #endif
-                                return attr;
-                            }
-
-                            // CPython 3.12: Apply descriptor protocol if needed
-                            return ApplyDescriptorProtocol(attr, name);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   ⚠️ Error checking {baseType.Name}: {ex.Message}");
-                        #endif
-                    }
-            }
-
-            // super_getattro's skip: the super object's own attributes.
             return base.GetAttribute(name);
         }
 
-        /// <summary>
-        /// CPython 3.12: Apply tp_descr_get if the attribute is a descriptor
-        /// Key logic from do_super_lookup():
-        ///   f(res, (su_obj == su_obj_type) ? NULL : su_obj, (PyObject *)su_obj_type)
-        /// </summary>
-        private PyObject ApplyDescriptorProtocol(PyObject attr, string name)
+        // _super_lookup_descr: each base's own dict, starting after __thisclass__ in obj_type's MRO.
+        private PyObject SuperLookupDescr(string name)
         {
-            // CPython 3.12: Check if descriptor protocol applies
-            if (attr is IDescriptor descriptor)
+            var mro = ObjectType.MRO;
+            if (mro == null)
+                return null;
+            int n = mro.Count;
+            int i = 0;
+            for (; i + 1 < n; i++)
             {
-                // CPython 3.12 key logic:
-                // If Object == ObjectType (class-mode super), pass NULL for instance
-                // Otherwise pass Object (instance-mode super)
-                PyObject instance = (Object == ObjectType) ? null : Object;
-
-                #if DEBUG_LOG
-                Console.WriteLine($"   🔧 Applying descriptor protocol: instance={(instance != null ? instance.GetType().Name : "null")}, owner={ObjectType.Name}");
-                #endif
-
-                var result = descriptor.Get(instance, ObjectType);
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 PySuper returning bound attr: {result?.GetType().Name ?? "null"}");
-                #endif
-                return result;
+                if (ReferenceEquals(mro[i], Type))
+                    break;
             }
-            else if (attr is PyFunction function)
+            i++;
+            for (; i < n; i++)
             {
-                // PyFunction implements descriptor protocol
-                // CPython 3.12: If Object == ObjectType, don't bind (class-mode)
-                #if DEBUG_LOG
-                Console.WriteLine($"   🔧 PyFunction check: Object={Object?.GetType().Name ?? "null"}, ObjectType={ObjectType?.Name ?? "null"}");
-                Console.WriteLine($"   🔧 Object == ObjectType: {Object == ObjectType}, ReferenceEquals: {ReferenceEquals(Object, ObjectType)}");
-                #endif
-
-                if (Object == ObjectType)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   🔧 Class-mode super: returning unbound function");
-                    Console.WriteLine($"🔧 PySuper returning unbound function");
-                    #endif
-                    return function;
-                }
-                else
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   🔧 Instance-mode super: binding function to {Object.GetType().Name}");
-                    #endif
-                    var result = new PyMethod(Object, function);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 PySuper returning bound method");
-                    #endif
-                    return result;
-                }
+                var found = mro[i].LookupOwnDict(name, out _);
+                if (found != null)
+                    return found;
             }
-            else if (attr is PyStaticBuiltinMethod || attr is PyBuiltinMethod)
-            {
-                // StaticBuiltinMethod and BuiltinMethod already implement IDescriptor
-                // This case is already handled above
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 PySuper returning builtin method as-is: {attr.GetType().Name}");
-                #endif
-                return attr;
-            }
-            // Not a descriptor - return as-is
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 PySuper returning non-descriptor attr: {attr.GetType().Name}");
-            #endif
-            return attr;
+            return null;
         }
 
         public override string ToString() => ToRepr().Value;
