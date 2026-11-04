@@ -200,6 +200,39 @@ internal static class PyArgs
         return new PyInt(count);
     }
 
+    /// <summary>
+    /// _PyEval_SliceIndex: None is the default, __index__ is read and a value past Py_ssize_t is
+    /// clipped (PyNumber_AsSsize_t with no exception). Clamped again to the CLR index range, which
+    /// ADJUST_INDICES then treats as it would the larger value.
+    /// </summary>
+    internal static int SliceIndex(PyObject value, int missing)
+    {
+        if (value == null || value is PyNone)
+            return missing;
+        var index = PyObject.TryGetIndex(value)
+            ?? throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
+        return index.Value > int.MaxValue ? int.MaxValue : index.Value < int.MinValue ? int.MinValue : (int)index.Value;
+    }
+
+    /// <summary>The Py_ssize_t converter ("n"), clamped to the CLR range for a count or a limit.</summary>
+    internal static int SsizeCount(PyObject value)
+    {
+        long count = Ssize(value);
+        return count > int.MaxValue ? int.MaxValue : count < int.MinValue ? int.MinValue : (int)count;
+    }
+
+    /// <summary>
+    /// A width ("n") that the result will be as long as: one no CLR string can have is the MemoryError
+    /// PyUnicode_New raises for it.
+    /// </summary>
+    internal static int Width(PyObject value)
+    {
+        long width = Ssize(value);
+        if (width > int.MaxValue)
+            throw PyMemoryError.Create();
+        return width < int.MinValue ? int.MinValue : (int)width;
+    }
+
     // The int converter: _PyLong_AsInt.
     internal static int Int(PyObject value)
     {

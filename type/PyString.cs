@@ -384,9 +384,8 @@ namespace SharpPy
 
                     if (args.Length != 3)
                         return str.Replace(old, newStr);
-                    var limit = TryGetIndex(args[2]) ?? throw PyTypeError.Create(
-                        $"'{args[2].GetTypeName()}' object cannot be interpreted as an integer");
-                    return str.Replace(old, newStr, (long)BigInteger.Clamp(limit.Value, long.MinValue, long.MaxValue));
+                    // count is "n": PyLong_AsSsize_t after _PyNumber_Index.
+                    return str.Replace(old, newStr, PyArgs.Ssize(args[2]));
                 },
                 minArgs: 2, maxArgs: 3
             );
@@ -402,7 +401,7 @@ namespace SharpPy
                     if (args[0] is not PyInt widthInt)
                         throw PyTypeError.Create("zfill() width must be an integer");
 
-                    int width = (int)widthInt.Value;
+                    int width = PyArgs.Width(widthInt);
                     string value = str.Value;
 
                     // CPython Objects/unicodeobject.c unicode_zfill pads to the character length.
@@ -811,7 +810,7 @@ namespace SharpPy
                     int pos = win.UnitStart;
                     while (pos + sub.Value.Length <= win.UnitEnd)
                     {
-                        int foundIndex = str.Value.IndexOf(sub.Value, pos, win.UnitEnd - pos, StringComparison.Ordinal);
+                        int foundIndex = PyFastSearch.IndexOf(str.Value, sub.Value, pos, win.UnitEnd);
                         if (foundIndex == -1)
                             break;
                         if (StartsCharacter(str.Value, sub.Value, foundIndex))
@@ -1044,7 +1043,7 @@ namespace SharpPy
                     if (args[0] is not PyInt widthInt)
                         throw PyTypeError.Create("center() width must be an integer");
 
-                    int width = (int)widthInt.Value;
+                    int width = PyArgs.Width(widthInt);
                     string fillchar = " ";
 
                     if (args.Length >= 2)
@@ -1079,7 +1078,7 @@ namespace SharpPy
                     if (args[0] is not PyInt widthInt)
                         throw PyTypeError.Create("ljust() width must be an integer");
 
-                    int width = (int)widthInt.Value;
+                    int width = PyArgs.Width(widthInt);
                     string fillchar = " ";
 
                     if (args.Length >= 2)
@@ -1108,7 +1107,7 @@ namespace SharpPy
                     if (args[0] is not PyInt widthInt)
                         throw PyTypeError.Create("rjust() width must be an integer");
 
-                    int width = (int)widthInt.Value;
+                    int width = PyArgs.Width(widthInt);
                     string fillchar = " ";
 
                     if (args.Length >= 2)
@@ -1345,7 +1344,7 @@ namespace SharpPy
                     int tabsize = 8;
                     PyObject[] paTab = ProjectKeywordSlots(args, kwargs, "tabsize");
                     if (paTab.Length >= 1 && paTab[0] is PyInt tabInt)
-                        tabsize = (int)tabInt.Value;
+                        tabsize = PyArgs.Int(tabInt);
 
                     if (tabsize <= 0)
                         return new PyString(str.Value.Replace("\t", ""));
@@ -2005,13 +2004,11 @@ namespace SharpPy
             int found;
             if (!backward)
             {
-                found = text.IndexOf(pattern, win.UnitStart, win.UnitEnd - win.UnitStart, StringComparison.Ordinal);
+                found = PyFastSearch.IndexOf(text, pattern, win.UnitStart, win.UnitEnd);
                 while (found != -1 && !StartsCharacter(text, pattern, found))
                 {
                     int from = found + 1;
-                    found = from < win.UnitEnd
-                        ? text.IndexOf(pattern, from, win.UnitEnd - from, StringComparison.Ordinal)
-                        : -1;
+                    found = from < win.UnitEnd ? PyFastSearch.IndexOf(text, pattern, from, win.UnitEnd) : -1;
                 }
             }
             else
@@ -2424,17 +2421,11 @@ namespace SharpPy
             end = length;
             if (args.Length >= 2 && args[1] != PyNone.Instance)
             {
-                var si = PyObject.TryGetIndex(args[1]);
-                if (si == null)
-                    throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
-                start = (int)si.Value;
+                start = PyArgs.SliceIndex(args[1], 0);
             }
             if (args.Length >= 3 && args[2] != PyNone.Instance)
             {
-                var si = PyObject.TryGetIndex(args[2]);
-                if (si == null)
-                    throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
-                end = (int)si.Value;
+                end = PyArgs.SliceIndex(args[2], length);
             }
         }
 
@@ -2497,6 +2488,11 @@ namespace SharpPy
 
             if (count.Value <= 0)
                 return new PyString("");
+            // unicode_repeat: "repeated string is too long" past Py_ssize_t, then PyUnicode_New.
+            if (Value.Length * count.Value > long.MaxValue)
+                throw PyOverflowError.Create("repeated string is too long");
+            if (Value.Length * count.Value > int.MaxValue)
+                throw PyMemoryError.Create();
 
             // Performance: Eliminated LINQ (Enumerable.Repeat) - manual string repetition
             var sb = new StringBuilder(Value.Length * (int)count.Value);
@@ -2884,7 +2880,8 @@ namespace SharpPy
         {
             if (index is PyInt pyInt)
             {
-                return GetItem((int)pyInt.Value);
+                // unicode_subscript: PyNumber_AsSsize_t(item, PyExc_IndexError).
+                return GetItem(PyObject.GetIndex(pyInt, "string"));
             }
             else if (index is PySlice slice)
             {
@@ -3600,7 +3597,7 @@ namespace SharpPy
         {
             if (args.Length < 2 || args.Length > 3)
                 throw PyTypeError.Create($"replace() takes 2 or 3 arguments ({args.Length} given)");
-            return Replace(args[0].ToStr().Value, args[1].ToStr().Value, args.Length == 3 ? args[2].ToInt() : -1);
+            return Replace(args[0].ToStr().Value, args[1].ToStr().Value, args.Length == 3 ? PyArgs.SsizeCount(args[2]) : -1);
         }
 
         // unicode_split_impl and unicode_rsplit_impl: argument clinic, then split's empty check.
@@ -3620,9 +3617,8 @@ namespace SharpPy
             int limit = -1;
             if (arguments.Length >= 2 && arguments[1] != null)
             {
-                var index = TryGetIndex(arguments[1]) ?? throw PyTypeError.Create(
-                    $"'{arguments[1].GetTypeName()}' object cannot be interpreted as an integer");
-                limit = index.Value > int.MaxValue ? int.MaxValue : index.Value < 0 ? -1 : (int)index.Value;
+                long count = PyArgs.Ssize(arguments[1]);
+                limit = count > int.MaxValue ? int.MaxValue : count < 0 ? -1 : (int)count;
             }
             return (separator, limit);
         }
@@ -3639,7 +3635,7 @@ namespace SharpPy
                 sep = sepStr.Value;
             
             if (args.Length >= 2 && args[1] is PyInt maxsplitInt)
-                maxsplit = (int)maxsplitInt.Value;
+                maxsplit = Math.Max(PyArgs.SsizeCount(maxsplitInt), -1);
 
             return Split(sep, maxsplit);
         }

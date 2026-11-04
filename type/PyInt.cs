@@ -1360,26 +1360,38 @@ namespace SharpPy
         public override PyObject BitwiseXor(PyObject other) =>
             TryIntValue(other, out var right) ? new PyInt(Value ^ right) : PyNotImplemented.Instance;
 
+        // MAX_LONG_DIGITS of 30-bit digits: what _PyLong_New refuses as "too many digits in integer".
+        private static readonly BigInteger MaxLongBits = ((BigInteger)long.MaxValue - 24) / 4 * 30;
+
+        // long_lshift: zero stays zero; divmod_shift clips the count, and _PyLong_New refuses a
+        // result past MAX_LONG_DIGITS. One the host cannot hold is the MemoryError of the allocation.
         public override PyObject LeftShift(PyObject other)
         {
-            if (!(other is PyInt otherInt))
+            if (!TryIntValue(other, out var shift))
                 return PyNotImplemented.Instance;
-
-            if (otherInt.Value < 0)
+            if (shift < 0)
                 throw PyValueError.Create("negative shift count");
-
-            return new PyInt(Value << (int)otherInt.Value);
+            if (Value.IsZero)
+                return new PyInt(0);
+            if (shift + (BigInteger)Value.GetBitLength() > MaxLongBits)
+                throw PyOverflowError.Create("too many digits in integer");
+            if (shift > int.MaxValue)
+                throw PyMemoryError.Create();
+            return new PyInt(Value << (int)shift);
         }
 
+        // long_rshift: a shift past every bit leaves 0, or -1 for a negative value.
         public override PyObject RightShift(PyObject other)
         {
-            if (!(other is PyInt otherInt))
+            if (!TryIntValue(other, out var shift))
                 return PyNotImplemented.Instance;
-
-            if (otherInt.Value < 0)
+            if (shift < 0)
                 throw PyValueError.Create("negative shift count");
-
-            return new PyInt(Value >> (int)otherInt.Value);
+            if (Value.IsZero)
+                return new PyInt(0);
+            if (shift > int.MaxValue)
+                return new PyInt(Value.Sign < 0 ? BigInteger.MinusOne : BigInteger.Zero);
+            return new PyInt(Value >> (int)shift);
         }
 
         #endregion
