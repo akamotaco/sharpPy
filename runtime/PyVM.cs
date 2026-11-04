@@ -6135,7 +6135,7 @@ namespace SharpPy
         }
 
         // PySequence_Check: __getitem__ and not a dict.
-        private static bool IsSequence(PyObject value) =>
+        internal static bool IsSequence(PyObject value) =>
             !(value is PyDict || value.GetPyType().IsSubclassOf(PyType.DictType)) && value.HasTypeSlot("__getitem__");
 
         // The tail of PyNumber_Add and PyNumber_Multiply, then binop_type_error.

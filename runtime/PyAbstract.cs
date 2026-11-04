@@ -142,5 +142,75 @@ namespace SharpPy
                 default: target.DelItem(key); break;
             }
         }
+
+        // PySequence_GetItem, PySequence_SetItem and PySequence_DelItem: a negative index counts
+        // from sq_length, and sq_item gets what results. A __getitem__ written in Python is
+        // slot_sq_item and takes that index as it is. The sq_item of a builtin is its subscript
+        // over [0, len), SharpPy keeping one subscript per type; an index the length does not
+        // bring into range is the IndexError the subscript of len raises in the type's words.
+        private static PyObject SequenceIndex(PyObject s, long i, string slot)
+        {
+            long length = -1;
+            if (i < 0 && s.HasTypeSlot("__len__"))
+            {
+                length = s.SequenceLength();
+                i += length;
+            }
+            if (i < 0 && s.GetPyType().LookupSpecial(slot) is not PyFunction)
+                return new PyInt(length < 0 ? s.SequenceLength() : length);
+            return new PyInt(i);
+        }
+
+        private static bool IsMappingOnly(PyObject s) => s is PyDict || s.GetPyType().IsSubclassOf(PyType.DictType);
+
+        // PySequence_Size: sq_length; a mapping's length is not a sequence's.
+        internal static long SequenceSize(PyObject s)
+        {
+            if (s == null)
+                throw NullError();
+            if (IsMappingOnly(s))
+                throw PyTypeError.Create($"{s.GetTypeName()} is not a sequence");
+            return s.SequenceLength();
+        }
+
+        private static Exception NullError() => PySystemError.Create("null argument to internal routine");
+
+        internal static PyObject SequenceGetItem(PyObject s, long i)
+        {
+            if (s == null)
+                throw NullError();
+            if (!PyVM.IsSequence(s))
+                throw PyTypeError.Create(IsMappingOnly(s)
+                    ? $"{s.GetTypeName()} is not a sequence"
+                    : $"'{s.GetTypeName()}' object does not support indexing");
+            return GetItem(s, SequenceIndex(s, i, "__getitem__"));
+        }
+
+        internal static void SequenceSetItem(PyObject s, long i, PyObject o)
+        {
+            if (s == null)
+                throw NullError();
+            if (o == null)
+            {
+                SequenceDelItem(s, i);
+                return;
+            }
+            if (IsMappingOnly(s) || !s.HasTypeSlot("__setitem__"))
+                throw PyTypeError.Create(IsMappingOnly(s)
+                    ? $"{s.GetTypeName()} is not a sequence"
+                    : $"'{s.GetTypeName()}' object does not support item assignment");
+            SetItem(s, SequenceIndex(s, i, "__setitem__"), o);
+        }
+
+        internal static void SequenceDelItem(PyObject s, long i)
+        {
+            if (s == null)
+                throw NullError();
+            if (IsMappingOnly(s) || !s.HasTypeSlot("__delitem__"))
+                throw PyTypeError.Create(IsMappingOnly(s)
+                    ? $"{s.GetTypeName()} is not a sequence"
+                    : $"'{s.GetTypeName()}' object doesn't support item deletion");
+            DelItem(s, SequenceIndex(s, i, "__delitem__"));
+        }
     }
 }

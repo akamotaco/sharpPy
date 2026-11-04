@@ -233,6 +233,24 @@ internal static class PyArgs
         return width < int.MinValue ? int.MinValue : (int)width;
     }
 
+    /// <summary>
+    /// The "i" format of PyArg_ParseTuple: PyLong_AsLong, then the range of an int. A C long is
+    /// 32 bits on Windows, so there the long overflows first.
+    /// </summary>
+    internal static int ParseInt(PyObject value)
+    {
+        var index = PyObject.TryGetIndex(value)
+            ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+        var number = index.Value;
+        if (OperatingSystem.IsWindows() ? number < int.MinValue || number > int.MaxValue : number < long.MinValue || number > long.MaxValue)
+            throw PyOverflowError.Create("Python int too large to convert to C long");
+        if (number > int.MaxValue)
+            throw PyOverflowError.Create("signed integer is greater than maximum");
+        if (number < int.MinValue)
+            throw PyOverflowError.Create("signed integer is less than minimum");
+        return (int)number;
+    }
+
     // The int converter: _PyLong_AsInt.
     internal static int Int(PyObject value)
     {

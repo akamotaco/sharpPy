@@ -314,6 +314,8 @@ namespace SharpPy.Modules
                 new PyString("_collections"),
                 new PyString("_functools"),
                 new PyString("_random"),
+                new PyString("_heapq"),
+                new PyString("_bisect"),
                 new PyString(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "nt" : "posix"),
             };
             return new PyTuple(names.ToArray());

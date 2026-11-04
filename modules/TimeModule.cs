@@ -1,618 +1,399 @@
 using System;
-using System.Diagnostics;
-using System.Globalization;
+using System.Text;
 using System.Threading;
 
 namespace SharpPy
 {
-    // CPython 3.12 time.struct_time 구현
-    /// <summary>time.struct_time (Modules/timemodule.c): a nine item tuple with names.</summary>
-    public class PyStructTime : PyStructSequence
+    /// <summary>
+    /// Modules/timemodule.c. Times are _PyTime_t nanoseconds (core/PyTime.cs); the broken-down
+    /// times go through the C library's functions (modules/CTimeRuntime.cs), as CPython's do.
+    /// </summary>
+    public class TimeModule : PyModule
     {
+        private static readonly bool Windows = OperatingSystem.IsWindows();
+
+        // struct_time_type_desc
         internal static readonly PyStructSequenceType StructTimeType = new("time", "struct_time", new[]
         {
             "tm_year", "tm_mon", "tm_mday", "tm_hour", "tm_min", "tm_sec", "tm_wday", "tm_yday", "tm_isdst",
             "tm_zone", "tm_gmtoff",
         }, 9);
 
-        public int Year { get; }
-        public int Month { get; }
-        public int Day { get; }
-        public int Hour { get; }
-        public int Minute { get; }
-        public int Second { get; }
-        public int WeekDay { get; }
-        public int YearDay { get; }
-        public int IsDst { get; }
-        public int GmtOffset { get; }
-        public string Zone { get; }
-
-        public PyStructTime(int year, int month, int day, int hour, int minute, int second,
-            int weekday, int yearday, int isdst, int gmtoff = 0, string zone = "")
-            : base(StructTimeType, new PyObject[]
-            {
-                new PyInt(year), new PyInt(month), new PyInt(day), new PyInt(hour), new PyInt(minute),
-                new PyInt(second), new PyInt(weekday), new PyInt(yearday), new PyInt(isdst),
-                new PyString(zone), new PyInt(gmtoff),
-            })
+        static TimeModule()
         {
-            Year = year;
-            Month = month;
-            Day = day;
-            Hour = hour;
-            Minute = minute;
-            Second = second;
-            WeekDay = weekday;
-            YearDay = yearday;
-            IsDst = isdst;
-            GmtOffset = gmtoff;
-            Zone = zone;
+            if (PyDocs.Lookup("time.struct_time") is { } doc)
+                StructTimeType.TypeDict["__doc__"] = PyDocs.DocFromInternal("struct_time", doc);
         }
-
-        public static PyStructTime FromDateTime(DateTime dt, int isdst = -1, int gmtoff = 0, string zone = "")
-        {
-            int weekday = (int)dt.DayOfWeek;
-            // Python의 월요일=0 규칙으로 변환 (C#의 일요일=0과 다름)
-            weekday = (weekday + 6) % 7;
-
-            int yearday = dt.DayOfYear;
-
-            return new PyStructTime(
-                dt.Year, dt.Month, dt.Day,
-                dt.Hour, dt.Minute, dt.Second,
-                weekday, yearday, isdst, gmtoff, zone
-            );
-        }
-
-        public static PyStructTime FromDateTimeOffset(DateTimeOffset dto)
-        {
-            var dt = dto.DateTime;
-            int weekday = (int)dt.DayOfWeek;
-            weekday = (weekday + 6) % 7;
-            int yearday = dt.DayOfYear;
-            int gmtoff = (int)dto.Offset.TotalSeconds;
-            string zone = dto.Offset.ToString(@"hh\:mm");
-
-            // IsDst 결정: TimeZoneInfo를 사용
-            var isDst = TimeZoneInfo.Local.IsDaylightSavingTime(dt) ? 1 : 0;
-
-            return new PyStructTime(
-                dt.Year, dt.Month, dt.Day,
-                dt.Hour, dt.Minute, dt.Second,
-                weekday, yearday, isDst, gmtoff, zone
-            );
-        }
-
-        public DateTime ToDateTime()
-        {
-            return new DateTime(Year, Month, Day, Hour, Minute, Second, DateTimeKind.Unspecified);
-        }
-    }
-
-    public class TimeModule : PyModule
-    {
-        private static readonly DateTime UnixEpoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        private static readonly long ProcessStartTime = Stopwatch.GetTimestamp();
-        private static readonly long ProcessStartTicks = Process.GetCurrentProcess().TotalProcessorTime.Ticks;
 
         public TimeModule() : base("time")
         {
-            InitializeFunctions();
-            InitializeConstants();
-
-            // 모듈 문서
-            SetAttribute("__doc__", new PyString("Time module - CPython 3.12 compatible implementation"));
-        }
-
-        private void InitializeFunctions()
-        {
-            // ===== 기존 함수들 =====
-
-            // time.time() - Unix timestamp (seconds since epoch)
-            SetAttribute("time", new PyBuiltinFunction("time", args =>
-            {
-                var now = DateTime.UtcNow;
-                var elapsed = now - UnixEpoch;
-                return new PyFloat(elapsed.TotalSeconds);
-            }));
-
-            // time.sleep(seconds) - Suspend execution
-            SetAttribute("sleep", new PyBuiltinFunction("sleep", args =>
-            {
-                if (args.Length != 1)
-                    throw PyTypeError.Create("sleep() takes exactly one argument");
-
-                var seconds = args[0];
-                // CPython 3.12: Modules/timemodule.c:397-420 - time_sleep
-                double delay;
-
-                if (seconds is PyFloat pyFloat)
-                    delay = pyFloat.Value;
-                else if (seconds is PyInt pyInt)
-                    delay = (double)pyInt.Value;
-                else
-                    throw PyTypeError.Create("sleep() argument must be a number");
-
-                if (delay < 0)
-                    throw PyValueError.Create("sleep() argument must be non-negative");
-
-                // pysleep (Modules/timemodule.c): only a zero timeout is Sleep(0), which gives up the
-                // time slice; any other is rounded up (_PyTime_ROUND_CEILING) and slept at least that
-                // long. Truncating made sleep(0.0001) a Sleep(0), so a polling thread spun.
-                double delayMs = Math.Ceiling(delay * 1000);
-                PyGil.AllowThreads(() =>
-                {
-                    if (delayMs == 0)
-                    {
-                        Thread.Sleep(0);
-                        return;
-                    }
-                    for (double left = delayMs; left > 0; left -= int.MaxValue)
-                        Thread.Sleep((int)Math.Min(left, int.MaxValue));
-                });
-
-                return PyNone.Instance;
-            }));
-
-            // time.perf_counter() - Performance counter
-            SetAttribute("perf_counter", new PyBuiltinFunction("perf_counter", args =>
-            {
-                var ticks = Stopwatch.GetTimestamp();
-                var seconds = (double)ticks / Stopwatch.Frequency;
-                return new PyFloat(seconds);
-            }));
-
-            // time.monotonic() - Monotonic clock
-            SetAttribute("monotonic", new PyBuiltinFunction("monotonic", args =>
-            {
-                var elapsed = Environment.TickCount64 / 1000.0;
-                return new PyFloat(elapsed);
-            }));
-
-            // ===== 새로운 함수들 =====
-
-            // time.time_ns() - Current time in nanoseconds
-            SetAttribute("time_ns", new PyBuiltinFunction("time_ns", args =>
-            {
-                var now = DateTime.UtcNow;
-                var elapsed = now - UnixEpoch;
-                // Convert to nanoseconds (1 tick = 100 nanoseconds)
-                long nanoseconds = elapsed.Ticks * 100;
-                return new PyInt(nanoseconds);
-            }));
-
-            // time.monotonic_ns() - Monotonic clock in nanoseconds
-            SetAttribute("monotonic_ns", new PyBuiltinFunction("monotonic_ns", args =>
-            {
-                long nanoseconds = Environment.TickCount64 * 1_000_000; // ms to ns
-                return new PyInt(nanoseconds);
-            }));
-
-            // time.perf_counter_ns() - Performance counter in nanoseconds
-            SetAttribute("perf_counter_ns", new PyBuiltinFunction("perf_counter_ns", args =>
-            {
-                var ticks = Stopwatch.GetTimestamp();
-                // Convert to nanoseconds
-                long nanoseconds = (long)((double)ticks / Stopwatch.Frequency * 1_000_000_000);
-                return new PyInt(nanoseconds);
-            }));
-
-            // time.process_time() - Process CPU time
-            SetAttribute("process_time", new PyBuiltinFunction("process_time", args =>
-            {
-                var process = Process.GetCurrentProcess();
-                var cpuTime = process.TotalProcessorTime;
-                return new PyFloat(cpuTime.TotalSeconds);
-            }));
-
-            // time.process_time_ns() - Process CPU time in nanoseconds
-            SetAttribute("process_time_ns", new PyBuiltinFunction("process_time_ns", args =>
-            {
-                var process = Process.GetCurrentProcess();
-                var cpuTime = process.TotalProcessorTime;
-                long nanoseconds = cpuTime.Ticks * 100; // 1 tick = 100 ns
-                return new PyInt(nanoseconds);
-            }));
-
-            // time.thread_time() - Thread CPU time
-            SetAttribute("thread_time", new PyBuiltinFunction("thread_time", args =>
-            {
-                // C#에서는 정확한 스레드 CPU 시간을 얻기 어려우므로 process_time과 동일하게 처리
-                // 실제 구현에서는 플랫폼별 API 호출이 필요
-                var process = Process.GetCurrentProcess();
-                var cpuTime = process.TotalProcessorTime;
-                return new PyFloat(cpuTime.TotalSeconds);
-            }));
-
-            // time.thread_time_ns() - Thread CPU time in nanoseconds
-            SetAttribute("thread_time_ns", new PyBuiltinFunction("thread_time_ns", args =>
-            {
-                var process = Process.GetCurrentProcess();
-                var cpuTime = process.TotalProcessorTime;
-                long nanoseconds = cpuTime.Ticks * 100;
-                return new PyInt(nanoseconds);
-            }));
-
-            // time.gmtime([seconds]) - Convert seconds to UTC struct_time
-            SetAttribute("gmtime", new PyBuiltinFunction("gmtime", args =>
-            {
-                DateTime dt;
-
-                if (args.Length == 0)
-                {
-                    // No argument: use current time
-                    dt = DateTime.UtcNow;
-                }
-                else if (args.Length == 1)
-                {
-                    var seconds = GetSecondsArgument(args[0]);
-                    dt = UnixEpoch.AddSeconds(seconds);
-                }
-                else
-                {
-                    throw PyTypeError.Create("gmtime() takes at most 1 argument");
-                }
-
-                return PyStructTime.FromDateTime(dt, 0, 0, "UTC"); // UTC has no DST
-            }));
-
-            // time.localtime([seconds]) - Convert seconds to local struct_time
-            SetAttribute("localtime", new PyBuiltinFunction("localtime", args =>
-            {
-                DateTime dt;
-
-                if (args.Length == 0)
-                {
-                    dt = DateTime.Now;
-                }
-                else if (args.Length == 1)
-                {
-                    var seconds = GetSecondsArgument(args[0]);
-                    dt = UnixEpoch.AddSeconds(seconds).ToLocalTime();
-                }
-                else
-                {
-                    throw PyTypeError.Create("localtime() takes at most 1 argument");
-                }
-
-                var zone = TimeZoneInfo.Local;
-                bool daylight = zone.IsDaylightSavingTime(dt);
-                return PyStructTime.FromDateTime(dt, daylight ? 1 : 0, (int)zone.GetUtcOffset(dt).TotalSeconds,
-                    daylight ? zone.DaylightName : zone.StandardName);
-            }));
-
-            // time.mktime(tuple) - Convert struct_time to seconds
-            SetAttribute("mktime", new PyBuiltinFunction("mktime", args =>
-            {
-                if (args.Length != 1)
-                    throw PyTypeError.Create("mktime() takes exactly one argument");
-
-                var structTime = ParseStructTime(args[0]);
-                var dt = structTime.ToDateTime();
-
-                // Convert to local time, then to Unix timestamp
-                var localDt = DateTime.SpecifyKind(dt, DateTimeKind.Local);
-                var utcDt = localDt.ToUniversalTime();
-                var elapsed = utcDt - UnixEpoch;
-
-                return new PyFloat(elapsed.TotalSeconds);
-            }));
-
-            // time.asctime([tuple]) - Convert struct_time to string
-            SetAttribute("asctime", new PyBuiltinFunction("asctime", args =>
-            {
-                PyStructTime structTime;
-
-                if (args.Length == 0)
-                {
-                    structTime = PyStructTime.FromDateTime(DateTime.Now);
-                }
-                else if (args.Length == 1)
-                {
-                    structTime = ParseStructTime(args[0]);
-                }
-                else
-                {
-                    throw PyTypeError.Create("asctime() takes at most 1 argument");
-                }
-
-                return new PyString(FormatAsctime(structTime));
-            }));
-
-            // time.ctime([seconds]) - Convert seconds to string
-            SetAttribute("ctime", new PyBuiltinFunction("ctime", args =>
-            {
-                DateTime dt;
-
-                if (args.Length == 0)
-                {
-                    dt = DateTime.Now;
-                }
-                else if (args.Length == 1)
-                {
-                    var seconds = GetSecondsArgument(args[0]);
-                    dt = UnixEpoch.AddSeconds(seconds).ToLocalTime();
-                }
-                else
-                {
-                    throw PyTypeError.Create("ctime() takes at most 1 argument");
-                }
-
-                var structTime = PyStructTime.FromDateTime(dt);
-                return new PyString(FormatAsctime(structTime));
-            }));
-
-            // time.strftime(format, tuple) - Format struct_time to string
-            SetAttribute("strftime", new PyBuiltinFunction("strftime", args =>
-            {
-                if (args.Length < 1 || args.Length > 2)
-                    throw PyTypeError.Create($"strftime() takes 1 or 2 arguments ({args.Length} given)");
-
-                if (args[0] is not PyString formatStr)
-                    throw PyTypeError.Create("strftime() argument 1 must be str");
-
-                PyStructTime structTime;
-                if (args.Length == 1)
-                {
-                    structTime = PyStructTime.FromDateTime(DateTime.Now);
-                }
-                else
-                {
-                    structTime = ParseStructTime(args[1]);
-                }
-
-                var dt = structTime.ToDateTime();
-                var result = FormatStrftime(formatStr.Value, dt, structTime);
-                return new PyString(result);
-            }));
-
-            // time.strptime(string, format) - Parse string to struct_time
-            SetAttribute("strptime", new PyBuiltinFunction("strptime", args =>
-            {
-                if (args.Length != 2)
-                    throw PyTypeError.Create($"strptime() takes exactly 2 arguments ({args.Length} given)");
-
-                if (args[0] is not PyString timeStr)
-                    throw PyTypeError.Create("strptime() argument 1 must be str");
-
-                if (args[1] is not PyString formatStr)
-                    throw PyTypeError.Create("strptime() argument 2 must be str");
-
-                try
-                {
-                    // Python 포맷 → C# 포맷 변환
-                    var dotnetFormat = ConvertPythonFormatToDotNet(formatStr.Value);
-                    var dt = DateTime.ParseExact(timeStr.Value, dotnetFormat, CultureInfo.InvariantCulture);
-
-                    return PyStructTime.FromDateTime(dt);
-                }
-                catch (FormatException)
-                {
-                    throw PyValueError.Create($"time data '{timeStr.Value}' does not match format '{formatStr.Value}'");
-                }
-            }));
-
-            // time.get_clock_info(name) - Get clock information
-            SetAttribute("get_clock_info", new PyBuiltinFunction("get_clock_info", args =>
-            {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"get_clock_info() takes exactly 1 argument ({args.Length} given)");
-
-                if (args[0] is not PyString name)
-                    throw PyTypeError.Create("get_clock_info() argument must be str");
-
-                return GetClockInfo(name.Value);
-            }));
-
-            SetAttribute("struct_time", PyStructTime.StructTimeType);
+            if (PyDocs.Lookup("time.__doc__") is { } doc)
+                SetAttribute("__doc__", new PyString(doc));
+            Function("time", (args, kwargs) => { PyArgs.NoArgs("time", args, kwargs); return FloatFromPyTime(SystemTime()); });
+            Function("time_ns", (args, kwargs) => { PyArgs.NoArgs("time_ns", args, kwargs); return PyTime.AsNanosecondsObject(SystemTime()); });
+            Function("sleep", Sleep);
+            Function("gmtime", GmTime);
+            Function("localtime", LocalTime);
+            Function("asctime", AscTime);
+            Function("ctime", CTime);
+            Function("mktime", MkTime);
+            Function("strftime", StrFTime);
+            Function("strptime", StrPTime);
+            Function("monotonic", (args, kwargs) => { PyArgs.NoArgs("monotonic", args, kwargs); return FloatFromPyTime(Monotonic()); });
+            Function("monotonic_ns", (args, kwargs) => { PyArgs.NoArgs("monotonic_ns", args, kwargs); return PyTime.AsNanosecondsObject(Monotonic()); });
+            Function("process_time", (args, kwargs) => { PyArgs.NoArgs("process_time", args, kwargs); return FloatFromPyTime(ProcessTime()); });
+            Function("process_time_ns", (args, kwargs) => { PyArgs.NoArgs("process_time_ns", args, kwargs); return PyTime.AsNanosecondsObject(ProcessTime()); });
+            Function("thread_time", (args, kwargs) => { PyArgs.NoArgs("thread_time", args, kwargs); return FloatFromPyTime(ThreadTime()); });
+            Function("thread_time_ns", (args, kwargs) => { PyArgs.NoArgs("thread_time_ns", args, kwargs); return PyTime.AsNanosecondsObject(ThreadTime()); });
+            Function("perf_counter", (args, kwargs) => { PyArgs.NoArgs("perf_counter", args, kwargs); return FloatFromPyTime(PerfCounter()); });
+            Function("perf_counter_ns", (args, kwargs) => { PyArgs.NoArgs("perf_counter_ns", args, kwargs); return PyTime.AsNanosecondsObject(PerfCounter()); });
+            Function("get_clock_info", GetClockInfo);
+            if (!Windows)
+                Function("tzset", TzSet);
+            InitTimezone();
+            SetAttribute("struct_time", StructTimeType);
             SetAttribute("_STRUCT_TM_ITEMS", new PyInt(11));
         }
 
-        private void InitializeConstants()
+        private void Function(string name, Func<PyObject[], PyDict, PyObject> body) =>
+            SetAttribute(name, new PyBuiltinFunction(name, body));
+
+        // METH_VARARGS: no keywords, then PyArg_ParseTuple's count.
+        private static void VarArgs(string name, PyObject[] args, PyDict kwargs, int min, int max)
         {
-            var tz = TimeZoneInfo.Local;
-            var baseUtcOffset = tz.BaseUtcOffset;
-
-            // timezone: 로컬 타임존 오프셋 (초, UTC 서쪽)
-            // Python은 서쪽을 양수로 표현하므로 부호 반전
-            int timezone = -(int)baseUtcOffset.TotalSeconds;
-            SetAttribute("timezone", new PyInt(timezone));
-
-            // altzone: DST 타임존 오프셋
-            var adjustmentRules = tz.GetAdjustmentRules();
-            int altzone = timezone;
-            if (adjustmentRules.Length > 0)
-            {
-                var dstOffset = adjustmentRules[0].DaylightDelta;
-                altzone = -(int)(baseUtcOffset + dstOffset).TotalSeconds;
-            }
-            SetAttribute("altzone", new PyInt(altzone));
-
-            // daylight: DST 정의 여부
-            int daylight = tz.SupportsDaylightSavingTime ? 1 : 0;
-            SetAttribute("daylight", new PyInt(daylight));
-
-            // tzname: 타임존 이름 튜플
-            var standardName = tz.StandardName;
-            var daylightName = tz.DaylightName;
-            var tznameTuple = new PyTuple(new PyObject[]
-            {
-                new PyString(standardName),
-                new PyString(daylightName)
-            });
-            SetAttribute("tzname", tznameTuple);
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"{name}() takes no keyword arguments");
+            PyArgs.ParseTuple(name, args, min, max);
         }
 
-        // CPython 3.12: Modules/timemodule.c - seconds argument parsing
-        // Helper: seconds 인자 파싱
-        private double GetSecondsArgument(PyObject arg)
+        private static PyObject FloatFromPyTime(long t) => new PyFloat(PyTime.AsSecondsDouble(t));
+
+        private static long SystemTime() => PyTime.GetSystemClock();
+        private static long Monotonic() { var info = default(PyClockInfo); return PyTime.GetMonotonicClock(ref info, false); }
+        private static long PerfCounter() { var info = default(PyClockInfo); return PyTime.GetPerfCounter(ref info, false); }
+        private static long ProcessTime() { var info = default(PyClockInfo); return PyTime.GetProcessTime(ref info, false); }
+        private static long ThreadTime() { var info = default(PyClockInfo); return PyTime.GetThreadTime(ref info, false); }
+
+        // time(NULL)
+        private static long Now() => Math.DivRem(PyTime.GetSystemClock(), 1_000_000_000L, out long rem) - (rem < 0 ? 1 : 0);
+
+        // time_sleep
+        private static PyObject Sleep(PyObject[] args, PyDict kwargs)
         {
-            if (arg is PyFloat pyFloat)
-                return pyFloat.Value;
-            else if (arg is PyInt pyInt)
-                return (double)pyInt.Value;
-            else if (arg is PyNone)
-                return (DateTime.UtcNow - UnixEpoch).TotalSeconds;
-            else
-                throw PyTypeError.Create("argument must be a number or None");
+            PyArgs.One("sleep", args, kwargs);
+            long timeout = PyTime.FromSecondsObject(args[0], PyTimeRound.Timeout);
+            if (timeout < 0)
+                throw PyValueError.Create("sleep length must be non-negative");
+            PySleep(timeout);
+            return PyNone.Instance;
         }
 
-        // Helper: tuple/sequence → PyStructTime
-        private PyStructTime ParseStructTime(PyObject obj)
+        // pysleep: Sleep(0) for a zero timeout, otherwise at least the timeout, rounded up.
+        private static void PySleep(long timeout)
         {
-            if (obj is PyStructTime st)
-                return st;
-
-            if (obj is PyTuple tuple)
+            long timeout100ns = PyTime.As100Nanoseconds(timeout, PyTimeRound.Ceiling);
+            PyGil.AllowThreads(() =>
             {
-                if (tuple.Items.Length < 9)
-                    throw PyTypeError.Create("function takes a sequence of at least 9 elements");
-
-                int[] values = new int[9];
-                for (int i = 0; i < 9; i++)
+                if (timeout100ns == 0)
                 {
-                    if (tuple.Items[i] is PyInt pyInt)
-                        values[i] = (int)pyInt.Value;
-                    else
-                        throw PyTypeError.Create($"an integer is required (got type {tuple.Items[i].GetType().Name})");
+                    Thread.Sleep(0);
+                    return;
                 }
+                long ms = (timeout100ns + 9_999) / 10_000;
+                for (long left = ms; left > 0; left -= int.MaxValue)
+                    Thread.Sleep((int)Math.Min(left, int.MaxValue));
+            });
+        }
 
-                return new PyStructTime(
-                    values[0], values[1], values[2], // year, month, day
-                    values[3], values[4], values[5], // hour, min, sec
-                    values[6], values[7], values[8]  // wday, yday, isdst
-                );
+        private static Exception FromErrno(int errno)
+        {
+            string message = errno == CTimeRuntime.EINVAL ? "Invalid argument" : "Value too large for defined data type";
+            return new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(errno), new PyString(message) }, null));
+        }
+
+        // _PyTime_gmtime
+        private static CTm GmTimeOf(long when)
+        {
+            int error = CTimeRuntime.GmTime(when, out var tm);
+            if (error != 0)
+                throw FromErrno(error);
+            return tm;
+        }
+
+        // _PyTime_localtime
+        private static CTm LocalTimeOf(long when)
+        {
+            int error = CTimeRuntime.LocalTime(when, out var tm);
+            if (error != 0)
+                throw FromErrno(error);
+            return tm;
+        }
+
+        // tmtotuple
+        private static PyObject ToTuple(in CTm p, string zone, long gmtoff) => new PyStructSequence(StructTimeType, new PyObject[]
+        {
+            new PyInt(p.Year + 1900L), new PyInt(p.Mon + 1), new PyInt(p.Mday), new PyInt(p.Hour), new PyInt(p.Min),
+            new PyInt(p.Sec), new PyInt((p.Wday + 6) % 7), new PyInt(p.Yday + 1), new PyInt(p.Isdst),
+            new PyString(zone), new PyInt(gmtoff),
+        });
+
+        // parse_time_t_args
+        private static long ParseTimeT(string name, PyObject[] args, PyDict kwargs)
+        {
+            VarArgs(name, args, kwargs, 0, 1);
+            if (args.Length == 0 || args[0] is PyNone)
+                return Now();
+            return PyTime.ObjectToTimeT(args[0], PyTimeRound.Floor);
+        }
+
+        // timegm, for the tm_gmtoff of a platform without one in struct tm.
+        private static long TimeGm(in CTm p) =>
+            p.Sec + p.Min * 60L + p.Hour * 3600L + p.Yday * 86400L +
+            (p.Year - 70L) * 31536000L + ((p.Year - 69L) / 4) * 86400L -
+            ((p.Year - 1L) / 100) * 86400L + ((p.Year + 299L) / 400) * 86400L;
+
+        // time_gmtime
+        private static PyObject GmTime(PyObject[] args, PyDict kwargs)
+        {
+            long when = ParseTimeT("gmtime", args, kwargs);
+            var tm = GmTimeOf(when);
+            return ToTuple(tm, "UTC", 0);
+        }
+
+        // time_localtime: the zone is strftime's %Z, the offset timegm(&buf) - when.
+        private static PyObject LocalTime(PyObject[] args, PyDict kwargs)
+        {
+            long when = ParseTimeT("localtime", args, kwargs);
+            var tm = LocalTimeOf(when);
+            return ToTuple(tm, CTimeRuntime.TzName[tm.Isdst != 0 ? 1 : 0], TimeGm(tm) - when);
+        }
+
+        // gettmarg: nine ints from a tuple; struct tm has no tm_zone on Windows to read.
+        private static CTm GetTmArg(PyObject args, string message)
+        {
+            if (args is not PyTuple tuple)
+                throw PyTypeError.Create("Tuple or struct_time argument required");
+            var items = tuple.Items;
+            if (items.Length != 9)
+                throw PyTypeError.Create(message);
+            var values = new int[9];
+            for (int i = 0; i < 9; i++)
+                values[i] = PyArgs.ParseInt(items[i]);
+            int y = values[0];
+            if (y < int.MinValue + 1900)
+                throw PyOverflowError.Create("year out of range");
+            var p = new CTm
+            {
+                Year = y - 1900,
+                Mon = values[1] - 1,
+                Mday = values[2],
+                Hour = values[3],
+                Min = values[4],
+                Sec = values[5],
+                Wday = (int)((values[6] + 1L) % 7),
+                Yday = values[7] - 1,
+                Isdst = values[8],
+            };
+            return p;
+        }
+
+        // checktm: zero is taken for the lowest month, day and day of year.
+        private static void CheckTm(ref CTm buf)
+        {
+            if (buf.Mon == -1)
+                buf.Mon = 0;
+            else if (buf.Mon < 0 || buf.Mon > 11)
+                throw PyValueError.Create("month out of range");
+            if (buf.Mday == 0)
+                buf.Mday = 1;
+            else if (buf.Mday < 0 || buf.Mday > 31)
+                throw PyValueError.Create("day of month out of range");
+            if (buf.Hour < 0 || buf.Hour > 23)
+                throw PyValueError.Create("hour out of range");
+            if (buf.Min < 0 || buf.Min > 59)
+                throw PyValueError.Create("minute out of range");
+            if (buf.Sec < 0 || buf.Sec > 61)
+                throw PyValueError.Create("seconds out of range");
+            if (buf.Wday < 0)
+                throw PyValueError.Create("day of week out of range");
+            if (buf.Yday == -1)
+                buf.Yday = 0;
+            else if (buf.Yday < 0 || buf.Yday > 365)
+                throw PyValueError.Create("day of year out of range");
+        }
+
+        // time_strftime1: the pre-check of Windows, then the C strftime.
+        private static string StrFTime1(string format, in CTm tm)
+        {
+            if (Windows)
+            {
+                for (int f = format.IndexOf('%'); f >= 0; f = f + 2 < format.Length ? format.IndexOf('%', f + 2) : -1)
+                {
+                    if (f + 1 < format.Length && format[f + 1] == '#')
+                        ++f;
+                    if (f + 1 >= format.Length)
+                        break;
+                    if (format[f + 1] == 'y' && tm.Year < 0)
+                        throw PyValueError.Create("format %y requires year >= 1900 on Windows");
+                }
             }
-
-            throw PyTypeError.Create($"expected time.struct_time or tuple, got {obj.GetType().Name}");
+            try
+            {
+                return CTimeRuntime.StrFTime(format, tm);
+            }
+            catch (CTimeRuntime.InvalidFormat)
+            {
+                throw PyValueError.Create("Invalid format string");
+            }
         }
 
-        // Helper: asctime 포맷 (예: "Mon Jan 01 00:00:00 2024")
-        private string FormatAsctime(PyStructTime st)
+        // time_strftime: runs of ASCII go to strftime, everything else is copied as it is.
+        private static PyObject StrFTime(PyObject[] args, PyDict kwargs)
         {
-            string[] dayNames = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
-            string[] monthNames = { "", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-
-            string dayName = st.WeekDay >= 0 && st.WeekDay < 7 ? dayNames[st.WeekDay] : "???";
-            string monthName = st.Month >= 1 && st.Month <= 12 ? monthNames[st.Month] : "???";
-
-            return $"{dayName} {monthName} {st.Day,2} {st.Hour:D2}:{st.Minute:D2}:{st.Second:D2} {st.Year}";
+            VarArgs("strftime", args, kwargs, 1, 2);
+            if (args[0] is not PyString formatArg)
+                throw PyTypeError.Create($"strftime() argument 1 must be str, not {args[0].GetTypeName()}");
+            CTm buf;
+            if (args.Length < 2)
+            {
+                buf = LocalTimeOf(Now());
+            }
+            else
+            {
+                buf = GetTmArg(args[1], "strftime(): illegal time tuple argument");
+                CheckTm(ref buf);
+            }
+            if (Windows && (buf.Year + 1900L < 1 || 9999 < buf.Year + 1900L))
+                throw PyValueError.Create("strftime() requires year in [1; 9999]");
+            if (buf.Isdst < -1)
+                buf.Isdst = -1;
+            else if (buf.Isdst > 1)
+                buf.Isdst = 1;
+            string format = formatArg.Value;
+            var writer = new StringBuilder();
+            int i = 0;
+            while (i < format.Length)
+            {
+                int start = i;
+                for (; i < format.Length; i++)
+                {
+                    char c = format[i];
+                    if (c == 0 || c > 127)
+                        break;
+                }
+                if (i > start)
+                    writer.Append(StrFTime1(format.Substring(start, i - start), buf));
+                start = i;
+                for (; i < format.Length; i++)
+                    if (format[i] == '%')
+                        break;
+                if (start < i)
+                    writer.Append(format, start, i - start);
+            }
+            return new PyString(writer.ToString());
         }
 
-        // Helper: strftime 포맷 변환
-        private string FormatStrftime(string format, DateTime dt, PyStructTime st)
+        // time_strptime: _strptime._strptime_time(*args)
+        private static PyObject StrPTime(PyObject[] args, PyDict kwargs)
         {
-            // Python 포맷 → .NET 포맷 변환 (주요 지시자만)
-            var result = format;
-
-            // 연도
-            result = result.Replace("%Y", dt.Year.ToString("D4"));
-            result = result.Replace("%y", (dt.Year % 100).ToString("D2"));
-
-            // 월
-            result = result.Replace("%m", dt.Month.ToString("D2"));
-            result = result.Replace("%B", dt.ToString("MMMM", CultureInfo.InvariantCulture));
-            result = result.Replace("%b", dt.ToString("MMM", CultureInfo.InvariantCulture));
-
-            // 일
-            result = result.Replace("%d", dt.Day.ToString("D2"));
-            result = result.Replace("%e", dt.Day.ToString("D2"));
-
-            // 시간
-            result = result.Replace("%H", dt.Hour.ToString("D2"));
-            result = result.Replace("%I", ((dt.Hour % 12 == 0 ? 12 : dt.Hour % 12)).ToString("D2"));
-            result = result.Replace("%M", dt.Minute.ToString("D2"));
-            result = result.Replace("%S", dt.Second.ToString("D2"));
-            result = result.Replace("%p", dt.Hour < 12 ? "AM" : "PM");
-
-            // 요일
-            result = result.Replace("%A", dt.ToString("dddd", CultureInfo.InvariantCulture));
-            result = result.Replace("%a", dt.ToString("ddd", CultureInfo.InvariantCulture));
-            result = result.Replace("%w", ((int)dt.DayOfWeek).ToString());
-
-            // 기타
-            result = result.Replace("%j", dt.DayOfYear.ToString("D3"));
-            result = result.Replace("%U", GetWeekOfYear(dt, DayOfWeek.Sunday).ToString("D2"));
-            result = result.Replace("%W", GetWeekOfYear(dt, DayOfWeek.Monday).ToString("D2"));
-            result = result.Replace("%%", "%");
-
-            return result;
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("strptime() takes no keyword arguments");
+            var func = PyImportSystem.Import("_strptime").GetAttribute("_strptime_time");
+            return func.Call(args, null);
         }
 
-        // Helper: 주차 계산
-        private int GetWeekOfYear(DateTime dt, DayOfWeek firstDayOfWeek)
+        private static readonly string[] WdayName = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+        private static readonly string[] MonName = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+
+        // _asctime: "%s %s%3d %.2d:%.2d:%.2d %d"
+        private static PyObject AscTimeOf(in CTm t) => new PyString(
+            $"{WdayName[t.Wday]} {MonName[t.Mon]}{t.Mday,3} {t.Hour:00}:{t.Min:00}:{t.Sec:00} {1900L + t.Year}");
+
+        // time_asctime
+        private static PyObject AscTime(PyObject[] args, PyDict kwargs)
         {
-            var ci = CultureInfo.InvariantCulture;
-            var cal = ci.Calendar;
-            var rule = firstDayOfWeek == DayOfWeek.Sunday ?
-                CalendarWeekRule.FirstDay : CalendarWeekRule.FirstDay;
-            return cal.GetWeekOfYear(dt, rule, firstDayOfWeek);
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("asctime() takes no keyword arguments");
+            if (args.Length > 1)
+                throw PyTypeError.Create($"asctime expected at most 1 argument, got {args.Length}");
+            CTm buf;
+            if (args.Length == 0)
+            {
+                buf = LocalTimeOf(Now());
+            }
+            else
+            {
+                buf = GetTmArg(args[0], "asctime(): illegal time tuple argument");
+                CheckTm(ref buf);
+            }
+            return AscTimeOf(buf);
         }
 
-        // Helper: Python 포맷 → .NET 포맷
-        private string ConvertPythonFormatToDotNet(string pythonFormat)
+        // time_ctime
+        private static PyObject CTime(PyObject[] args, PyDict kwargs)
         {
-            var dotnetFormat = pythonFormat;
-
-            // 주요 변환만 구현 (완전한 구현은 복잡함)
-            dotnetFormat = dotnetFormat.Replace("%Y", "yyyy");
-            dotnetFormat = dotnetFormat.Replace("%y", "yy");
-            dotnetFormat = dotnetFormat.Replace("%m", "MM");
-            dotnetFormat = dotnetFormat.Replace("%d", "dd");
-            dotnetFormat = dotnetFormat.Replace("%H", "HH");
-            dotnetFormat = dotnetFormat.Replace("%M", "mm");
-            dotnetFormat = dotnetFormat.Replace("%S", "ss");
-            dotnetFormat = dotnetFormat.Replace("%B", "MMMM");
-            dotnetFormat = dotnetFormat.Replace("%b", "MMM");
-            dotnetFormat = dotnetFormat.Replace("%A", "dddd");
-            dotnetFormat = dotnetFormat.Replace("%a", "ddd");
-
-            return dotnetFormat;
+            long tt = ParseTimeT("ctime", args, kwargs);
+            return AscTimeOf(LocalTimeOf(tt));
         }
 
-        // Helper: get_clock_info 구현
-        private PyObject GetClockInfo(string name)
+        // time_mktime
+        private static PyObject MkTime(PyObject[] args, PyDict kwargs)
         {
-            // time_get_clock_info (Modules/timemodule.c): a SimpleNamespace of these four fields.
-            var info = new PyDict();
+            PyArgs.One("mktime", args, kwargs);
+            var tm = GetTmArg(args[0], "mktime(): illegal time tuple argument");
+            tm.Wday = -1;
+            long tt = CTimeRuntime.MkTime(ref tm);
+            if (tt == -1 && tm.Wday == -1)
+                throw PyOverflowError.Create("mktime argument out of range");
+            return new PyFloat(tt);
+        }
 
+        // time_tzset, where tzset works.
+        private PyObject TzSet(PyObject[] args, PyDict kwargs)
+        {
+            PyArgs.NoArgs("tzset", args, kwargs);
+            CTimeRuntime.TzSet();
+            InitTimezone();
+            return PyNone.Instance;
+        }
+
+        // time_get_clock_info
+        private static PyObject GetClockInfo(PyObject[] args, PyDict kwargs)
+        {
+            VarArgs("get_clock_info", args, kwargs, 1, 1);
+            if (args[0] is not PyString nameArg)
+                throw PyTypeError.Create($"get_clock_info() argument 1 must be str, not {args[0].GetTypeName()}");
+            string name = nameArg.Value;
+            if (name.IndexOf('\0') >= 0)
+                throw PyValueError.Create("embedded null character");
+            var info = new PyClockInfo { Implementation = "", Monotonic = false, Adjustable = false, Resolution = 1.0 };
             switch (name)
             {
-                case "time":
-                    info.SetItem(new PyString("implementation"), new PyString("DateTime.UtcNow"));
-                    info.SetItem(new PyString("monotonic"), PyBool.False);
-                    info.SetItem(new PyString("resolution"), new PyFloat(1.0 / TimeSpan.TicksPerSecond));
-                    info.SetItem(new PyString("adjustable"), PyBool.True);
-                    break;
-
-                case "monotonic":
-                    info.SetItem(new PyString("implementation"), new PyString("Environment.TickCount64"));
-                    info.SetItem(new PyString("monotonic"), PyBool.True);
-                    info.SetItem(new PyString("resolution"), new PyFloat(0.001)); // 1ms
-                    info.SetItem(new PyString("adjustable"), PyBool.False);
-                    break;
-
-                case "perf_counter":
-                    info.SetItem(new PyString("implementation"), new PyString("Stopwatch"));
-                    info.SetItem(new PyString("monotonic"), PyBool.True);
-                    info.SetItem(new PyString("resolution"), new PyFloat(1.0 / Stopwatch.Frequency));
-                    info.SetItem(new PyString("adjustable"), PyBool.False);
-                    break;
-
-                case "process_time":
-                case "thread_time":
-                    info.SetItem(new PyString("implementation"), new PyString("Process.TotalProcessorTime"));
-                    info.SetItem(new PyString("monotonic"), PyBool.True);
-                    info.SetItem(new PyString("resolution"), new PyFloat(1.0 / TimeSpan.TicksPerSecond));
-                    info.SetItem(new PyString("adjustable"), PyBool.False);
-                    break;
-
-                default:
-                    throw PyValueError.Create($"unknown clock: {name}");
+                case "time": PyTime.GetSystemClock(ref info, true); break;
+                case "monotonic": PyTime.GetMonotonicClock(ref info, true); break;
+                case "perf_counter": PyTime.GetPerfCounter(ref info, true); break;
+                case "process_time": PyTime.GetProcessTime(ref info, true); break;
+                case "thread_time": PyTime.GetThreadTime(ref info, true); break;
+                default: throw PyValueError.Create("unknown clock");
             }
+            var dict = new PyDict();
+            dict.SetItem(new PyString("implementation"), new PyString(info.Implementation));
+            dict.SetItem(new PyString("monotonic"), PyBool.FromBool(info.Monotonic));
+            dict.SetItem(new PyString("adjustable"), PyBool.FromBool(info.Adjustable));
+            dict.SetItem(new PyString("resolution"), new PyFloat(info.Resolution));
+            return new SharpPy.Modules.PySimpleNamespace(dict);
+        }
 
-            return new SharpPy.Modules.PySimpleNamespace(info);
+        // init_timezone with HAVE_DECL_TZNAME: _timezone, no altzone, _daylight, and the names.
+        private void InitTimezone()
+        {
+            SetAttribute("timezone", new PyInt(CTimeRuntime.Timezone));
+            SetAttribute("altzone", new PyInt(CTimeRuntime.Timezone - 3600));
+            SetAttribute("daylight", new PyInt(CTimeRuntime.Daylight));
+            SetAttribute("tzname", new PyTuple(new PyObject[]
+            {
+                new PyString(CTimeRuntime.TzName[0]), new PyString(CTimeRuntime.TzName[1]),
+            }));
         }
     }
 }

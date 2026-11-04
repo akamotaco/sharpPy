@@ -635,6 +635,11 @@ namespace SharpPy
         /// </summary>
         internal int RawCount() => _items.Count;
 
+        // _PyList_ITEMS: the slots themselves, for the C modules that rearrange a list in place.
+        internal PyObject RawGet(int index) => _items[index];
+        internal void RawSet(int index, PyObject item) => _items[index] = item;
+        internal void RawRemoveLast() => _items.RemoveAt(_items.Count - 1);
+
         /// <summary>The layout iterator, non-virtual for the same reason as RawCount.</summary>
         internal PyObject RawIterator() => new PyListIterator(this);
 
