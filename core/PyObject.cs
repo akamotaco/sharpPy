@@ -768,6 +768,11 @@ namespace SharpPy
             {
                 return value;
             }
+            if (this is IObjectDict holder && holder.ObjectDict(false) is { } ownDict
+                && ownDict.TryGetStoredValue(new PyString(name), out var held))
+            {
+                return held;
+            }
 
             // 4. non-data descriptor 또는 일반 attribute
             if (descriptor != null)
@@ -848,6 +853,10 @@ namespace SharpPy
                 customType.ClassDict[name] = value;
                 customType.InvalidateTypeCache();
             }
+            else if (this is IObjectDict holder)
+            {
+                holder.ObjectDict(true).SetItem(new PyString(name), value);
+            }
             else
             {
                 // No instance dict to write into. CPython splits this by whether the name resolved at all
@@ -927,6 +936,15 @@ namespace SharpPy
                     return;
                 }
             }
+            if (this is IObjectDict holder && holder.ObjectDict(false) is { } ownDict)
+            {
+                var key = new PyString(name);
+                if (ownDict.ContainsKey(key))
+                {
+                    ownDict.DelItem(key);
+                    return;
+                }
+            }
 
             // 4. CPython's _PyObject_GenericSetAttrWithDict(..., value=NULL) splits at
             //    Objects/object.c:1589-1599.  When the object has no instance dict, a name that DID
@@ -940,7 +958,7 @@ namespace SharpPy
             #if DEBUG_LOG
             Console.WriteLine($"   ❌ attribute not deletable, raising AttributeError");
             #endif
-            if (attr != null && !(this is PyClassInstance) && !(this is IInstanceDictAccessor))
+            if (attr != null && !(this is PyClassInstance) && !(this is IInstanceDictAccessor) && !(this is IObjectDict))
                 throw PyAttributeError.Create(
                     $"'{GetTypeName()}' object attribute '{name}' is read-only");
             throw AttributeNotFound(name);

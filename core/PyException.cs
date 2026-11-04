@@ -6,7 +6,7 @@ namespace SharpPy
     /// Python BaseException - 모든 예외의 최상위 클래스
     /// 순수한 PyObject로 유지
     /// </summary>
-    public class PyBaseException : PyObject
+    public class PyBaseException : PyObject, IObjectDict
     {
         public string Message { get; protected set; }
         // Keep the original array until Python observes args; then retain its
@@ -29,7 +29,9 @@ namespace SharpPy
             {
                 if (_args is not PyTuple t)
                 {
-                    t = new PyTuple((PyObject[])_args);
+                    var items = (PyObject[])_args;
+                    // The empty tuple is the one tuple: StopIteration().args is StopIteration().args.
+                    t = items.Length == 0 ? PyTuple.Empty : new PyTuple(items);
                     _args = t;
                 }
                 return t;
@@ -75,6 +77,14 @@ namespace SharpPy
         // elsewhere - which is how a raised object could answer .args with ('z',) and repr with K().
         public override PyString AsString() => BaseExceptionStr(this);
 
+        /// <summary>BaseException_init: no keywords (named by the object's type), then args.</summary>
+        internal static void BaseExceptionInit(PyObject self, PyObject[] args, PyDict kwargs)
+        {
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"{self.GetPyType().FullName}() takes no keyword arguments");
+            PyExceptionSlots.StoreArgs(self, args);
+        }
+
         /// <summary>BaseException_str itself, which BaseException.__str__ calls whatever the subtype.</summary>
         internal static PyString BaseExceptionStr(PyObject self)
         {
@@ -96,37 +106,6 @@ namespace SharpPy
         {
             // CPython behavior: str(exception) returns the message
             return AsString().Value;
-        }
-
-        public override PyObject GetAttribute(string name)
-        {
-            switch (name)
-            {
-                case "args":
-                    if (_args is not PyTuple argsTuple)
-                    {
-                        var items = Args;
-                        argsTuple = items.Length == 0 ? PyTuple.Empty : new PyTuple(items);
-                        _args = argsTuple;
-                    }
-                    return argsTuple;
-                case "__cause__":
-                    return PyExceptionSlots.Visible(__cause__) ?? PyNone.Instance;
-                case "__context__":
-                    return PyExceptionSlots.Visible(__context__) ?? PyNone.Instance;
-                case "__suppress_context__":
-                    return __suppress_context__ ? PyBool.True : PyBool.False;
-                case "__traceback__":
-                    return (PyObject?)__traceback__ ?? PyNone.Instance;
-                case "__dict__":
-                    return Attributes;
-                default:
-                    // PyObject_GenericGetAttr: a data descriptor of the type comes before the dict.
-                    if (_attributes != null && _attributes.TryGetStoredValue(new PyString(name), out var stored)
-                        && !(GetPyType().FindNameInMro(name) is IDescriptor typeDescriptor && typeDescriptor.IsDataDescriptor()))
-                        return stored;
-                    return base.GetAttribute(name);
-            }
         }
 
         // The dict every exception object has (PyException_HEAD): `e.note = 1`, __notes__.
@@ -152,94 +131,51 @@ namespace SharpPy
         /// <summary>member_set: value null is the NULL a delete stores.</summary>
         internal virtual bool TrySetMember(string name, PyObject value) => false;
 
-        public override void SetAttribute(string name, PyObject value)
+        PyDict IObjectDict.ObjectDict(bool create) => create ? Attributes : _attributes;
+
+        // BaseException_get_tb / BaseException_set_tb
+        internal PyObject TracebackGet() => (PyObject?)__traceback__ ?? PyNone.Instance;
+        internal void TracebackSet(PyObject value)
         {
-            switch (name)
-            {
-                case "args":
-                    PyTuple replacement;
-                    if (value.GetType() == typeof(PyTuple)) replacement = (PyTuple)value;
-                    else if (value.GetType() == typeof(PyList))
-                    {
-                        var items = ((PyList)value).Items;
-                        replacement = items.Length == 0 ? PyTuple.Empty : new PyTuple(items);
-                    }
-                    else
-                    {
-                        var iterator = value.GetIterator();
-                        // Use CLR List growth when no hint is available; CPython's
-                        // initial tuple capacity of ten is an allocation strategy.
-                        long hint = value.LengthHint(0);
-                        if (hint > Array.MaxLength) throw PyMemoryError.Create();
-                        var items = new List<PyObject>((int)hint);
-                        while (true)
-                        {
-                            PyObject item;
-                            try { item = iterator.Next(); }
-                            catch (PythonException ex) when (ex.PyException is PyStopIteration) { break; }
-                            if (item == null) break;
-                            items.Add(item);
-                        }
-                        replacement = items.Count == 0 ? PyTuple.Empty : new PyTuple(items.ToArray());
-                    }
-                    // Commit only after conversion; callbacks may observe or
-                    // replace the previous args while the iterable is consumed.
-                    _args = replacement;
-                    break;
-                case "__dict__":
-                    SetDict(value);
-                    return;
-                case "__cause__":
-                    if (value is PyNone)
-                        __cause__ = null;
-                    else if (PyExceptionSlots.ToTransport(value) is PyBaseException exc)
-                        __cause__ = exc;
-                    else
-                        throw PyTypeError.Create($"exception cause must be None or derive from BaseException");
-                    // PyException_SetCause
-                    __suppress_context__ = true;
-                    break;
-                case "__context__":
-                    if (value is PyNone)
-                        __context__ = null;
-                    else if (PyExceptionSlots.ToTransport(value) is PyBaseException exc)
-                        __context__ = exc;
-                    else
-                        throw PyTypeError.Create($"exception context must be None or derive from BaseException");
-                    break;
-                case "__suppress_context__":
-                    __suppress_context__ = value is PyBool b ? b.Value : !(value is PyNone || (value is PyInt i && i.Value == 0));
-                    break;
-                case "__traceback__":
-                    if (value is PyNone)
-                        __traceback__ = null;
-                    else if (value is PyTraceback tb)
-                        __traceback__ = tb;
-                    else
-                        throw PyTypeError.Create("__traceback__ must be a traceback or None");
-                    break;
-                default:
-                    if (GetPyType().FindNameInMro(name) is IDescriptor descriptor && descriptor.IsDataDescriptor())
-                        base.SetAttribute(name, value);
-                    else
-                        Attributes.SetItem(new PyString(name), value);
-                    break;
-            }
+            if (value == null)
+                throw PyTypeError.Create("__traceback__ may not be deleted");
+            if (value is PyTraceback tb) __traceback__ = tb;
+            else if (value is PyNone) __traceback__ = null;
+            else throw PyTypeError.Create("__traceback__ must be a traceback or None");
         }
 
-        public override void DelAttribute(string name)
+        // BaseException_get_context / BaseException_set_context
+        internal PyObject ContextGet() => PyExceptionSlots.Visible(__context__) ?? PyNone.Instance;
+        internal void ContextSet(PyObject value)
         {
-            if (name == "__dict__")
-                throw PyTypeError.Create("cannot delete __dict__");
-            if (name is "args" or "__traceback__" or "__context__" or "__cause__")
-                throw PyTypeError.Create($"{name} may not be deleted");
-            var key = new PyString(name);
-            if (_attributes != null && _attributes.ContainsKey(key))
-            {
-                _attributes.DelItem(key);
-                return;
-            }
-            base.DelAttribute(name);
+            if (value == null)
+                throw PyTypeError.Create("__context__ may not be deleted");
+            if (value is PyNone) __context__ = null;
+            else if (PyExceptionSlots.ToTransport(value) is PyBaseException exc) __context__ = exc;
+            else throw PyTypeError.Create("exception context must be None or derive from BaseException");
+        }
+
+        // BaseException_get_cause / BaseException_set_cause; PyException_SetCause sets suppress_context.
+        internal PyObject CauseGet() => PyExceptionSlots.Visible(__cause__) ?? PyNone.Instance;
+        internal void CauseSet(PyObject value)
+        {
+            if (value == null)
+                throw PyTypeError.Create("__cause__ may not be deleted");
+            if (value is PyNone) __cause__ = null;
+            else if (PyExceptionSlots.ToTransport(value) is PyBaseException exc) __cause__ = exc;
+            else throw PyTypeError.Create("exception cause must be None or derive from BaseException");
+            __suppress_context__ = true;
+        }
+
+        // {"__suppress_context__", T_BOOL}: PyMember_SetOne takes a bool only, and deletes nothing.
+        internal PyObject SuppressContextGet() => __suppress_context__ ? PyBool.True : PyBool.False;
+        internal void SuppressContextSet(PyObject value)
+        {
+            if (value == null)
+                throw PyTypeError.Create("can't delete numeric/char attribute");
+            if (value is not PyBool flag)
+                throw PyTypeError.Create("attribute value type must be bool");
+            __suppress_context__ = flag.Value;
         }
 
         /// <summary>
@@ -406,17 +342,26 @@ namespace SharpPy
             _obj = target;
         }
 
-        internal PyAttributeError(PyObject[] args, PyDict kwargs) : base(args)
+        internal PyAttributeError(PyObject[] args, PyDict kwargs) : base(args) => AttributeErrorInit(this, args, kwargs);
+
+        // AttributeError_init: BaseException_init without the keywords, then "|$OO" name and obj.
+        internal void AttributeErrorInit(PyObject self, PyObject[] args, PyDict kwargs)
         {
-            if (kwargs == null || kwargs.Length() == 0) return;
-            if (kwargs.Length() > 2)
-                throw PyTypeError.Create($"AttributeError() takes at most 2 keyword arguments ({kwargs.Length()} given)");
-            foreach (var pair in kwargs.InternalDict)
+            BaseExceptionInit(self, args, null);
+            PyObject name = null, obj = null;
+            if (kwargs != null && kwargs.Length() != 0)
             {
-                if (pair.Key is PyString { Value: "name" }) _name = pair.Value;
-                else if (pair.Key is PyString { Value: "obj" }) _obj = pair.Value;
-                else throw PyTypeError.Create($"'{pair.Key.ToStr().Value}' is an invalid keyword argument for AttributeError()");
+                if (kwargs.Length() > 2)
+                    throw PyTypeError.Create($"AttributeError() takes at most 2 keyword arguments ({kwargs.Length()} given)");
+                foreach (var pair in kwargs.InternalDict)
+                {
+                    if (pair.Key is PyString { Value: "name" }) name = pair.Value;
+                    else if (pair.Key is PyString { Value: "obj" }) obj = pair.Value;
+                    else throw PyTypeError.Create($"'{pair.Key.ToStr().Value}' is an invalid keyword argument for AttributeError()");
+                }
             }
+            _name = name;
+            _obj = obj;
         }
 
         public PyAttributeError(string message) : base(message) { }
@@ -454,16 +399,24 @@ namespace SharpPy
     public class PyNameError : PyException
     {
         private PyObject _name = PyNone.Instance;
-        internal PyNameError(PyObject[] args, PyDict kwargs) : base(args)
+        internal PyNameError(PyObject[] args, PyDict kwargs) : base(args) => NameErrorInit(this, args, kwargs);
+
+        // NameError_init: BaseException_init without the keywords, then "|$O" name.
+        internal void NameErrorInit(PyObject self, PyObject[] args, PyDict kwargs)
         {
-            if (kwargs == null || kwargs.Length() == 0) return;
-            if (kwargs.Length() > 1)
-                throw PyTypeError.Create($"NameError() takes at most 1 keyword argument ({kwargs.Length()} given)");
-            foreach (var pair in kwargs.InternalDict)
+            BaseExceptionInit(self, args, null);
+            PyObject name = null;
+            if (kwargs != null && kwargs.Length() != 0)
             {
-                if (pair.Key is PyString { Value: "name" }) _name = pair.Value;
-                else throw PyTypeError.Create($"'{pair.Key.ToStr().Value}' is an invalid keyword argument for NameError()");
+                if (kwargs.Length() > 1)
+                    throw PyTypeError.Create($"NameError() takes at most 1 keyword argument ({kwargs.Length()} given)");
+                foreach (var pair in kwargs.InternalDict)
+                {
+                    if (pair.Key is PyString { Value: "name" }) name = pair.Value;
+                    else throw PyTypeError.Create($"'{pair.Key.ToStr().Value}' is an invalid keyword argument for NameError()");
+                }
             }
+            _name = name;
         }
 
         public PyNameError(string message) : base(message) { }
@@ -722,18 +675,27 @@ namespace SharpPy
         internal PyString ImportErrorStr(PyObject self) =>
             _msg is PyString text && ReferenceEquals(text.GetPyType(), PyType.StrType) ? text : BaseExceptionStr(self);
 
-        internal PyImportError(PyObject[] args, PyDict kwargs) : base(args)
+        internal PyImportError(PyObject[] args, PyDict kwargs) : base(args) => ImportErrorInit(this, args, kwargs);
+
+        // ImportError_init: BaseException_init without the keywords, "|$OOO:ImportError" name, path,
+        // name_from, and msg the one argument there is.
+        internal void ImportErrorInit(PyObject self, PyObject[] args, PyDict kwargs)
         {
-            if (args.Length == 1) _msg = args[0];
-            if (kwargs == null) return;
-            foreach (var pair in kwargs.InternalDict)
-            {
-                if (pair.Key is PyString { Value: "name" }) _name = pair.Value;
-                else if (pair.Key is PyString { Value: "path" }) _path = pair.Value;
-                else if (pair.Key is PyString { Value: "name_from" }) _nameFrom = pair.Value;
-                else throw PyTypeError.Create(
-                    $"'{pair.Key.ToStr().Value}' is an invalid keyword argument for {GetTypeName()}()");
-            }
+            BaseExceptionInit(self, args, null);
+            PyObject name = null, path = null, nameFrom = null;
+            if (kwargs != null)
+                foreach (var pair in kwargs.InternalDict)
+                {
+                    if (pair.Key is PyString { Value: "name" }) name = pair.Value;
+                    else if (pair.Key is PyString { Value: "path" }) path = pair.Value;
+                    else if (pair.Key is PyString { Value: "name_from" }) nameFrom = pair.Value;
+                    else throw PyTypeError.Create(
+                        $"'{pair.Key.ToStr().Value}' is an invalid keyword argument for ImportError()");
+                }
+            _name = name;
+            _path = path;
+            _nameFrom = nameFrom;
+            _msg = args.Length == 1 ? args[0] : null;
         }
 
         public override PyType GetPyType() => PyType.ImportErrorType;
@@ -974,16 +936,24 @@ namespace SharpPy
         }
 
         // SyntaxError_init (Objects/exceptions.c:2340).
-        internal PySyntaxError(PyObject[] args, PyDict kwargs) : base(args, kwargs)
+        internal PySyntaxError(PyObject[] args, PyDict kwargs) : base(args, kwargs) => SyntaxErrorInit(this, args, kwargs);
+
+        // SyntaxError_init: BaseException_init; msg from one or more arguments, and from exactly
+        // two the info sequence read by "OOOO|OO". A field the call does not give keeps its value.
+        internal void SyntaxErrorInit(PyObject self, PyObject[] args, PyDict kwargs)
         {
+            BaseExceptionInit(self, args, kwargs);
             if (args.Length >= 1) _fields[0] = args[0];
             if (args.Length != 2) return;
             var info = args[1] is PyTuple tuple ? tuple : (PyTuple)PyType.TupleType.Call(new[] { args[1] }, null);
-            if (info.Items.Length < 4 || info.Items.Length > 6)
+            _fields[5] = _fields[6] = null;
+            if (info.Items.Length < 4)
                 throw PyTypeError.Create($"function takes at least 4 arguments ({info.Items.Length} given)");
+            if (info.Items.Length > 6)
+                throw PyTypeError.Create($"function takes at most 6 arguments ({info.Items.Length} given)");
+            ReadDetails(info);
             if (info.Items.Length == 5)
                 throw PyTypeError.Create("end_offset must be provided when end_lineno is provided");
-            ReadDetails(info);
         }
 
         private void ReadDetails(PyTuple info) => Array.Copy(info.Items, 0, _fields, 1, info.Items.Length);
@@ -1054,8 +1024,12 @@ namespace SharpPy
         public PyStopIteration(PyObject value = null)
             : this(value == null ? Array.Empty<PyObject>() : new[] { value }) { }
 
-        internal PyStopIteration(PyObject[] args) : base(args)
+        internal PyStopIteration(PyObject[] args) : base(args) => StopIterationInit(this, args, null);
+
+        // StopIteration_init: BaseException_init, then value the first argument or None.
+        internal void StopIterationInit(PyObject self, PyObject[] args, PyDict kwargs)
         {
+            BaseExceptionInit(self, args, kwargs);
             Value = args.Length > 0 ? args[0] : PyNone.Instance;
         }
 
@@ -1517,28 +1491,86 @@ namespace SharpPy
         }
 
         internal PyOSError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs)
+            => OSErrorFields(this, args, normalized);
+
+        /// <summary>
+        /// oserror_parse_args and oserror_init: from 2 to 5 arguments are errno, strerror, filename,
+        /// winerror and filename2 (winerror rewriting errno on Windows); a filename takes the args
+        /// down to the first two. self is the object whose args are set.
+        /// </summary>
+        internal void OSErrorFields(PyObject self, PyObject[] args, bool normalized = false)
         {
             if (!normalized && args.Length >= 4 && args.Length <= 5)
-            {
                 args = NormalizeWindowsArguments(args);
-                Args = args;
-            }
-            if (args.Length < 2 || args.Length > 5) return;
-            _errno = args[0];
-            _strerror = args[1];
-            if (OperatingSystem.IsWindows() && args.Length >= 4) _winerror = args[3];
-            if (args.Length >= 3 && args[2] != PyNone.Instance)
+            PyObject myerrno = null, strerror = null, filename = null, winerror = null, filename2 = null;
+            if (args.Length >= 2 && args.Length <= 5)
             {
-                if (GetType() == typeof(PyBlockingIOError) && NumberCheck(args[2]))
-                {
-                    SetWritten(AsWrittenCount(args[2]));
-                    return;
-                }
-                _filename = args[2];
-                if (args.Length == 5 && args[4] != PyNone.Instance) Filename2 = args[4];
-                Args = new[] { args[0], args[1] };
+                myerrno = args[0];
+                strerror = args[1];
+                if (args.Length >= 3) filename = args[2];
+                if (args.Length >= 4) winerror = args[3];
+                if (args.Length == 5) filename2 = args[4];
             }
+            if (filename != null && filename != PyNone.Instance)
+            {
+                if (ReferenceEquals(self.GetPyType(), PyType.BlockingIOErrorType) && NumberCheck(filename))
+                    SetWritten(AsWrittenCount(filename));
+                else
+                {
+                    _filename = filename;
+                    if (filename2 != null && filename2 != PyNone.Instance) Filename2 = filename2;
+                    args = new[] { args[0], args[1] };
+                }
+            }
+            _errno = myerrno;
+            _strerror = strerror;
+            if (OperatingSystem.IsWindows()) _winerror = winerror;
+            PyExceptionSlots.StoreArgs(self, args);
         }
+
+        /// <summary>
+        /// oserror_use_init: a subclass with an __init__ of its own and OSError's __new__ parses
+        /// its arguments in __init__, and __new__ leaves the args empty.
+        /// </summary>
+        internal static bool UseInit(PyType type) =>
+            !(type.FindNameInMro("__init__") is PyWrapperDescriptor init && ReferenceEquals(init._implementation, InitSlot))
+            && type.FindNameInMro("__new__") is PyNewMethodDescriptor created && ReferenceEquals(created._implementation, NewSlot);
+
+        // OSError_init: everything was done in OSError_new, unless use_init.
+        internal static readonly Func<PyObject, PyObject[], PyDict, PyObject> InitSlot = (self, args, kwargs) =>
+        {
+            if (!UseInit(self.GetPyType()))
+                return PyNone.Instance;
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"{self.GetPyType().FullName}() takes no keyword arguments");
+            ((PyOSError)PyExceptionSlots.StructOf(self)).OSErrorFields(self, args);
+            return PyNone.Instance;
+        };
+
+        // OSError_new: without use_init the arguments are parsed here, and OSError itself becomes the
+        // subclass errno names; with it the args stay empty for __init__.
+        internal static readonly Func<PyObject, PyObject[], PyDict, PyObject> NewSlot = (cls, args, kwargs) =>
+        {
+            var type = (PyType)cls;
+            bool useInit = UseInit(type);
+            if (!useInit && kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"{type.FullName}() takes no keyword arguments");
+            if (type is not SharpPy.PyClass)
+            {
+                if (ReferenceEquals(type, PyType.OSErrorType))
+                    return FromArguments(args, null);
+                return type.CreateInstance(args, null);
+            }
+            var forwarded = new PyObject[args.Length + 1];
+            forwarded[0] = cls;
+            Array.Copy(args, 0, forwarded, 1, args.Length);
+            var created = ((PyNewMethodDescriptor)PyType.BaseExceptionType.TypeDict["__new__"]).CallTpNew(forwarded, kwargs);
+            if (useInit)
+                PyExceptionSlots.StoreArgs(created, Array.Empty<PyObject>());
+            else
+                ((PyOSError)PyExceptionSlots.StructOf(created)).OSErrorFields(created, args);
+            return created;
+        };
 
         public PyOSError(string message = "") : base(message) { }
         // OSError_members
@@ -1833,14 +1865,18 @@ namespace SharpPy
                         return inherited.CallTpNew(forwarded, kwargs);
                     }
                     AllocatingBlank = true;
+                    PyObject created;
                     try
                     {
-                        return ((PyType)cls).Call(new PyObject[0], null);
+                        created = ((PyType)cls).Call(new PyObject[0], null);
                     }
                     finally
                     {
                         AllocatingBlank = false;
                     }
+                    // BaseException_new keeps the arguments; the fields wait for __init__.
+                    PyExceptionSlots.StoreArgs(created, args);
+                    return created;
                 }, acceptsKwargs: true) { TpNew = inherited };
             }
         }
@@ -1850,14 +1886,39 @@ namespace SharpPy
         public PyUnicodeError(string message = "") : base(message) { }
 
         /// <summary>UnicodeDecodeError_init and UnicodeEncodeError_init: "UOnnU" or "UUnnU".</summary>
-        private protected void ReadFields(PyObject[] args, int first)
+        /// <summary>
+        /// UnicodeEncodeError_init, UnicodeDecodeError_init and UnicodeTranslateError_init:
+        /// BaseException_init, the str fields cleared, then PyArg_ParseTuple with "UUnnU", "UOnnU" or
+        /// "UnnU" (the format starts at the field the type reads first). On failure they stay NULL.
+        /// </summary>
+        private protected void UnicodeErrorInit(PyObject self, PyObject[] args, PyDict kwargs, string format)
         {
-            // klass.__new__(klass) has run no __init__ yet: an object with nothing set.
-            if (args.Length == 0 && AllocatingBlank)
-                return;
-            if (args.Length != 5 - first)
-                throw PyTypeError.Create($"function takes exactly {5 - first} arguments ({args.Length} given)");
-            Array.Copy(args, 0, Fields, first, args.Length);
+            BaseExceptionInit(self, args, kwargs);
+            int first = 5 - format.Length;
+            for (int i = first; i < 5; i++)
+                if (i != 2 && i != 3) Fields[i] = null;
+            if (args.Length != format.Length)
+                throw PyTypeError.Create($"function takes exactly {format.Length} arguments ({args.Length} given)");
+            var parsed = new PyObject[format.Length];
+            for (int i = 0; i < format.Length; i++)
+            {
+                var value = args[i];
+                switch (format[i])
+                {
+                    case 'U':
+                        if (value is not PyString && !value.GetPyType().IsSubclassOf(PyType.StrType))
+                            throw PyTypeError.Create($"argument {i + 1} must be str, not {value.GetTypeName()}");
+                        parsed[i] = value;
+                        break;
+                    case 'n':
+                        parsed[i] = new PyInt(PyArgs.Ssize(value));
+                        break;
+                    default:
+                        parsed[i] = value;
+                        break;
+                }
+            }
+            Array.Copy(parsed, 0, Fields, first, parsed.Length);
         }
 
         private protected int Start => Fields[2].ToInt();
@@ -1927,10 +1988,23 @@ namespace SharpPy
         // UnicodeDecodeError_init: the object is kept as bytes, whatever buffer it came as.
         internal PyUnicodeDecodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs)
         {
-            ReadFields(args, 0);
-            if (Fields[1] != null && Fields[1] is not PyBytes)
-                Fields[1] = new PyBytes(BytesMethods.Buffer(Fields[1]) ?? throw PyTypeError.Create(
-                    $"a bytes-like object is required, not '{Fields[1].GetTypeName()}'"));
+            if (!AllocatingBlank) UnicodeDecodeErrorInit(this, args, kwargs);
+        }
+
+        internal void UnicodeDecodeErrorInit(PyObject self, PyObject[] args, PyDict kwargs)
+        {
+            UnicodeErrorInit(self, args, kwargs, "UOnnU");
+            if (Fields[1] is not PyBytes)
+            {
+                var bytes = BytesMethods.Buffer(Fields[1]);
+                if (bytes == null)
+                {
+                    var given = Fields[1];
+                    Fields[0] = Fields[1] = Fields[4] = null;
+                    throw PyTypeError.Create($"a bytes-like object is required, not '{given.GetTypeName()}'");
+                }
+                Fields[1] = new PyBytes(bytes);
+            }
         }
 
         public override string GetTypeName() => "UnicodeDecodeError";
@@ -1957,7 +2031,13 @@ namespace SharpPy
     /// </summary>
     public class PyUnicodeEncodeError : PyUnicodeError
     {
-        internal PyUnicodeEncodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) => ReadFields(args, 0);
+        internal PyUnicodeEncodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs)
+        {
+            if (!AllocatingBlank) UnicodeEncodeErrorInit(this, args, kwargs);
+        }
+
+        internal void UnicodeEncodeErrorInit(PyObject self, PyObject[] args, PyDict kwargs) =>
+            UnicodeErrorInit(self, args, kwargs, "UUnnU");
 
         public override string GetTypeName() => "UnicodeEncodeError";
         public override PyType GetPyType() => PyType.UnicodeEncodeErrorType;
@@ -1980,7 +2060,13 @@ namespace SharpPy
     /// <summary>Python UnicodeTranslateError. CPython 3.12: Objects/exceptions.c UnicodeTranslateError_init.</summary>
     public class PyUnicodeTranslateError : PyUnicodeError
     {
-        internal PyUnicodeTranslateError(PyObject[] args, PyDict kwargs) : base(args, kwargs) => ReadFields(args, 1);
+        internal PyUnicodeTranslateError(PyObject[] args, PyDict kwargs) : base(args, kwargs)
+        {
+            if (!AllocatingBlank) UnicodeTranslateErrorInit(this, args, kwargs);
+        }
+
+        internal void UnicodeTranslateErrorInit(PyObject self, PyObject[] args, PyDict kwargs) =>
+            UnicodeErrorInit(self, args, kwargs, "UnnU");
 
         public override string GetTypeName() => "UnicodeTranslateError";
         public override PyType GetPyType() => PyType.UnicodeTranslateErrorType;

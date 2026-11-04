@@ -173,23 +173,38 @@ internal static class PyExceptionSlots
                 self => ((PyOSError)MemberLayout(self)).CharactersWritten,
                 (self, value) => ((PyOSError)MemberLayout(self)).SetCharactersWritten(value),
                 deleter: self => ((PyOSError)MemberLayout(self)).SetCharactersWritten(null));
-        type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
+        // STORE_init of the type: it reads the arguments into the struct that tp_new allocated.
+        type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, InitOf(type.Name));
+        // OSError_new: the one tp_new of a type with fields that is not BaseException_new.
+        if (type.Name == "OSError")
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, PyOSError.NewSlot, acceptsKwargs: true);
+    }
+
+    private static Func<PyObject, PyObject[], PyDict, PyObject> InitOf(string store) => store switch
+    {
+        "OSError" => PyOSError.InitSlot,
+        "StopIteration" => (self, args, kwargs) => { ((PyStopIteration)StructOf(self)).StopIterationInit(self, args, kwargs); return PyNone.Instance; },
+        "ImportError" => (self, args, kwargs) => { ((PyImportError)StructOf(self)).ImportErrorInit(self, args, kwargs); return PyNone.Instance; },
+        "AttributeError" => (self, args, kwargs) => { ((PyAttributeError)StructOf(self)).AttributeErrorInit(self, args, kwargs); return PyNone.Instance; },
+        "NameError" => (self, args, kwargs) => { ((PyNameError)StructOf(self)).NameErrorInit(self, args, kwargs); return PyNone.Instance; },
+        "SyntaxError" => (self, args, kwargs) => { ((PySyntaxError)StructOf(self)).SyntaxErrorInit(self, args, kwargs); return PyNone.Instance; },
+        "UnicodeEncodeError" => (self, args, kwargs) => { ((PyUnicodeEncodeError)StructOf(self)).UnicodeEncodeErrorInit(self, args, kwargs); return PyNone.Instance; },
+        "UnicodeDecodeError" => (self, args, kwargs) => { ((PyUnicodeDecodeError)StructOf(self)).UnicodeDecodeErrorInit(self, args, kwargs); return PyNone.Instance; },
+        "UnicodeTranslateError" => (self, args, kwargs) => { ((PyUnicodeTranslateError)StructOf(self)).UnicodeTranslateErrorInit(self, args, kwargs); return PyNone.Instance; },
+        _ => throw new InvalidOperationException($"no {store}_init"),
+    };
+
+    /// <summary>The struct of self: the builtin object, or the one tp_new allocated for a subclass instance.</summary>
+    internal static PyBaseException StructOf(PyObject self)
+    {
+        if (Owner(self) is PyExceptionInstance instance)
         {
-            if (Owner(self) is PyExceptionInstance instance)
-            {
-                instance.Layout = (PyBaseException)NearestBuiltin(instance.InstanceType).Call(args, kwargs);
-                instance.ArgsSlot = instance.Layout.ArgsTuple;
-            }
-            else if (self is PyBaseException exception)
-            {
-                // A second __init__ resets every field, what it was not given included.
-                var fresh = (PyBaseException)exception.GetPyType().Call(args, kwargs);
-                exception.SetArgsTuple(fresh.ArgsTuple);
-                foreach (var name in names)
-                    exception.SetAttribute(name, fresh.GetAttribute(name));
-            }
-            return PyNone.Instance;
-        });
+            if (instance.Layout == null)
+                AllocateStruct(instance);
+            return instance.Layout ?? throw PyTypeError.Create($"'{self.GetTypeName()}' object has no exception fields");
+        }
+        return Owner(self) as PyBaseException ?? ToTransport(self) as PyBaseException
+            ?? throw PyTypeError.Create($"'{self.GetTypeName()}' object is not an exception");
     }
 
     /// <summary>PyErr_NewException: a module's exception class is an ordinary heap class.</summary>

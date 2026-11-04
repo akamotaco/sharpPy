@@ -1238,9 +1238,14 @@ namespace SharpPy
                 // PyException, so BaseExceptionGroup('m', [KeyboardInterrupt()]) reported a group
                 // with no members instead of refusing or keeping the member.
                 case "BaseExceptionGroup":
-                    return PyBaseExceptionGroup.NewGroup(args, PyType.BaseExceptionGroupType);
                 case "ExceptionGroup":
-                    return PyBaseExceptionGroup.NewGroup(args, PyType.ExceptionGroupType);
+                {
+                    // BaseExceptionGroup_new, then BaseExceptionGroup_init, which refuses keywords
+                    // under the name of the type the group became.
+                    var group = PyBaseExceptionGroup.NewGroup(args, this);
+                    PyBaseException.BaseExceptionInit(group, args, kwargs);
+                    return group;
+                }
                 case "mappingproxy":
                     // CPython 3.12: mappingproxy(dict) - create read-only dict proxy
                     if (args.Length != 1)
@@ -4188,10 +4193,7 @@ namespace SharpPy
                         PyBaseExceptionGroup.FillStruct(instance, args);
                     else if (created is PyExceptionInstance plain)
                         PyExceptionSlots.AllocateStruct(plain);
-                    // oserror_use_init: a subclass with its own __init__ parses its arguments there.
-                    bool initParses = created is PyExceptionInstance { InstanceType: var type } && type.IsSubclassOf(OSErrorType)
-                        && type.DeclaresUserSpecial("__init__") && !type.DeclaresUserSpecial("__new__");
-                    PyExceptionSlots.StoreArgs(created, initParses ? new PyObject[0] : args);
+                    PyExceptionSlots.StoreArgs(created, args);
                     return created;
                 },
                 minArgs: 0,
@@ -4200,12 +4202,15 @@ namespace SharpPy
 
             // BaseException_getset: one table for builtin exceptions and Python subclasses, reading the one
             // transport object. The value that comes out is always the object Python made.
-            foreach (var slot in new[] { "__traceback__", "__cause__", "__context__", "__suppress_context__" })
-            {
-                TypeDict[slot] = new PyGetSetDescriptor(slot, this,
-                    getter: self => PyExceptionSlots.ToTransport(self).GetAttribute(slot),
-                    setter: (self, value) => PyExceptionSlots.ToTransport(self).SetAttribute(slot, value));
-            }
+            static PyBaseException Head(PyObject self) => (PyBaseException)PyExceptionSlots.ToTransport(self);
+            TypeDict["__traceback__"] = new PyGetSetDescriptor("__traceback__", this, self => Head(self).TracebackGet(),
+                (self, value) => Head(self).TracebackSet(value), deleter: self => Head(self).TracebackSet(null));
+            TypeDict["__context__"] = new PyGetSetDescriptor("__context__", this, self => Head(self).ContextGet(),
+                (self, value) => Head(self).ContextSet(value), doc: "exception context", deleter: self => Head(self).ContextSet(null));
+            TypeDict["__cause__"] = new PyGetSetDescriptor("__cause__", this, self => Head(self).CauseGet(),
+                (self, value) => Head(self).CauseSet(value), doc: "exception cause", deleter: self => Head(self).CauseSet(null));
+            TypeDict["__suppress_context__"] = new PyMemberDescriptor("__suppress_context__", this, self => Head(self).SuppressContextGet(),
+                (self, value) => Head(self).SuppressContextSet(value), deleter: self => Head(self).SuppressContextSet(null));
 
             // BaseException_add_note: __notes__ is an ordinary attribute of the exception.
             TypeDict["add_note"] = new PyMethodDescriptor("add_note", this, (self, args, kwargs) =>
@@ -4228,7 +4233,8 @@ namespace SharpPy
 
             TypeDict["with_traceback"] = new PyMethodDescriptor("with_traceback", this, (self, args, kwargs) =>
             {
-                PyExceptionSlots.ToTransport(self).SetAttribute("__traceback__", args[0]);
+                // BaseException_with_traceback: PyException_SetTraceback.
+                ((PyBaseException)PyExceptionSlots.ToTransport(self)).TracebackSet(args[0]);
                 return self;
             }, 1, 1);
 

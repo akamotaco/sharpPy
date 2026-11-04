@@ -13,6 +13,16 @@ namespace SharpPy
     }
 
     /// <summary>
+    /// tp_dictoffset (PyObject_GetDictPtr): the instance dict a builtin object keeps in its own
+    /// struct, which PyObject_GenericGetAttr and _PyObject_GenericSetAttrWithDict read and write.
+    /// null when the object has none yet and create is false.
+    /// </summary>
+    public interface IObjectDict
+    {
+        PyDict ObjectDict(bool create);
+    }
+
+    /// <summary>
     /// Dict-backed instances that store attributes in a plain Dictionary.
     /// Provides default implementations of IInstanceDictAccessor over InstanceDict.
     /// </summary>
