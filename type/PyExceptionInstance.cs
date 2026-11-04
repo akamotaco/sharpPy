@@ -77,9 +77,11 @@ internal static class PyExceptionSlots
     /// <summary>Objects/exceptions.c: the *_members and *_getset tables of the types with fields.</summary>
     internal static string[] FieldsOfType(string typeName) => typeName switch
     {
-        "OSError" => new[] { "errno", "strerror", "filename", "filename2" },
+        "OSError" => OperatingSystem.IsWindows()
+            ? new[] { "errno", "strerror", "filename", "filename2", "winerror" }
+            : new[] { "errno", "strerror", "filename", "filename2" },
         "StopIteration" => new[] { "value" },
-        "ImportError" => new[] { "name", "path", "msg" },
+        "ImportError" => new[] { "msg", "name", "path", "name_from" },
         "AttributeError" => new[] { "name", "obj" },
         "NameError" => new[] { "name" },
         "SyntaxError" => new[] { "msg", "filename", "lineno", "offset", "text", "end_lineno", "end_offset",
@@ -162,9 +164,16 @@ internal static class PyExceptionSlots
         foreach (var name in names)
         {
             type.TypeDict[name] = new PyMemberDescriptor(name, type,
-                getter: self => LayoutOf(self)?.GetAttribute(name) ?? PyNone.Instance,
-                setter: (self, value) => LayoutOf(self)?.SetAttribute(name, value));
+                getter: self => MemberLayout(self) is { } layout && layout.TryGetMember(name, out var value)
+                    ? value ?? PyNone.Instance : PyNone.Instance,
+                setter: (self, value) => MemberLayout(self)?.TrySetMember(name, value),
+                deleter: self => MemberLayout(self)?.TrySetMember(name, null));
         }
+        if (type.Name == "OSError")
+            type.TypeDict["characters_written"] = new PyGetSetDescriptor("characters_written", type,
+                self => ((PyOSError)MemberLayout(self)).CharactersWritten,
+                (self, value) => ((PyOSError)MemberLayout(self)).SetCharactersWritten(value),
+                deleter: self => ((PyOSError)MemberLayout(self)).SetCharactersWritten(null));
         type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
         {
             if (Owner(self) is PyExceptionInstance instance)
@@ -198,6 +207,9 @@ internal static class PyExceptionSlots
         => new PythonException((PyBaseException)ToTransport(type.Call(new PyObject[] { new PyString(message) }, null)));
 
     internal static PyBaseException LayoutOf(PyObject self) => (Owner(self) as PyExceptionInstance)?.Layout;
+
+    // The struct a member descriptor reads: the builtin object itself, or a subclass instance's layout.
+    private static PyBaseException MemberLayout(PyObject self) => LayoutOf(self) ?? Owner(self) as PyBaseException;
 
     private static PyType NearestBuiltin(PyClass type)
     {

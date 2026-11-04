@@ -174,10 +174,6 @@ namespace SharpPy
             Hashed(PyType.UnionType);
             Compared(PyType.UnionType);
 
-            Members<PyObject>(PyType.ImportErrorType, Field, "name_from");
-            GetSets<PyObject>(PyType.OSErrorType, Field, "characters_written");
-            if (OperatingSystem.IsWindows())
-                Members<PyObject>(PyType.OSErrorType, Field, "winerror");
             // PEP 688: what memoryview(x) does, by the method.
             foreach (var type in new[] { PyType.BytesType, PyType.BytearrayType, PyType.MemoryViewType })
                 Wrapper(type, "__buffer__", (self, args) => PyType.MemoryViewType.Call(new[] { self }, null));

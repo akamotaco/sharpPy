@@ -118,7 +118,9 @@ namespace SharpPy
                 case "__dict__":
                     return Attributes;
                 default:
-                    if (_attributes != null && _attributes.TryGetStoredValue(new PyString(name), out var stored))
+                    // PyObject_GenericGetAttr: a data descriptor of the type comes before the dict.
+                    if (_attributes != null && _attributes.TryGetStoredValue(new PyString(name), out var stored)
+                        && !(GetPyType().FindNameInMro(name) is IDescriptor typeDescriptor && typeDescriptor.IsDataDescriptor()))
                         return stored;
                     return base.GetAttribute(name);
             }
@@ -127,6 +129,20 @@ namespace SharpPy
         // The dict every exception object has (PyException_HEAD): `e.note = 1`, __notes__.
         private PyDict _attributes;
         internal PyDict Attributes => _attributes ??= new PyDict();
+
+        /// <summary>
+        /// The struct slots a builtin exception type adds (Objects/exceptions.c, the *_members
+        /// tables). Only the member descriptors in the type's dict read and write them, so the
+        /// attribute and the descriptor give one answer. A null slot is NULL and reads as None.
+        /// </summary>
+        internal virtual bool TryGetMember(string name, out PyObject value)
+        {
+            value = null;
+            return false;
+        }
+
+        /// <summary>member_set: value null is the NULL a delete stores.</summary>
+        internal virtual bool TrySetMember(string name, PyObject value) => false;
 
         public override void SetAttribute(string name, PyObject value)
         {
@@ -196,7 +212,7 @@ namespace SharpPy
                         throw PyTypeError.Create("__traceback__ must be a traceback or None");
                     break;
                 default:
-                    if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is IDescriptor descriptor && descriptor.IsDataDescriptor())
+                    if (GetPyType().FindNameInMro(name) is IDescriptor descriptor && descriptor.IsDataDescriptor())
                         base.SetAttribute(name, value);
                     else
                         Attributes.SetItem(new PyString(name), value);
@@ -397,25 +413,25 @@ namespace SharpPy
         }
 
         public PyAttributeError(string message) : base(message) { }
-        public override PyObject GetAttribute(string name) => name switch
+        // AttributeError_members
+        internal override bool TryGetMember(string name, out PyObject value)
         {
-            "name" => _name ?? PyNone.Instance,
-            "obj" => _obj ?? PyNone.Instance,
-            _ => base.GetAttribute(name)
-        };
-
-        public override void SetAttribute(string name, PyObject value)
-        {
-            if (name == "name") _name = value;
-            else if (name == "obj") _obj = value;
-            else base.SetAttribute(name, value);
+            switch (name)
+            {
+                case "name": value = _name; return true;
+                case "obj": value = _obj; return true;
+            }
+            return base.TryGetMember(name, out value);
         }
 
-        public override void DelAttribute(string name)
+        internal override bool TrySetMember(string name, PyObject value)
         {
-            if (name == "name") _name = null;
-            else if (name == "obj") _obj = null;
-            else base.DelAttribute(name);
+            switch (name)
+            {
+                case "name": _name = value; return true;
+                case "obj": _obj = value; return true;
+            }
+            return base.TrySetMember(name, value);
         }
 
         public override PyType GetPyType() => PyType.AttributeErrorType;
@@ -445,19 +461,17 @@ namespace SharpPy
 
         public PyNameError(string message) : base(message) { }
 
-        public override PyObject GetAttribute(string name) =>
-            name == "name" ? _name : base.GetAttribute(name);
-
-        public override void SetAttribute(string name, PyObject value)
+        // NameError_members
+        internal override bool TryGetMember(string name, out PyObject value)
         {
-            if (name == "name") _name = value;
-            else base.SetAttribute(name, value);
+            if (name == "name") { value = _name; return true; }
+            return base.TryGetMember(name, out value);
         }
 
-        public override void DelAttribute(string name)
+        internal override bool TrySetMember(string name, PyObject value)
         {
-            if (name == "name") _name = PyNone.Instance;
-            else base.DelAttribute(name);
+            if (name == "name") { _name = value; return true; }
+            return base.TrySetMember(name, value);
         }
 
         public override PyType GetPyType() => PyType.NameErrorType;
@@ -707,22 +721,29 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.ImportErrorType;
         public override string GetTypeName() => "ImportError";
 
-        public override PyObject GetAttribute(string name) => name switch
+        // ImportError_members
+        internal override bool TryGetMember(string name, out PyObject value)
         {
-            "name" => _name ?? PyNone.Instance,
-            "path" => _path ?? PyNone.Instance,
-            "msg" => _msg ?? PyNone.Instance,
-            "name_from" => _nameFrom ?? PyNone.Instance,
-            _ => base.GetAttribute(name),
-        };
+            switch (name)
+            {
+                case "name": value = _name; return true;
+                case "path": value = _path; return true;
+                case "msg": value = _msg; return true;
+                case "name_from": value = _nameFrom; return true;
+            }
+            return base.TryGetMember(name, out value);
+        }
 
-        public override void SetAttribute(string name, PyObject value)
+        internal override bool TrySetMember(string name, PyObject value)
         {
-            if (name == "name") _name = value;
-            else if (name == "path") _path = value;
-            else if (name == "name_from") _nameFrom = value;
-            else if (name == "msg") _msg = value;
-            else base.SetAttribute(name, value);
+            switch (name)
+            {
+                case "name": _name = value; return true;
+                case "path": _path = value; return true;
+                case "msg": _msg = value; return true;
+                case "name_from": _nameFrom = value; return true;
+            }
+            return base.TrySetMember(name, value);
         }
 
         public new static System.Exception Create(string message, string moduleName = null)
@@ -812,23 +833,6 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.SystemExitType;
         public override string GetTypeName() => "SystemExit";
 
-        public override PyObject GetAttribute(string name)
-        {
-            if (name == "code") return Code;
-            return base.GetAttribute(name);
-        }
-
-        public override void SetAttribute(string name, PyObject value)
-        {
-            if (name == "code") { SetCode(value); return; }
-            base.SetAttribute(name, value);
-        }
-
-        public override void DelAttribute(string name)
-        {
-            if (name == "code") { ClearCode(); return; }
-            base.DelAttribute(name);
-        }
 
         /// <summary>
         /// The one place that decides a process status from a SystemExit code value, copied from
@@ -981,17 +985,21 @@ namespace SharpPy
             return new PyString(file != null ? $"{text} ({file})" : text);
         }
 
-        public override PyObject GetAttribute(string name)
+        // SyntaxError_members
+        internal override bool TryGetMember(string name, out PyObject value)
         {
             int field = Array.IndexOf(FieldNames, name);
-            return field >= 0 ? _fields[field] ?? PyNone.Instance : base.GetAttribute(name);
+            if (field < 0) return base.TryGetMember(name, out value);
+            value = _fields[field];
+            return true;
         }
 
-        public override void SetAttribute(string name, PyObject value)
+        internal override bool TrySetMember(string name, PyObject value)
         {
             int field = Array.IndexOf(FieldNames, name);
-            if (field >= 0) _fields[field] = value;
-            else base.SetAttribute(name, value);
+            if (field < 0) return base.TrySetMember(name, value);
+            _fields[field] = value;
+            return true;
         }
 
         public new static System.Exception Create(string message, string fileName = "<unknown>", int lineNumber = 0)
@@ -1034,17 +1042,17 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.StopIterationType;
         public override string GetTypeName() => "StopIteration";
 
-        public override PyObject GetAttribute(string name)
+        // StopIteration_members. Value stays non-null for the iteration protocol; NULL reads as None.
+        internal override bool TryGetMember(string name, out PyObject value)
         {
-            if (name == "value")
-                return Value;
-            return base.GetAttribute(name);
+            if (name == "value") { value = Value; return true; }
+            return base.TryGetMember(name, out value);
         }
 
-        public override void SetAttribute(string name, PyObject value)
+        internal override bool TrySetMember(string name, PyObject value)
         {
-            if (name == "value") Value = value;
-            else base.SetAttribute(name, value);
+            if (name == "value") { Value = value ?? PyNone.Instance; return true; }
+            return base.TrySetMember(name, value);
         }
 
         public new static System.Exception Create(PyObject value = null)
@@ -1513,46 +1521,46 @@ namespace SharpPy
         }
 
         public PyOSError(string message = "") : base(message) { }
-        public override PyObject GetAttribute(string name) => name switch
-        {
-            "errno" => _errno ?? PyNone.Instance,
-            "strerror" => _strerror ?? PyNone.Instance,
-            "filename" => _filename ?? PyNone.Instance,
-            "filename2" => Filename2 ?? PyNone.Instance,
-            "characters_written" => _filename2 is WrittenState state ? SmallIntCache.GetOrCreate(state.Value) : throw PyAttributeError.Create("characters_written"),
-            "winerror" when OperatingSystem.IsWindows() => _winerror ?? PyNone.Instance,
-            _ => base.GetAttribute(name)
-        };
-
-        public override void SetAttribute(string name, PyObject value)
+        // OSError_members
+        internal override bool TryGetMember(string name, out PyObject value)
         {
             switch (name)
             {
-                case "errno": _errno = value; break;
-                case "strerror": _strerror = value; break;
-                case "filename": _filename = value; break;
-                case "filename2": Filename2 = value; break;
-                case "characters_written": SetWritten(AsWrittenCount(value)); break;
-                case "winerror" when OperatingSystem.IsWindows(): _winerror = value; break;
-                default: base.SetAttribute(name, value); break;
+                case "errno": value = _errno; return true;
+                case "strerror": value = _strerror; return true;
+                case "filename": value = _filename; return true;
+                case "filename2": value = Filename2; return true;
+                case "winerror" when OperatingSystem.IsWindows(): value = _winerror; return true;
             }
+            return base.TryGetMember(name, out value);
         }
 
-        public override void DelAttribute(string name)
+        internal override bool TrySetMember(string name, PyObject value)
         {
             switch (name)
             {
-                case "errno": _errno = null; break;
-                case "strerror": _strerror = null; break;
-                case "filename": _filename = null; break;
-                case "filename2": Filename2 = null; break;
-                case "characters_written":
-                    if (_filename2 is not WrittenState) throw PyAttributeError.Create("characters_written");
-                    SetWritten(-1);
-                    break;
-                case "winerror" when OperatingSystem.IsWindows(): _winerror = null; break;
-                default: base.DelAttribute(name); break;
+                case "errno": _errno = value; return true;
+                case "strerror": _strerror = value; return true;
+                case "filename": _filename = value; return true;
+                case "filename2": Filename2 = value; return true;
+                case "winerror" when OperatingSystem.IsWindows(): _winerror = value; return true;
             }
+            return base.TrySetMember(name, value);
+        }
+
+        // OSError_getset: OSError_written_get and OSError_written_set.
+        internal PyObject CharactersWritten =>
+            _filename2 is WrittenState state ? SmallIntCache.GetOrCreate(state.Value) : throw PyAttributeError.Create("characters_written");
+
+        internal void SetCharactersWritten(PyObject value)
+        {
+            if (value == null)
+            {
+                if (_filename2 is not WrittenState) throw PyAttributeError.Create("characters_written");
+                SetWritten(-1);
+                return;
+            }
+            SetWritten(AsWrittenCount(value));
         }
 
         public override PyString AsString()
@@ -1854,17 +1862,30 @@ namespace SharpPy
         public override string GetTypeName() => "UnicodeError";
         public override PyType GetPyType() => PyType.UnicodeErrorType;
 
-        public override PyObject GetAttribute(string name)
+        // UnicodeError_members, which the three concrete types carry: start and end are T_PYSSIZET.
+        internal override bool TryGetMember(string name, out PyObject value)
         {
             int field = Array.IndexOf(FieldNames, name);
-            return field >= 0 && Fields[1] != null ? Fields[field] ?? PyNone.Instance : base.GetAttribute(name);
+            if (field < 0) return base.TryGetMember(name, out value);
+            value = Fields[field] ?? (field is 2 or 3 ? SmallIntCache.GetOrCreate(0) : null);
+            return true;
         }
 
-        public override void SetAttribute(string name, PyObject value)
+        internal override bool TrySetMember(string name, PyObject value)
         {
             int field = Array.IndexOf(FieldNames, name);
-            if (field >= 0 && Fields[1] != null) Fields[field] = value;
-            else base.SetAttribute(name, value);
+            if (field < 0) return base.TrySetMember(name, value);
+            if (field is 2 or 3)
+            {
+                // PyMember_SetOne: a numeric slot can't be NULL, and PyLong_AsSsize_t takes only an int.
+                if (value == null)
+                    throw PyTypeError.Create("can't delete numeric/char attribute");
+                if (value is not PyInt number)
+                    throw PyTypeError.Create("an integer is required");
+                value = new PyInt(number.Value);
+            }
+            Fields[field] = value;
+            return true;
         }
 
         public new static PythonException Create(string message = "")
