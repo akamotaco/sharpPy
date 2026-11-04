@@ -103,6 +103,12 @@ namespace SharpPy
                 case "enumerate":
                     InstallMethods(type, false, true, false);
                     break;
+                // dequeiter_methods and repeat_methods: __length_hint__ beside __reduce__.
+                case "_deque_iterator":
+                case "_deque_reverse_iterator":
+                case "repeat":
+                    InstallMethods(type, true, false, false);
+                    break;
                 default:
                     InstallMethods(type, false, false, false);
                     break;
@@ -632,7 +638,9 @@ namespace SharpPy
             return ProjectEntry(entry.Key, entry.Value);
         }
 
-        internal override PyObject RemainingHint() => new PyInt(_finished ? 0 : _remaining);
+        // dictiter_len: nothing is left once the dict is gone or no longer the size it was.
+        internal override PyObject RemainingHint() =>
+            new PyInt(_finished || _sizeFailed || _dictionary.Length() != _initialSize ? 0 : _remaining);
 
         // dictiter_reduce: a list of what is left
         internal override PyObject Reduce()

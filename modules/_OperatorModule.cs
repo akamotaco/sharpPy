@@ -329,7 +329,7 @@ namespace SharpPy.Modules
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"concat() takes exactly 2 arguments ({args.Length} given)");
-            return Number(args, BinaryOpType.ADD);
+            return PyVM.SequenceConcat(args[0], args[1]);
         }
 
         private static PyObject Contains(PyObject[] args)
@@ -370,7 +370,8 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"delitem() takes exactly 2 arguments ({args.Length} given)");
 
-            args[0].DelItem(args[1]);
+            // PyObject_DelItem
+            PyAbstract.DelItem(args[0], args[1]);
             return PyNone.Instance;
         }
 
@@ -378,7 +379,8 @@ namespace SharpPy.Modules
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"getitem() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].GetItem(args[1]);
+            // PyObject_GetItem
+            return PyAbstract.GetItem(args[0], args[1]);
         }
 
         private static PyObject IndexOf(PyObject[] args)
@@ -411,7 +413,8 @@ namespace SharpPy.Modules
             if (args.Length != 3)
                 throw PyTypeError.Create($"setitem() takes exactly 3 arguments ({args.Length} given)");
 
-            args[0].SetItem(args[1], args[2]);
+            // PyObject_SetItem
+            PyAbstract.SetItem(args[0], args[1], args[2]);
             return PyNone.Instance;
         }
 

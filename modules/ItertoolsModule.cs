@@ -692,6 +692,10 @@ namespace SharpPy
 
         public override string ToString() => 
             _remaining.HasValue ? $"repeat({_object}, {_remaining})" : $"repeat({_object})";
+
+        // repeat_len: an endless repeat has no length.
+        internal override PyObject RemainingHint() =>
+            _remaining.HasValue ? new PyInt(Math.Max(_remaining.Value, 0)) : throw PyTypeError.Create("len() of unsized object");
     }
 
     #endregion

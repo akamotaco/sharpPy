@@ -6112,6 +6112,32 @@ namespace SharpPy
             return SequenceOrTypeError(left, right, regular, operation);
         }
 
+        /// <summary>
+        /// PySequence_Concat (Objects/abstract.c): sq_concat of the left operand, or binary_op1 for
+        /// two objects that are both sequences, else "'X' object can't be concatenated".
+        /// </summary>
+        internal static PyObject SequenceConcat(PyObject s, PyObject o)
+        {
+            if (HasOnlySequenceSlot(s, BinaryOpType.ADD))
+            {
+                var joined = PyNativeStorage.Unwrap(s).Add(PyNativeStorage.Unwrap(o));
+                if (!ReferenceEquals(joined, PyNotImplemented.Instance))
+                    return joined;
+                return Instance.ExecuteBinaryOpType(s, o, BinaryOpType.ADD);
+            }
+            if (IsSequence(s) && IsSequence(o))
+            {
+                var result = Instance.BinaryOp1(s, o, BinaryOpType.ADD);
+                if (!ReferenceEquals(result, PyNotImplemented.Instance))
+                    return result;
+            }
+            throw PyTypeError.Create($"'{s.GetTypeName()}' object can't be concatenated");
+        }
+
+        // PySequence_Check: __getitem__ and not a dict.
+        private static bool IsSequence(PyObject value) =>
+            !(value is PyDict || value.GetPyType().IsSubclassOf(PyType.DictType)) && value.HasTypeSlot("__getitem__");
+
         // The tail of PyNumber_Add and PyNumber_Multiply, then binop_type_error.
         private PyObject SequenceOrTypeError(PyObject left, PyObject right, BinaryOpType operation, BinaryOpType shown)
         {

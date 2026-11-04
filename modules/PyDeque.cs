@@ -141,13 +141,9 @@ namespace SharpPy.Modules
                 self.DelItem(args[0]);
                 return PyNone.Instance;
             });
-            type.TypeDict["__reversed__"] = new PyMethodDescriptor("__reversed__", type, (self, args, kwargs) =>
-            {
-                var deque = (PyDeque)self;
-                var items = new PyList();
-                for (int i = deque._count - 1; i >= 0; i--) items.Append(deque.GetItem(new PyInt(i)));
-                return items.GetIterator();
-            }, 0, 0);
+            // deque_reviter: a _deque_reverse_iterator over the deque itself.
+            type.TypeDict["__reversed__"] = new PyMethodDescriptor("__reversed__", type,
+                (self, args, kwargs) => new PyDeque.DequeIterator((PyDeque)self, reverse: true), 0, 0);
 
             type.CollectionFlags = PyType.TPFLAGS_SEQUENCE;
             DequeType = type;
@@ -560,32 +556,43 @@ namespace SharpPy.Modules
             };
         }
 
-        private sealed class DequeIterator : PyIterator
+        // dequeiterobject: the deque, the position, the count left and the state it was made at.
+        internal sealed class DequeIterator : PyIterator
         {
             private readonly PyDeque _deque;
+            private readonly bool _reverse;
             private int _remaining;
             private int _index;
             private readonly int _state;
 
-            internal DequeIterator(PyDeque deque)
+            internal DequeIterator(PyDeque deque, bool reverse = false)
             {
                 _deque = deque;
+                _reverse = reverse;
                 _remaining = deque._count;
-                _index = 0;
+                _index = reverse ? deque._count - 1 : 0;
                 _state = deque._state;
             }
 
-            protected override string IteratorName => "_deque_iterator";
+            protected override string IteratorName => _reverse ? "_deque_reverse_iterator" : "_deque_iterator";
 
+            // dequeiter_next / dequereviter_next: a mutation empties the count, then raises.
             public override PyObject Next()
             {
+                if (_deque._state != _state)
+                {
+                    _remaining = 0;
+                    throw PyRuntimeError.Create("deque mutated during iteration");
+                }
                 if (_remaining == 0) throw PyStopIteration.Create();
-                if (_deque._state != _state) throw PyRuntimeError.Create("deque mutated during iteration");
                 var item = _deque._items[_deque.Phys(_index)];
-                _index++;
+                _index += _reverse ? -1 : 1;
                 _remaining--;
                 return item;
             }
+
+            // dequeiter_len
+            internal override PyObject RemainingHint() => new PyInt(_remaining);
         }
     }
 }
