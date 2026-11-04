@@ -1081,6 +1081,23 @@ namespace SharpPy.Modules
 
             type.TypeDict["__hash__"] = PyNone.Instance;
 
+            // array_methods (Modules/clinic/arraymodule.c.h): the calling convention of each method,
+            // checked before its body.
+            foreach (var (name, kind, min, max) in new (string, PyCall, int, int)[]
+            {
+                ("__copy__", PyCall.NoArgs, 0, 0), ("__deepcopy__", PyCall.One, 1, 1), ("count", PyCall.One, 1, 1),
+                ("index", PyCall.Fast, 1, 3), ("remove", PyCall.One, 1, 1), ("pop", PyCall.Fast, 0, 1),
+                ("extend", PyCall.Defining, 1, 1), ("insert", PyCall.Fast, 2, 2), ("buffer_info", PyCall.NoArgs, 0, 0),
+                ("append", PyCall.One, 1, 1), ("byteswap", PyCall.NoArgs, 0, 0), ("reverse", PyCall.NoArgs, 0, 0),
+                ("fromlist", PyCall.One, 1, 1), ("tolist", PyCall.NoArgs, 0, 0), ("frombytes", PyCall.One, 1, 1),
+                ("tobytes", PyCall.NoArgs, 0, 0), ("fromunicode", PyCall.One, 1, 1), ("tounicode", PyCall.NoArgs, 0, 0),
+                ("__reduce_ex__", PyCall.Defining, 1, 1),
+            })
+            {
+                if (type.TypeDict.TryGetValue(name, out var defined) && defined is PyMethodDescriptor method)
+                    type.TypeDict[name] = PyArgs.Method(type, name, kind, (self, args) => method._implementation(self, args, null), min, max);
+            }
+
             type.CollectionFlags = PyType.TPFLAGS_SEQUENCE;
             module.ModuleDict["array"] = type;
             module.ModuleDict["ArrayType"] = type;

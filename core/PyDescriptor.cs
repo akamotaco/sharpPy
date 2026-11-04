@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace SharpPy
 {
@@ -567,11 +568,56 @@ namespace SharpPy
                 throw PyTypeError.Create($"descriptor '{Name}' requires a '{OwnerType.FullName}' object but received a '{self.GetTypeName()}'");
             var actualArgs = new PyObject[args.Length - 1];
             Array.Copy(args, 1, actualArgs, 0, args.Length - 1);
+            CheckSlotArguments(actualArgs, kwargs);
 
             return _implementation(self, actualArgs, kwargs);
         }
 
         public override string ToString() => $"<slot wrapper '{Name}' of '{OwnerType.FullName}' objects>";
+
+        // slotdefs (Objects/typeobject.c): the wrap_* function of each slot, and with it the check of
+        // its arguments, the same for every type. check_num_args says "expected N argument(s), got M";
+        // PyArg_UnpackTuple(args, "", min, max) says the same with the empty name in front.
+        private static readonly Dictionary<string, (int Min, int Max, bool Unpack)> SlotArity = BuildSlotArity();
+
+        private static Dictionary<string, (int, int, bool)> BuildSlotArity()
+        {
+            var table = new Dictionary<string, (int, int, bool)>();
+            foreach (var name in ("__repr__ __str__ __hash__ __iter__ __next__ __len__ __bool__ __neg__ __pos__ __abs__ " +
+                                  "__invert__ __int__ __float__ __index__ __await__ __aiter__ __anext__ __del__").Split(' '))
+                table[name] = (0, 0, false);
+            foreach (var name in ("__lt__ __le__ __eq__ __ne__ __gt__ __ge__ __getattribute__ __delattr__ __getitem__ " +
+                                  "__delitem__ __contains__ __delete__ " +
+                                  "__add__ __radd__ __sub__ __rsub__ __mul__ __rmul__ __mod__ __rmod__ __divmod__ __rdivmod__ " +
+                                  "__lshift__ __rlshift__ __rshift__ __rrshift__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ " +
+                                  "__floordiv__ __rfloordiv__ __truediv__ __rtruediv__ __matmul__ __rmatmul__ " +
+                                  "__iadd__ __isub__ __imul__ __imod__ __ilshift__ __irshift__ __iand__ __ixor__ __ior__ " +
+                                  "__ifloordiv__ __itruediv__ __imatmul__").Split(' '))
+                table[name] = (1, 1, false);
+            foreach (var name in new[] { "__setitem__", "__setattr__", "__set__" })
+                table[name] = (2, 2, true);
+            foreach (var name in new[] { "__pow__", "__rpow__", "__ipow__", "__get__" })
+                table[name] = (1, 2, true);
+            foreach (var name in new[] { "__buffer__", "__release_buffer__" })
+                table[name] = (1, 1, true);
+            return table;
+        }
+
+        /// <summary>wrapperdescr_raw_call and the slot's wrap_* function: what is checked before the slot runs.</summary>
+        internal void CheckSlotArguments(PyObject[] args, PyDict kwargs)
+        {
+            if (!SlotArity.TryGetValue(Name, out var arity))
+                return;
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"wrapper {Name}() takes no keyword arguments");
+            if (!arity.Unpack)
+            {
+                if (args.Length != arity.Min)
+                    throw PyTypeError.Create($"expected {arity.Min} argument{(arity.Min == 1 ? "" : "s")}, got {args.Length}");
+                return;
+            }
+            PyArgs.Positional("", args, null, arity.Min, arity.Max);
+        }
     }
 
     /// <summary>
@@ -595,6 +641,7 @@ namespace SharpPy
 
         public override PyObject Call(PyObject[] args, PyDict kwargs)
         {
+            WrapperDescriptor.CheckSlotArguments(args, kwargs);
             return WrapperDescriptor._implementation(Instance, args, kwargs);
         }
 

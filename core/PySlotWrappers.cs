@@ -101,11 +101,7 @@ namespace SharpPy
 
         private static PyObject Run(PyType owner, PyObject self, string name, PyObject[] args, PyDict kwargs)
         {
-            // wrap_binaryfunc and the like: the arity of the slot.
-            int wanted = name is "__repr__" or "__str__" or "__hash__" or "__iter__" or "__next__" or "__len__" or
-                "__bool__" or "__abs__" or "__neg__" or "__pos__" or "__invert__" ? 0 : name is "__setitem__" ? 2 : name is "__call__" ? -1 : 1;
-            if (wanted >= 0 && args.Length != wanted)
-                throw PyTypeError.Create($"expected {wanted} argument{(wanted == 1 ? "" : "s")}, got {args.Length}");
+            // The arity of the slot is checked by the wrapper descriptor (CheckSlotArguments).
             if (ReferenceEquals(owner, PyType.ObjectType))
                 return RunObject(self, name, args);
             var value = PyNativeStorage.Unwrap(self);
