@@ -261,13 +261,18 @@ namespace SharpPy
         /// Convert object to int index or throw TypeError.
         /// CPython 3.12: Used for list/tuple/string indexing
         /// </summary>
+        /// <summary>
+        /// A sequence subscript: _PyIndex_Check, then PyNumber_AsSsize_t(item, PyExc_IndexError). A
+        /// Py_ssize_t that no CLR sequence can reach is clamped, so the caller's range check reports it.
+        /// </summary>
         public static int GetIndex(PyObject obj, string typeName)
         {
-            var index = TryGetIndex(obj);
-            if (index != null)
-                return (int)index.Value;
-
-            throw PyTypeError.Create($"{typeName} indices must be integers or slices, not {obj.GetTypeName()}");
+            var index = TryGetIndex(obj)
+                ?? throw PyTypeError.Create($"{typeName} indices must be integers or slices, not {obj.GetTypeName()}");
+            var value = index.Value;
+            if (value < long.MinValue || value > long.MaxValue)
+                throw PyIndexError.Create($"cannot fit '{obj.GetTypeName()}' into an index-sized integer");
+            return value > int.MaxValue ? int.MaxValue : value < int.MinValue ? int.MinValue : (int)value;
         }
 
         #endregion
@@ -339,7 +344,16 @@ namespace SharpPy
                         ? right.RichCompare(left, ReverseComparison(op)) : result;
                 }
             }
-            return ResolveComparison(left, right, op);
+            // PyObject_RichCompare: _Py_EnterRecursiveCallTstate(" in comparison") around do_richcompare.
+            PyCRecursion.Enter(" in comparison");
+            try
+            {
+                return ResolveComparison(left, right, op);
+            }
+            finally
+            {
+                PyCRecursion.Leave();
+            }
         }
 
         private static PyObject ResolveComparison(PyObject left, PyObject right, CompareOp op)

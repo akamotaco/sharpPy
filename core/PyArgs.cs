@@ -175,6 +175,31 @@ internal static class PyArgs
         return (long)index.Value;
     }
 
+    // PyNumber_AsSsize_t(value, PyExc_OverflowError): __index__, and an overflow named by the object.
+    internal static long IndexSsize(PyObject value)
+    {
+        var index = PyObject.TryGetIndex(value)
+            ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+        if (index.Value < long.MinValue || index.Value > long.MaxValue)
+            throw PyOverflowError.Create($"cannot fit '{value.GetTypeName()}' into an index-sized integer");
+        return (long)index.Value;
+    }
+
+    /// <summary>
+    /// The count sq_repeat receives as a Py_ssize_t. A repeat that cannot be allocated is the
+    /// MemoryError of list_repeat and the others (size > PY_SSIZE_T_MAX / n); an empty sequence
+    /// stays empty however large the count.
+    /// </summary>
+    internal static PyInt RepeatCount(PyObject sequence, long count)
+    {
+        if (count > int.MaxValue)
+        {
+            if (sequence.Length() == 0) return new PyInt(0);
+            throw PyMemoryError.Create();
+        }
+        return new PyInt(count);
+    }
+
     // The int converter: _PyLong_AsInt.
     internal static int Int(PyObject value)
     {

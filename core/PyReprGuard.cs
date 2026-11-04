@@ -20,8 +20,6 @@ namespace SharpPy
     /// </summary>
     internal static class PyReprGuard
     {
-        private const int CRecursionLimit = 3000;
-
         [ThreadStatic] private static HashSet<PyObject> Active;
 
         /// <summary>
@@ -30,19 +28,21 @@ namespace SharpPy
         /// </summary>
         internal static bool Enter(PyObject obj)
         {
-            PyObject.CheckNativeStack(" while getting the repr of an object");
             // Reference identity: these containers are unhashable in Python terms, a user class may
             // define __hash__ that matches other objects, and CPython marks the object, not a value.
             Active ??= new HashSet<PyObject>(ReferenceEqualityComparer.Instance);
-            // Py_EnterRecursiveCall: C_RECURSION_LIMIT, however much host stack there is.
-            if (Active.Count >= CRecursionLimit)
-                throw new PythonException(new PyRecursionError("maximum recursion depth exceeded while getting the repr of an object"));
-            return Active.Add(obj);
+            // PyObject_Repr's _Py_EnterRecursiveCall, the count C recursion shares.
+            PyCRecursion.Enter(" while getting the repr of an object");
+            if (Active.Add(obj))
+                return true;
+            PyCRecursion.Leave();
+            return false;
         }
 
         internal static void Leave(PyObject obj)
         {
-            Active?.Remove(obj);
+            if (Active != null && Active.Remove(obj))
+                PyCRecursion.Leave();
         }
     }
 }

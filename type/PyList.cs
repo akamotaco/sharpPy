@@ -697,11 +697,12 @@ namespace SharpPy
             _items[index] = value;
         }
 
+        // list_ass_subscript: an index (__index__ included), or a slice.
         public override void SetItem(PyObject index, PyObject value)
         {
-            if (index is PyInt intIndex)
+            if (index is not PySlice && TryGetIndex(index) != null)
             {
-                SetItem((int)intIndex.Value, value);
+                SetItem(GetIndex(index, "list"), value);
             }
             else if (index is PySlice slice)
             {

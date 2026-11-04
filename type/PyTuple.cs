@@ -189,7 +189,8 @@ namespace SharpPy
                     if (self is not PyTuple tuple)
                         throw PyTypeError.Create($"descriptor '__mul__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
 
-                    return tuple.Multiply(args[0]);
+                    // wrap_indexargfunc: the count is PyNumber_AsSsize_t(arg, PyExc_OverflowError).
+                    return tuple.Multiply(PyArgs.RepeatCount(tuple, PyArgs.IndexSsize(args[0])));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -204,7 +205,7 @@ namespace SharpPy
                     if (self is not PyTuple tuple)
                         throw PyTypeError.Create($"descriptor '__rmul__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
 
-                    return tuple.Multiply(args[0]);
+                    return tuple.Multiply(PyArgs.RepeatCount(tuple, PyArgs.IndexSsize(args[0])));
                 },
                 minArgs: 1, maxArgs: 1
             );

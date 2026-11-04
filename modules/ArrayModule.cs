@@ -1099,6 +1099,7 @@ namespace SharpPy.Modules
             }
 
             type.CollectionFlags = PyType.TPFLAGS_SEQUENCE;
+            PySlotWrappers.IndexArgRepeat(type);
             module.ModuleDict["array"] = type;
             module.ModuleDict["ArrayType"] = type;
             PyArray.Type = type;

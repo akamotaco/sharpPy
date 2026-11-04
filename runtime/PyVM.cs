@@ -6135,26 +6135,13 @@ namespace SharpPy
                 $"unsupported operand type(s) for {GetBinaryOpSymbol(shown)}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
         }
 
-        // sequence_repeat, Objects/abstract.c.
+        // sequence_repeat, Objects/abstract.c: _PyIndex_Check, then PyNumber_AsSsize_t with OverflowError.
         private static PyObject SequenceRepeat(PyObject sequence, PyObject count)
         {
-            PyInt index = count switch
-            {
-                PyBool truth => new PyInt(truth.Value ? 1 : 0),
-                PyInt number => number,
-                PyIntSubclass subclass => subclass.GetIntValue(),
-                _ => null,
-            };
-            if (index == null)
-            {
-                var method = count.LookupSpecialMethodUncached("__index__");
-                if (method == null)
-                    throw PyTypeError.Create($"can't multiply sequence by non-int of type '{count.GetTypeName()}'");
-                var value = count.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-                index = value as PyInt ?? (value as PyIntSubclass)?.GetIntValue()
-                    ?? throw PyTypeError.Create($"__index__ returned non-int (type {value.GetTypeName()})");
-            }
-            return PyNativeStorage.Unwrap(sequence).Multiply(index);
+            if (count is not (PyInt or PyBool or PyIntSubclass) && count.LookupSpecialMethodUncached("__index__") == null)
+                throw PyTypeError.Create($"can't multiply sequence by non-int of type '{count.GetTypeName()}'");
+            var native = PyNativeStorage.Unwrap(sequence);
+            return native.Multiply(PyArgs.RepeatCount(native, PyArgs.IndexSsize(count)));
         }
 
         /// <summary>

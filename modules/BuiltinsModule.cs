@@ -286,333 +286,180 @@ namespace SharpPy.Modules
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"isinstance() takes exactly 2 arguments ({args.Length} given)");
-
-            var obj = args[0];
-            var classInfo = args[1];
-
-            return PyBool.FromBool(ObjectRecursiveIsInstance(obj, classInfo));
-        }
-
-        // _PyObject_RealIsInstance and _PyObject_RealIsSubclass: type.__instancecheck__, no hook.
-        internal static PyObject RealIsInstance(PyObject instance, PyObject cls) => PyBool.FromBool(ObjectIsInstance(instance, cls));
-
-        internal static PyObject RealIsSubclass(PyObject derived, PyObject cls)
-        {
-            if (derived.LookupAttribute("__bases__") is not PyTuple)
-                throw PyTypeError.Create("issubclass() arg 1 must be a class");
-            if (cls.LookupAttribute("__bases__") is not PyTuple)
-                throw PyTypeError.Create("issubclass() arg 2 must be a class, a tuple of classes, or a union");
-            return PyBool.FromBool(derived is PyType type && cls is PyType target && type.IsSubclassOf(target));
-        }
-
-        /// <summary>
-        /// CPython 3.12: Objects/abstract.c:2602-2663 (object_recursive_isinstance)
-        /// Recursive isinstance check with tuple support.
-        /// </summary>
-        private static bool ObjectRecursiveIsInstance(PyObject inst, PyObject cls)
-        {
-            // CPython 3.12: Objects/abstract.c recursive_isinstance consults
-            // type(cls).__instancecheck__ BEFORE the default MRO test. ABCMeta and
-            // custom metaclasses override it; the plain "type" metaclass has none, so
-            // skip the lookup for the common case (metaclass is exactly type).
-            var icheckClass = cls.GetPyType();
-            if (icheckClass != null && !ReferenceEquals(icheckClass, PyType.TypeType))
-            {
-                // _PyObject_LookupSpecial: on the type, bound to cls. Errors in a hook propagate.
-                var icheck = icheckClass.LookupSpecial("__instancecheck__");
-                if (icheck != null)
-                    return cls.CallSpecial(icheck, inst).IsTrue();
-            }
-
-            // CPython 3.12: Objects/abstract.c:2604-2607
-            // Quick test for an exact match
-            if (inst.GetPyType() == cls)
-            {
-                return true;
-            }
-
-            // CPython 3.12: Objects/abstract.c:2609-2612
-            // We know what type's __instancecheck__ does.
-            if (cls is PyType pyTypeExact)
-            {
-                return ObjectIsInstance(inst, cls);
-            }
-
-            // CPython 3.12: Objects/abstract.c:2618-2636
-            // Check for tuple (recursively)
-            if (cls is PyTuple tuple)
-            {
-                for (int i = 0; i < tuple.Items.Length; i++)
-                {
-                    bool r = ObjectRecursiveIsInstance(inst, tuple.Items[i]);
-                    if (r)
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            // CPython 3.12: Objects/abstract.c:2638-2656
-            // Check for __instancecheck__ (custom metaclasses)
-            // For now, fall back to object_isinstance
-            return ObjectIsInstance(inst, cls);
-        }
-
-        /// <summary>
-        /// CPython 3.12: Objects/abstract.c:2566-2599 (object_isinstance)
-        /// Core isinstance implementation.
-        /// </summary>
-        private static bool ObjectIsInstance(PyObject inst, PyObject cls)
-        {
-            // CPython 3.12: Objects/abstract.c:2570-2586
-            // Fast path for PyType
-            if (cls is PyType pyType)
-            {
-                // Check if inst's type matches or is subclass of cls
-                var instType = inst.GetPyType();
-                if (instType == pyType)
-                    return true;
-
-                // CPython 3.12: Objects/abstract.c:2573-2585
-                // Check inst.__class__ if it differs from type(inst)
-                PyObject icls = inst.LookupAttribute("__class__");
-                if (icls != null)
-                {
-                    try
-                    {
-                        if (icls != instType && icls is PyType iclsType)
-                        {
-                            // Check if icls is subclass of cls
-                            return IsSubtypeOf(iclsType, pyType);
-                        }
-                    }
-                    finally
-                    {
-                        // In real CPython, we would Py_DECREF(icls) here
-                    }
-                }
-
-                // Check MRO of inst's type
-                return IsSubtypeOf(instType, pyType);
-            }
-
-            // CPython 3.12: Objects/abstract.c:2588-2596
-            // cls is not a PyType, validate it has __bases__
-            if (!CheckClass(cls, "isinstance() arg 2 must be a type, a tuple of types, or a union"))
-            {
-                throw PyTypeError.Create("isinstance() arg 2 must be a type, a tuple of types, or a union");
-            }
-
-            // Get inst.__class__
-            PyObject instClass = inst.LookupAttribute("__class__");
-            if (instClass != null)
-            {
-                try
-                {
-                    return AbstractIsSubclass(instClass, cls);
-                }
-                finally
-                {
-                    // In real CPython, we would Py_DECREF(instClass) here
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// CPython 3.12: Objects/abstract.c:2498-2563 (abstract_issubclass)
-        /// Check if derived is a subclass of cls.
-        /// </summary>
-        private static bool AbstractIsSubclass(PyObject derived, PyObject cls)
-        {
-            PyObject bases = null;
-
-            while (true)
-            {
-                // CPython 3.12: Objects/abstract.c:2506-2509
-                if (derived == cls)
-                {
-                    return true;
-                }
-
-                // CPython 3.12: Objects/abstract.c:2515 (abstract_get_bases)
-                bases = AbstractGetBases(derived);
-                if (bases == null)
-                {
-                    return false;
-                }
-
-                if (!(bases is PyTuple tuple))
-                {
-                    return false;
-                }
-
-                // CPython 3.12: Objects/abstract.c:2521-2525
-                int n = tuple.Items.Length;
-                if (n == 0)
-                {
-                    return false;
-                }
-
-                // CPython 3.12: Objects/abstract.c:2526-2530
-                // Avoid recursivity in the single inheritance case
-                if (n == 1)
-                {
-                    derived = tuple.Items[0];
-                    continue;
-                }
-
-                // CPython 3.12: Objects/abstract.c:2531-2544
-                // Multiple inheritance - check each base
-                for (int i = 0; i < n; i++)
-                {
-                    bool r = AbstractIsSubclass(tuple.Items[i], cls);
-                    if (r)
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// CPython 3.12: Objects/abstract.c:2484-2495 (abstract_get_bases)
-        /// Get __bases__ attribute, suppressing AttributeError.
-        /// Returns null if __bases__ doesn't exist or is not a tuple.
-        /// </summary>
-        private static PyObject AbstractGetBases(PyObject cls)
-        {
-            // CPython 3.12: Objects/abstract.c:2489
-            // (void)_PyObject_LookupAttr(cls, &_Py_ID(__bases__), &bases);
-            PyObject bases = cls.LookupAttribute("__bases__");
-
-            // CPython 3.12: Objects/abstract.c:2490-2493
-            if (bases != null && !(bases is PyTuple))
-            {
-                // Not a tuple, return null
-                return null;
-            }
-
-            return bases;
-        }
-
-        /// <summary>
-        /// Check if cls is a valid class (has __bases__ attribute).
-        /// CPython 3.12: Objects/abstract.c:2431-2456 (check_class)
-        /// </summary>
-        private static bool CheckClass(PyObject cls, string errorMessage)
-        {
-            // For PyType/PyClass, we know they're valid
-            if (cls is PyType || cls is PyClass)
-            {
-                return true;
-            }
-
-            // CPython 3.12: Objects/abstract.c:2440-2446
-            // Check if __bases__ exists
-            PyObject bases = AbstractGetBases(cls);
-            return bases != null;
-        }
-
-        /// <summary>
-        /// Check if derived type is subtype of base type.
-        /// Handles both PyType and PyClass.
-        /// </summary>
-        private static bool IsSubtypeOf(PyType derived, PyType baseType)
-        {
-            // Check MRO
-            foreach (var mroType in derived.MRO)
-            {
-                if (mroType == baseType)
-                    return true;
-            }
-            return false;
+            return PyBool.FromBool(ObjectRecursiveIsInstance(args[0], args[1]));
         }
 
         internal static PyObject IsSubclass(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"issubclass() takes exactly 2 arguments ({args.Length} given)");
+            return PyBool.FromBool(ObjectIsSubclass(args[0], args[1]));
+        }
 
-            var subclass = args[0];
-            var classInfo = args[1];
+        // _PyObject_RealIsInstance and _PyObject_RealIsSubclass: type.__instancecheck__ and
+        // type.__subclasscheck__, which consult no hook.
+        internal static PyObject RealIsInstance(PyObject instance, PyObject cls) => PyBool.FromBool(ObjectIsInstance(instance, cls));
 
-            // CPython 3.12: Check for tuple first (Objects/abstract.c:2701-2721)
-            if (classInfo is PyTuple tuple)
+        internal static PyObject RealIsSubclass(PyObject derived, PyObject cls) => PyBool.FromBool(RecursiveIsSubclass(derived, cls));
+
+        // PyType_CheckExact
+        private static bool IsExactType(PyObject cls) => cls is PyType && ReferenceEquals(cls.GetPyType(), PyType.TypeType);
+
+        // _PyUnion_Check, then _Py_union_args
+        private static PyObject UnionArgs(PyObject cls) => cls is SharpPy.PyUnionType union ? new PyTuple(union.Args) : cls;
+
+        /// <summary>object_recursive_isinstance (Objects/abstract.c of CPython v3.12.15).</summary>
+        private static bool ObjectRecursiveIsInstance(PyObject inst, PyObject cls)
+        {
+            // Quick test for an exact match
+            if (ReferenceEquals(inst.GetPyType(), cls))
+                return true;
+            // We know what type's __instancecheck__ does.
+            if (IsExactType(cls))
+                return ObjectIsInstance(inst, cls);
+            cls = UnionArgs(cls);
+            if (cls is PyTuple tuple)
             {
-                foreach (var item in tuple.Items)
+                // Not a general sequence -- that opens up the road to recursion and stack overflow.
+                PyCRecursion.Enter(" in __instancecheck__");
+                try
                 {
-                    // Recursively check each type in the tuple
-                    var result = IsSubclass(new PyObject[] { subclass, item });
-                    if (result == PyBool.True)
-                        return PyBool.True;
+                    foreach (var item in tuple.Items)
+                        if (ObjectRecursiveIsInstance(inst, item))
+                            return true;
+                    return false;
                 }
-                return PyBool.False;
-            }
-
-            // CPython 3.12: PyObject_IsSubclass consults a non-default __subclasscheck__
-            // on type(classInfo) BEFORE argument validation (abstract.c:2727-2739). The
-            // plain "type" metaclass has none, so skip the lookup for the common case.
-            var smetaclass = classInfo.GetPyType();
-            PyObject issubclassHook = null;
-            if (smetaclass != null && !ReferenceEquals(smetaclass, PyType.TypeType))
-            {
-                issubclassHook = smetaclass.LookupSpecial("__subclasscheck__");
-            }
-            if (issubclassHook != null)
-            {
-                // A custom __subclasscheck__ decides everything (incl. non-class arg 1).
-                // CPython coerces the result with PyObject_IsTrue; errors propagate.
-                return PyBool.FromBool(classInfo.CallSpecial(issubclassHook, subclass).IsTrue());
-            }
-
-            // recursive_issubclass default path (abstract.c:2675-2690): validate arg 1
-            // (derived) before arg 2 (cls), matching CPython's error precedence. A valid
-            // class exposes __bases__ as a tuple.
-            var subBases = subclass.LookupAttribute("__bases__");
-            if (subBases is not PyTuple)
-                throw PyTypeError.Create("issubclass() arg 1 must be a class");
-
-            var clsBases = classInfo.LookupAttribute("__bases__");
-            if (clsBases is not PyTuple)
-                throw PyTypeError.Create("issubclass() arg 2 must be a class, a tuple of classes, or a union");
-
-            // Fallback: check MRO directly
-            // CPython 3.12: Objects/abstract.c:2498-2563 (abstract_issubclass)
-            // Handle PyType (built-in types like int, bool, str, etc.)
-            if (subclass is PyType subPyType && classInfo is PyType classPyType)
-            {
-                return PyBool.FromBool(subPyType.IsSubclassOf(classPyType));
-            }
-
-            // Handle PyClass (user-defined classes)
-            if (subclass is PyClass subPyClass && classInfo is PyClass classPyClass)
-            {
-                foreach (var mroType in subPyClass.MRO)
+                finally
                 {
-                    if (ReferenceEquals(mroType, classPyClass))
-                        return PyBool.True;
+                    PyCRecursion.Leave();
                 }
             }
-
-            // Handle mixed case: PyClass subclass, PyType classInfo (e.g., MyClass subclass of object)
-            if (subclass is PyClass subPyClassMixed && classInfo is PyType classPyTypeMixed)
+            // _PyObject_LookupSpecial: on the type of cls, bound to cls.
+            var checker = cls.GetPyType().LookupSpecial("__instancecheck__");
+            if (checker != null)
             {
-                // Check if any type in the MRO matches the classInfo PyType
-                foreach (var mroType in subPyClassMixed.MRO)
+                PyCRecursion.Enter(" in __instancecheck__");
+                try
                 {
-                    if (mroType is PyType mroTypeAsType && ReferenceEquals(mroTypeAsType, classPyTypeMixed))
-                        return PyBool.True;
+                    return cls.CallSpecial(checker, inst).IsTrue();
                 }
-                // Check if classInfo is 'object' type - all classes inherit from object
-                if (classPyTypeMixed == PyType.ObjectType)
-                    return PyBool.True;
+                finally
+                {
+                    PyCRecursion.Leave();
+                }
             }
+            // cls has no __instancecheck__() method
+            return ObjectIsInstance(inst, cls);
+        }
 
-            return PyBool.False;
+        /// <summary>object_isinstance: the type of inst, then inst.__class__; or the __bases__ protocol.</summary>
+        private static bool ObjectIsInstance(PyObject inst, PyObject cls)
+        {
+            if (cls is PyType type)
+            {
+                var instType = inst.GetPyType();
+                if (ReferenceEquals(instType, type) || instType.IsSubclassOf(type))
+                    return true;
+                var icls = inst.LookupAttribute("__class__");
+                return icls != null && !ReferenceEquals(icls, instType) && icls is PyType iclsType && iclsType.IsSubclassOf(type);
+            }
+            CheckClass(cls, "isinstance() arg 2 must be a type, a tuple of types, or a union");
+            var instClass = inst.LookupAttribute("__class__");
+            return instClass != null && AbstractIsSubclass(instClass, cls);
+        }
+
+        /// <summary>abstract_issubclass: derived is cls or reaches it through __bases__.</summary>
+        private static bool AbstractIsSubclass(PyObject derived, PyObject cls)
+        {
+            PyTuple bases;
+            while (true)
+            {
+                if (ReferenceEquals(derived, cls))
+                    return true;
+                bases = AbstractGetBases(derived);
+                if (bases == null || bases.Items.Length == 0)
+                    return false;
+                // Avoid recursivity in the single inheritance case
+                if (bases.Items.Length == 1)
+                {
+                    derived = bases.Items[0];
+                    continue;
+                }
+                break;
+            }
+            PyCRecursion.Enter(" in __issubclass__");
+            try
+            {
+                foreach (var item in bases.Items)
+                    if (AbstractIsSubclass(item, cls))
+                        return true;
+                return false;
+            }
+            finally
+            {
+                PyCRecursion.Leave();
+            }
+        }
+
+        /// <summary>abstract_get_bases: __bases__ when it is a tuple; only AttributeError is suppressed.</summary>
+        private static PyTuple AbstractGetBases(PyObject cls) => cls.LookupAttribute("__bases__") as PyTuple;
+
+        /// <summary>check_class: a class is what has a tuple of __bases__.</summary>
+        private static void CheckClass(PyObject cls, string error)
+        {
+            if (AbstractGetBases(cls) == null)
+                throw PyTypeError.Create(error);
+        }
+
+        /// <summary>recursive_issubclass</summary>
+        private static bool RecursiveIsSubclass(PyObject derived, PyObject cls)
+        {
+            // Fast path (non-recursive)
+            if (cls is PyType target && derived is PyType type)
+                return ReferenceEquals(type, target) || type.IsSubclassOf(target);
+            CheckClass(derived, "issubclass() arg 1 must be a class");
+            if (cls is not SharpPy.PyUnionType)
+                CheckClass(cls, "issubclass() arg 2 must be a class, a tuple of classes, or a union");
+            return AbstractIsSubclass(derived, cls);
+        }
+
+        /// <summary>object_issubclass</summary>
+        private static bool ObjectIsSubclass(PyObject derived, PyObject cls)
+        {
+            // We know what type's __subclasscheck__ does.
+            if (IsExactType(cls))
+                return ReferenceEquals(derived, cls) || RecursiveIsSubclass(derived, cls);
+            cls = UnionArgs(cls);
+            if (cls is PyTuple tuple)
+            {
+                PyCRecursion.Enter(" in __subclasscheck__");
+                try
+                {
+                    foreach (var item in tuple.Items)
+                        if (ObjectIsSubclass(derived, item))
+                            return true;
+                    return false;
+                }
+                finally
+                {
+                    PyCRecursion.Leave();
+                }
+            }
+            var checker = cls.GetPyType().LookupSpecial("__subclasscheck__");
+            if (checker != null)
+            {
+                PyCRecursion.Enter(" in __subclasscheck__");
+                try
+                {
+                    return cls.CallSpecial(checker, derived).IsTrue();
+                }
+                finally
+                {
+                    PyCRecursion.Leave();
+                }
+            }
+            // Probably never reached anymore.
+            return RecursiveIsSubclass(derived, cls);
         }
 
         // The attribute builtins live in PyBuiltinFunction only. See P0-29 in docs/known_gaps.md for

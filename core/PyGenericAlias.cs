@@ -43,6 +43,11 @@ namespace SharpPy
         internal static void Install()
         {
             var type = PyType.GenericAliasType;
+            // ga_instancecheck and ga_subclasscheck (METH_O): a parameterized generic is no class.
+            type.TypeDict["__instancecheck__"] = PyArgs.Method(type, "__instancecheck__", PyCall.One, (self, args) =>
+                throw PyTypeError.Create("isinstance() argument 2 cannot be a parameterized generic"), 1, 1);
+            type.TypeDict["__subclasscheck__"] = PyArgs.Method(type, "__subclasscheck__", PyCall.One, (self, args) =>
+                throw PyTypeError.Create("issubclass() argument 2 cannot be a parameterized generic"), 1, 1);
             type.ConstructedByNewSlot = true;
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
             {

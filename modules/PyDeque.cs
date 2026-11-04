@@ -118,6 +118,7 @@ namespace SharpPy.Modules
 
             type.TypeDict["__imul__"] = new PyWrapperDescriptor("__imul__", type,
                 (self, args, kwargs) => { ((PyDeque)self).InPlaceMultiply(args[0].ToInt()); return self; });
+            PySlotWrappers.IndexArgRepeat(type);
 
             type.TypeDict["__copy__"] = new PyMethodDescriptor("__copy__", type,
                 (self, args, kwargs) => ((PyDeque)self).Copy(), 0, 0);

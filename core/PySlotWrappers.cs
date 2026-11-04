@@ -20,6 +20,28 @@ namespace SharpPy
                 return;
             _installed = true;
             AddAll();
+            foreach (var type in new[] { PyType.ListType, PyType.TupleType, PyType.StrType, PyType.BytesType, PyType.BytearrayType })
+                IndexArgRepeat(type);
+        }
+
+        /// <summary>
+        /// wrap_indexargfunc: the __mul__, __rmul__ and __imul__ of a type whose slot is sq_repeat or
+        /// sq_inplace_repeat take a count, PyNumber_AsSsize_t(arg, PyExc_OverflowError), not an operand.
+        /// </summary>
+        internal static void IndexArgRepeat(PyType type)
+        {
+            foreach (var name in new[] { "__mul__", "__rmul__", "__imul__" })
+            {
+                var table = type.TypeDict.ContainsKey(name) ? type.TypeDict : type.SlotDict.ContainsKey(name) ? type.SlotDict : null;
+                if (table?[name] is not PyWrapperDescriptor wrapper)
+                    continue;
+                var inner = wrapper._implementation;
+                table[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) =>
+                    inner(self, new PyObject[] { PyArgs.RepeatCount(PyNativeStorage.Unwrap(self), PyArgs.IndexSsize(args[0])) }, kwargs))
+                {
+                    CallsVirtual = wrapper.CallsVirtual,
+                };
+            }
         }
 
         private static void Add(PyType type, string names)
@@ -67,8 +89,6 @@ namespace SharpPy
             _ => PyObject.CompareOp.GE,
         };
 
-        private const int CRecursionLimit = 3000;
-        [ThreadStatic] private static int _strDepth;
 
         // object_richcompare, object_repr, object_str, _Py_HashPointer
         private static PyObject RunObject(PyObject self, string name, PyObject[] args)
@@ -89,11 +109,9 @@ namespace SharpPy
                     return new PyInt(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(self));
                 case "__str__":
                     // object_str: repr(self), which __repr__ = object.__str__ brings back here.
-                    if (_strDepth >= CRecursionLimit)
-                        throw new PythonException(new PyRecursionError("maximum recursion depth exceeded while calling a Python object"));
-                    _strDepth++;
+                    PyCRecursion.Enter(" while calling a Python object");
                     try { return self.ToRepr(); }
-                    finally { _strDepth--; }
+                    finally { PyCRecursion.Leave(); }
                 default:
                     return PyClass.ObjectRepr(self);
             }
