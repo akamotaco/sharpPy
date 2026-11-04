@@ -87,7 +87,7 @@ internal static class PyExceptionSlots
         "SyntaxError" => new[] { "msg", "filename", "lineno", "offset", "text", "end_lineno", "end_offset",
                                  "print_file_and_line" },
         "UnicodeDecodeError" or "UnicodeEncodeError" => new[] { "encoding", "object", "start", "end", "reason" },
-        "UnicodeTranslateError" => new[] { "object", "start", "end", "reason" },
+        "UnicodeTranslateError" => new[] { "encoding", "object", "start", "end", "reason" },
         _ => null,
     };
 
@@ -138,7 +138,6 @@ internal static class PyExceptionSlots
             return PyNone.Instance;
         }, 1);
         Method(PyType.ImportErrorType, "__reduce__", (self, args) => ReduceValue(self, ArgsTupleOf(self), StateWith(self, "name", "path")));
-        Method(PyType.ImportErrorType, "__getstate__", (self, args) => StateWith(self, "name", "path") ?? PyNone.Instance);
         Method(PyType.AttributeErrorType, "__getstate__", (self, args) => StateWith(self, "name", "args") ?? PyNone.Instance);
         Method(PyType.AttributeErrorType, "__reduce__", (self, args) => ReduceValue(self, ArgsTupleOf(self), StateWith(self, "name", "args")));
         Method(PyType.OSErrorType, "__reduce__", (self, args) =>
@@ -210,6 +209,29 @@ internal static class PyExceptionSlots
 
     // The struct a member descriptor reads: the builtin object itself, or a subclass instance's layout.
     private static PyBaseException MemberLayout(PyObject self) => LayoutOf(self) ?? Owner(self) as PyBaseException;
+
+    /// <summary>
+    /// tp_new allocates the struct of the type: the fields of the nearest builtin, all NULL until an
+    /// __init__ reads its arguments. A subclass whose __init__ never calls the base's still has them.
+    /// </summary>
+    internal static void AllocateStruct(PyExceptionInstance instance)
+    {
+        var builtin = NearestBuiltin(instance.InstanceType);
+        if (FieldsOfType(builtin.Name) == null && !builtin.IsSubclassOf(PyType.OSErrorType)
+            && !builtin.IsSubclassOf(PyType.ImportErrorType) && !builtin.IsSubclassOf(PyType.SyntaxErrorType)
+            && !builtin.IsSubclassOf(PyType.UnicodeErrorType))
+            return;
+        bool unicode = builtin.IsSubclassOf(PyType.UnicodeErrorType) && !ReferenceEquals(builtin, PyType.UnicodeErrorType);
+        PyUnicodeError.AllocatingBlank = unicode;
+        try
+        {
+            instance.Layout = (PyBaseException)builtin.Call(new PyObject[0], null);
+        }
+        finally
+        {
+            PyUnicodeError.AllocatingBlank = false;
+        }
+    }
 
     private static PyType NearestBuiltin(PyClass type)
     {

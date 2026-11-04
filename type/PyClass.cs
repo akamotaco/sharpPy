@@ -2246,66 +2246,16 @@ namespace SharpPy
             return new PyString($"<{modulePrefix}{InstanceType.QualNameText} object at 0x{GetHashCode():x}>");
         }
 
-        // CPython PyObject_Str: __str__가 **없는 경우에만** __repr__로 폴백한다.
-        // __str__ 호출 중 발생한 예외는 그대로 전파되고, 반환이 str이 아니면 TypeError다.
+        // PyObject_Str -> slot_tp_str: __str__ from the type (_PyType_Lookup), never the instance.
+        // object_str is repr(self); a builtin base's own slot is the value it stores.
         public override PyString AsString()
         {
-            bool hasStr = false;
-            PyObject result = null;
-
-            // Instance-level override wins in SharpPy's lookup order.
-            if (TryGetInstanceAttribute("__str__", out var ownStr))
-            {
-                hasStr = true;
-                result = ownStr.Call(new PyObject[0], null);
-            }
-
-            if (!hasStr)
-            {
-                foreach (var mroType in InstanceType.MRO)
-                {
-                    // Stop before reaching object type
-                    if (mroType.Name == "object")
-                        break;
-
-                    // Builtin types (BaseException, Exception, ...) expose __str__ in TypeDict
-                    if (mroType is PyType pyType && pyType.TypeDict.ContainsKey("__str__"))
-                    {
-                        // CPython: __str__ = None is found and then *called* -> TypeError,
-                        // it is not treated as "no __str__".
-                        if (pyType.TypeDict["__str__"] is PyNone)
-                        {
-                            hasStr = true;
-                            result = PyNone.Instance.Call(new PyObject[0], null);
-                        }
-                        else if (pyType.TypeDict["__str__"] is PyBuiltinFunction builtinFunc)
-                        {
-                            hasStr = true;
-                            result = builtinFunc.Call(new PyObject[] { this }, null);
-                        }
-                        break;
-                    }
-
-                    // User-defined classes
-                    if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__str__"))
-                    {
-                        if (customClass.ClassDict["__str__"] is PyNone)
-                        {
-                            hasStr = true;
-                            result = PyNone.Instance.Call(new PyObject[0], null);
-                        }
-                        else if (customClass.ClassDict["__str__"] is PyFunction func)
-                        {
-                            hasStr = true;
-                            result = new PyMethod(this, func).Call(new PyObject[0], null);
-                        }
-                        break;
-                    }
-                }
-            }
-
-            if (!hasStr)
+            var method = InstanceType.FindNameInMro("__str__");
+            if (method == null || ReferenceEquals(method, PyType.ObjectType.FindNameInMro("__str__")))
                 return ToRepr();
+            if (method is PyWrapperDescriptor { CallsVirtual: true })
+                return NativeStorage()?.AsString() ?? ToRepr();
+            var result = BindSpecialMethod(method).Call(new PyObject[0], null);
             if (result is PyString pyStr)
                 return pyStr;
             throw PyTypeError.Create($"__str__ returned non-string (type {result.GetTypeName()})");

@@ -95,6 +95,7 @@ namespace SharpPy
             Slot(PyType.UnionType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
             Slot(PyType.UnionType, "__or__", (self, args) => PyUnionType.Or(self, args[0]));
             TypeTables.Install();
+            PyExceptionTable.Install();
             InstallContainers();
             InstallViews();
             InstallIterators();

@@ -1518,8 +1518,6 @@ namespace SharpPy
                         InitializeBaseExceptionTypeDescriptors();
                     else if (Name == "SystemExit")
                         InitializeSystemExitTypeDescriptors();
-                    else if (Name == "KeyError")
-                        InitializeKeyErrorTypeDescriptors();
                     else if (PyExceptionSlots.FieldsOfType(Name) is string[] exceptionFields)
                         PyExceptionSlots.InstallFields(this, exceptionFields);
                     else if (Name == "slice")
@@ -4163,27 +4161,6 @@ namespace SharpPy
         /// BaseException 타입의 descriptor 테이블 초기화
         /// CPython reference: Objects/exceptions.c:79-105 (BaseException_str)
         /// </summary>
-        /// <summary>
-        /// KeyError.__str__ is KeyError_str (Objects/exceptions.c:2603, installed as tp_str): one argument
-        /// is shown with repr(), which is why KeyError('a') prints "'a'". SharpPy had that rule on the
-        /// CLR class only, so a Python subclass of KeyError printed the bare value - tp_str is
-        /// inherited, and inheriting it means the rule has to sit in this type's table.
-        /// </summary>
-        private void InitializeKeyErrorTypeDescriptors()
-        {
-            TypeDict["__str__"] = new PyBuiltinFunction("__str__", strArgs =>
-            {
-                if (strArgs.Length == 0)
-                    throw PyTypeError.Create(
-                        "descriptor '__str__' of 'KeyError' object needs an argument");
-                var keyArgs = PyExceptionSlots.ArgsOf(strArgs[0]);
-                if (keyArgs.Length == 0) return new PyString("");
-                if (keyArgs.Length == 1) return new PyString(keyArgs[0].ToRepr().Value);
-                return new PyString(
-                    $"({string.Join(", ", keyArgs.Select(a => a.ToRepr().Value))})");
-            });
-        }
-
         private void InitializeBaseExceptionTypeDescriptors()
         {
             // CPython 3.12: Objects/exceptions.c:56 BaseException_new. The slot is filled while the
@@ -4209,6 +4186,8 @@ namespace SharpPy
                         : wanted.CreateInstance(new PyObject[0], null);
                     if (created is PyExceptionInstance instance && heapIsGroup(instance))
                         PyBaseExceptionGroup.FillStruct(instance, args);
+                    else if (created is PyExceptionInstance plain)
+                        PyExceptionSlots.AllocateStruct(plain);
                     // oserror_use_init: a subclass with its own __init__ parses its arguments there.
                     bool initParses = created is PyExceptionInstance { InstanceType: var type } && type.IsSubclassOf(OSErrorType)
                         && type.DeclaresUserSpecial("__init__") && !type.DeclaresUserSpecial("__new__");
@@ -4284,31 +4263,7 @@ namespace SharpPy
                 return PyNone.Instance;
             });
 
-            // CPython 3.12: Objects/exceptions.c:79-105 (BaseException_str)
-            // BaseException.__str__(self) - returns str(args[0]) if len(args) == 1, else str(args)
-            TypeDict["__str__"] = new PyBuiltinFunction("__str__", args =>
-            {
-                if (args.Length == 0)
-                    throw PyTypeError.Create("descriptor '__str__' of 'BaseException' object needs an argument");
-
-                var self = args[0];
-                if (!self.GetPyType().IsSubclassOf(BaseExceptionType))
-                    throw PyTypeError.Create(
-                        $"descriptor '__str__' requires a 'BaseException' object but received a '{self.GetTypeName()}'");
-
-                if (PyExceptionSlots.LayoutOf(self) is PyBaseException layout)
-                    return layout.ToStr();
-
-                // One source. The old version read the instance dict for a Python subclass and the CLR
-                // field for a builtin one, which is how a raised object could report args through
-                // .args and something else through str().
-                var strArgs = PyExceptionSlots.ArgsOf(self);
-                if (strArgs.Length == 0)
-                    return new PyString("");
-                if (strArgs.Length == 1)
-                    return strArgs[0].ToStr();
-                return new PyString($"({string.Join(", ", strArgs.Select(a => a.ToRepr().Value))})");
-            });
+            // __str__ (BaseException_str) is installed with the other exceptions' tp_str (PyExceptionTable).
 
             // CPython 3.12: Objects/exceptions.c:785-795 (BaseException_args member descriptor)
             // BaseException.args - data descriptor (writable, with both getter and setter)

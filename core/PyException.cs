@@ -73,9 +73,12 @@ namespace SharpPy
         // args slot, so they read it through PyExceptionSlots.ArgsOf like the member descriptor
         // does. Before this, repr used the CLR field while a Python subclass instance kept its value
         // elsewhere - which is how a raised object could answer .args with ('z',) and repr with K().
-        public override PyString AsString()
+        public override PyString AsString() => BaseExceptionStr(this);
+
+        /// <summary>BaseException_str itself, which BaseException.__str__ calls whatever the subtype.</summary>
+        internal static PyString BaseExceptionStr(PyObject self)
         {
-            var args = PyExceptionSlots.ArgsOf(this);
+            var args = PyExceptionSlots.ArgsOf(self);
             if (args.Length == 0)
                 return PyString.Empty;
             if (args.Length == 1)
@@ -130,6 +133,11 @@ namespace SharpPy
         private PyDict _attributes;
         internal PyDict Attributes => _attributes ??= new PyDict();
 
+        // PyObject_GenericSetDict
+        internal void SetDict(PyObject value) =>
+            _attributes = value as PyDict ?? throw PyTypeError.Create(
+                $"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
+
         /// <summary>
         /// The struct slots a builtin exception type adds (Objects/exceptions.c, the *_members
         /// tables). Only the member descriptors in the type's dict read and write them, so the
@@ -179,8 +187,7 @@ namespace SharpPy
                     _args = replacement;
                     break;
                 case "__dict__":
-                    _attributes = value as PyDict ?? throw PyTypeError.Create(
-                        $"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
+                    SetDict(value);
                     return;
                 case "__cause__":
                     if (value is PyNone)
@@ -595,10 +602,15 @@ namespace SharpPy
         public PyKeyError(PyObject key) : base(new[] { key }, null) { }
         internal PyKeyError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
         public PyKeyError(string message) : base(message) { }
-        public override PyString AsString()
+        public override PyString AsString() => KeyErrorStr(this);
+
+        // KeyError_str (Objects/exceptions.c:2603)
+        // KeyError has no fields of its own: it reads the args of whatever object it is given.
+        internal static PyString KeyErrorStr(PyObject self)
         {
-            if (Args.Length != 1) return base.AsString();
-            var key = Args[0];
+            var args = PyExceptionSlots.ArgsOf(self);
+            if (args.Length != 1) return BaseExceptionStr(self);
+            var key = args[0];
             if (key is PyClassInstance)
             {
                 var method = key.LookupSpecialMethodUncached("__repr__");
@@ -704,6 +716,12 @@ namespace SharpPy
         }
 
         // ImportError_init (Objects/exceptions.c:1538): keywords name and path, msg from a single argument.
+        public override PyString AsString() => ImportErrorStr(this);
+
+        // ImportError_str: msg when it is exactly a str, otherwise BaseException_str of the object.
+        internal PyString ImportErrorStr(PyObject self) =>
+            _msg is PyString text && ReferenceEquals(text.GetPyType(), PyType.StrType) ? text : BaseExceptionStr(self);
+
         internal PyImportError(PyObject[] args, PyDict kwargs) : base(args)
         {
             if (args.Length == 1) _msg = args[0];
@@ -973,8 +991,10 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.SyntaxErrorType;
         public override string GetTypeName() => "SyntaxError";
 
+        public override PyString AsString() => SyntaxErrorStr();
+
         // SyntaxError_str (Objects/exceptions.c:2420).
-        public override PyString AsString()
+        internal PyString SyntaxErrorStr()
         {
             string text = (_fields[0] ?? PyNone.Instance).ToStr().Value;
             string file = (_fields[1] as PyString)?.Value;
@@ -1563,7 +1583,10 @@ namespace SharpPy
             SetWritten(AsWrittenCount(value));
         }
 
-        public override PyString AsString()
+        public override PyString AsString() => OSErrorStr(this);
+
+        // OSError_str (Objects/exceptions.c); self is the object whose args BaseException_str reads.
+        internal PyString OSErrorStr(PyObject self)
         {
             bool windowsError = OperatingSystem.IsWindows() && _winerror != null;
             var code = windowsError ? _winerror : _errno;
@@ -1577,7 +1600,7 @@ namespace SharpPy
                 }
                 return new PyString(text);
             }
-            return base.AsString();
+            return BaseExceptionStr(self);
         }
 
 
@@ -1913,8 +1936,10 @@ namespace SharpPy
         public override string GetTypeName() => "UnicodeDecodeError";
         public override PyType GetPyType() => PyType.UnicodeDecodeErrorType;
 
+        public override PyString AsString() => UnicodeDecodeErrorStr();
+
         // UnicodeDecodeError_str (Objects/exceptions.c:3012).
-        public override PyString AsString() => new PyString(Fields[1] == null ? "" : OneItem
+        internal PyString UnicodeDecodeErrorStr() => new PyString(Fields[1] == null ? "" : OneItem
             ? $"'{Encoding}' codec can't decode byte 0x{((PyBytes)Fields[1]).Value[Start]:x2} in position {Start}: {Reason}"
             : $"'{Encoding}' codec can't decode bytes in position {Start}-{End - 1}: {Reason}");
 
@@ -1937,8 +1962,10 @@ namespace SharpPy
         public override string GetTypeName() => "UnicodeEncodeError";
         public override PyType GetPyType() => PyType.UnicodeEncodeErrorType;
 
+        public override PyString AsString() => UnicodeEncodeErrorStr();
+
         // UnicodeEncodeError_str (Objects/exceptions.c:2891).
-        public override PyString AsString() => new PyString(Fields[1] == null ? "" : OneItem
+        internal PyString UnicodeEncodeErrorStr() => new PyString(Fields[1] == null ? "" : OneItem
             ? $"'{Encoding}' codec can't encode character '{BadCharacter()}' in position {Start}: {Reason}"
             : $"'{Encoding}' codec can't encode characters in position {Start}-{End - 1}: {Reason}");
 
@@ -1958,7 +1985,10 @@ namespace SharpPy
         public override string GetTypeName() => "UnicodeTranslateError";
         public override PyType GetPyType() => PyType.UnicodeTranslateErrorType;
 
-        public override PyString AsString() => new PyString(Fields[1] == null ? "" : OneItem
+        public override PyString AsString() => UnicodeTranslateErrorStr();
+
+        // UnicodeTranslateError_str
+        internal PyString UnicodeTranslateErrorStr() => new PyString(Fields[1] == null ? "" : OneItem
             ? $"can't translate character '{BadCharacter()}' in position {Start}: {Reason}"
             : $"can't translate characters in position {Start}-{End - 1}: {Reason}");
     }
