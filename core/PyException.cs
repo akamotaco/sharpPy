@@ -1401,17 +1401,9 @@ namespace SharpPy
             if (!SubclassErrnoMap.Entries.TryGetValue(hash, out var entry))
                 return new PyOSError(args, null, true);
 
-            // Every errnomap key is a distinct small positive int, so its hash
-            // equals its value. At most one equality call can be observable.
-            var method = number.LookupSpecialMethodUncached("__eq__");
-            // slot_tp_richcompare clears lookup/binding errors and returns
-            // NotImplemented, letting the builtin int comparison take over.
-            try { if (method != null) method = number.BindSpecialMethod(method); }
-            catch (PythonException) { method = null; }
-            var result = method == null ? PyNotImplemented.Instance
-                : method.Call(new PyObject[] { entry.Key }, null);
-            bool equal = result == PyNotImplemented.Instance
-                ? number.GetIntValue().Value == hash : result.IsTrue();
+            // Every errnomap key is a distinct small positive int, so its hash equals its value;
+            // PyDict_GetItemWithError compares the stored key with the asked one, once.
+            bool equal = PyObject.CompareBool(entry.Key, number, PyObject.CompareOp.EQ);
             return equal ? (PyOSError)entry.Type.Call(args, null) : new PyOSError(args, null, true);
         }
 

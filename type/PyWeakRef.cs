@@ -175,12 +175,7 @@ namespace SharpPy
 
         protected internal override PyString Repr() => SlotRepr();
 
-        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
-        {
-            var name = op == CompareOp.EQ ? "__eq__" : op == CompareOp.NE ? "__ne__" : null;
-            var declared = name == null ? null : this.CallUserSpecialOrNull(name, new[] { other });
-            return declared ?? SlotCompare(other, op);
-        }
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op) => SlotCompare(other, op);
 
         public override int ToHash() => SlotHash();
     }

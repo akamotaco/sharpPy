@@ -20,13 +20,6 @@ namespace SharpPy
         /// answered 99, ['t'] and 'user-tadd'). Every entry below is guarded by HasCustomType, so an
         /// exact tuple or bytes pays one field read; these are the hottest paths in the interpreter.
         /// </summary>
-        private PyObject CallDeclared(string dunder, PyObject[] args)
-        {
-            // LookupUserSpecial stops at the first non-PyClass MRO frame, so an exact tuple costs
-            // one GetPyType plus one type test and never reaches the call below.
-            var declared = LookupUserSpecial(dunder);
-            return declared == null ? null : BindSpecialMethod(declared).Call(args, null);
-        }
 
 
 
