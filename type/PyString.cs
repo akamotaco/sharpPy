@@ -3128,7 +3128,7 @@ namespace SharpPy
         // test where a non-str key raises TypeError. Converting the key via ToStr() was
         // wrong: `9 in "abc"` answered False where CPython raises
         // "'in <string>' requires string as left operand, not int".
-        public override PyBool Contains(PyObject item)
+        protected internal override PyBool ContainsItem(PyObject item)
         {
             if (item is PyString pyStr)
                 return PyBool.FromBool(Value.Contains(pyStr.Value));

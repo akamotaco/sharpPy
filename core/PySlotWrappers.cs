@@ -138,7 +138,7 @@ namespace SharpPy
                 case "__iter__": return value.Iter();
                 case "__next__": return value.IterNext();
                 case "__len__": return value is PyRange range ? new PyInt(range.ClampedLength()) : new PyInt(value.Len());
-                case "__contains__": return value.Contains(args[0]);
+                case "__contains__": return value.ContainsItem(args[0]);
                 case "__getitem__": return value.GetItem(args[0]);
                 case "__setitem__":
                     value.SetItem(args[0], args[1]);

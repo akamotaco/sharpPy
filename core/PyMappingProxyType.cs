@@ -48,7 +48,7 @@ namespace SharpPy
         }
 
         // mappingproxy_contains: PyDict_Contains for an exact dict, PySequence_Contains otherwise.
-        public override PyBool Contains(PyObject item)
+        protected internal override PyBool ContainsItem(PyObject item)
         {
             if (_table != null)
                 return PyBool.FromBool(item is PyString text && _table.ContainsKey(text.Value));

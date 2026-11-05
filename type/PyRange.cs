@@ -20,7 +20,7 @@ namespace SharpPy
         internal virtual BigInteger ExactLength => LengthUnsigned();
 
         // range_contains: arithmetic for an exact int or bool, a search for anything else.
-        public override PyBool Contains(PyObject item)
+        protected internal override PyBool ContainsItem(PyObject item)
         {
             if (item is PyBool truth) item = new PyInt(truth.Value ? 1 : 0);
             if (item is PyInt number && item.GetType() == typeof(PyInt))

@@ -491,7 +491,7 @@ namespace SharpPy.Modules.Stdlib
             Environment.SetEnvironmentVariable(keyStr.Value, valueStr.Value);
         }
 
-        public override PyBool Contains(PyObject key)
+        protected internal override PyBool ContainsItem(PyObject key)
         {
             var keyStr = key.ToStr();
             return PyBool.FromBool(Environment.GetEnvironmentVariable(keyStr.Value) != null);

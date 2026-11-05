@@ -2633,7 +2633,7 @@ namespace SharpPy
             TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", this, (self, args, kwargs) =>
                 PyNativeStorage.ForSet(self).Iter());
             TypeDict["__contains__"] = new PyWrapperDescriptor("__contains__", this, (self, args, kwargs) =>
-                PyNativeStorage.ForSet(self).Contains(args[0]));
+                PyNativeStorage.ForSet(self).ContainsItem(args[0]));
 
             var setType = this;
 
@@ -4113,7 +4113,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"descriptor '__contains__' for 'mappingproxy' objects doesn't apply to a '{self.GetTypeName()}' object");
 
                     // Call Contains which checks the underlying mapping
-                    return mappingProxy.Contains(args[0]);
+                    return mappingProxy.ContainsItem(args[0]);
                 },
                 minArgs: 1,
                 maxArgs: 1

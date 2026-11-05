@@ -104,14 +104,6 @@ namespace SharpPy
                 $"float() argument must be a string or a real number, not '{self.GetTypeName()}'");
         }
 
-        /// <summary>sq_contains/mp_contains: a declared __contains__ replaces the slot, and its
-        /// result is coerced to a bool the way sq_contains returns 0/1/-1.</summary>
-        internal static PyBool Contains(PyObject self, PyObject item, Func<PyBool> inherited)
-        {
-            var declared = self.CallUserSpecialOrNull("__contains__", new[] { item });
-            return declared != null ? PyBool.FromBool(declared.IsTrue()) : inherited();
-        }
-
         /// <summary>
         /// tp_getattro of a Python class over a builtin: slot_tp_getattr_hook (Objects/typeobject.c)
         /// calls a __getattribute__ the class writes, or PyObject_GenericGetAttr (self.GenericGetAttr),

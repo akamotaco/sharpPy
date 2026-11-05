@@ -79,7 +79,7 @@ namespace SharpPy.Modules
             // The sequence slots and the wrappers add_operators makes of them.
             type.TypeDict["__len__"] = new PyWrapperDescriptor("__len__", type, (self, args, kwargs) => new PyInt(Self(self).Size));
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => new PyDeque.DequeIterator(Self(self)));
-            type.TypeDict["__contains__"] = new PyWrapperDescriptor("__contains__", type, (self, args, kwargs) => PyBool.FromBool(Self(self).ContainsItem(args[0])));
+            type.TypeDict["__contains__"] = new PyWrapperDescriptor("__contains__", type, (self, args, kwargs) => PyBool.FromBool(Self(self).DequeContains(args[0])));
             type.TypeDict["__getitem__"] = new PyWrapperDescriptor("__getitem__", type, (self, args, kwargs) => Self(self).GetItem(args[0]));
             type.TypeDict["__setitem__"] = new PyWrapperDescriptor("__setitem__", type, (self, args, kwargs) =>
             {
@@ -609,7 +609,7 @@ namespace SharpPy.Modules
         }
 
         // deque_contains
-        internal bool ContainsItem(PyObject v)
+        internal bool DequeContains(PyObject v)
         {
             var b = _leftblock;
             int index = _leftindex;
@@ -631,7 +631,7 @@ namespace SharpPy.Modules
             return false;
         }
 
-        public override PyBool Contains(PyObject item) => PyBool.FromBool(ContainsItem(item));
+        protected internal override PyBool ContainsItem(PyObject item) => PyBool.FromBool(DequeContains(item));
 
         // _PyEval_SliceIndexNotNone
         private static long SliceIndexNotNone(PyObject value)

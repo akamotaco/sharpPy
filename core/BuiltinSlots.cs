@@ -265,7 +265,7 @@ namespace SharpPy
             Slot(array, "__len__", (self, args) => new PyInt(self.Len()));
             Slot(array, "__iadd__", (self, args) => ((PyByteArray)self).InPlaceConcat(args[0]));
             Slot(array, "__imul__", (self, args) => ((PyByteArray)self).InPlaceRepeat(args[0]));
-            Slot(array, "__contains__", (self, args) => self.Contains(args[0]));
+            Slot(array, "__contains__", (self, args) => self.ContainsItem(args[0]));
             Slot(array, "__getitem__", (self, args) => self.GetItem(args[0]));
             Slot(array, "__mod__", (self, args) => self.Modulo(args[0]));
             Slot(array, "__rmod__", (self, args) => args[0] is PyByteArray format ? format.Modulo(self) : PyNotImplemented.Instance);
@@ -292,7 +292,7 @@ namespace SharpPy
                 SetOperator(type, "xor", (a, b) => a.BitwiseXor(b));
             }
             Slot(PyType.FrozenSetType, "__len__", (self, args) => new PyInt(PyNativeStorage.ForFrozenSet(self).Len()));
-            Slot(PyType.FrozenSetType, "__contains__", (self, args) => PyNativeStorage.ForFrozenSet(self).Contains(args[0]));
+            Slot(PyType.FrozenSetType, "__contains__", (self, args) => PyNativeStorage.ForFrozenSet(self).ContainsItem(args[0]));
             Slot(PyType.FrozenSetType, "__iter__", (self, args) => PyNativeStorage.ForFrozenSet(self).Iter());
 
             Method(PyType.DictType, "__reversed__", (self, args) =>

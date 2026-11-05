@@ -72,7 +72,7 @@ namespace SharpPy
                     if (self is not PyTuple ct)
                         throw PyTypeError.Create($"descriptor '__contains__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
                     if (args.Length != 1) throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                    return ct.Stored.Contains(args[0]);
+                    return ct.Stored.ContainsItem(args[0]);
                 }, minArgs: 1, maxArgs: 1);
 
             tupleType.TypeDict["__getnewargs__"] = new PyMethodDescriptor(
@@ -456,7 +456,7 @@ namespace SharpPy
         /// 요소 포함 여부 확인 (in 연산자)
         /// CPython: __contains__ magic method
         /// </summary>
-        public override PyBool Contains(PyObject item)
+        protected internal override PyBool ContainsItem(PyObject item)
         {
             // Performance: Eliminated LINQ (.Any) - manual search
             for (int i = 0; i < Items.Length; i++)

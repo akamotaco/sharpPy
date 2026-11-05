@@ -69,17 +69,6 @@ namespace SharpPy
 
         public override PyObject Multiply(PyObject other) => Op("__mul__", other, () => base.Multiply(other));
 
-        public override PyBool Contains(PyObject item)
-        {
-            // CPython coerces __contains__'s result with truthiness, it does not require a bool.
-            var declared = LookupUserSpecial("__contains__");
-            if (declared != null)
-                return BindSpecialMethod(declared).Call(new PyObject[] { item }, null).IsTrue()
-                    ? PyBool.True
-                    : PyBool.False;
-            return base.Contains(item);
-        }
-
         public override PyObject GetItem(PyObject index) =>
             Op("__getitem__", index, () => base.GetItem(index));
 

@@ -1029,7 +1029,7 @@ namespace SharpPy
         /// <summary>
         /// CPython __contains__ 메소드 구현 - in 연산자 지원
         /// </summary>
-        public override PyBool Contains(PyObject item) => PyBool.FromBool(RawContains(item));
+        protected internal override PyBool ContainsItem(PyObject item) => PyBool.FromBool(RawContains(item));
 
         /// <summary>
         /// PyList 동등성 비교 - CPython 호환

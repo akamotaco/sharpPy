@@ -736,7 +736,7 @@ namespace SharpPy
         /// <summary>
         /// 키 포함 여부 확인 (in 연산자)
         /// </summary>
-        public override PyBool Contains(PyObject key)
+        protected internal override PyBool ContainsItem(PyObject key)
         {
             return PyBool.FromBool(_dict.ContainsKey(key));
         }
@@ -1494,7 +1494,7 @@ namespace SharpPy
         public override bool ContainsKey(PyObject key) => CanUseHostLookup(key)
             ? TryGetHostValue(((PyString)key).Value, out _) : base.ContainsKey(key);
 
-        public override PyBool Contains(PyObject key) => PyBool.FromBool(ContainsKey(key));
+        protected internal override PyBool ContainsItem(PyObject key) => PyBool.FromBool(ContainsKey(key));
 
         public override void SetItem(PyObject key, PyObject value)
         {

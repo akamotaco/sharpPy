@@ -39,7 +39,20 @@ namespace SharpPy
         }
 
         // Version 0 is never a tag, so every slot starts undecided.
-        private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool;
+        private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool, _sqContains;
+
+        internal PyBool ContainsSlot(PyObject self, PyObject item)
+        {
+            ref var slot = ref UpdateOneSlot(ref _sqContains, "__contains__");
+            if (slot.Specific != null)
+                return PyBool.FromBool(slot.Specific._implementation(self, new[] { item }, null).IsTrue());
+            if (slot.Generic == null)
+                return IterSearchContains(self, item);
+            // slot_sq_contains: __contains__ = None refuses; the answer is PyObject_IsTrue.
+            if (slot.Generic is PyNone)
+                throw PyTypeError.Create($"'{Name}' object is not a container");
+            return PyBool.FromBool(self.BindSpecialMethod(slot.Generic).Call(new[] { item }, null).IsTrue());
+        }
 
         internal long LenSlot(PyObject self)
         {
@@ -1543,19 +1556,6 @@ namespace SharpPy
         }
 
         // CPython 3.12: Dict subclasses support 'in' operator
-        public override PyBool Contains(PyObject item)
-        {
-            // A declared dunder comes first, because in CPython sq_contains is the slot wrapper
-            // around __contains__; consulting the storage first skipped the class's own method.
-            var declaredContains = CallUserSpecialOrNull("__contains__", new[] { item });
-            if (declaredContains != null)
-                return PyBool.FromBool(declaredContains.IsTrue());
-            var container = NativeStorage();
-            if (container != null)
-                return container.Contains(item);
-            return base.Contains(item);
-        }
-
         // CPython 3.12: str subclasses inherit sq_length/unicode_length.
         /// <summary>
         /// CPython 3.12: Get next item by calling __next__ method
@@ -2324,9 +2324,6 @@ namespace SharpPy
         // update_one_slot: a declared __repr__ or __str__ replaces the slot, otherwise tuple's stays.
 
 
-
-        public override PyBool Contains(PyObject item) =>
-            SubclassInstanceSupport.Contains(this, item, () => base.Contains(item));
 
         public override PyObject GetItem(PyObject index) =>
             CallUserSpecialOrNull("__getitem__", new[] { index }) ?? base.GetItem(index);

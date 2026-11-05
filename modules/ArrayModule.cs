@@ -233,7 +233,7 @@ namespace SharpPy.Modules
 
             protected internal override PyObject Iter() => new PyArrayIterator(this);
 
-            public override PyBool Contains(PyObject item)
+            protected internal override PyBool ContainsItem(PyObject item)
             {
                 for (int i = 0; i < _count; i++)
                 {
@@ -1066,7 +1066,7 @@ namespace SharpPy.Modules
 
             type.TypeDict["__contains__"] = new PyWrapperDescriptor("__contains__", type, (self, args, kwargs) =>
             {
-                return ((PyArray)self).Contains(args[0]);
+                return ((PyArray)self).ContainsItem(args[0]);
             });
 
             type.TypeDict["typecode"] = new PyGetSetDescriptor("typecode", type, self =>

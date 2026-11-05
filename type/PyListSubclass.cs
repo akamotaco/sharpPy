@@ -59,9 +59,6 @@ namespace SharpPy
         // update_one_slot makes once (Objects/typeobject.c). See SubclassInstanceSupport.
 
 
-        public override PyBool Contains(PyObject item) =>
-            SubclassInstanceSupport.Contains(this, item, () => base.Contains(item));
-
 
         public override PyInt AsInt() => SubclassInstanceSupport.Int(this);
 

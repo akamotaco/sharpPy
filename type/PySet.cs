@@ -347,7 +347,7 @@ namespace SharpPy
         /// <summary>
         /// 요소 포함 여부 확인 (in 연산자)
         /// </summary>
-        public override PyBool Contains(PyObject item)
+        protected internal override PyBool ContainsItem(PyObject item)
         {
             return PyBool.FromBool(WithSetKey(item, _items.Contains));
         }
@@ -827,7 +827,7 @@ namespace SharpPy
 
         #region Set Operations (Read-only versions)
 
-        public override PyBool Contains(PyObject item) => PyBool.FromBool(PySet.WithSetKey(item, _items.Contains));
+        protected internal override PyBool ContainsItem(PyObject item) => PyBool.FromBool(PySet.WithSetKey(item, _items.Contains));
         
         public PyFrozenSet Union(PyObject other) => new PyFrozenSet(new PySet(_items).Union(other).Items);
         public PyFrozenSet Intersection(PyObject other) => new PyFrozenSet(new PySet(_items).Intersection(other).Items);

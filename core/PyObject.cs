@@ -1545,50 +1545,48 @@ namespace SharpPy
         /// 요소 포함 여부 확인 (__contains__)
         /// CPython 3.12: PySequence_Contains (Objects/abstract.c:2260-2297)
         /// </summary>
-        public virtual PyBool Contains(PyObject item)
+        /// <summary>
+        /// The sq_contains function of this object's CLR implementation. A builtin's slot may be
+        /// only the function of the wrapper in its dict; without one, _PySequence_IterSearch.
+        /// </summary>
+        protected internal virtual PyBool ContainsItem(PyObject item)
         {
-            // CPython 3.12: Try __contains__ first (Objects/abstract.c:2266-2278)
-            try
+            switch (GetPyType().FindNameInMro("__contains__"))
             {
-                var containsMethod = PyGetAttribute("__contains__");
-                if (containsMethod != null && containsMethod != PyNone.Instance)
-                {
-                    var result = containsMethod.Call(new PyObject[] { item }, null);
-                    return PyBool.FromBool(result.IsTrue());
-                }
+                case PyWrapperDescriptor wrapper:
+                    return PyBool.FromBool(wrapper._implementation(this, new[] { item }, null).IsTrue());
+                case PyMethodDescriptor method:
+                    return PyBool.FromBool(method._implementation(this, new[] { item }, null).IsTrue());
             }
-            catch (PythonException ex) when (ex.PyException is PyAttributeError)
-            {
-                // __contains__ not found, try iteration fallback
-            }
+            return IterSearchContains(this, item);
+        }
 
-            // CPython 3.12: PySequence_Contains (Objects/abstract.c:2279-2297).
-            // Only a missing iteration protocol yields "argument of type ... is not
-            // iterable"; exceptions raised while iterating propagate unchanged.
-            PyObject iter;
+        /// <summary>
+        /// PySequence_Contains (Objects/abstract.c): the type's sq_contains, else iteration; a class
+        /// written in Python has the slot update_one_slot gave it.
+        /// </summary>
+        public PyBool Contains(PyObject item) =>
+            GetPyType() is SharpPy.PyClass heap ? heap.ContainsSlot(this, item) : ContainsItem(item);
+
+        /// <summary>_PySequence_IterSearch with PY_ITERSEARCH_CONTAINS.</summary>
+        internal static PyBool IterSearchContains(PyObject seq, PyObject item)
+        {
+            PyObject iterator;
             try
             {
-                iter = GetIterator();
+                iterator = seq.GetIterator();
             }
             catch (PythonException ex) when (ex.PyException is PyTypeError)
             {
-                throw PyTypeError.Create($"argument of type '{GetTypeName()}' is not iterable");
+                throw PyTypeError.Create($"argument of type '{seq.GetPyType().FullName}' is not iterable");
             }
             while (true)
             {
-                try
-                {
-                    var current = iter.Next();
-                    // CPython: Use rich comparison for equality check
-                    if (CompareBool(current, item, CompareOp.EQ))
-                    {
-                        return PyBool.True;
-                    }
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                {
-                    return PyBool.False;
-                }
+                PyObject current;
+                try { current = iterator.Next(); }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration) { return PyBool.False; }
+                if (CompareBool(current, item, CompareOp.EQ))
+                    return PyBool.True;
             }
         }
 

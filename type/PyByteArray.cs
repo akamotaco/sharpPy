@@ -553,7 +553,7 @@ namespace SharpPy
         /// <summary>
         /// __contains__ - Check if byte or bytes is in bytearray
         /// </summary>
-        public override PyBool Contains(PyObject item) => PyBool.FromBool(BytesMethods.Contains(ToByteArrayCopy(), item));
+        protected internal override PyBool ContainsItem(PyObject item) => PyBool.FromBool(BytesMethods.Contains(ToByteArrayCopy(), item));
 
         protected internal override PyObject Iter()
         {

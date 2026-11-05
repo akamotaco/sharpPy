@@ -1283,7 +1283,7 @@ namespace SharpPy
         /// <summary>
         /// bytes containment check
         /// </summary>
-        public override PyBool Contains(PyObject item) => PyBool.FromBool(BytesMethods.Contains(Value, item));
+        protected internal override PyBool ContainsItem(PyObject item) => PyBool.FromBool(BytesMethods.Contains(Value, item));
 
         /// <summary>
         /// Helper method to find index of byte sequence

@@ -69,12 +69,7 @@ namespace SharpPy
         public override PyList AsList() => new PyList(new List<PyObject>(PySet.IterableItems(this)));
 
 
-        public override PyBool Contains(PyObject item)
-        {
-            // `x in s` is always a bool: CPython coerces whatever __contains__ returns.
-            var declared = CallUserSpecialOrNull("__contains__", new[] { item });
-            return declared == null ? _strValue.Contains(item) : PyBool.FromBool(declared.IsTrue());
-        }
+        protected internal override PyBool ContainsItem(PyObject item) => _strValue.ContainsItem(item);
 
 
         /// <summary>

@@ -88,7 +88,7 @@ namespace SharpPy
             return target.Next();
         }
 
-        public override PyBool Contains(PyObject item) => Target.Contains(item);
+        protected internal override PyBool ContainsItem(PyObject item) => Target.Contains(item);
 
         public override PyObject GetItem(PyObject index) => PyAbstract.GetItem(Target, index);
 
