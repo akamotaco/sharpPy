@@ -733,7 +733,7 @@ namespace SharpPy
             return new PyBytes(Data).ToHash();
         }
 
-        internal override long GetPythonHash()
+        protected internal override long Hash()
         {
             ToHash();
             return PyHash.Bytes(Data);

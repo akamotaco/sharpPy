@@ -99,7 +99,7 @@ namespace SharpPy
         }
 
         // range_hash: hash((len, start, step)), None for what does not distinguish the sequence.
-        internal override long GetPythonHash()
+        protected internal override long Hash()
         {
             var length = ExactLength;
             PyObject first = length.IsZero ? PyNone.Instance : new PyInt(Start);

@@ -809,7 +809,7 @@ namespace SharpPy
         #region Hash and Equality
 
         private long? cachedHash;
-        internal override long GetPythonHash() => cachedHash ??= _items.FrozenHash();
+        protected internal override long Hash() => cachedHash ??= _items.FrozenHash();
         public override int ToHash() => unchecked((int)GetPythonHash());
 
         protected override PyObject PyEquals(PyObject other)

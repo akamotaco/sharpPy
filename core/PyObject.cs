@@ -138,66 +138,24 @@ namespace SharpPy
 
         public override int GetHashCode() => ToHash();
 
-        internal virtual long GetPythonHash()
+        /// <summary>
+        /// The tp_hash function of this object's CLR implementation: what ToHash gives for a
+        /// builtin that keeps its hash there, object's identity hash otherwise. A builtin whose
+        /// tp_hash is PyObject_HashNotImplemented says so with __hash__ = None in its dict.
+        /// </summary>
+        protected internal virtual long Hash()
         {
-            if (_customType == null)
-            {
-                if (this is PyInt number) return PyInt.PythonHash(number.Value);
-                if (this is PyBool boolean) return boolean.Value ? 1 : 0;
-                if (this is PyFloat real) return real.PythonHash();
-                if (this is PyNone) return ToHash();
-            }
-            // unicode_hash and bytes_hash, unless the class says otherwise.
-            if (this is PyString text && (text.GetType() == typeof(PyString) || LookupUserSpecial("__hash__") == null))
-                return PyHash.Text(text.Value);
-            if (this is PyStrSubclass derived && LookupUserSpecial("__hash__") == null)
-                return PyHash.Text(derived.GetStrValue().Value);
-            if (this is PyBytes bytes && (bytes.GetType() == typeof(PyBytes) || LookupUserSpecial("__hash__") == null))
-                return PyHash.Bytes(bytes.Value);
-            var method = LookupSpecialMethodUncached("__hash__");
-            if (method != null)
-            {
-                if (method == PyNone.Instance)
-                    throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
-                PyObject bound;
-                try { bound = BindSpecialMethod(method); }
-                catch (PythonException) { throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'"); }
-                var result = bound.Call(Array.Empty<PyObject>(), null);
-                var integer = result as PyInt ?? (result as PyIntSubclass)?.GetIntValue();
-                System.Numerics.BigInteger value;
-                if (integer != null) value = integer.Value;
-                else if (result is PyBool flag) value = flag.Value ? 1 : 0;
-                else throw PyTypeError.Create("__hash__ method should return an integer");
-                long hash = value < nint.MinValue || value > nint.MaxValue ? PyInt.PythonHash(value) : (long)value;
-                return hash == -1 ? -2 : hash;
-            }
-            if (this is PyTuple tuple)
-            {
-                // CPython tuplehash, native-width xxHash mixing.
-                if (IntPtr.Size == 8)
-                {
-                    ulong acc = 2870177450012600261UL;
-                    foreach (var item in tuple.Items)
-                    {
-                        acc = unchecked(acc + (ulong)item.GetPythonHash() * 14029467366897019727UL);
-                        acc = (acc << 31) | (acc >> 33);
-                        acc = unchecked(acc * 11400714785074694791UL);
-                    }
-                    acc = unchecked(acc + ((ulong)tuple.Items.Length ^ (2870177450012600261UL ^ 3527539UL)));
-                    return acc == ulong.MaxValue ? 1546275796 : unchecked((long)acc);
-                }
-                uint small = 374761393U;
-                foreach (var item in tuple.Items)
-                {
-                    small = unchecked(small + (uint)item.GetPythonHash() * 2246822519U);
-                    small = (small << 13) | (small >> 19);
-                    small = unchecked(small * 2654435761U);
-                }
-                small = unchecked(small + ((uint)tuple.Items.Length ^ (374761393U ^ 3527539U)));
-                return small == uint.MaxValue ? 1546275796 : unchecked((int)small);
-            }
+            var type = GetPyType();
+            if (type.FindNameInMro("__hash__") is PyNone)
+                throw PyTypeError.Create($"unhashable type: '{type.FullName}'");
             return ToHash();
         }
+
+        /// <summary>
+        /// PyObject_Hash (Objects/object.c): Py_TYPE(v)->tp_hash(v); a class written in Python has
+        /// the slot update_one_slot gave it.
+        /// </summary>
+        internal long GetPythonHash() => GetPyType() is SharpPy.PyClass heap ? heap.HashSlot(this) : Hash();
 
         #endregion
 

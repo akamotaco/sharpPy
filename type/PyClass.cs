@@ -39,7 +39,35 @@ namespace SharpPy
         }
 
         // Version 0 is never a tag, so every slot starts undecided.
-        private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool, _sqContains;
+        private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool, _sqContains, _tpHash;
+
+        internal long HashSlot(PyObject self)
+        {
+            ref var slot = ref UpdateOneSlot(ref _tpHash, "__hash__");
+            if (slot.Specific != null)
+                return ((PyInt)slot.Specific._implementation(self, Array.Empty<PyObject>(), null)).ToLong();
+            // update_one_slot: __hash__ = None is PyObject_HashNotImplemented.
+            if (slot.Generic == null || slot.Generic is PyNone)
+                throw PyTypeError.Create($"unhashable type: '{Name}'");
+            // slot_tp_hash: a lookup that fails is unhashable, the answer must be an int, a value
+            // outside Py_hash_t is long_hash of it, and -1 is reserved.
+            // lookup_maybe_method binds, and what it answers is tested for None.
+            PyObject bound;
+            try { bound = self.BindSpecialMethod(slot.Generic); }
+            catch (PythonException) { bound = null; }
+            if (bound == null || bound is PyNone)
+                throw PyTypeError.Create($"unhashable type: '{Name}'");
+            var result = bound.Call(Array.Empty<PyObject>(), null);
+            System.Numerics.BigInteger value = result switch
+            {
+                PyInt integer => integer.Value,
+                PyIntSubclass subclass => subclass.GetIntValue().Value,
+                PyBool flag => flag.Value ? 1 : 0,
+                _ => throw PyTypeError.Create("__hash__ method should return an integer"),
+            };
+            long hash = value < nint.MinValue || value > nint.MaxValue ? PyInt.PythonHash(value) : (long)value;
+            return hash == -1 ? -2 : hash;
+        }
 
         internal PyBool ContainsSlot(PyObject self, PyObject item)
         {
@@ -2287,21 +2315,6 @@ namespace SharpPy
         // sq_length/mp_length. A container subclass inherits that length slot from its base, so an
         // empty C() is false without the class declaring __bool__ or __len__ - and a declared one
         // still wins, which is why the user lookup runs first.
-        // CPython: a frozenset subclass inherits frozenset_hash (Objects/setobject.c), so
-        // hash(C([1, 2])) equals hash(frozenset([1, 2])) and the two are the same dict key. SharpPy
-        // found no __hash__ in the MRO and fell back to identity, which made an instance unequal-
-        // by-hash to every equal value of its own base type. list/dict/set answer through the MRO as
-        // __hash__ = None, so the unhashable refusal still comes from base.GetPythonHash().
-        internal override long GetPythonHash()
-        {
-            if (LookupSpecialMethodUncached("__hash__") == null)
-            {
-                var container = NativeStorage();
-                if (container is PyFrozenSet || container is PyString)
-                    return container.GetPythonHash();
-            }
-            return base.GetPythonHash();
-        }
 
 
     }

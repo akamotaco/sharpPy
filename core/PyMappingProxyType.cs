@@ -62,7 +62,7 @@ namespace SharpPy
 
         // mappingproxy_hash: PyObject_Hash(pp->mapping)
         public override int ToHash() => Mapping.ToHash();
-        internal override long GetPythonHash() => Mapping.GetPythonHash();
+        protected internal override long Hash() => Mapping.GetPythonHash();
 
         // mappingproxy_str and mappingproxy_repr
         protected internal override PyString Str() => Mapping.ToStr();

@@ -38,6 +38,9 @@ namespace SharpPy
 
         #region Hash and Equality
 
+        // bool inherits long_hash.
+        protected internal override long Hash() => Value ? 1 : 0;
+
         public override int ToHash() => Value ? 1 : 0;
 
         protected override PyObject PyNotEquals(PyObject other)

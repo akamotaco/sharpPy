@@ -1766,6 +1766,9 @@ namespace SharpPy
 
         #region Hash and Equality
 
+        // unicode_hash
+        protected internal override long Hash() => PyHash.Text(Value);
+
         public override int ToHash() => Value.GetHashCode();
 
         protected override PyObject PyEquals(PyObject other)

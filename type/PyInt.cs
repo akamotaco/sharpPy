@@ -779,6 +779,9 @@ namespace SharpPy
 
         #region Hash and Equality
 
+        // long_hash
+        protected internal override long Hash() => PythonHash(Value);
+
         public override int ToHash() => Value.GetHashCode();
 
         protected override PyObject PyNotEquals(PyObject other)

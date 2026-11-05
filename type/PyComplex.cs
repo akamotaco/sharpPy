@@ -208,7 +208,7 @@ namespace SharpPy
         #region Hash and Equality
 
         // complex_hash: _PyHASH_IMAG is 1000003.
-        internal override long GetPythonHash()
+        protected internal override long Hash()
         {
             long combined = unchecked(new PyFloat(Real).PythonHash() + 1000003L * new PyFloat(Imag).PythonHash());
             return combined == -1 ? -2 : combined;

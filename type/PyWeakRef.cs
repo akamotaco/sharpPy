@@ -105,7 +105,7 @@ namespace SharpPy
             return (int)value;
         }
 
-        internal override long GetPythonHash()
+        protected internal override long Hash()
         {
             if (_hash.HasValue) return _hash.Value;
             SlotHash();
@@ -182,10 +182,6 @@ namespace SharpPy
             return declared ?? SlotCompare(other, op);
         }
 
-        public override int ToHash()
-        {
-            var declared = this.CallUserSpecialOrNull("__hash__", System.Array.Empty<PyObject>());
-            return declared != null ? declared.ToInt() : SlotHash();
-        }
+        public override int ToHash() => SlotHash();
     }
 }

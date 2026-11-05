@@ -536,6 +536,9 @@ namespace SharpPy
             return signed == -1 ? -2 : signed;
         }
 
+        // float_hash: _Py_HashDouble, by identity for a NaN.
+        protected internal override long Hash() => PythonHash();
+
         public override int ToHash()
         {
             // Python과 같은 방식으로 해시 계산

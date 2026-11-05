@@ -64,7 +64,7 @@ namespace SharpPy
         #region Hash and Equality
 
         // slicehash: of the three, and it fails as they do.
-        internal override long GetPythonHash() => new PyTuple(new[] { Start, Stop, Step }).GetPythonHash();
+        protected internal override long Hash() => new PyTuple(new[] { Start, Stop, Step }).GetPythonHash();
 
         public override int ToHash() => unchecked((int)GetPythonHash());
 

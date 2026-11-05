@@ -1224,6 +1224,9 @@ namespace SharpPy
         }
 
         // _Py_HashBytes of the same bytes as a one-byte str: hash('spam') == hash(b'spam').
+        // bytes_hash
+        protected internal override long Hash() => PyHash.Bytes(Value);
+
         public override int ToHash() => System.Text.Encoding.Latin1.GetString(Value).GetHashCode();
 
         public override int GetHashCode()

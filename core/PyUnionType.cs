@@ -107,7 +107,7 @@ namespace SharpPy
         // union_hash: hash(frozenset(args))
         public override int ToHash() => new PyFrozenSet(Args).ToHash();
 
-        internal override long GetPythonHash() => new PyFrozenSet(Args).GetPythonHash();
+        protected internal override long Hash() => new PyFrozenSet(Args).GetPythonHash();
 
         /// <summary>
         /// Check if a value is an instance of any type in this union

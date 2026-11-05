@@ -78,21 +78,6 @@ namespace SharpPy
             return special ?? base.RichCompare(other, op);
         }
 
-        public override int GetHashCode()
-        {
-            // CPython calls tp_hash, and a user __hash__ must return an int. The value is the Python
-            // hash; the CLR hash code is only what this runtime happens to key on.
-            var declared = LookupUserSpecial("__hash__");
-            if (declared != null)
-            {
-                var result = BindSpecialMethod(declared).Call(Array.Empty<PyObject>(), null);
-                if (PyInt.TryLongSelf(result, out var hashValue))
-                    return (int)hashValue.Value;
-                throw PyTypeError.Create(
-                    $"__hash__ method should return an integer (return type {result.GetTypeName()})");
-            }
-            return base.GetHashCode();
-        }
 
         #endregion
     }

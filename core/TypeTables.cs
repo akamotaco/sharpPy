@@ -56,7 +56,7 @@ namespace SharpPy
         internal static void Hashed(params PyType[] types)
         {
             foreach (var type in types)
-                Wrapper(type, "__hash__", (self, args) => new PyInt(self.ToHash()));
+                Wrapper(type, "__hash__", (self, args) => new PyInt(self.Hash()));
         }
 
         // A type that sets tp_getattro to PyObject_GenericGetAttr has the wrapper in its own dict.

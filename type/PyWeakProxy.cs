@@ -35,7 +35,7 @@ namespace SharpPy
 
         public override int ToHash() => throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
 
-        internal override long GetPythonHash() => throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
+        protected internal override long Hash() => throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
 
         public override PyObject RichCompare(PyObject other, CompareOp op) => Target.RichCompare(Unwrap(other), op);
 
