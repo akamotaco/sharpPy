@@ -764,7 +764,7 @@ namespace SharpPy
                             throw PyTypeError.Create($"descriptor '__getitem__' requires a 'str' object but received a '{self.GetTypeName()}'");
                     }
 
-                    return selfStr.GetItem(args[0]);
+                    return selfStr.MpSubscript(args[0]);
                 });
 
             strType.TypeDict["__contains__"] = new PyWrapperDescriptor(
@@ -2879,7 +2879,7 @@ namespace SharpPy
         /// <summary>
         /// PyObject.GetItem 오버라이드 - 인덱싱 및 슬라이싱 지원
         /// </summary>
-        public override PyObject GetItem(PyObject index)
+        protected internal override PyObject MpSubscript(PyObject index)
         {
             if (index is PyInt pyInt)
             {

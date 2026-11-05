@@ -87,61 +87,11 @@ namespace SharpPy
         internal static bool IsSubclass(PyObject derived, PyObject cls) =>
             SharpPy.Modules.BuiltinsModule.IsSubclass(new[] { derived, cls }).IsTrue();
 
-        internal static PyObject GetItem(PyObject target, PyObject key)
-        {
-            if (target is PyType type)
-                return TypeSubscript(type, key);
-            var kind = target.GetPyType();
-            switch (kind.LookupSpecial("__getitem__"))
-            {
-                case null: return target.GetItem(key);
-                case PyMethodDescriptor descriptor: return descriptor.CallWithReceiver(target, new[] { key }, null);
-                case PyFunction function: return function.Call(new[] { target, key }, null);
-                case var method when kind is PyClass: return target.CallSpecial(method, key);
-                default: return target.GetItem(key);
-            }
-        }
+        internal static PyObject GetItem(PyObject target, PyObject key) => target.GetItem(key);
 
-        // The metatype's mp_subscript, then type_subscript's __class_getitem__.
-        private static PyObject TypeSubscript(PyType type, PyObject key)
-        {
-            var metaGetItem = (type.GetPyType() as PyClass)?.LookupInMRO("__getitem__");
-            if (metaGetItem != null)
-                return metaGetItem.Call(new[] { type, key }, null);
-            return type.GetItem(key);
-        }
+        internal static void SetItem(PyObject target, PyObject key, PyObject value) => target.SetItem(key, value);
 
-        internal static void SetItem(PyObject target, PyObject key, PyObject value)
-        {
-            var kind = target.GetPyType();
-            switch (kind.LookupSpecial("__setitem__"))
-            {
-                case null: target.SetItem(key, value); break;
-                case PyMethodDescriptor descriptor: descriptor.CallWithReceiver(target, new[] { key, value }, null); break;
-                case PyFunction function: function.Call(new[] { target, key, value }, null); break;
-                case var method when kind is PyClass: target.CallSpecial(method, key, value); break;
-                default: target.SetItem(key, value); break;
-            }
-        }
-
-        internal static void DelItem(PyObject target, PyObject key)
-        {
-            var kind = target.GetPyType();
-            if (target is PyClassInstance)
-            {
-                target.DelItem(key);
-                return;
-            }
-            switch (kind.LookupSpecial("__delitem__"))
-            {
-                case null: target.DelItem(key); break;
-                case PyMethodDescriptor descriptor: descriptor.CallWithReceiver(target, new[] { key }, null); break;
-                case PyWrapperDescriptor wrapper: wrapper.Call(new[] { target, key }, null); break;
-                case PyFunction function: function.Call(new[] { target, key }, null); break;
-                case var method when kind is PyClass: target.CallSpecial(method, key); break;
-                default: target.DelItem(key); break;
-            }
-        }
+        internal static void DelItem(PyObject target, PyObject key) => target.DelItem(key);
 
         // PySequence_GetItem, PySequence_SetItem and PySequence_DelItem: a negative index counts
         // from sq_length, and sq_item gets what results. A __getitem__ written in Python is

@@ -424,7 +424,7 @@ namespace SharpPy
                     if (self is PyDict pyDict)
                     {
                         // Real PyDict: write to _dict directly
-                        pyDict.SetItem(args[0], args[1]);  // Use SetItem to maintain _keys order
+                        pyDict.MpAssSubscript(args[0], args[1]);  // Use SetItem to maintain _keys order
                         return PyNone.Instance;
                     }
                     else if (self is PyClassInstance classInstance)
@@ -690,7 +690,7 @@ namespace SharpPy
         /// <summary>
         /// 키로 값 접근 dict[key]
         /// </summary>
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             if (_dict.TryGetValue(key, out PyObject value))
                 return value;
@@ -702,7 +702,7 @@ namespace SharpPy
         /// 키에 값 설정 dict[key] = value
         /// Python 3.7+: 삽입 순서 보장
         /// </summary>
-        public override void SetItem(PyObject key, PyObject value)
+        protected internal override void MpAssSubscript(PyObject key, PyObject value)
         {
             if (_dict.Set(key, value)) AddOrderedKey(key);
         }
@@ -711,6 +711,9 @@ namespace SharpPy
         /// 키 삭제 del dict[key]
         /// Python 3.7+: 삽입 순서 유지 (_keys에서도 제거)
         /// </summary>
+        // dict_ass_sub without a value: PyDict_DelItem.
+        protected internal override void MpDelSubscript(PyObject key) => DelItem(key);
+
         public virtual PyObject DelItem(PyObject key)
         {
             if (!_dict.Remove(key, out _, out var storedKey))
@@ -1459,13 +1462,13 @@ namespace SharpPy
             // Initialize with current global variables
             foreach (var kv in globalScopeVariables)
             {
-                base.SetItem(new PyString(kv.Key), kv.Value);
+                base.MpAssSubscript(new PyString(kv.Key), kv.Value);
             }
         }
 
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
-            if (!CanUseHostLookup(key)) return base.GetItem(key);
+            if (!CanUseHostLookup(key)) return base.MpSubscript(key);
             var name = (PyString)key;
             if (TryGetHostValue(name.Value, out var value)) return value;
             throw PyKeyError.Create(key);
@@ -1496,19 +1499,19 @@ namespace SharpPy
 
         protected internal override PyBool ContainsItem(PyObject key) => PyBool.FromBool(ContainsKey(key));
 
-        public override void SetItem(PyObject key, PyObject value)
+        protected internal override void MpAssSubscript(PyObject key, PyObject value)
         {
             if (_globalScopeVariables is PyNamespace canonical)
             {
                 canonical.PrepareKey(key);
-                base.SetItem(key, value);
+                base.MpAssSubscript(key, value);
                 canonical.PrepareKey(key);
                 if (!canonical.GenericKeys) canonical.StoreFromMapping(((PyString)key).Value, value);
                 return;
             }
             // CPython 3.12: Setting globals()[key] = value modifies the module namespace
             int before = (int)base.Len();
-            base.SetItem(key, value);
+            base.MpAssSubscript(key, value);
             if (key is not PyString) _nonStringCount += (int)base.Len() - before;
 
             // Sync back to global scope
@@ -1598,7 +1601,7 @@ namespace SharpPy
             }
             if (_globalScopeVariables.TryGetValue(name.Value, out var value))
             {
-                base.SetItem(key, value);
+                base.MpAssSubscript(key, value);
                 return value;
             }
             value = defaultValue ?? PyNone.Instance;
@@ -1686,13 +1689,13 @@ namespace SharpPy
             {
                 if (_keys[i] is not PyString key) continue;
                 if (!_globalScopeVariables.TryGetValue(key.Value, out var value)) base.DelItem(key);
-                else if (!ReferenceEquals(_dict.StoredValue(key), value)) base.SetItem(key, value);
+                else if (!ReferenceEquals(_dict.StoredValue(key), value)) base.MpAssSubscript(key, value);
             }
             if ((int)base.Len() == _globalScopeVariables.Count + _nonStringCount) return;
             foreach (var pair in _globalScopeVariables)
             {
                 var key = StringCache.GetOrCreate(pair.Key);
-                if (!base.ContainsKey(key)) base.SetItem(key, pair.Value);
+                if (!base.ContainsKey(key)) base.MpAssSubscript(key, pair.Value);
             }
         }
 

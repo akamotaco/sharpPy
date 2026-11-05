@@ -460,7 +460,7 @@ namespace SharpPy
         protected internal virtual bool Bool()
         {
             var type = GetPyType();
-            if (type.FindNameInMro("__bool__") is PyWrapperDescriptor wrapper)
+            if (type.FindNameInMro("__bool__") is PyWrapperDescriptor { CallsVirtual: false } wrapper)
                 return wrapper._implementation(this, Array.Empty<PyObject>(), null).IsTrue();
             return type.FindNameInMro("__len__") == null || Len() != 0;
         }
@@ -1147,7 +1147,7 @@ namespace SharpPy
         {
             switch (GetPyType().FindNameInMro("__len__"))
             {
-                case PyWrapperDescriptor wrapper:
+                case PyWrapperDescriptor { CallsVirtual: false } wrapper:
                     return ToLengthResult(wrapper._implementation(this, Array.Empty<PyObject>(), null));
                 case PyMethodDescriptor method:
                     return ToLengthResult(method._implementation(this, Array.Empty<PyObject>(), null));
@@ -1511,7 +1511,7 @@ namespace SharpPy
         {
             switch (GetPyType().FindNameInMro("__contains__"))
             {
-                case PyWrapperDescriptor wrapper:
+                case PyWrapperDescriptor { CallsVirtual: false } wrapper:
                     return PyBool.FromBool(wrapper._implementation(this, new[] { item }, null).IsTrue());
                 case PyMethodDescriptor method:
                     return PyBool.FromBool(method._implementation(this, new[] { item }, null).IsTrue());
@@ -1551,25 +1551,67 @@ namespace SharpPy
         /// <summary>
         /// 인덱스로 요소 가져오기 (__getitem__)
         /// </summary>
-        public virtual PyObject GetItem(PyObject index)
+        /// <summary>
+        /// The mp_subscript function of this object's CLR implementation; a builtin's slot may be
+        /// only the function of the wrapper in its dict.
+        /// </summary>
+        protected internal virtual PyObject MpSubscript(PyObject key)
         {
+            switch (GetPyType().FindNameInMro("__getitem__"))
+            {
+                case PyWrapperDescriptor { CallsVirtual: false } wrapper: return wrapper._implementation(this, new[] { key }, null);
+                case PyMethodDescriptor method: return method._implementation(this, new[] { key }, null);
+            }
             throw PyTypeError.Create($"'{GetTypeName()}' object is not subscriptable");
         }
 
         /// <summary>
+        /// PyObject_GetItem (Objects/abstract.c): the type's mp_subscript; a class written in
+        /// Python has the slot update_one_slot gave it.
+        /// </summary>
+        public PyObject GetItem(PyObject key) =>
+            GetPyType() is SharpPy.PyClass heap ? heap.SubscriptSlot(this, key) : MpSubscript(key);
+
+        /// <summary>
         /// 인덱스로 요소 설정하기 (__setitem__)
         /// </summary>
-        public virtual void SetItem(PyObject index, PyObject value)
+        /// <summary>The mp_ass_subscript function of this object's CLR implementation, storing.</summary>
+        protected internal virtual void MpAssSubscript(PyObject key, PyObject value)
         {
+            switch (GetPyType().FindNameInMro("__setitem__"))
+            {
+                case PyWrapperDescriptor { CallsVirtual: false } wrapper: wrapper._implementation(this, new[] { key, value }, null); return;
+                case PyMethodDescriptor method: method._implementation(this, new[] { key, value }, null); return;
+            }
             throw PyTypeError.Create($"'{GetTypeName()}' object does not support item assignment");
+        }
+
+        /// <summary>PyObject_SetItem: the type's mp_ass_subscript with a value.</summary>
+        public void SetItem(PyObject key, PyObject value)
+        {
+            if (GetPyType() is SharpPy.PyClass heap) heap.AssSubscriptSlot(this, key, value);
+            else MpAssSubscript(key, value);
         }
 
         /// <summary>
         /// 인덱스로 요소 삭제하기 (__delitem__)
         /// </summary>
-        public virtual void DelItem(PyObject index)
+        /// <summary>The mp_ass_subscript function of this object's CLR implementation, deleting.</summary>
+        protected internal virtual void MpDelSubscript(PyObject key)
         {
+            switch (GetPyType().FindNameInMro("__delitem__"))
+            {
+                case PyWrapperDescriptor { CallsVirtual: false } wrapper: wrapper._implementation(this, new[] { key }, null); return;
+                case PyMethodDescriptor method: method._implementation(this, new[] { key }, null); return;
+            }
             throw PyTypeError.Create($"'{GetTypeName()}' object does not support item deletion");
+        }
+
+        /// <summary>PyObject_DelItem: the type's mp_ass_subscript without a value.</summary>
+        public void DelItem(PyObject key)
+        {
+            if (GetPyType() is SharpPy.PyClass heap) heap.AssSubscriptSlot(this, key, null);
+            else MpDelSubscript(key);
         }
 
         #endregion

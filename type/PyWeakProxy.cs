@@ -90,11 +90,11 @@ namespace SharpPy
 
         protected internal override PyBool ContainsItem(PyObject item) => Target.Contains(item);
 
-        public override PyObject GetItem(PyObject index) => PyAbstract.GetItem(Target, index);
+        protected internal override PyObject MpSubscript(PyObject index) => PyAbstract.GetItem(Target, index);
 
-        public override void SetItem(PyObject index, PyObject value) => PyAbstract.SetItem(Target, index, value);
+        protected internal override void MpAssSubscript(PyObject index, PyObject value) => PyAbstract.SetItem(Target, index, value);
 
-        public override void DelItem(PyObject index) => PyAbstract.DelItem(Target, index);
+        protected internal override void MpDelSubscript(PyObject index) => PyAbstract.DelItem(Target, index);
 
         private static readonly (string, BinaryOpType, BinaryOpType)[] NumberSlots =
         {

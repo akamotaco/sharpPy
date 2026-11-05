@@ -150,7 +150,7 @@ namespace SharpPy
                     if (self is not PyTuple tuple)
                         throw PyTypeError.Create($"descriptor '__getitem__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
 
-                    return tuple.Stored.GetItem(args[0]);
+                    return tuple.Stored.MpSubscript(args[0]);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -419,7 +419,7 @@ namespace SharpPy
         /// CPython 3.12: tuple.__getitem__ - Indexing and slicing
         /// CPython: Objects/tupleobject.c:tuplesubscript (lines ~230-280)
         /// </summary>
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             if (key is PyInt index)
                 return GetItem((int)index.Value);

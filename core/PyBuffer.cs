@@ -304,7 +304,7 @@ namespace SharpPy
                     if (self is not PyMemoryView view)
                         throw PyTypeError.Create($"descriptor '__getitem__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
                     if (args.Length != 1) throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                    return view.GetItem(args[0]);
+                    return view.MpSubscript(args[0]);
                 }, minArgs: 1, maxArgs: 1);
             type.TypeDict["__setitem__"] = new PyWrapperDescriptor(
                 "__setitem__", type,
@@ -313,7 +313,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"descriptor '__setitem__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
                     // CPython's METH_VARARGS "OO" slot wrapper emits a leading space.
                     if (args.Length != 2) throw PyTypeError.Create($" expected 2 arguments, got {args.Length}");
-                    view.SetItem(args[0], args[1]);
+                    view.MpAssSubscript(args[0], args[1]);
                     return PyNone.Instance;
                 }, minArgs: 2, maxArgs: 2);
             type.TypeDict["__len__"] = new PyWrapperDescriptor(
@@ -815,7 +815,7 @@ namespace SharpPy
         /// CPython 3.12: Objects/memoryobject.c:2547-2606 - memory_subscript
         /// Supports both integer indexing and slicing
         /// </summary>
-        public override PyObject GetItem(PyObject index)
+        protected internal override PyObject MpSubscript(PyObject index)
         {
             CheckReleased();
             if (_shape != null) return GetNdItem(index);
@@ -836,7 +836,7 @@ namespace SharpPy
             return ReadElement(position);
         }
 
-        public override void SetItem(PyObject index, PyObject value)
+        protected internal override void MpAssSubscript(PyObject index, PyObject value)
         {
             CheckReleased();
             if (_shape != null && index is PyTuple ndIdx)

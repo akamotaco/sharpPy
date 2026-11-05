@@ -48,7 +48,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"__setitem__() takes exactly 2 arguments ({args.Length} given)");
                     if (self is not PyByteArray baSelf)
                         throw PyTypeError.Create($"descriptor '__setitem__' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
-                    baSelf.SetItem(args[0], args[1]);
+                    baSelf.MpAssSubscript(args[0], args[1]);
                     return PyNone.Instance;
                 }, minArgs: 2, maxArgs: 2);
 
@@ -59,7 +59,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"__delitem__() takes exactly one argument ({args.Length} given)");
                     if (self is not PyByteArray ba)
                         throw PyTypeError.Create($"descriptor '__delitem__' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
-                    ba.DelItem(args[0]);
+                    ba.MpDelSubscript(args[0]);
                     return PyNone.Instance;
                 }, minArgs: 1, maxArgs: 1);
 
@@ -365,7 +365,7 @@ namespace SharpPy
         /// <summary>
         /// __getitem__ - Get item by index or slice
         /// </summary>
-        public override PyObject GetItem(PyObject index)
+        protected internal override PyObject MpSubscript(PyObject index)
         {
             if (BytesMethods.IsIndex(index))
             {
@@ -427,7 +427,7 @@ namespace SharpPy
         /// <summary>
         /// __setitem__ - Set item by index or slice
         /// </summary>
-        public override void SetItem(PyObject index, PyObject value)
+        protected internal override void MpAssSubscript(PyObject index, PyObject value)
         {
             if (BytesMethods.IsIndex(index))
             {
@@ -507,7 +507,7 @@ namespace SharpPy
         /// <summary>
         /// __delitem__ - Delete item by index or slice
         /// </summary>
-        public override void DelItem(PyObject index)
+        protected internal override void MpDelSubscript(PyObject index)
         {
             if (HasBufferExports)
                 throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");

@@ -125,7 +125,7 @@ namespace SharpPy
         /// CPython 3.12: Objects/rangeobject.c:580-650 - range_subscript
         /// 인덱스/슬라이스 접근 range[i] / range[start:stop:step]
         /// </summary>
-        public override PyObject GetItem(PyObject index)
+        protected internal override PyObject MpSubscript(PyObject index)
         {
             if (index is PyInt integer)
                 return GetIntegerItem(integer.Value);

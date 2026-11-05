@@ -69,8 +69,8 @@ namespace SharpPy
 
         public override PyObject Multiply(PyObject other) => Op("__mul__", other, () => base.Multiply(other));
 
-        public override PyObject GetItem(PyObject index) =>
-            Op("__getitem__", index, () => base.GetItem(index));
+        protected internal override PyObject MpSubscript(PyObject index) =>
+            Op("__getitem__", index, () => base.MpSubscript(index));
 
         public override PyObject RichCompare(PyObject other, CompareOp op)
         {

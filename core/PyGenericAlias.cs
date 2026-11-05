@@ -239,12 +239,7 @@ namespace SharpPy
             return new PyGenericAlias(Origin, newargs, PyType.GenericAliasType, _starred);
         }
 
-        public override PyObject GetItem(PyObject key)
-        {
-            if (ReferenceEquals(_type, PyType.GenericAliasType))
-                return GaGetItem(key);
-            return LookupSpecialMethodUncached("__getitem__").Call(new[] { this, key }, null);
-        }
+        protected internal override PyObject MpSubscript(PyObject key) => GaGetItem(key);
 
         // ga_call and set_orig_class
         public override PyObject Call(PyObject[] args, PyDict kwargs)

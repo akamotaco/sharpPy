@@ -457,7 +457,7 @@ namespace SharpPy.Modules
 
         internal PyObject GroupOrEmpty(int group) => GroupValue(group, _text.Empty());
 
-        public override PyObject GetItem(PyObject index) => GroupValue(GroupNumber(index), PyNone.Instance);
+        protected internal override PyObject MpSubscript(PyObject index) => GroupValue(GroupNumber(index), PyNone.Instance);
 
         private PyObject Group(PyObject[] args)
         {

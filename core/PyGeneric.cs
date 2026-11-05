@@ -58,7 +58,7 @@ namespace SharpPy
         {
         }
 
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             // Generic[T] 같은 문법 지원
             if (key is PyObject typeParam)
@@ -77,7 +77,7 @@ namespace SharpPy
                 return new PyGenericType($"Generic[{key}]", this, typeArgs);
             }
 
-            return base.GetItem(key);
+            return base.MpSubscript(key);
         }
     }
 

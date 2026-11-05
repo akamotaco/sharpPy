@@ -358,7 +358,7 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"list.__getitem__() takes exactly one argument ({args.Length} given)");
 
-                    return GetListForItemDescriptor(self, "__getitem__", false).GetItem(args[0]);
+                    return GetListForItemDescriptor(self, "__getitem__", false).MpSubscript(args[0]);
                 });
 
             // CPython 3.12: Objects/listobject.c list_setitem (METH_VARARGS, "OO")
@@ -372,7 +372,7 @@ namespace SharpPy
                     if (args.Length != 2)
                         throw PyTypeError.Create($" expected 2 arguments, got {args.Length}");
 
-                    GetListForItemDescriptor(self, "__setitem__", false).SetItem(args[0], args[1]);
+                    GetListForItemDescriptor(self, "__setitem__", false).MpAssSubscript(args[0], args[1]);
                     return PyNone.Instance;
                 });
 
@@ -668,7 +668,7 @@ namespace SharpPy
         
         // PyObject.GetItem 오버라이드 - 슬라이싱 및 인덱싱 지원
         // CPython 3.12: Objects/listobject.c:268-291 (list_subscript)
-        public override PyObject GetItem(PyObject index)
+        protected internal override PyObject MpSubscript(PyObject index)
         {
             if (index is PySlice slice)
             {
@@ -702,7 +702,7 @@ namespace SharpPy
         }
 
         // list_ass_subscript: an index (__index__ included), or a slice.
-        public override void SetItem(PyObject index, PyObject value)
+        protected internal override void MpAssSubscript(PyObject index, PyObject value)
         {
             if (index is not PySlice && TryGetIndex(index) != null)
             {

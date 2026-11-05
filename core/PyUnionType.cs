@@ -126,7 +126,7 @@ namespace SharpPy
         /// Support subscript operations for compatibility
         /// </summary>
         // mp_subscript is union_getitem.
-        public override PyObject GetItem(PyObject key) => Subscript(key);
+        protected internal override PyObject MpSubscript(PyObject key) => Subscript(key);
 
         public override string GetTypeName() => "types.UnionType";
 

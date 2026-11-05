@@ -80,15 +80,15 @@ namespace SharpPy.Modules
             type.TypeDict["__len__"] = new PyWrapperDescriptor("__len__", type, (self, args, kwargs) => new PyInt(Self(self).Size));
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => new PyDeque.DequeIterator(Self(self)));
             type.TypeDict["__contains__"] = new PyWrapperDescriptor("__contains__", type, (self, args, kwargs) => PyBool.FromBool(Self(self).DequeContains(args[0])));
-            type.TypeDict["__getitem__"] = new PyWrapperDescriptor("__getitem__", type, (self, args, kwargs) => Self(self).GetItem(args[0]));
+            type.TypeDict["__getitem__"] = new PyWrapperDescriptor("__getitem__", type, (self, args, kwargs) => Self(self).MpSubscript(args[0]));
             type.TypeDict["__setitem__"] = new PyWrapperDescriptor("__setitem__", type, (self, args, kwargs) =>
             {
-                Self(self).SetItem(args[0], args[1]);
+                Self(self).MpAssSubscript(args[0], args[1]);
                 return PyNone.Instance;
             });
             type.TypeDict["__delitem__"] = new PyWrapperDescriptor("__delitem__", type, (self, args, kwargs) =>
             {
-                Self(self).DelItem(args[0]);
+                Self(self).MpDelSubscript(args[0]);
                 return PyNone.Instance;
             });
             type.TypeDict["__add__"] = new PyWrapperDescriptor("__add__", type, (self, args, kwargs) => Self(self).Concat(args[0]));
@@ -825,9 +825,9 @@ namespace SharpPy.Modules
             return i < 0 ? i + Size : i;
         }
 
-        public override PyObject GetItem(PyObject index) => Item(SequenceIndex(index));
-        public override void SetItem(PyObject index, PyObject value) => AssItem(SequenceIndex(index), value);
-        public override void DelItem(PyObject index) => AssItem(SequenceIndex(index), null);
+        protected internal override PyObject MpSubscript(PyObject index) => Item(SequenceIndex(index));
+        protected internal override void MpAssSubscript(PyObject index, PyObject value) => AssItem(SequenceIndex(index), value);
+        protected internal override void MpDelSubscript(PyObject index) => AssItem(SequenceIndex(index), null);
 
         // deque_reduce: (type, () or ((), maxlen), state, iter(deque))
         internal PyObject Reduce()

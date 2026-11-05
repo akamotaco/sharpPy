@@ -3937,7 +3937,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 compatible generic type subscripting: list[int], tuple[str, int], etc.
         /// </summary>
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             // PyObject_GetItem (Objects/abstract.c) for a type without a metatype mp_subscript:
             // type[int] is special-cased, since type has no __class_getitem__ that str[int] could
@@ -4094,7 +4094,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"descriptor '__getitem__' for 'mappingproxy' objects doesn't apply to a '{self.GetTypeName()}' object");
 
                     // Call GetItem which returns value as-is (no descriptor protocol)
-                    return mappingProxy.GetItem(args[0]);
+                    return mappingProxy.MpSubscript(args[0]);
                 },
                 minArgs: 1,
                 maxArgs: 1

@@ -63,8 +63,7 @@ namespace SharpPy
         // were missing, so len()/indexing/slices/`in`/iteration failed on subclasses.
         protected internal override long Len() => _strValue.Len();
 
-        public override PyObject GetItem(PyObject index) =>
-            CallUserSpecialOrNull("__getitem__", new[] { index }) ?? _strValue.GetItem(index);
+        protected internal override PyObject MpSubscript(PyObject index) => _strValue.MpSubscript(index);
 
         public override PyList AsList() => new PyList(new List<PyObject>(PySet.IterableItems(this)));
 

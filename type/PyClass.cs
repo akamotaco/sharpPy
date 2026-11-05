@@ -39,7 +39,46 @@ namespace SharpPy
         }
 
         // Version 0 is never a tag, so every slot starts undecided.
-        private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool, _sqContains, _tpHash;
+        private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool, _sqContains, _tpHash, _mpSubscript,
+            _mpSetItem, _mpDelItem;
+
+        internal PyObject SubscriptSlot(PyObject self, PyObject key)
+        {
+            ref var slot = ref UpdateOneSlot(ref _mpSubscript, "__getitem__");
+            if (slot.Specific != null)
+                return slot.Specific._implementation(self, new[] { key }, null);
+            // slot_mp_subscript: vectorcall_method(&_Py_ID(__getitem__), stack, 2)
+            if (slot.Generic != null)
+                return self.BindSpecialMethod(slot.Generic).Call(new[] { key }, null);
+            return self.MpSubscript(key);
+        }
+
+        /// <summary>
+        /// mp_ass_subscript, one slot for __setitem__ and __delitem__: update_one_slot makes it
+        /// slot_mp_ass_subscript when either is a Python-level function, which then calls the one
+        /// the operation names, and an AttributeError of that name when the class has not it.
+        /// </summary>
+        internal void AssSubscriptSlot(PyObject self, PyObject key, PyObject value)
+        {
+            ref var set = ref UpdateOneSlot(ref _mpSetItem, "__setitem__");
+            ref var del = ref UpdateOneSlot(ref _mpDelItem, "__delitem__");
+            bool generic = set.Generic != null || del.Generic != null;
+            ref var slot = ref value == null ? ref del : ref set;
+            string name = value == null ? "__delitem__" : "__setitem__";
+            var args = value == null ? new[] { key } : new[] { key, value };
+            if (generic)
+            {
+                var method = slot.Generic ?? (PyObject)slot.Specific ?? throw PyAttributeError.Create(name);
+                self.BindSpecialMethod(method).Call(args, null);
+                return;
+            }
+            if (slot.Specific != null)
+                slot.Specific._implementation(self, args, null);
+            else if (value == null)
+                self.MpDelSubscript(key);
+            else
+                self.MpAssSubscript(key, value);
+        }
 
         internal long HashSlot(PyObject self)
         {
@@ -1420,171 +1459,6 @@ namespace SharpPy
         public override PyType GetPyType() => InstanceType;
         public override string GetTypeName() => InstanceType.Name;
 
-        // CPython 3.12: Objects/dictobject.c:2490-2523 (dict_subscript)
-        // CPython 3.12: Objects/abstract.c:171-201 (PyObject_GetItem)
-        //
-        // Same pattern as SetItem:
-        // 1. Check ONLY user-defined __getitem__ (PyClass.ClassDict)
-        // 2. If found, call it
-        // 3. If NOT found, use direct storage (_dictStorage for dict subclasses)
-        // 4. NEVER call built-in descriptors from PyType.TypeDict here
-        public override PyObject GetItem(PyObject key)
-        {
-            #if DEBUG
-            var keyStr = key is PyString ps ? ps.Value : key?.ToString() ?? "null";
-            if (InstanceType.Name == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
-            {
-                Console.WriteLine($"[DEBUG-GETITEM] _EnumDict.GetItem('{keyStr}') called, _dictStorage != null: {_dictStorage != null}");
-                if (_dictStorage != null && _dictStorage.InternalDict.TryGetValue(key, out var stored))
-                {
-                    Console.WriteLine($"[DEBUG-GETITEM]   _dictStorage contains '{keyStr}': {stored}, type={stored?.GetType().Name}");
-                }
-            }
-            #endif
-
-            // CPython 3.12: Check for user-defined __getitem__ in MRO
-            // Only check PyClass.ClassDict, NOT PyType.TypeDict
-            foreach (var mroType in InstanceType.MRO)
-            {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__getitem__", out PyObject getItemMethod))
-                {
-                    // Found user-defined __getitem__
-                    if (getItemMethod is PyFunction func)
-                    {
-                        var boundMethod = new PyMethod(this, func);
-                        return boundMethod.Call(new PyObject[] { key }, null);
-                    }
-                    else
-                    {
-                        return CallSpecial(getItemMethod, key);
-                    }
-                    break;
-                }
-            }
-
-            // CPython 3.12: Fall back to direct storage access
-            // For dict subclasses: read from _dictStorage (like PyDict_GetItem)
-            if (_dictStorage != null)
-            {
-                var result = _dictStorage.GetItem(key);
-                #if DEBUG
-                if (InstanceType.Name == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
-                {
-                    Console.WriteLine($"[DEBUG-GETITEM]   Returning from _dictStorage: {result}, type={result?.GetType().Name}");
-                }
-                #endif
-                return result;
-            }
-
-            // CPython 3.12: str subclasses inherit unicode_subscript (index/slice).
-            var strStorage = GetStringStorage();
-            if (strStorage != null)
-                return strStorage.GetItem(key);
-
-            // No __getitem__ and not a dict subclass
-            return base.GetItem(key);
-        }
-
-        // CPython 3.12: Objects/dictobject.c:1879-1889 (PyDict_SetItem)
-        // CPython 3.12: Objects/abstract.c:203-234 (PyObject_SetItem)
-        // CPython 3.12: Lib/enum.py:509 (super().__setitem__)
-        //
-        // In CPython, PyObject_SetItem directly calls tp_as_mapping->mp_ass_subscript,
-        // which for dict calls PyDict_SetItem (dictobject.c:2524-2530).
-        // PyDict_SetItem checks PyDict_Check and writes to internal storage.
-        //
-        // For dict subclasses, CPython creates actual PyDictObject instances,
-        // so mp_ass_subscript always gets the real dict's function pointer.
-        // User-defined __setitem__ is only checked at VM level (STORE_SUBSCR),
-        // NOT at the type slot level.
-        //
-        // SharpPy equivalent:
-        // 1. Check ONLY user-defined __setitem__ (PyClass.ClassDict)
-        // 2. If found, call it and return (user code must call super().__setitem__ to store)
-        // 3. If NOT found, use direct storage (_dictStorage for dict subclasses)
-        // 4. NEVER call built-in descriptors from PyType.TypeDict here
-        //    (they are already handled at VM level in STORE_SUBSCR)
-        public override void SetItem(PyObject key, PyObject value)
-        {
-            // CPython 3.12 Objects/dictobject.c:1879-1889 (PyDict_SetItem):
-            //   For dict subclasses with user-defined __setitem__:
-            //   - Call user-defined __setitem__ ONLY
-            //   - Internal storage is updated ONLY if user calls super().__setitem__()
-            //   - If user doesn't call super().__setitem__(), storage is NOT updated
-            //
-            // This is critical for Lib/enum.py:509 where _EnumDict.__setitem__
-            // processes auto() values before calling super().__setitem__()
-
-            // Check for user-defined __setitem__ in MRO
-            // Only check PyClass.ClassDict, NOT PyType.TypeDict
-            foreach (var mroType in InstanceType.MRO)
-            {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__setitem__", out var setitemMethod))
-                {
-                    // Found user-defined __setitem__ - call it and return
-                    // Storage will be updated only if user code calls super().__setitem__()
-                    if (setitemMethod is PyFunction func)
-                    {
-                        var boundMethod = new PyMethod(this, func);
-                        boundMethod.Call(new PyObject[] { key, value }, null);
-                    }
-                    else
-                    {
-                        CallSpecial(setitemMethod, key, value);
-                    }
-                    return;  // User __setitem__ found and called, we're done
-                }
-            }
-
-            // No user-defined __setitem__ found
-            // For dict subclasses: write directly to internal storage
-            if (_dictStorage != null)
-            {
-                _dictStorage.SetItem(key, value);
-                return;
-            }
-
-            // For other types: use base implementation
-            base.SetItem(key, value);
-        }
-
-        // CPython 3.12: Dict subclasses support item deletion (del container[key])
-        // Same pattern as SetItem - check user-defined __delitem__ first, then fall back to storage
-        public override void DelItem(PyObject key)
-        {
-            // Check for user-defined __delitem__ in MRO
-            foreach (var mroType in InstanceType.MRO)
-            {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__delitem__", out var delitemMethod))
-                {
-                    // Found user-defined __delitem__ - call it and return
-                    if (delitemMethod is PyFunction func)
-                    {
-                        var boundMethod = new PyMethod(this, func);
-                        boundMethod.Call(new PyObject[] { key }, null);
-                    }
-                    else
-                    {
-                        CallSpecial(delitemMethod, key);
-                    }
-                    return;
-                }
-            }
-
-            // No user-defined __delitem__ found
-            // For dict subclasses: delete directly from internal storage
-            if (_dictStorage != null)
-            {
-                _dictStorage.DelItem(key);
-                return;
-            }
-
-            // For other types: use base implementation
-            base.DelItem(key);
-        }
-
-        // CPython 3.12: Dict subclasses support 'in' operator
-        // CPython 3.12: str subclasses inherit sq_length/unicode_length.
         /// <summary>
         /// CPython 3.12: Get next item by calling __next__ method
         /// </summary>
@@ -2338,8 +2212,6 @@ namespace SharpPy
 
 
 
-        public override PyObject GetItem(PyObject index) =>
-            CallUserSpecialOrNull("__getitem__", new[] { index }) ?? base.GetItem(index);
 
 
         public PyTupleSubclass(PyClass instanceType, PyObject[] items) : base(items)

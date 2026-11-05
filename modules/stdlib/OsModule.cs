@@ -473,7 +473,7 @@ namespace SharpPy.Modules.Stdlib
         public override PyType GetPyType() => PyType.DictType;
         public override string GetTypeName() => "dict";
 
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             var keyStr = key.ToStr();
             var value = Environment.GetEnvironmentVariable(keyStr.Value);
@@ -484,7 +484,7 @@ namespace SharpPy.Modules.Stdlib
                 throw PyKeyError.Create($"'{keyStr}'");
         }
 
-        public override void SetItem(PyObject key, PyObject value)
+        protected internal override void MpAssSubscript(PyObject key, PyObject value)
         {
             var keyStr = key.ToStr();
             var valueStr = value.ToStr();

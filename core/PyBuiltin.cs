@@ -2261,7 +2261,7 @@ namespace SharpPy
         }
 
         // PEP 695: Support generic type subscripts for builtin types like tuple[T, T], list[T]
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             // Handle generic type subscripts for builtin collection types
             return Name switch
@@ -2270,7 +2270,7 @@ namespace SharpPy
                 "list" => CreateGenericList(key),
                 "dict" => CreateGenericDict(key),
                 "set" => CreateGenericSet(key),
-                _ => base.GetItem(key) // Default behavior (throws error)
+                _ => base.MpSubscript(key) // Default behavior (throws error)
             };
         }
 

@@ -33,7 +33,7 @@ namespace SharpPy
         protected internal override long Len() => InternalCount;
 
         // mappingproxy_getitem: PyObject_GetItem(pp->mapping, key)
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             if (_table == null)
                 return PyAbstract.GetItem(_mapping, key);
@@ -42,7 +42,7 @@ namespace SharpPy
             throw PyKeyError.Create(key);
         }
 
-        public override void SetItem(PyObject key, PyObject value)
+        protected internal override void MpAssSubscript(PyObject key, PyObject value)
         {
             throw PyTypeError.Create("'mappingproxy' object does not support item assignment");
         }

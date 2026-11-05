@@ -205,7 +205,7 @@ namespace SharpPy
             GetSets<PySreMatch>(match, (self, name) => self.Read(name), "lastindex", "lastgroup", "regs");
             Methods<PySreMatch>(match, (self, name) => self.Read(name), "group", "groups", "groupdict", "start",
                 "end", "span", "expand", "__copy__", "__deepcopy__");
-            Wrapper(match, "__getitem__", (self, args) => self.GetItem(args[0]));
+            Wrapper(match, "__getitem__", (self, args) => self.MpSubscript(args[0]));
             Repr(match);
         }
 

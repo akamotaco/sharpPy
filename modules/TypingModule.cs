@@ -47,7 +47,7 @@ namespace SharpPy.Modules
     {
         public override PyType GetPyType() => PyType.TypeType;
 
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             if (key is PyTuple tuple)
             {
@@ -118,7 +118,7 @@ namespace SharpPy.Modules
     {
         public override PyType GetPyType() => PyType.TypeType;
 
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             return new PyUnionInstance(new PyObject[] { key, PyNone.Instance });
         }
@@ -140,7 +140,7 @@ namespace SharpPy.Modules
 
         public override PyType GetPyType() => PyType.TypeType;
 
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             return new PyGenericAliasInstance(Name, key);
         }
@@ -251,7 +251,7 @@ namespace SharpPy.Modules
     {
         public override PyType GetPyType() => PyType.TypeType;
 
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             return new PyGenericInstance(key);
         }
@@ -283,7 +283,7 @@ namespace SharpPy.Modules
     {
         public override PyType GetPyType() => PyType.TypeType;
 
-        public override PyObject GetItem(PyObject key)
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             return new PyCallableInstance(key);
         }

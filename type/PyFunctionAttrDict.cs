@@ -38,10 +38,10 @@ namespace SharpPy
         /// <summary>
         /// Override SetItem to sync changes to underlying dictionary
         /// </summary>
-        public override void SetItem(PyObject key, PyObject value)
+        protected internal override void MpAssSubscript(PyObject key, PyObject value)
         {
             // Call base to update _dict and _keys
-            base.SetItem(key, value);
+            base.MpAssSubscript(key, value);
 
             // Sync to underlying dictionary
             if (key is PyString strKey)

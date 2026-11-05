@@ -243,7 +243,7 @@ namespace SharpPy.Modules
                 return PyBool.FromBool(false);
             }
 
-            public override PyObject GetItem(PyObject index)
+            protected internal override PyObject MpSubscript(PyObject index)
             {
                 if (index is PySlice slice)
                 {
@@ -265,7 +265,7 @@ namespace SharpPy.Modules
                 return ReadItem(_buffer, i2, _typecode);
             }
 
-            public override void SetItem(PyObject index, PyObject value)
+            protected internal override void MpAssSubscript(PyObject index, PyObject value)
             {
                 if (index is PySlice slice)
                 {
@@ -306,7 +306,7 @@ namespace SharpPy.Modules
                 WriteItem(_buffer, i2, value, _typecode);
             }
 
-            public override void DelItem(PyObject index)
+            protected internal override void MpDelSubscript(PyObject index)
             {
                 if (index is PySlice slice)
                 {
@@ -1049,18 +1049,18 @@ namespace SharpPy.Modules
 
             type.TypeDict["__getitem__"] = new PyWrapperDescriptor("__getitem__", type, (self, args, kwargs) =>
             {
-                return ((PyArray)self).GetItem(args[0]);
+                return ((PyArray)self).MpSubscript(args[0]);
             });
 
             type.TypeDict["__setitem__"] = new PyWrapperDescriptor("__setitem__", type, (self, args, kwargs) =>
             {
-                ((PyArray)self).SetItem(args[0], args[1]);
+                ((PyArray)self).MpAssSubscript(args[0], args[1]);
                 return PyNone.Instance;
             });
 
             type.TypeDict["__delitem__"] = new PyWrapperDescriptor("__delitem__", type, (self, args, kwargs) =>
             {
-                ((PyArray)self).DelItem(args[0]);
+                ((PyArray)self).MpDelSubscript(args[0]);
                 return PyNone.Instance;
             });
 

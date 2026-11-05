@@ -1244,7 +1244,7 @@ namespace SharpPy
         /// bytes indexing - returns int (byte value)
         /// </summary>
         // CPython 3.12: Objects/bytesobject.c:1470-1510 - bytes_subscript
-        public override PyObject GetItem(PyObject index)
+        protected internal override PyObject MpSubscript(PyObject index)
         {
             if (index is PyInt pyInt)
             {
