@@ -100,9 +100,7 @@ namespace SharpPy
         /// else falls back to float's arithmetic on the payload. This virtual was not overridden at
         /// all before, so divmod() never reached a dunder for a float subclass.
         /// </summary>
-        public override PyObject DivMod(PyObject other)
-            => CallUserSpecialOrNull("__divmod__", new[] { other })
-               ?? PyFloat.DivModValues(_floatValue, other);
+        public override PyObject DivMod(PyObject other) => PyFloat.DivModValues(_floatValue, other);
 
         protected internal override bool Bool() => _floatValue.IsTrue();
 

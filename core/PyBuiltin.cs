@@ -1774,22 +1774,8 @@ namespace SharpPy
             var a = args[0];
             var b = args[1];
 
-            // CPython: Python/bltinmodule.c:929 - Call PyNumber_Divmod
-            // Delegate to PyObject.DivMod which implements Python floor division semantics
-            var result = a.DivMod(b);
-            if (result == PyNotImplemented.Instance)
-            {
-                // CPython binary_op1: try the reflected __rdivmod__ before failing.
-                var reflected = b.LookupSpecialMethodUncached("__rdivmod__");
-                if (reflected != null)
-                {
-                    result = b.CallSpecial(reflected, a);
-                    if (result != PyNotImplemented.Instance)
-                        return result;
-                }
-                throw PyTypeError.Create($"unsupported operand type(s) for divmod(): '{a.GetTypeName()}' and '{b.GetTypeName()}'");
-            }
-            return result;
+            // builtin_divmod: PyNumber_Divmod.
+            return PyVM.NumberDivmod(a, b);
         }
 
         private static PyObject CallOrd(PyObject[] args, PyDict kwargs = null)

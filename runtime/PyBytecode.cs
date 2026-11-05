@@ -345,7 +345,10 @@ namespace SharpPy
         INPLACE_RSHIFT = 22,           // >>= (인플레이스 우시프트)
         INPLACE_SUBTRACT = 23,         // -=  (인플레이스 뺄셈)
         INPLACE_TRUE_DIVIDE = 24,      // /=  (인플레이스 나눗셈)
-        INPLACE_XOR = 25               // ^=  (인플레이스 비트 XOR)
+        INPLACE_XOR = 25,              // ^=  (인플레이스 비트 XOR)
+
+        // NB_DIVMOD has no BINARY_OP of its own: divmod() is PyNumber_Divmod, binary_op over nb_divmod.
+        DIVMOD = 64
     }
 
     // CPython 3.12: ByteCodeInstruction directly maps to _PyCfgInstruction

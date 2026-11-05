@@ -95,9 +95,7 @@ namespace SharpPy
         /// </summary>
         public override PyObject DivMod(PyObject other)
         {
-            var declared = CallUserSpecialOrNull("__divmod__", new[] { other });
-            if (declared != null)
-                return declared;
+            // long_divmod on the value; a written __divmod__ is the class's slot.
             var self = GetIntValue();
             var quotient = self.FloorDivide(other);
             if (ReferenceEquals(quotient, PyNotImplemented.Instance))

@@ -5819,6 +5819,7 @@ namespace SharpPy
             BinaryOpType.OR => "__or__",
             BinaryOpType.XOR => "__xor__",
             BinaryOpType.MATRIX_MULTIPLY => "__matmul__",
+            BinaryOpType.DIVMOD => "__divmod__",
             BinaryOpType.INPLACE_ADD => "__iadd__",
             BinaryOpType.INPLACE_MULTIPLY => "__imul__",
             BinaryOpType.INPLACE_SUBTRACT => "__isub__",
@@ -5834,6 +5835,15 @@ namespace SharpPy
             BinaryOpType.INPLACE_MATRIX_MULTIPLY => "__imatmul__",
             _ => throw new InvalidOperationException($"no slot for {operation}"),
         };
+
+        // PyNumber_Divmod: binary_op(v, w, NB_SLOT(nb_divmod), "divmod()").
+        internal static PyObject NumberDivmod(PyObject v, PyObject w)
+        {
+            var result = Instance.BinaryOp1(v, w, BinaryOpType.DIVMOD);
+            if (ReferenceEquals(result, PyNotImplemented.Instance))
+                throw PyTypeError.Create($"unsupported operand type(s) for divmod(): '{v.GetPyType().FullName}' and '{w.GetPyType().FullName}'");
+            return result;
+        }
 
         // PyNumber_Add and friends, PyNumber_InPlaceAdd and friends. CPython v3.12.15 Objects/abstract.c.
         internal PyObject ExecuteBinaryOpType(PyObject left, PyObject right, BinaryOpType binaryOp)
@@ -6042,6 +6052,7 @@ namespace SharpPy
                 BinaryOpType.OR => left.BitwiseOr(right),
                 BinaryOpType.XOR => left.BitwiseXor(right),
                 BinaryOpType.MATRIX_MULTIPLY => left.MatrixMultiply(right),
+                BinaryOpType.DIVMOD => left.DivMod(right),
                 _ => throw PyTypeError.Create($"unsupported binary operation: {operation}"),
             };
         }

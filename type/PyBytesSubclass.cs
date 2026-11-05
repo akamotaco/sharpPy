@@ -62,15 +62,6 @@ namespace SharpPy
         /// re-enter the same virtual. LookupUserSpecial stops at the first non-PyClass frame, which is
         /// also exactly CPython's precedence: the subclass's own definition shadows bytes' slot.
         /// </summary>
-        private PyObject Op(string dunder, PyObject other, Func<PyObject> valueOp)
-            => CallUserSpecialOrNull(dunder, new[] { other }) ?? valueOp();
-
-        public override PyObject Add(PyObject other) => Op("__add__", other, () => base.Add(other));
-
-        public override PyObject Multiply(PyObject other) => Op("__mul__", other, () => base.Multiply(other));
-
-        protected internal override PyObject MpSubscript(PyObject index) =>
-            Op("__getitem__", index, () => base.MpSubscript(index));
 
         public override PyObject RichCompare(PyObject other, CompareOp op)
         {
