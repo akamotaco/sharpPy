@@ -32,7 +32,7 @@ namespace SharpPy
             _iterators = iterators;
         }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             // map_next: the shortest iterable ends this round, an exhausted map asks again.
             var args = new PyObject[_iterators.Length];
@@ -69,7 +69,7 @@ namespace SharpPy
             _strict = strict;
         }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             // zip_next: an exhausted zip asks its iterators again, they decide.
             if (_iterators.Length == 0)
@@ -135,7 +135,7 @@ namespace SharpPy
             _iterator = iterator;
         }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             while (true)
             {
@@ -177,7 +177,7 @@ namespace SharpPy
             _sentinel = sentinel;
         }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_done)
                 throw PyStopIteration.Create();
@@ -272,7 +272,7 @@ namespace SharpPy
             _typeName = typeName;
         }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             // reversed_next, listreviter_next: an index the sequence no longer has ends the iteration.
             if (_index >= 0)

@@ -186,7 +186,7 @@ public class PyStringIO : PyIOBaseInstance
     }
 
     // stringio_iternext
-    public override PyObject Next()
+    protected internal override PyObject IterNext()
     {
         CheckInitialized();
         CheckClosed();
@@ -410,7 +410,7 @@ public class PyStringIO : PyIOBaseInstance
             });
         Def("__getstate__", PyCall.NoArgs, (self, args) => self.GetState());
         Def("__setstate__", PyCall.One, (self, args) => self.SetState(args[0]));
-        type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => Self(self, "__next__").Next(), 0, 0);
+        type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => Self(self, "__next__").IterNext(), 0, 0);
         type.TypeDict["closed"] = new PyGetSetDescriptor("closed", type, self =>
         {
             var stream = Self(self, "closed");

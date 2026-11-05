@@ -60,7 +60,7 @@ namespace SharpPy
         internal static void InstallMethods(PyType type, bool lengthHint, bool reduce, bool setState)
         {
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
-            type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.Next());
+            type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.IterNext());
             if (lengthHint)
                 type.TypeDict["__length_hint__"] = new PyMethodDescriptor("__length_hint__", type,
                     (self, args, kwargs) => ((PyIterator)self).RemainingHint());
@@ -122,18 +122,14 @@ namespace SharpPy
         {
             var iterType = PyType.IteratorType;
 
-            // __next__ method descriptor
-            iterType.TypeDict["__next__"] = new PyMethodDescriptor(
+            // tp_iternext: a slot wrapper, whose arity CheckSlotArguments checks.
+            iterType.TypeDict["__next__"] = new PyWrapperDescriptor(
                 "__next__", iterType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create("__next__() takes no arguments");
                     if (self is not PyIterator iterator)
                         throw PyTypeError.Create($"descriptor '__next__' requires a 'iterator' object but received a '{self.GetTypeName()}'");
-                    return iterator.Next();
-                },
-                minArgs: 0, maxArgs: 0
-            );
+                    return iterator.IterNext();
+                });
 
             // __iter__ method descriptor
             iterType.TypeDict["__iter__"] = new PyMethodDescriptor(
@@ -166,7 +162,7 @@ namespace SharpPy
                             throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                         if (self is not PyIterator iterator)
                             throw PyTypeError.Create($"descriptor '__next__' requires a '{owner.Name}' object but received a '{self.GetTypeName()}'");
-                        return iterator.Next();
+                        return iterator.IterNext();
                     },
                     minArgs: 0, maxArgs: 0);
                 owner.TypeDict["__iter__"] = new PyWrapperDescriptor(
@@ -201,14 +197,14 @@ namespace SharpPy
         // PyType.GetIteratorType. Subclasses override IteratorName.
         protected virtual string IteratorName => "iterator";
         public override string GetTypeName() => IteratorName;
-        public override PyType GetPyType() => _customType ?? PyType.GetIteratorType(IteratorName);
-
-        internal override bool IsIterator => true;
+        // Py_TYPE: the iterator family's type, looked up by name once per object.
+        private PyType _familyType;
+        public override PyType GetPyType() => _customType ?? (_familyType ??= PyType.GetIteratorType(IteratorName));
 
         /// <summary>
         /// 다음 값 반환 (Python __next__ 메서드)
         /// </summary>
-        public abstract override PyObject Next();
+        protected internal abstract override PyObject IterNext();
 
         /// <summary>
         /// 자기 자신을 반환 (Python __iter__ 메서드)
@@ -330,7 +326,7 @@ namespace SharpPy
             _typeName = typeName;
         }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_exhausted || _index >= _list.RawCount())
             {
@@ -364,7 +360,7 @@ namespace SharpPy
             _inner = inner;
         }
 
-        public override PyObject Next() => _inner.Next();
+        protected internal override PyObject IterNext() => _inner.Next();
 
         /// <summary>What iter() returned: a user object with __next__ is an iterator as much as a CLR one.</summary>
         internal static PyIterator Of(PyObject iterator) => iterator as PyIterator ?? new PyObjectIteratorShim(iterator);
@@ -392,7 +388,7 @@ namespace SharpPy
             _index = 0;
         }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             #if DEBUG_LOG
             Console.WriteLine($"🔧 PyTupleIterator.Next(): _index={_index}, _tuple.Length()={_tuple.Length()}");
@@ -463,7 +459,7 @@ namespace SharpPy
 
         // CPython iter(str) yields characters (Objects/unicodeobject.c unicode_iterator next with
         // PyUnicode_READ), so an astral character comes out whole instead of as two halves.
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_index >= _string.Length)
                 throw PyStopIteration.Create();
@@ -515,7 +511,7 @@ namespace SharpPy
             _remaining = range.LengthUnsigned();
         }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_remaining == 0)
                 throw PyStopIteration.Create();
@@ -557,7 +553,7 @@ namespace SharpPy
         }
 
         // setiter_iternext
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_left == 0 && _read.Count == 0)
                 throw PyStopIteration.Create();
@@ -617,7 +613,7 @@ namespace SharpPy
             _remaining = _initialSize;
         }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_finished) throw PyStopIteration.Create();
             if (_sizeFailed || _dictionary.Length() != _initialSize)
@@ -738,7 +734,7 @@ namespace SharpPy
             _sequence = sequence ?? throw new ArgumentNullException(nameof(sequence));
         }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_sequence == null) throw PyStopIteration.Create();
             if (_index == long.MaxValue) throw PyOverflowError.Create("iter index too large");
@@ -771,7 +767,7 @@ namespace SharpPy
 
         private PyEmptyIterator() { }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             throw PyStopIteration.Create();
         }
@@ -798,7 +794,7 @@ namespace SharpPy
             _index = start;
         }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             var item = _iterator.Next();
             var result = new PyTuple(new PyInt(_index), item);

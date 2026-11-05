@@ -132,7 +132,7 @@ namespace SharpPy.Core
                         }
                         PyCoroutine.CheckCloseArguments(name + "." + method, args, kwargs);
                         if (method == "close") { request._closed = true; return PyNone.Instance; }
-                        return method == "__next__" ? request.Next() : request;
+                        return method == "__next__" ? request.IterNext() : request;
                     };
                     // am_await, tp_iter and tp_iternext are slots.
                     type.TypeDict[method] = method.StartsWith("__", StringComparison.Ordinal)
@@ -145,7 +145,7 @@ namespace SharpPy.Core
             public override string GetTypeName() => GetPyType().Name;
             public override bool IsCallable() => false;
             public override PyObject Call(PyObject[] args, PyDict kwargs = null) => throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
-            public override PyObject Next() => Drive(PyNone.Instance);
+            protected internal override PyObject IterNext() => Drive(PyNone.Instance);
             private PyObject Drive(PyObject sent, PyObject[] injected = null)
             {
                 if (_closed) throw PyRuntimeError.Create(IsThrow ? "cannot reuse already awaited aclose()/athrow()" : "cannot reuse already awaited __anext__()/asend()");
@@ -403,7 +403,7 @@ namespace SharpPy.Core
             var type = new PyType("anext_awaitable", new[] { PyType.ObjectType });
             type.TypeDict["__await__"] = new PyWrapperDescriptor("__await__", type, (self, args, kwargs) => self);
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
-            type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.Next());
+            type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.IterNext());
             foreach (var method in new[] { "send", "throw", "close" })
                 type.TypeDict[method] = new PyMethodDescriptor(method, type, (self, args, kwargs) => ((PyAnextAwaitable)self).Proxy(method, args));
             return type;
@@ -419,7 +419,7 @@ namespace SharpPy.Core
             if (awaitable is not PyCoroutine)
                 return awaitable;
             var iterator = awaitable.GetAttribute("__await__").Call(Array.Empty<PyObject>(), null);
-            if (iterator is not PyIterator && !iterator.HasTypeSlot("__next__"))
+            if (!iterator.IsIterator)
                 throw PyTypeError.Create("__await__ returned a non-iterable");
             return iterator;
         }
@@ -436,7 +436,7 @@ namespace SharpPy.Core
             }
         }
 
-        public override PyObject Next() => Finished(() => Awaitable().Next());
+        protected internal override PyObject IterNext() => Finished(() => Awaitable().Next());
 
         private PyObject Proxy(string method, PyObject[] args) => Finished(() => Awaitable().GetAttribute(method).Call(args, null));
     }

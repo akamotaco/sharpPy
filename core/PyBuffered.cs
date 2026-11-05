@@ -962,7 +962,7 @@ public sealed class PyBuffered : PyIOBaseInstance
     }
 
     // buffered_iternext
-    public override PyObject Next()
+    protected internal override PyObject IterNext()
     {
         CheckInitialized();
         PyObject line;

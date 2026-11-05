@@ -1025,7 +1025,7 @@ namespace SharpPy
         }
 
         // bytearrayiter_next: an exhausted iterator lets go of the bytearray.
-        public override PyObject? Next()
+        protected internal override PyObject? IterNext()
         {
             if (_bytearray == null || _index >= _bytearray.Length())
             {

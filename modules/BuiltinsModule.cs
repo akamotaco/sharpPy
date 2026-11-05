@@ -199,7 +199,7 @@ namespace SharpPy.Modules
             module.ModuleDict["map"] = BuiltinCallableType(PyType.MapType, new PyBuiltinFunction("map"), keywordsForInit: true);
             module.ModuleDict["filter"] = BuiltinCallableType(PyType.FilterType, new PyBuiltinFunction("filter"), keywordsForInit: true);
             module.ModuleDict["sorted"] = new PyBuiltinFunction("sorted");
-            module.ModuleDict["reversed"] = BuiltinCallableType(PyType.ReversedType, "reversed");
+            module.ModuleDict["reversed"] = ReversedType();
             module.ModuleDict["sum"] = new PyBuiltinFunction("sum");
             module.ModuleDict["min"] = new PyBuiltinFunction("min");
             module.ModuleDict["max"] = new PyBuiltinFunction("max");
@@ -266,6 +266,16 @@ namespace SharpPy.Modules
         /// </summary>
         /// <summary>range, zip, map and the like are classes: isinstance and issubclass take them. Calling one still
         /// goes to the builtin implementation.</summary>
+        // reversed_new receives its type: what __reversed__ answers is not given a subclass's class.
+        private static PyType ReversedType()
+        {
+            var type = PyType.ReversedType;
+            type.ConstructedByNewSlot = true;
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type,
+                (cls, args, kwargs) => PyBuiltinFunction.ReversedNew((PyType)cls, args, kwargs), 0, int.MaxValue, acceptsKwargs: true);
+            return type;
+        }
+
         private static PyType BuiltinCallableType(PyType type, string name) =>
             BuiltinCallableType(type, new PyBuiltinFunction(name));
 

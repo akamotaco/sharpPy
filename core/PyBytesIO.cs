@@ -257,7 +257,7 @@ public class PyBytesIO : PyIOBaseInstance
     }
 
     // bytesio_iternext
-    public override PyObject Next()
+    protected internal override PyObject IterNext()
     {
         CheckClosed();
         long n = ScanEol(-1);
@@ -471,7 +471,7 @@ public class PyBytesIO : PyIOBaseInstance
             new PyInt(64 + (self._buf != null && !self.Shared ? 33 + self._buf.Length : 0)));
         // tp_iter is PyObject_SelfIter and tp_iternext is bytesio_iternext.
         type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self, 0, 0);
-        type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => Self(self, "__next__").Next(), 0, 0);
+        type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => Self(self, "__next__").IterNext(), 0, 0);
         type.TypeDict["closed"] = new PyGetSetDescriptor("closed", type, self => PyBool.FromBool(Self(self, "closed")._buf == null));
         return type;
     }

@@ -1126,7 +1126,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     }
 
     // textiowrapper_iternext
-    public override PyObject Next()
+    protected internal override PyObject IterNext()
     {
         CheckAttached();
         _telling = false;

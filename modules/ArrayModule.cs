@@ -847,7 +847,7 @@ namespace SharpPy.Modules
 
             protected override string IteratorName => "arrayiterator";
 
-            public override PyObject Next()
+            protected internal override PyObject IterNext()
             {
                 if (_index >= _array.Count)
                     throw PyStopIteration.Create();

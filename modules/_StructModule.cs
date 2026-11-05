@@ -981,7 +981,7 @@ namespace SharpPy.Modules
             type.TypeDict["__module__"] = new PyString("_struct");
             TypeTables.GenericAttributes(type);
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
-            type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.Next());
+            type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.IterNext());
             PyArgs.Define(type, "__length_hint__", PyCall.NoArgs, (self, args) => ((UnpackIterator)self).RemainingHint());
             type.TypeDict["__doc__"] = PyNone.Instance;
             return type;
@@ -1141,7 +1141,7 @@ namespace SharpPy.Modules
             new PyInt(_so == null ? 0 : (_buf.ByteLength - _index) / _so.Size);
 
         // unpackiter_iternext
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_so == null)
                 throw PyStopIteration.Create();

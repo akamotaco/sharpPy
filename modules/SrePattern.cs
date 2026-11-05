@@ -647,7 +647,7 @@ namespace SharpPy.Modules
 
         protected override string IteratorName => "callable_iterator";
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             var match = _scanner.Step(true);
             if (match is PyNone) throw PyStopIteration.Create();

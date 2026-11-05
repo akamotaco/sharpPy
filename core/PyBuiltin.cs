@@ -209,7 +209,7 @@ namespace SharpPy
             _builtinImplementations["map"] = (args, kwargs) => CallMap(args, kwargs);
             _builtinImplementations["filter"] = (args, kwargs) => CallFilter(args, kwargs);
             _builtinImplementations["sorted"] = (args, kwargs) => CallSorted(args, kwargs);
-            _builtinImplementations["reversed"] = (args, kwargs) => CallReversed(args, kwargs);
+            _builtinImplementations["reversed"] = (args, kwargs) => ReversedNew(PyType.ReversedType, args, kwargs);
             _builtinImplementations["sum"] = (args, kwargs) => CallSum(args, kwargs);
             _builtinImplementations["min"] = (args, kwargs) => CallMin(args, kwargs);
             _builtinImplementations["max"] = (args, kwargs) => CallMax(args, kwargs);
@@ -665,14 +665,17 @@ namespace SharpPy
             return result;
         }
 
-        private static PyObject CallReversed(PyObject[] args, PyDict kwargs = null)
+        /// <summary>
+        /// reversed_new and reversed_new_impl (Objects/enumobject.c): what __reversed__ answers is
+        /// returned as it is, whatever type was asked for; only the sequence protocol makes an
+        /// object of the requested type.
+        /// </summary>
+        internal static PyObject ReversedNew(PyType type, PyObject[] args, PyDict kwargs)
         {
-            // CPython 3.12: Objects/enumobject.c reversed_new:
-            // 1) __reversed__; 2) sequence protocol (length + __getitem__);
-            // else TypeError "'T' object is not reversible". Iteration is lazy.
-            // CPython's signature is reversed(seq, /): a keyword is refused outright, and the arity
-            // text is "reversed expected 1 argument, got N".
-            if (kwargs != null && kwargs.Length() != 0)
+            // The clinic: "(type == &PyReversed_Type || type->tp_init == PyReversed_Type.tp_init) &&
+            // !_PyArg_NoKeywords", then "reversed expected 1 argument, got N".
+            if ((ReferenceEquals(type, PyType.ReversedType) || PyType.TypeInitIsObjectInit(type)) &&
+                kwargs != null && kwargs.Length() != 0)
                 throw PyTypeError.Create("reversed() takes no keyword arguments");
             if (args.Length != 1)
                 throw PyTypeError.Create($"reversed expected 1 argument, got {args.Length}");
@@ -705,7 +708,10 @@ namespace SharpPy
             string revName = seq is PyList ? "list_reverseiterator"
                           : seq is PyRange ? "range_iterator"
                           : "reversed";
-            return new PyReversedIterator(seq, length, revName);
+            var reversed = new PyReversedIterator(seq, length, revName);
+            if (!ReferenceEquals(type, PyType.ReversedType))
+                reversed.SetCustomType(type);
+            return reversed;
         }
 
         private static bool HasGetItem(PyObject obj)
@@ -1715,6 +1721,9 @@ namespace SharpPy
 
             var iterator = args[0];
             var defaultValue = args.Length > 1 ? args[1] : null;
+            // builtin_next: PyIter_Check before tp_iternext.
+            if (!iterator.IsIterator)
+                throw PyTypeError.Create($"'{iterator.GetPyType().FullName}' object is not an iterator");
 
             try
             {

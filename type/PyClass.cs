@@ -11,6 +11,38 @@ namespace SharpPy
     {
         public Dictionary<string, PyObject> ClassDict { get; }
 
+        // tp_iternext as update_one_slot (Objects/typeobject.c) leaves it, for the version of the type
+        // it was decided at. update_slot reruns it when __next__ changes here or in a base, and
+        // type_modified moves the version tag of this type and its subclasses then.
+        // Specific is the d_wrapped of a base's slot wrapper: that base's function, applied to self.
+        private ulong _iterNextVersion = ulong.MaxValue;
+        private PyWrapperDescriptor _iterNextSpecific;
+        private bool _iterNextGeneric;
+
+        internal PyObject IterNextSlot(PyObject self)
+        {
+            if (_iterNextVersion != TypeVersionTag)
+                UpdateIterNextSlot();
+            if (_iterNextSpecific != null)
+                return _iterNextSpecific._implementation(self, Array.Empty<PyObject>(), null);
+            // slot_tp_iternext: vectorcall_method(&_Py_ID(__next__), stack, 1)
+            if (_iterNextGeneric)
+                return self.InvokeNextMethod();
+            // _PyObject_NextNotImplemented (Objects/object.c)
+            throw PyTypeError.Create($"'{Name}' object is not iterable");
+        }
+
+        // update_one_slot for tp_iternext: the base's own function when the __next__ found first in
+        // the MRO is that base's slot wrapper, slot_tp_iternext for anything else.
+        private void UpdateIterNextSlot()
+        {
+            var descr = FindNameInMro("__next__");
+            _iterNextSpecific = descr is PyWrapperDescriptor wrapper && wrapper.Name == "__next__" &&
+                wrapper.OwnerType != null && IsSubclassOf(wrapper.OwnerType) ? wrapper : null;
+            _iterNextGeneric = descr != null && _iterNextSpecific == null;
+            _iterNextVersion = TypeVersionTag;
+        }
+
         private ComparisonMisses _comparisonMisses;
 
         private sealed class ComparisonMisses
@@ -501,9 +533,7 @@ namespace SharpPy
             throw PyTypeError.Create($"'{GetPyType().Name}' object is not iterable");
         }
 
-        internal override bool IsIterator => LookupSpecialMethodUncached("__next__") != null;
-
-        public override PyObject Next() => InvokeNextMethod();
+        protected internal override PyObject IterNext() => InvokeNextMethod();
 
         // tp_getattro of a class: a metaclass may replace it, or catch what is missing.
         public override PyObject GetAttribute(string name)
@@ -1460,12 +1490,10 @@ namespace SharpPy
             return base.GetIterator();
         }
 
-        internal override bool IsIterator => LookupSpecialMethodUncached("__next__") != null;
-
         /// <summary>
         /// CPython 3.12: Get next item by calling __next__ method
         /// </summary>
-        public override PyObject Next() => InvokeNextMethod();
+        protected internal override PyObject IterNext() => InvokeNextMethod();
 
         /// <summary>
         /// CPython 3.12: Helper to call a magic method if it exists

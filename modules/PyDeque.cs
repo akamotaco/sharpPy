@@ -115,7 +115,7 @@ namespace SharpPy.Modules
             var type = new PyType(name, new[] { PyType.ObjectType }, "collections") { ConstructedByNewSlot = true };
             type.TypeDict["__module__"] = new PyString("collections");
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
-            type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.Next());
+            type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.IterNext());
             PyArgs.Define(type, "__length_hint__", PyCall.NoArgs, (self, args) => new PyInt(((PyDeque.DequeIterator)self).Counter));
             PyArgs.Define(type, "__reduce__", PyCall.NoArgs, (self, args) => ((PyDeque.DequeIterator)self).Reduce());
             // dequeiter_new: "O!|n", then as many items consumed as the index says.
@@ -1038,7 +1038,7 @@ namespace SharpPy.Modules
                 return true;
             }
 
-            public override PyObject Next() => TryNext(out var item) ? item : throw PyStopIteration.Create();
+            protected internal override PyObject IterNext() => TryNext(out var item) ? item : throw PyStopIteration.Create();
 
             internal override PyObject RemainingHint() => new PyInt(Counter);
 

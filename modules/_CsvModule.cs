@@ -310,7 +310,7 @@ namespace SharpPy.Modules
 
             public override PyObject GetIterator() => this;
 
-            public override PyObject Next()
+            protected internal override PyObject IterNext()
             {
                 if (!_started) { _started = true; _iter = _iterable.GetIterator(); }
                 return ParseNextRecord();
@@ -601,7 +601,7 @@ namespace SharpPy.Modules
         {
             var t = new PyType("reader", new[] { PyType.ObjectType }, "_csv");
             t.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", t, (self, args, kwargs) => self.GetIterator());
-            t.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", t, (self, args, kwargs) => self.Next());
+            t.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", t, (self, args, kwargs) => self.IterNext());
             t.TypeDict["dialect"] = new PyGetSetDescriptor("dialect", t, self => ((PyReader)self)._dialect);
             t.TypeDict["line_num"] = new PyGetSetDescriptor("line_num", t, self => new PyInt(((PyReader)self)._lineNum));
             return t;

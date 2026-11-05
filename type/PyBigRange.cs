@@ -69,7 +69,7 @@ namespace SharpPy
                 _remaining = range._length;
             }
 
-            public override PyObject Next()
+            protected internal override PyObject IterNext()
             {
                 if (_remaining.IsZero) throw PyStopIteration.Create();
                 var result = new PyInt(_current);

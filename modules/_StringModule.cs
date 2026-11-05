@@ -120,7 +120,7 @@ namespace SharpPy.Modules
 
         internal FormatterParserIterator(string text) { _text = text; }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             int n = _text.Length;
             if (_at >= n) throw PyStopIteration.Create();
@@ -200,7 +200,7 @@ namespace SharpPy.Modules
             _items = items;
         }
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_index >= _items.Count)
                 throw PyStopIteration.Create();

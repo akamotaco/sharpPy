@@ -80,10 +80,11 @@ namespace SharpPy
 
         public override PyObject GetIterator() => Target.GetIterator();
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             var target = Target;
-            if (!target.HasTypeSlot("__next__"))
+            // proxy_iternext: PyIter_Check of the referent.
+            if (!target.IsIterator)
                 throw PyTypeError.Create($"Weakref proxy referenced a non-iterator '{target.GetTypeName()}' object");
             return target.Next();
         }

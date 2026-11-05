@@ -67,15 +67,7 @@ public class PyIOBaseInstance : PyObject, IDictBackedInstance
         return this;
     }
 
-    public override PyObject Next()
-    {
-        var readline = GetAttribute("readline");
-        var line = BindSpecialMethod(readline).Call(Array.Empty<PyObject>(), null);
-        // iobase_iternext: PyObject_Size of the line.
-        if (line.Length() <= 0)
-            throw PyStopIteration.Create();
-        return line;
-    }
+    protected internal override PyObject IterNext() => PyIOBaseSlots.IterNext(this);
 
     /// <summary>
     /// iobase carries __dict__ (iobase_members exposes __dictoffset__), so instance attributes
@@ -179,6 +171,15 @@ public static class PyIOBaseSlots
     private static void CallVoid(PyObject self, string name) => self.GetAttribute(name).Call(Array.Empty<PyObject>(), null);
 
     private static PyObject CallWith(PyObject self, string name, PyObject[] args) => self.GetAttribute(name).Call(args, null);
+
+    // iobase_iternext: readline(); an empty line, by PyObject_Size, ends the iteration.
+    internal static PyObject IterNext(PyObject self)
+    {
+        var line = CallWith(self, "readline", Array.Empty<PyObject>());
+        if (line.Length() <= 0)
+            throw PyStopIteration.Create();
+        return line;
+    }
 
     private static PyObject[] One(PyObject value) => new PyObject[] { value };
 
@@ -410,15 +411,8 @@ public static class PyIOBaseSlots
                 return self;
             }, minArgs: 0, maxArgs: 0);
 
-        IOBaseType.TypeDict["__next__"] = new PyMethodDescriptor(
-            "__next__", IOBaseType, (self, args, kwargs) =>
-            {
-                // iobase_iternext: readline(); an empty line ends the iteration.
-                var line = CallWith(self, "readline", Array.Empty<PyObject>());
-                if (line.Length() <= 0)
-                    throw PyStopIteration.Create();
-                return line;
-            }, minArgs: 0, maxArgs: 0);
+        // tp_iternext: a slot wrapper.
+        IOBaseType.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", IOBaseType, (self, args, kwargs) => IterNext(self));
 
         IOBaseType.TypeDict["__enter__"] = new PyMethodDescriptor(
             "__enter__", IOBaseType, (self, args, kwargs) =>

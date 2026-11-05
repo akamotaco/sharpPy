@@ -85,7 +85,7 @@ namespace SharpPy.Modules
                 return PyNone.Instance;
             }, 0, 0);
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
-            type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.Next());
+            type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.IterNext());
             return type;
         }
 
@@ -93,7 +93,7 @@ namespace SharpPy.Modules
         public override string GetTypeName() => "ScandirIterator";
         public override PyObject GetIterator() => this;
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_closed || !_entries.MoveNext())
             {

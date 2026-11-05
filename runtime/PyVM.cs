@@ -7163,7 +7163,7 @@ namespace SharpPy
             var result = obj.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
             if (result is SharpPy.Core.PyCoroutine || result is PyGenerator { IsIterableCoroutine: true })
                 throw PyTypeError.Create("__await__() returned a coroutine");
-            if (result is not PyIterator && !result.HasTypeSlot("__next__"))
+            if (!result.IsIterator)
                 throw PyTypeError.Create($"__await__() returned non-iterator of type '{result.GetTypeName()}'");
             return result;
         }

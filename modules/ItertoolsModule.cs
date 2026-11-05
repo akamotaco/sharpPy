@@ -58,7 +58,7 @@ namespace SharpPy.Modules
             if (iterator)
             {
                 type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
-                type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.Next());
+                type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.IterNext());
             }
             if (PyDocs.Lookup("itertools." + name) is { } doc)
                 type.TypeDict["__doc__"] = PyDocs.DocFromInternal(name, doc);
@@ -304,7 +304,7 @@ namespace SharpPy.Modules
         }
 
         // batched_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             var it = _it;
             if (it == null)
@@ -354,7 +354,7 @@ namespace SharpPy.Modules
         }
 
         // pairwise_next: the fields are read again after each call, which may have re-entered.
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             var it = _it;
             var old = _old;
@@ -434,7 +434,7 @@ namespace SharpPy.Modules
         }
 
         // groupby_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             CurrGrouper = null;
             // skip to next iteration group
@@ -499,7 +499,7 @@ namespace SharpPy.Modules
         }
 
         // _grouper_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             var gbo = _parent;
             if (gbo.CurrGrouper != this)
@@ -626,7 +626,7 @@ namespace SharpPy.Modules
         }
 
         // tee_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_index >= TeeDataObject.LINKCELLS)
             {
@@ -718,7 +718,7 @@ namespace SharpPy.Modules
         }
 
         // cycle_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_it != null)
             {
@@ -789,7 +789,7 @@ namespace SharpPy.Modules
         }
 
         // dropwhile_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             while (true)
             {
@@ -832,7 +832,7 @@ namespace SharpPy.Modules
         }
 
         // takewhile_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_stop == 1)
                 throw ItertoolsModule.Stop();
@@ -901,7 +901,7 @@ namespace SharpPy.Modules
         }
 
         // islice_next: whatever ends the input, an error or its end, lets it go.
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             var it = _it;
             long stop = _stop;
@@ -971,7 +971,7 @@ namespace SharpPy.Modules
         }
 
         // starmap_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             var args = _it.Next();
             var items = args is PyTuple tuple && tuple.GetType() == typeof(PyTuple) && !tuple.HasCustomType
@@ -1001,7 +1001,7 @@ namespace SharpPy.Modules
         }
 
         // chain_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             while (_source != null)
             {
@@ -1135,7 +1135,7 @@ namespace SharpPy.Modules
 
         // product_next: the result is a fresh tuple each time, the one CPython reuses when no one
         // else holds it is never visible as the same object here.
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             var pools = _pools;
             int npools = pools.Length;
@@ -1269,7 +1269,7 @@ namespace SharpPy.Modules
         internal PyObject SizeOf() => new PyInt(ObjectSize(BasicSize) + _r * sizeof(long));
 
         // combinations_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             var pool = _pool.Items;
             var indices = _indices;
@@ -1383,7 +1383,7 @@ namespace SharpPy.Modules
         internal PyObject SizeOf() => new PyInt(ObjectSize(BasicSize) + _r * sizeof(long));
 
         // cwr_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             var pool = _pool.Items;
             var indices = _indices;
@@ -1513,7 +1513,7 @@ namespace SharpPy.Modules
         internal PyObject SizeOf() => new PyInt(ObjectSize(BasicSize) + (long)_pool.Items.Length * sizeof(long) + _r * sizeof(long));
 
         // permutations_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             var pool = _pool.Items;
             var indices = _indices;
@@ -1655,7 +1655,7 @@ namespace SharpPy.Modules
         }
 
         // accumulate_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_initial is not PyNone)
             {
@@ -1719,7 +1719,7 @@ namespace SharpPy.Modules
         }
 
         // compress_next: datum, then selector, then the selector's truth, as the pure Python version.
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             while (true)
             {
@@ -1754,7 +1754,7 @@ namespace SharpPy.Modules
         }
 
         // filterfalse_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             while (true)
             {
@@ -1829,7 +1829,7 @@ namespace SharpPy.Modules
         }
 
         // count_next and count_nextlong
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_cnt == long.MaxValue)
             {
@@ -1894,7 +1894,7 @@ namespace SharpPy.Modules
         }
 
         // repeat_next
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             if (_cnt == 0)
                 throw ItertoolsModule.Stop();
@@ -1958,7 +1958,7 @@ namespace SharpPy.Modules
         }
 
         // zip_longest_next: the branch that builds a new tuple, which is the only one seen here.
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             int tuplesize = _ittuple.Length;
             if (tuplesize == 0)

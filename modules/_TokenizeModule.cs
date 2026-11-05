@@ -100,7 +100,7 @@ namespace SharpPy.Modules
             }
 
             // tokenizeriter_next
-            public override PyObject Next()
+            protected internal override PyObject IterNext()
             {
                 if (_done)
                     throw PyStopIteration.Create();

@@ -1472,8 +1472,12 @@ namespace SharpPy
             return BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
         }
 
-        // Equivalent to a non-null tp_iternext slot; do not invoke descriptors.
-        internal virtual bool IsIterator => false;
+        /// <summary>
+        /// PyIter_Check (Objects/abstract.c): tp_iternext is set and is not
+        /// _PyObject_NextNotImplemented. A builtin iterator's slot is its CLR function; any other
+        /// type has one when __next__ is found in its MRO, as update_one_slot decides.
+        /// </summary>
+        internal bool IsIterator => (this is PyIterator && GetPyType() is not SharpPy.PyClass) || HasTypeSlot("__next__");
 
         /// <summary>
         /// 이터레이터 객체 반환 (__iter__)
@@ -1484,12 +1488,19 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// 다음 이터레이션 값 반환 (__next__)
+        /// The tp_iternext function of this object's CLR implementation: what a builtin type puts
+        /// in its slot, and what its __next__ slot wrapper calls (wrap_next).
         /// </summary>
-        public virtual PyObject Next()
+        protected internal virtual PyObject IterNext()
         {
             throw PyStopIteration.Create();
         }
+
+        /// <summary>
+        /// Py_TYPE(o)->tp_iternext(o). A builtin type's slot is its own function; a class written in
+        /// Python has the slot update_one_slot gave it (Objects/typeobject.c).
+        /// </summary>
+        public PyObject Next() => GetPyType() is SharpPy.PyClass heap ? heap.IterNextSlot(this) : IterNext();
 
         #endregion
 

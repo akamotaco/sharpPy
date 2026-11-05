@@ -459,11 +459,12 @@ namespace SharpPy.Core
                     CheckIteratorArguments(self, args, kwargs, "__iter__");
                     return self;
                 }, minArgs: 0, maxArgs: 0);
-            WrapperType.TypeDict["__next__"] = new PyMethodDescriptor("__next__", WrapperType,
+            // tp_iternext: a slot wrapper.
+            WrapperType.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", WrapperType,
                 (self, args, kwargs) => {
                     CheckIteratorArguments(self, args, kwargs, "__next__");
-                    return ((PyCoroutineAwaiter)self).Next();
-                }, minArgs: 0, maxArgs: 0);
+                    return ((PyCoroutineAwaiter)self).IterNext();
+                });
         }
 
         private static void CheckIteratorArguments(PyObject self, PyObject[] args, PyDict kwargs, string name)
@@ -495,7 +496,7 @@ namespace SharpPy.Core
             _coroutine = coroutine;
         }
         
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             return _coroutine.Send(null);
         }

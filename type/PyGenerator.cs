@@ -131,7 +131,7 @@ namespace SharpPy
 
         #region Iterator Protocol - CPython 3.12 호환
 
-        public override PyObject Next()
+        protected internal override PyObject IterNext()
         {
             #if DEBUG_GENERATOR_LOG
             Console.WriteLine($"🔄 PyGenerator.Next() called, _finished: {_finished}, _started: {_started}");
