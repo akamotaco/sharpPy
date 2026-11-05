@@ -35,7 +35,10 @@ namespace SharpPy
                     return method._implementation(args[0], rest, kwargs);
                 }) { OwnerClass = ownerType?.Name };
             if (callable is PyBuiltinFunction function)
+            {
                 function.OwnerClass = ownerType.Name;
+                function.OwnerType = ownerType;
+            }
             // The method's calling convention checks what follows the class (PyArity).
             if (PyArity.Of(ownerType, name) is { } convention)
             {
@@ -44,7 +47,7 @@ namespace SharpPy
                 {
                     PyArity.Check(convention, ownerType, name, args[1..], kwargs, cls: args[0]);
                     return checkedCallable.Call(args, kwargs);
-                }) { OwnerClass = ownerType.Name };
+                }) { OwnerClass = ownerType.Name, OwnerType = ownerType };
             }
             _callable = callable;
         }
@@ -81,11 +84,11 @@ namespace SharpPy
         {
             type ??= target?.GetPyType();
             if (type == null)
-                throw PyTypeError.Create($"descriptor '{_name}' for type '{_ownerType.Name}' needs either an object or a type");
+                throw PyTypeError.Create($"descriptor '{_name}' for type '{_ownerType.FullName}' needs either an object or a type");
             if (type is not PyType given)
-                throw PyTypeError.Create($"descriptor '{_name}' for type '{_ownerType.Name}' needs a type, not a '{type.GetTypeName()}' as arg 2");
+                throw PyTypeError.Create($"descriptor '{_name}' for type '{_ownerType.FullName}' needs a type, not a '{type.GetTypeName()}' as arg 2");
             if (!ReferenceEquals(given, _ownerType) && !given.IsSubclassOf(_ownerType))
-                throw PyTypeError.Create($"descriptor '{_name}' requires a subtype of '{_ownerType.Name}' but received '{given.Name}'");
+                throw PyTypeError.Create($"descriptor '{_name}' requires a subtype of '{_ownerType.FullName}' but received '{given.FullName}'");
             return new PyCMethod(_callable, given);
         }
 

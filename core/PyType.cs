@@ -92,7 +92,7 @@ namespace SharpPy
                 or "function" or "generator" or "memoryview" or "method" or "module" or "set" or "type"
                 or "GenericAlias" or "deque" or "array" or "Pattern" or "partial" or "FileIO" or "BytesIO" or "StringIO"
                 or "TextIOWrapper" or "BufferedReader" or "BufferedWriter" or "BufferedRandom" or "BufferedRWPair"
-                => PyTypeFlags.ManagedWeakRef,
+                or "_tee" => PyTypeFlags.ManagedWeakRef,
             _ => PyTypeFlags.None,
         };
 
@@ -149,6 +149,8 @@ namespace SharpPy
                 or "thread_info" or "timezone" or "traceback" or "tuple_iterator" or "version_info"
                 or "flags" or "struct_time" or "stat_result" or "terminal_size" or "times_result"
                 or "wrapper_descriptor" => PyTypeFlags.None,
+            // Modules/itertoolsmodule.c: the specs of the helper types leave out BASETYPE.
+            "_grouper" or "_tee" or "_tee_dataobject" => PyTypeFlags.None,
             _ => PyTypeFlags.BaseType,
         };
 

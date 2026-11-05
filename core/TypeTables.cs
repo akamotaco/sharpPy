@@ -60,7 +60,7 @@ namespace SharpPy
         }
 
         // A type that sets tp_getattro to PyObject_GenericGetAttr has the wrapper in its own dict.
-        private static void GenericAttributes(params PyType[] types)
+        internal static void GenericAttributes(params PyType[] types)
         {
             var generic = PyType.ObjectType.TypeDict["__getattribute__"];
             foreach (var type in types)

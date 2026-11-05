@@ -241,6 +241,9 @@ namespace SharpPy
         /// </summary>
         public override PyObject GetAttribute(string name)
         {
+            // A Python subclass keeps its attributes beside the object, which PyObject's route reads.
+            if (_customType is PyClass)
+                return base.GetAttribute(name);
             return GenericGetAttribute(name);
         }
 

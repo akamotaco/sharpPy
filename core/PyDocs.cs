@@ -98,6 +98,8 @@ namespace SharpPy
                     return (member.Name, Member(member.OwnerType, member.Name));
                 case PyCMethod bound:
                     return Of(bound.Callable);
+                case PyBuiltinFunction function when function.OwnerType != null:
+                    return (function.Name, Member(function.OwnerType, function.Name));
                 case PyBuiltinFunction function:
                     return (function.Name, function.OwnerClass != null
                         ? Lookup(function.OwnerClass + "." + function.Name)

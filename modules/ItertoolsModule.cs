@@ -1,1501 +1,2009 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 
-namespace SharpPy
+namespace SharpPy.Modules
 {
     /// <summary>
-    /// itertools 모듈 - 고급 이터레이터 도구들
+    /// Modules/itertoolsmodule.c (CPython v3.12.15): one heap type per iterator, made from its spec
+    /// with the module as its home, and the tee function.
     /// </summary>
-    public class ItertoolsModule : PyModule
+    internal static class ItertoolsModule
     {
-        public static ItertoolsModule Instance { get; } = new ItertoolsModule();
+        internal static readonly PyType AccumulateType, BatchedType, ChainType, CombinationsType, CompressType,
+            CountType, CwrType, CycleType, DropWhileType, FilterFalseType, GroupByType, GrouperType, ISliceType,
+            PairwiseType, PermutationsType, ProductType, RepeatType, StarmapType, TakeWhileType, TeeType,
+            TeeDataObjectType, ZipLongestType;
 
-        private ItertoolsModule() : base("itertools")
+        private static readonly PyType[] AllTypes;
+
+        internal static PyModule Create()
         {
-            // 주요 itertools 함수들 등록
-            AddKeywordFunction("count", CountFunction, "start", "step");
-            AddFunction("cycle", CycleFunction);
-            AddFunction("repeat", RepeatFunction);
-            AddFunction("chain", ChainFunction);
-            AddKeywordFunction("combinations", CombinationsFunction, "iterable", "r");
-            AddKeywordFunction("permutations", PermutationsFunction, "iterable", "r");
-            ModuleDict["product"] = new PyBuiltinFunction("product", ProductFunction);
-            AddKeywordFunction("accumulate", AccumulateFunction, "iterable", "func", "initial");
-            AddFunction("compress", CompressFunction);
-            AddFunction("dropwhile", DropWhileFunction);
-            AddFunction("takewhile", TakeWhileFunction);
-            AddFunction("filterfalse", FilterFalseFunction);
-            AddFunction("islice", ISliceFunction);
-            AddKeywordFunction("groupby", GroupByFunction, "iterable", "key");
-            ModuleDict["zip_longest"] = new PyBuiltinFunction("zip_longest", ZipLongestFunction);
-            AddFunction("starmap", StarmapFunction);
-            AddFunction("batched", BatchedFunction);
-            AddFunction("combinations_with_replacement", CombinationsWithReplacementFunction);
-            AddFunction("pairwise", PairwiseFunction);
-            AddFunction("tee", TeeFunction);
-            foreach (var name in new[]
+            var module = new PyModule("itertools");
+            var d = module.ModuleDict;
+            if (PyDocs.Lookup("itertools.__doc__") is { } doc)
+                d["__doc__"] = new PyString(doc);
+            // itertoolsmodule_exec: PyModule_AddType files each type under the name after the dot.
+            foreach (var type in AllTypes)
+                d[type.Name] = type;
+            // ITERTOOLS_TEE_METHODDEF: METH_FASTCALL, "n" defaulting to 2.
+            d["tee"] = new PyBuiltinFunction("tee", (args, kwargs) =>
             {
-                "count", "cycle", "repeat", "chain", "combinations", "permutations", "product", "accumulate", "compress",
-                "dropwhile", "takewhile", "filterfalse", "islice", "groupby", "zip_longest", "starmap", "batched",
-                "combinations_with_replacement", "pairwise",
-            })
-                ModuleDict[name] = ClassOf(name, ModuleDict[name]);
-            var chain = (PyType)ModuleDict["chain"];
-            // chain.from_iterable is a classmethod: the outer iterable is taken one inner iterable at a time.
-            chain.TypeDict["from_iterable"] = new PyBuiltinClassMethod("from_iterable", (cls, iterable) => new ChainFromIterable(iterable.GetIterator()));
-            chain.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__", (cls, arg) => new PyGenericAlias((PyType)cls, arg));
+                PyArgs.Positional("tee", args, kwargs, 1, 2);
+                long n = args.Length < 2 ? 2 : PyArgs.Ssize(args[1]);
+                return TeeObject.Tee(args[0], n);
+            });
+            return module;
         }
 
-        // Each of these is a class in C: type(), isinstance() and the repr of what it makes all read that.
-        private static PyType ClassOf(string name, PyObject constructor)
+        // ITERTOOL_PICKLE_DEPRECATION
+        internal static void PickleDeprecation() =>
+            PyWarnings.Warn(PyType.DeprecationWarningType,
+                "Pickle, copy, and deepcopy support will be removed from itertools in Python 3.14.", 1);
+
+        /// <summary>
+        /// PyType_FromModuleAndSpec of one spec. Py_tp_iter is PyObject_SelfIter and Py_tp_getattro,
+        /// where the spec names it, PyObject_GenericGetAttr; add_operators gives both their wrapper.
+        /// </summary>
+        private static PyType Spec(string name, Func<PyType, PyObject[], PyDict, PyObject> tpNew,
+            bool iterator = true, bool genericGetAttr = true)
         {
-            var type = PyType.GetIteratorType("itertools." + name);
-            type.ConstructedByNewSlot = true;
-            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) => constructor.Call(args, kwargs),
-                acceptsKwargs: true);
+            var type = new PyType(name, new[] { PyType.ObjectType }, "itertools") { ConstructedByNewSlot = true };
+            type.TypeDict["__module__"] = new PyString("itertools");
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type,
+                (cls, args, kwargs) => tpNew((PyType)cls, args, kwargs), 0, int.MaxValue, acceptsKwargs: true);
+            if (genericGetAttr)
+                TypeTables.GenericAttributes(type);
+            if (iterator)
+            {
+                type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
+                type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.Next());
+            }
+            if (PyDocs.Lookup("itertools." + name) is { } doc)
+                type.TypeDict["__doc__"] = PyDocs.DocFromInternal(name, doc);
             return type;
         }
 
-        /// <summary>The positional-or-keyword parameters of a C implementation (PyArg_ParseTupleAndKeywords):
-        /// each keyword takes its place in the argument list, and a gap reads as None.</summary>
-        private void AddKeywordFunction(string name, Func<PyObject[], PyObject> implementation, params string[] parameters)
+        private static void Method<T>(PyType type, string name, PyCall kind, Func<T, PyObject[], PyObject> body) where T : PyObject =>
+            PyArgs.Define(type, name, kind, (self, args) => body((T)self, args));
+
+        // The __reduce__ and __setstate__ every pickling type has, behind the deprecation warning.
+        private static void Pickled<T>(PyType type, Func<T, PyObject> reduce, Action<T, PyObject> setState = null) where T : PyObject
         {
-            ModuleDict[name] = new PyBuiltinFunction(name, (Func<PyObject[], PyDict, PyObject>)((args, kwargs) =>
+            Method<T>(type, "__reduce__", PyCall.NoArgs, (self, args) =>
             {
-                if (kwargs == null || kwargs.Length() == 0) return implementation(args);
-                var merged = new List<PyObject>(args);
-                foreach (var item in kwargs.InternalDict)
+                PickleDeprecation();
+                return reduce(self);
+            });
+            if (setState != null)
+                Method<T>(type, "__setstate__", PyCall.One, (self, args) =>
                 {
-                    int slot = Array.IndexOf(parameters, ((PyString)item.Key).Value);
-                    if (slot < 0)
-                        throw PyTypeError.Create($"{name}() got an unexpected keyword argument '{((PyString)item.Key).Value}'");
-                    while (merged.Count <= slot) merged.Add(PyNone.Instance);
-                    merged[slot] = item.Value;
-                }
-                return implementation(merged.ToArray());
-            }));
+                    PickleDeprecation();
+                    setState(self, args[0]);
+                    return PyNone.Instance;
+                });
         }
 
-        /// <summary>
-        /// itertools.starmap(function, iterable) - 각 인수를 언팩하여 함수 호출
-        /// CPython 3.12: Modules/itertoolsmodule.c:1144-1180
-        /// </summary>
-        private PyObject StarmapFunction(PyObject[] args)
+        // The clinic's "(type == base_tp || type->tp_init == base_tp->tp_init) && !_PyArg_NoKeywords(name, kwargs)".
+        internal static void NoKeywords(PyType type, PyType baseType, string name, PyDict kwargs)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"starmap expected 2 arguments ({args.Length} given)");
-
-            return new StarmapIterator(args[0], args[1]);
+            if ((type == baseType || PyType.TypeInitIsObjectInit(type)) && kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"{name}() takes no keyword arguments");
         }
 
-        /// <summary>
-        /// itertools.batched(iterable, n) - CPython 3.12: Modules/itertoolsmodule.c batched_new
-        /// </summary>
-        private PyObject BatchedFunction(PyObject[] args)
+        // _PyArg_BadArgument
+        internal static Exception BadArgument(string fname, string displayname, string expected, PyObject arg) =>
+            PyTypeError.Create($"{fname}() {displayname} must be {expected}, not {arg.GetPyType().Name}");
+
+        // PyIter_Next: the next item, or null once the iterator is done.
+        internal static PyObject IterNext(PyObject it)
         {
-            if (args.Length < 2 || args.Length > 3)
-                throw PyTypeError.Create($"batched expected 2 arguments ({args.Length} given)");
-
-            int n;
-            if (args[1] is PyInt nInt)
-                n = (int)nInt.Value;
-            else
-                throw PyTypeError.Create($"'batched' object cannot be interpreted as an integer");
-
-            if (n < 1)
-                throw PyValueError.Create("n must be at least one");
-
-            return new BatchedIterator(args[0], n);
-        }
-
-        /// <summary>
-        /// itertools.combinations_with_replacement(iterable, r)
-        /// CPython 3.12: Modules/itertoolsmodule.c combinations_with_replacement_new
-        /// </summary>
-        private PyObject CombinationsWithReplacementFunction(PyObject[] args)
-        {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"combinations_with_replacement expected 2 arguments ({args.Length} given)");
-
-            int r;
-            if (args[1] is PyInt rInt)
-                r = (int)rInt.Value;
-            else
-                throw PyTypeError.Create($"'combinations_with_replacement' object cannot be interpreted as an integer");
-
-            return new CombinationsWithReplacementIterator(args[0], r);
-        }
-
-        /// <summary>
-        /// itertools.pairwise(iterable) - CPython 3.10+
-        /// </summary>
-        private PyObject PairwiseFunction(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"pairwise expected 1 argument ({args.Length} given)");
-
-            return new PairwiseIterator(args[0]);
-        }
-
-        /// <summary>
-        /// itertools.tee(iterable, n=2) - CPython 3.12: Modules/itertoolsmodule.c tee_new
-        /// </summary>
-        private PyObject TeeFunction(PyObject[] args)
-        {
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"tee expected 1 or 2 arguments ({args.Length} given)");
-
-            int n = 2;
-            if (args.Length >= 2)
+            try
             {
-                if (args[1] is PyInt nInt)
-                    n = (int)nInt.Value;
-                else
-                    throw PyTypeError.Create($"'tee' object cannot be interpreted as an integer");
+                return it.Next();
             }
-
-            var shared = new TeeShared(args[0]);
-            var results = new PyObject[n];
-            for (int i = 0; i < n; i++)
-                results[i] = new TeeIterator(shared);
-            return new PyTuple(results);
-        }
-
-        /// <summary>
-        /// itertools.count(start=0, step=1) - 무한 카운터
-        /// </summary>
-        private PyObject CountFunction(PyObject[] args)
-        {
-            // Modules/itertoolsmodule.c count: any numbers, advanced by +.
-            PyObject start = args.Length >= 1 ? args[0] : new PyInt(0);
-            PyObject step = args.Length >= 2 ? args[1] : new PyInt(1);
-            foreach (var value in new[] { start, step })
-                if (!value.HasTypeSlot("__add__"))
-                    throw PyTypeError.Create("a number is required");
-            return new CountIterator(start, step);
-        }
-
-        /// <summary>
-        /// itertools.cycle(iterable) - 이터러블을 무한 반복
-        /// </summary>
-        private PyObject CycleFunction(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"cycle expected 1 argument ({args.Length} given)");
-
-            return new CycleIterator(args[0]);
-        }
-
-        /// <summary>
-        /// itertools.repeat(object, times=None) - 객체를 반복
-        /// </summary>
-        private PyObject RepeatFunction(PyObject[] args)
-        {
-            if (args.Length == 0 || args.Length > 2)
-                throw PyTypeError.Create($"repeat expected 1 or 2 arguments ({args.Length} given)");
-
-            PyObject obj = args[0];
-            int? times = null;
-
-            if (args.Length == 2 && args[1] is PyInt timesInt)
-                times = (int)timesInt.Value;
-
-            return new RepeatIterator(obj, times);
-        }
-
-        /// <summary>
-        /// itertools.chain(*iterables) - 여러 이터러블을 연결
-        /// </summary>
-        private PyObject ChainFunction(PyObject[] args)
-        {
-            return new ChainFromIterable(new PyTuple(args).GetIterator());
-        }
-
-        /// <summary>
-        /// itertools.combinations(iterable, r) - 조합
-        /// </summary>
-        private PyObject CombinationsFunction(PyObject[] args)
-        {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"combinations expected 2 arguments ({args.Length} given)");
-
-            if (!(args[1] is PyInt rInt))
-                throw PyTypeError.Create("combinations() r must be an integer");
-
-            return new CombinationsIterator(args[0], (int)rInt.Value);
-        }
-
-        /// <summary>
-        /// itertools.permutations(iterable, r=None) - 순열
-        /// </summary>
-        private PyObject PermutationsFunction(PyObject[] args)
-        {
-            if (args.Length == 0 || args.Length > 2)
-                throw PyTypeError.Create($"permutations expected 1 or 2 arguments ({args.Length} given)");
-
-            int? r = null;
-            if (args.Length == 2 && args[1] is PyInt rInt)
-                r = (int)rInt.Value;
-
-            return new PermutationsIterator(args[0], r);
-        }
-
-        /// <summary>
-        /// itertools.product(*iterables, repeat=1) - 곱집합
-        /// </summary>
-        private PyObject ProductFunction(PyObject[] args, PyDict kwargs)
-        {
-            int repeat = 1;
-            if (KwValue(kwargs, "repeat") is PyObject repeatValue)
+            catch (PythonException ex) when (ex.PyException is PyStopIteration)
             {
-                repeat = repeatValue.ToInt();
-                if (repeat < 0) throw PyValueError.Create("repeat argument cannot be negative");
+                return null;
             }
-            // Performance: Eliminated LINQ
-            var iterables = new List<PyObject>();
-            for (int i = 0; i < args.Length; i++)
+        }
+
+        internal static Exception Stop() => PyStopIteration.Create();
+
+        // PySequence_Tuple
+        internal static PyObject[] SequenceTuple(PyObject value) =>
+            value is PyTuple tuple ? tuple.Items : value.AsTuple().Items;
+
+        // PyLong_Check and the value.
+        internal static bool LongValue(PyObject value, out BigInteger number)
+        {
+            switch (value)
             {
-                iterables.Add(args[i]);
+                case PyInt exact: number = exact.Value; return true;
+                case PyBool flag: number = flag.Value ? 1 : 0; return true;
+                case PyIntSubclass derived: number = derived.GetIntValue().Value; return true;
+                default: number = 0; return false;
             }
+        }
 
-            var iterablesArray = new PyObject[iterables.Count];
-            for (int i = 0; i < iterables.Count; i++)
+        // PyLong_AsSsize_t: an int and nothing else.
+        internal static long AsSsize(PyObject value)
+        {
+            if (!LongValue(value, out var number))
+                throw PyTypeError.Create("an integer is required");
+            if (number < long.MinValue || number > long.MaxValue)
+                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+            return (long)number;
+        }
+
+        // PyNumber_AsSsize_t(value, PyExc_OverflowError) whose error the caller clears.
+        internal static bool TryNumberSsize(PyObject value, out long result)
+        {
+            try
             {
-                iterablesArray[i] = iterables[i];
+                result = PyArgs.IndexSsize(value);
+                return true;
             }
-            return new ProductIterator(iterablesArray, repeat);
+            catch (PythonException)
+            {
+                result = -1;
+                return false;
+            }
         }
 
-        /// <summary>
-        /// itertools.accumulate(iterable, func=None, initial=None) - 누적 계산
-        /// </summary>
-        private PyObject AccumulateFunction(PyObject[] args)
+        // PyMem_New of n Py_ssize_t: NULL past what can be allocated, and PyErr_NoMemory.
+        internal static long[] Indices(long n)
         {
-            if (args.Length == 0 || args.Length > 3)
-                throw PyTypeError.Create($"accumulate expected 1 to 3 arguments ({args.Length} given)");
-
-            PyObject func = null;
-            PyObject initial = null;
-
-            if (args.Length >= 2 && !(args[1] is PyNone))
-                func = args[1];
-            if (args.Length == 3 && !(args[2] is PyNone))
-                initial = args[2];
-
-            return new AccumulateIterator(args[0], func, initial);
+            if (n > Array.MaxLength)
+                throw PyMemoryError.Create();
+            return new long[n];
         }
 
-        /// <summary>
-        /// itertools.compress(data, selectors) - 선택적 필터링
-        /// </summary>
-        private PyObject CompressFunction(PyObject[] args)
+        // "state is not a tuple", then PyArg_ParseTuple without a function name.
+        internal static PyObject[] StateTuple(PyObject state, int min, int max)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"compress expected 2 arguments ({args.Length} given)");
-
-            return new CompressIterator(args[0], args[1]);
+            if (state is not PyTuple tuple)
+                throw PyTypeError.Create("state is not a tuple");
+            var items = tuple.Items;
+            if (items.Length < min || items.Length > max)
+            {
+                int count = items.Length < min ? min : max;
+                string how = min == max ? "exactly" : items.Length < min ? "at least" : "at most";
+                throw PyTypeError.Create($"function takes {how} {count} argument{(count == 1 ? "" : "s")} ({items.Length} given)");
+            }
+            return items;
         }
 
-        /// <summary>
-        /// itertools.dropwhile(predicate, iterable) - 조건이 false가 될 때까지 건너뛰기
-        /// </summary>
-        private PyObject DropWhileFunction(PyObject[] args)
+        // The "O!" converter of PyArg_ParseTuple.
+        internal static T StateItem<T>(PyObject[] items, int index, string expected) where T : PyObject =>
+            items[index] as T ?? throw PyTypeError.Create($"argument {index + 1} must be {expected}, not {items[index].GetPyType().Name}");
+
+        internal static PyTuple Pack(params PyObject[] items) => new PyTuple(items);
+
+        static ItertoolsModule()
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"dropwhile expected 2 arguments ({args.Length} given)");
+            BatchedType = Spec("batched", BatchedObject.New);
+            PairwiseType = Spec("pairwise", PairwiseObject.New);
+            GroupByType = Spec("groupby", GroupByObject.New);
+            Pickled<GroupByObject>(GroupByType, g => g.Reduce(), (g, s) => g.SetState(s));
+            GrouperType = Spec("_grouper", GrouperObject.New);
+            Pickled<GrouperObject>(GrouperType, g => g.Reduce());
+            TeeDataObjectType = Spec("_tee_dataobject", TeeDataObject.New, iterator: false);
+            Pickled<TeeDataObject>(TeeDataObjectType, t => t.Reduce());
+            TeeType = Spec("_tee", TeeObject.New, genericGetAttr: false);
+            Method<TeeObject>(TeeType, "__copy__", PyCall.NoArgs, (t, args) => t.Copy());
+            Pickled<TeeObject>(TeeType, t => t.Reduce(), (t, s) => t.SetState(s));
+            CycleType = Spec("cycle", CycleObject.New);
+            Pickled<CycleObject>(CycleType, c => c.Reduce(), (c, s) => c.SetState(s));
+            DropWhileType = Spec("dropwhile", DropWhileObject.New);
+            Pickled<DropWhileObject>(DropWhileType, o => o.Reduce(), (o, s) => o.SetState(s));
+            TakeWhileType = Spec("takewhile", TakeWhileObject.New);
+            Pickled<TakeWhileObject>(TakeWhileType, o => o.Reduce(), (o, s) => o.SetState(s));
+            ISliceType = Spec("islice", ISliceObject.New);
+            Pickled<ISliceObject>(ISliceType, o => o.Reduce(), (o, s) => o.SetState(s));
+            StarmapType = Spec("starmap", StarmapObject.New);
+            Pickled<StarmapObject>(StarmapType, o => o.Reduce());
+            ChainType = Spec("chain", ChainObject.New);
+            // ITERTOOLS_CHAIN_FROM_ITERABLE_METHODDEF: METH_O|METH_CLASS.
+            ChainType.TypeDict["from_iterable"] = new PyClassMethodDescriptor("from_iterable", ChainType,
+                new PyBuiltinFunction("from_iterable", (args, kwargs) =>
+                {
+                    var rest = args[1..];
+                    PyArgs.One("chain.from_iterable", rest, kwargs);
+                    return new ChainObject((PyType)args[0], rest[0].GetIterator());
+                }));
+            Pickled<ChainObject>(ChainType, o => o.Reduce(), (o, s) => o.SetState(s));
+            ChainType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
+                (cls, arg) => new SharpPy.PyGenericAlias((PyType)cls, arg));
+            ProductType = Spec("product", ProductObject.New);
+            Pickled<ProductObject>(ProductType, o => o.Reduce(), (o, s) => o.SetState(s));
+            Method<ProductObject>(ProductType, "__sizeof__", PyCall.NoArgs, (o, args) => o.SizeOf());
+            CombinationsType = Spec("combinations", CombinationsObject.New);
+            Pickled<CombinationsObject>(CombinationsType, o => o.Reduce(), (o, s) => o.SetState(s));
+            Method<CombinationsObject>(CombinationsType, "__sizeof__", PyCall.NoArgs, (o, args) => o.SizeOf());
+            CwrType = Spec("combinations_with_replacement", CwrObject.New);
+            Pickled<CwrObject>(CwrType, o => o.Reduce(), (o, s) => o.SetState(s));
+            Method<CwrObject>(CwrType, "__sizeof__", PyCall.NoArgs, (o, args) => o.SizeOf());
+            PermutationsType = Spec("permutations", PermutationsObject.New);
+            Pickled<PermutationsObject>(PermutationsType, o => o.Reduce(), (o, s) => o.SetState(s));
+            Method<PermutationsObject>(PermutationsType, "__sizeof__", PyCall.NoArgs, (o, args) => o.SizeOf());
+            AccumulateType = Spec("accumulate", AccumulateObject.New);
+            Pickled<AccumulateObject>(AccumulateType, o => o.Reduce(), (o, s) => o.SetState(s));
+            CompressType = Spec("compress", CompressObject.New);
+            Pickled<CompressObject>(CompressType, o => o.Reduce());
+            FilterFalseType = Spec("filterfalse", FilterFalseObject.New);
+            Pickled<FilterFalseObject>(FilterFalseType, o => o.Reduce());
+            CountType = Spec("count", CountObject.New);
+            TypeTables.Repr(CountType);
+            Pickled<CountObject>(CountType, o => o.Reduce());
+            RepeatType = Spec("repeat", RepeatObject.New);
+            TypeTables.Repr(RepeatType);
+            Method<RepeatObject>(RepeatType, "__length_hint__", PyCall.NoArgs, (o, args) => o.RemainingHint());
+            Pickled<RepeatObject>(RepeatType, o => o.Reduce());
+            ZipLongestType = Spec("zip_longest", ZipLongestObject.New);
+            Pickled<ZipLongestObject>(ZipLongestType, o => o.Reduce(), (o, s) => o.SetState(s));
 
-            return new DropWhileIterator(args[0], args[1]);
-        }
-
-        /// <summary>
-        /// itertools.takewhile(predicate, iterable) - 조건이 true인 동안만 가져오기
-        /// </summary>
-        private PyObject TakeWhileFunction(PyObject[] args)
-        {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"takewhile expected 2 arguments ({args.Length} given)");
-
-            return new TakeWhileIterator(args[0], args[1]);
-        }
-
-        /// <summary>
-        /// itertools.filterfalse(predicate, iterable) - 조건이 false인 것만 필터링
-        /// </summary>
-        private PyObject FilterFalseFunction(PyObject[] args)
-        {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"filterfalse expected 2 arguments ({args.Length} given)");
-
-            return new FilterFalseIterator(args[0], args[1]);
-        }
-
-        /// <summary>
-        /// itertools.islice(iterable, start, stop, step) - 슬라이싱 이터레이터
-        /// </summary>
-        private PyObject ISliceFunction(PyObject[] args)
-        {
-            if (args.Length < 2 || args.Length > 4)
-                throw PyTypeError.Create($"islice expected 2 to 4 arguments ({args.Length} given)");
-
-            return new ISliceIterator(args);
-        }
-
-        /// <summary>
-        /// itertools.groupby(iterable, key=None) - 그룹화
-        /// </summary>
-        private PyObject GroupByFunction(PyObject[] args)
-        {
-            if (args.Length == 0 || args.Length > 2)
-                throw PyTypeError.Create($"groupby expected 1 or 2 arguments ({args.Length} given)");
-
-            PyObject key = null;
-            if (args.Length == 2 && !(args[1] is PyNone))
-                key = args[1];
-
-            return new GroupByIterator(args[0], key);
-        }
-
-        /// <summary>
-        /// itertools.zip_longest(*iterables, fillvalue=None) - 가장 긴 이터러블에 맞춰 zip
-        /// </summary>
-        private PyObject ZipLongestFunction(PyObject[] args, PyDict kwargs)
-        {
-            return new ZipLongestIterator(args, KwValue(kwargs, "fillvalue") ?? PyNone.Instance);
+            // The order of itertoolsmodule_exec.
+            AllTypes = new[]
+            {
+                AccumulateType, BatchedType, ChainType, CombinationsType, CompressType, CountType, CwrType, CycleType,
+                DropWhileType, FilterFalseType, GroupByType, GrouperType, ISliceType, PairwiseType, PermutationsType,
+                ProductType, RepeatType, StarmapType, TakeWhileType, TeeType, TeeDataObjectType, ZipLongestType,
+            };
         }
     }
-
-    internal sealed class ChainFromIterable : PyIterator
-    {
-        protected override string IteratorName => "itertools.chain";
-
-        private readonly PyObject _outer;
-        private PyObject _inner;
-
-        internal ChainFromIterable(PyObject outer) { _outer = outer; }
-
-        public override PyObject Next()
-        {
-            while (true)
-            {
-                if (_inner == null) _inner = _outer.Next().GetIterator();
-                try { return _inner.Next(); }
-                catch (PythonException error) when (error.PyException is PyStopIteration) { _inner = null; }
-            }
-        }
-    }
-
-    #region Iterator Implementations
 
     /// <summary>
-    /// batched(iterable, n) iterator
+    /// What every itertools object shares: tp_alloc of the type it was made for, which a Python
+    /// subclass may be, and tp_name, which is the spec's dotted name.
     /// </summary>
-    public class BatchedIterator : PyIterator
+    internal abstract class ItertoolsObject : PyIterator
     {
-        protected override string IteratorName => "itertools.batched";
-        private readonly PyObject _iterator;
-        private readonly int _n;
+        private readonly PyType _base;
 
-        public BatchedIterator(PyObject iterable, int n)
+        protected ItertoolsObject(PyType type, PyType baseType)
         {
-            _iterator = iterable.GetIterator();
-            _n = n;
+            _base = baseType;
+            if (type != null && type != baseType)
+                SetCustomType(type);
         }
 
+        public override PyType GetPyType() => _customType ?? _base;
+        public override string GetTypeName() => _customType is PyClass heap ? heap.Name : _base.FullName;
+        protected override string IteratorName => GetTypeName();
+
+        // _PyType_Name(Py_TYPE(self)): tp_name after its last dot.
+        protected string ShortTypeName => GetPyType().Name;
+
+        // _PyObject_SIZE(Py_TYPE(self)): a Python subclass adds its __dict__ and __weakref__ slots.
+        protected long ObjectSize(long basicsize) => _customType is PyClass ? basicsize + 16 : basicsize;
+    }
+
+    /// <summary>batchedobject</summary>
+    internal sealed class BatchedObject : ItertoolsObject
+    {
+        private PyObject _it;
+        private readonly long _batchSize;
+
+        private BatchedObject(PyType type, PyObject it, long n) : base(type, ItertoolsModule.BatchedType)
+        {
+            _it = it;
+            _batchSize = n;
+        }
+
+        // batched_new: "iterable", "n" by position or name.
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            var fast = PyArgs.Unpack("batched", args, kwargs, new[] { "iterable", "n" }, 0, 2, 2);
+            long n = PyArgs.Ssize(fast[1]);
+            if (n < 1)
+                throw PyValueError.Create("n must be at least one");
+            return new BatchedObject(type, fast[0].GetIterator(), n);
+        }
+
+        // batched_next
         public override PyObject Next()
         {
+            var it = _it;
+            if (it == null)
+                throw ItertoolsModule.Stop();
             var items = new List<PyObject>();
-            for (int i = 0; i < _n; i++)
+            for (long i = 0; i < _batchSize; i++)
             {
                 PyObject item;
-                try { item = _iterator.Next(); }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration) { break; }
+                try
+                {
+                    item = it.Next();
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    break;
+                }
+                catch (PythonException)
+                {
+                    // Input raised an exception other than StopIteration.
+                    _it = null;
+                    throw;
+                }
                 items.Add(item);
             }
             if (items.Count == 0)
-                throw PyStopIteration.Create();
+            {
+                _it = null;
+                throw ItertoolsModule.Stop();
+            }
             return new PyTuple(items.ToArray());
         }
     }
 
-    /// <summary>
-    /// combinations_with_replacement(iterable, r) iterator
-    /// CPython 3.12: Modules/itertoolsmodule.c
-    /// </summary>
-    public class CombinationsWithReplacementIterator : PyIterator
+    /// <summary>pairwiseobject</summary>
+    internal sealed class PairwiseObject : ItertoolsObject
     {
-        protected override string IteratorName => "itertools.combinations_with_replacement";
-        private readonly List<PyObject> _pool;
-        private readonly int _r;
-        private int[] _indices;
-        private bool _started = false;
+        private PyObject _it;
+        private PyObject _old;
 
-        public CombinationsWithReplacementIterator(PyObject iterable, int r)
+        private PairwiseObject(PyType type, PyObject it) : base(type, ItertoolsModule.PairwiseType) => _it = it;
+
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
         {
-            _pool = new List<PyObject>();
-            var iterator = iterable.GetIterator();
-            try
-            {
-                while (true)
-                    _pool.Add(iterator.Next());
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
-
-            _r = r;
-            if (r < 0 || _pool.Count == 0)
-            {
-                _indices = null;
-            }
-            else
-            {
-                _indices = new int[r];
-                // All start at 0
-            }
+            ItertoolsModule.NoKeywords(type, ItertoolsModule.PairwiseType, "pairwise", kwargs);
+            PyArgs.Positional("pairwise", args, null, 1, 1);
+            return new PairwiseObject(type, args[0].GetIterator());
         }
 
+        // pairwise_next: the fields are read again after each call, which may have re-entered.
         public override PyObject Next()
         {
-            if (_indices == null)
-                throw PyStopIteration.Create();
-
-            if (!_started)
+            var it = _it;
+            var old = _old;
+            if (it == null)
+                throw ItertoolsModule.Stop();
+            if (old == null)
             {
-                _started = true;
-                var result = new PyObject[_r];
-                for (int i = 0; i < _r; i++)
-                    result[i] = _pool[_indices[i]];
-                return new PyTuple(result);
-            }
-
-            // Find rightmost index that can be incremented
-            int i2 = _r - 1;
-            while (i2 >= 0 && _indices[i2] == _pool.Count - 1)
-                i2--;
-
-            if (i2 < 0)
-                throw PyStopIteration.Create();
-
-            int val = _indices[i2] + 1;
-            for (int j = i2; j < _r; j++)
-                _indices[j] = val;
-
-            var resultArray = new PyObject[_r];
-            for (int idx = 0; idx < _r; idx++)
-                resultArray[idx] = _pool[_indices[idx]];
-            return new PyTuple(resultArray);
-        }
-    }
-
-    /// <summary>
-    /// pairwise(iterable) iterator
-    /// </summary>
-    public class PairwiseIterator : PyIterator
-    {
-        protected override string IteratorName => "itertools.pairwise";
-        private readonly PyObject _iterator;
-        private PyObject _prev;
-        private bool _started = false;
-
-        public PairwiseIterator(PyObject iterable)
-        {
-            _iterator = iterable.GetIterator();
-        }
-
-        public override PyObject Next()
-        {
-            if (!_started)
-            {
-                _started = true;
-                try { _prev = _iterator.Next(); }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                try
                 {
-                    throw PyStopIteration.Create();
+                    old = it.Next();
+                }
+                catch (PythonException)
+                {
+                    _old = null;
+                    _it = null;
+                    throw;
+                }
+                _old = old;
+                it = _it;
+                if (it == null)
+                {
+                    _old = null;
+                    throw ItertoolsModule.Stop();
                 }
             }
-
-            PyObject current;
-            try { current = _iterator.Next(); }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+            PyObject @new;
+            try
             {
-                throw PyStopIteration.Create();
+                @new = it.Next();
             }
-
-            var result = new PyTuple(new PyObject[] { _prev, current });
-            _prev = current;
+            catch (PythonException)
+            {
+                _it = null;
+                _old = null;
+                throw;
+            }
+            var result = ItertoolsModule.Pack(old, @new);
+            _old = @new;
             return result;
         }
     }
 
-    /// <summary>
-    /// tee shared state - one source iterator with per-branch buffers
-    /// CPython 3.12: Modules/itertoolsmodule.c teeobject
-    /// </summary>
-    public class TeeShared
+    /// <summary>groupbyobject</summary>
+    internal sealed class GroupByObject : ItertoolsObject
     {
-        private readonly PyObject _iterator;
-        private readonly List<PyObject> _buffer = new List<PyObject>();
-        // teedataobject.running: the lead iterator is inside PyIter_Next.
-        private bool _running;
+        internal readonly PyObject It;
+        private readonly PyObject _keyfunc;
+        private PyObject _tgtkey;
+        internal PyObject CurrKey;
+        internal PyObject CurrValue;
+        internal GrouperObject CurrGrouper;
 
-        public TeeShared(PyObject iterable)
+        private GroupByObject(PyType type, PyObject it, PyObject keyfunc) : base(type, ItertoolsModule.GroupByType)
         {
-            _iterator = iterable.GetIterator();
+            It = it;
+            _keyfunc = keyfunc;
         }
 
-        /// <summary>
-        /// Get item at index, pulling from source if needed.
-        /// Returns null if index is past the end.
-        /// </summary>
-        // teedataobject_getitem: a branch behind the lead reads the buffer; the lead asks the source
-        // each time, so an exhausted source is asked again, and a source still running is re-entered.
-        public PyObject GetItem(int index)
+        // itertools_groupby: "iterable", "key"=None.
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
         {
-            if (index < _buffer.Count)
-                return _buffer[index];
+            var fast = PyArgs.Unpack("groupby", args, kwargs, new[] { "iterable", "key" }, 0, 1, 2);
+            var keyfunc = fast[1] ?? PyNone.Instance;
+            return new GroupByObject(type, fast[0].GetIterator(), keyfunc);
+        }
+
+        // groupby_step: false when the input is done.
+        internal bool Step()
+        {
+            var newvalue = ItertoolsModule.IterNext(It);
+            if (newvalue == null)
+                return false;
+            var newkey = _keyfunc is PyNone ? newvalue : _keyfunc.Call(new[] { newvalue }, null);
+            CurrValue = newvalue;
+            CurrKey = newkey;
+            return true;
+        }
+
+        // groupby_next
+        public override PyObject Next()
+        {
+            CurrGrouper = null;
+            // skip to next iteration group
+            while (true)
+            {
+                if (CurrKey == null)
+                {
+                }
+                else if (_tgtkey == null)
+                    break;
+                else if (!PyObject.CompareBool(_tgtkey, CurrKey, PyObject.CompareOp.EQ))
+                    break;
+                if (!Step())
+                    throw ItertoolsModule.Stop();
+            }
+            _tgtkey = CurrKey;
+            var grouper = new GrouperObject(this, _tgtkey);
+            return ItertoolsModule.Pack(CurrKey, grouper);
+        }
+
+        // groupby_reduce: a 'new' call, with a 'setstate' once the groupby has started.
+        internal PyObject Reduce()
+        {
+            var args = ItertoolsModule.Pack(It, _keyfunc);
+            if (_tgtkey != null && CurrKey != null && CurrValue != null)
+                return ItertoolsModule.Pack(GetPyType(), args, ItertoolsModule.Pack(CurrKey, CurrValue, _tgtkey));
+            return ItertoolsModule.Pack(GetPyType(), args);
+        }
+
+        // groupby_setstate: "OOO"
+        internal void SetState(PyObject state)
+        {
+            var items = ItertoolsModule.StateTuple(state, 3, 3);
+            CurrKey = items[0];
+            CurrValue = items[1];
+            _tgtkey = items[2];
+        }
+    }
+
+    /// <summary>_grouperobject</summary>
+    internal sealed class GrouperObject : ItertoolsObject
+    {
+        private readonly GroupByObject _parent;
+        private readonly PyObject _tgtkey;
+
+        // _grouper_create: always the module's _grouper type; the parent's grouper is now this one.
+        internal GrouperObject(GroupByObject parent, PyObject tgtkey) : base(null, ItertoolsModule.GrouperType)
+        {
+            _parent = parent;
+            _tgtkey = tgtkey;
+            parent.CurrGrouper = this;
+        }
+
+        // itertools__grouper: "parent" a groupby, "tgtkey", both by position.
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            ItertoolsModule.NoKeywords(type, ItertoolsModule.GrouperType, "_grouper", kwargs);
+            PyArgs.Positional("_grouper", args, null, 2, 2);
+            if (args[0] is not GroupByObject parent)
+                throw ItertoolsModule.BadArgument("_grouper", "argument 1", ItertoolsModule.GroupByType.FullName, args[0]);
+            return new GrouperObject(parent, args[1]);
+        }
+
+        // _grouper_next
+        public override PyObject Next()
+        {
+            var gbo = _parent;
+            if (gbo.CurrGrouper != this)
+                throw ItertoolsModule.Stop();
+            if (gbo.CurrValue == null && !gbo.Step())
+                throw ItertoolsModule.Stop();
+            // got any error or current group is end
+            if (!PyObject.CompareBool(_tgtkey, gbo.CurrKey, PyObject.CompareOp.EQ))
+                throw ItertoolsModule.Stop();
+            var r = gbo.CurrValue;
+            gbo.CurrValue = null;
+            gbo.CurrKey = null;
+            return r;
+        }
+
+        // _grouper_reduce
+        internal PyObject Reduce()
+        {
+            if (_parent.CurrGrouper != this)
+                return ItertoolsModule.Pack(Builtin("iter"), ItertoolsModule.Pack(PyTuple.Empty));
+            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_parent, _tgtkey));
+        }
+    }
+
+    /// <summary>
+    /// teedataobject: LINKCELLS values read from the shared iterator, and the link to the next
+    /// block once this one is full.
+    /// </summary>
+    internal sealed class TeeDataObject : PyObject
+    {
+        internal const int LINKCELLS = 57;
+
+        internal readonly PyObject It;
+        internal int NumRead;
+        private bool _running;
+        internal TeeDataObject NextLink;
+        internal readonly PyObject[] Values = new PyObject[LINKCELLS];
+
+        // teedataobject_newinternal
+        internal TeeDataObject(PyObject it) => It = it;
+
+        public override PyType GetPyType() => ItertoolsModule.TeeDataObjectType;
+        public override string GetTypeName() => ItertoolsModule.TeeDataObjectType.FullName;
+
+        // teedataobject_jumplink
+        internal TeeDataObject JumpLink() => NextLink ??= new TeeDataObject(It);
+
+        // teedataobject_getitem: null once the iterator is done.
+        internal PyObject GetItem(int i)
+        {
+            if (i < NumRead)
+                return Values[i];
+            // this is the lead iterator, so fetch more data
             if (_running)
                 throw PyRuntimeError.Create("cannot re-enter the tee iterator");
             _running = true;
             PyObject value;
             try
             {
-                value = _iterator.Next();
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                return null;
+                value = ItertoolsModule.IterNext(It);
             }
             finally
             {
                 _running = false;
             }
-            _buffer.Add(value);
+            if (value == null)
+                return null;
+            NumRead++;
+            Values[i] = value;
             return value;
         }
-    }
 
-    /// <summary>
-    /// tee branch iterator
-    /// </summary>
-    public class TeeIterator : PyIterator
-    {
-        private readonly TeeShared _shared;
-        private int _index = 0;
-
-        public TeeIterator(TeeShared shared)
+        // teedataobject_reduce
+        internal PyObject Reduce()
         {
-            _shared = shared;
+            var values = new PyList();
+            for (int i = 0; i < NumRead; i++)
+                values.Append(Values[i]);
+            return ItertoolsModule.Pack(GetPyType(),
+                ItertoolsModule.Pack(It, values, (PyObject)NextLink ?? PyNone.Instance));
         }
 
+        // itertools_teedataobject: "iterable", "values" a list, "next", by position.
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            ItertoolsModule.NoKeywords(type, ItertoolsModule.TeeDataObjectType, "teedataobject", kwargs);
+            PyArgs.Positional("teedataobject", args, null, 3, 3);
+            if (args[1] is not PyList values)
+                throw ItertoolsModule.BadArgument("teedataobject", "argument 2", "list", args[1]);
+            var next = args[2];
+            var tdo = new TeeDataObject(args[0]);
+            int len = values.RawCount();
+            if (len > LINKCELLS)
+                throw PyValueError.Create("Invalid arguments");
+            for (int i = 0; i < len; i++)
+                tdo.Values[i] = values.RawGet(i);
+            tdo.NumRead = len;
+            if (len == LINKCELLS)
+            {
+                if (next is not PyNone)
+                {
+                    if (next is not TeeDataObject link)
+                        throw PyValueError.Create("Invalid arguments");
+                    tdo.NextLink = link;
+                }
+            }
+            else if (next is not PyNone)
+                // shouldn't have a next if we are not full
+                throw PyValueError.Create("Invalid arguments");
+            return tdo;
+        }
+    }
+
+    /// <summary>teeobject</summary>
+    internal sealed class TeeObject : ItertoolsObject
+    {
+        private TeeDataObject _dataobj;
+        private int _index;
+
+        private TeeObject(TeeDataObject dataobj, int index) : base(null, ItertoolsModule.TeeType)
+        {
+            _dataobj = dataobj;
+            _index = index;
+        }
+
+        // tee_next
         public override PyObject Next()
         {
-            PyObject item = _shared.GetItem(_index);
-            if (item == null)
-                throw PyStopIteration.Create();
+            if (_index >= TeeDataObject.LINKCELLS)
+            {
+                _dataobj = _dataobj.JumpLink();
+                _index = 0;
+            }
+            var value = _dataobj.GetItem(_index) ?? throw ItertoolsModule.Stop();
             _index++;
-            return item;
+            return value;
+        }
+
+        // tee_copy
+        internal TeeObject Copy() => new TeeObject(_dataobj, _index);
+
+        // tee_fromiterable
+        internal static TeeObject FromIterable(PyObject iterable)
+        {
+            var it = iterable.GetIterator();
+            if (it is TeeObject tee)
+                return tee.Copy();
+            return new TeeObject(new TeeDataObject(it), 0);
+        }
+
+        // itertools__tee: "iterable" by position.
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            ItertoolsModule.NoKeywords(type, ItertoolsModule.TeeType, "_tee", kwargs);
+            PyArgs.Positional("_tee", args, null, 1, 1);
+            return FromIterable(args[0]);
+        }
+
+        // tee_reduce
+        internal PyObject Reduce() => ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyTuple.Empty),
+            ItertoolsModule.Pack(_dataobj, new PyInt(_index)));
+
+        // tee_setstate: "O!i" with the teedataobject type.
+        internal void SetState(PyObject state)
+        {
+            var items = ItertoolsModule.StateTuple(state, 2, 2);
+            var tdo = ItertoolsModule.StateItem<TeeDataObject>(items, 0, ItertoolsModule.TeeDataObjectType.FullName);
+            int index = PyArgs.ParseInt(items[1]);
+            if (index < 0 || index > TeeDataObject.LINKCELLS)
+                throw PyValueError.Create("Index out of range");
+            _dataobj = tdo;
+            _index = index;
+        }
+
+        // itertools_tee_impl
+        internal static PyObject Tee(PyObject iterable, long n)
+        {
+            if (n < 0)
+                throw PyValueError.Create("n must be >= 0");
+            if (n > Array.MaxLength)
+                throw PyMemoryError.Create();
+            var result = new PyObject[n];
+            if (n == 0)
+                return new PyTuple(result);
+            var it = iterable.GetIterator();
+            var to = FromIterable(it);
+            result[0] = to;
+            for (long i = 1; i < n; i++)
+            {
+                to = to.Copy();
+                result[i] = to;
+            }
+            return new PyTuple(result);
         }
     }
 
-    /// <summary>
-    /// count 이터레이터 구현
-    /// </summary>
-    public class CountIterator : PyIterator
+    /// <summary>cycleobject</summary>
+    internal sealed class CycleObject : ItertoolsObject
     {
-        protected override string IteratorName => "itertools.count";
-        private PyObject _current;
-        private readonly PyObject _step;
+        private PyObject _it;
+        private PyList _saved;
+        private long _index;
+        private bool _firstpass;
 
-        public CountIterator(PyObject start, PyObject step)
+        private CycleObject(PyType type, PyObject it) : base(type, ItertoolsModule.CycleType)
         {
-            _current = start;
+            _it = it;
+            _saved = new PyList();
+        }
+
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            ItertoolsModule.NoKeywords(type, ItertoolsModule.CycleType, "cycle", kwargs);
+            PyArgs.Positional("cycle", args, null, 1, 1);
+            return new CycleObject(type, args[0].GetIterator());
+        }
+
+        // cycle_next
+        public override PyObject Next()
+        {
+            if (_it != null)
+            {
+                var item = ItertoolsModule.IterNext(_it);
+                if (item != null)
+                {
+                    if (!_firstpass)
+                        _saved.Append(item);
+                    return item;
+                }
+                _it = null;
+            }
+            int size = _saved.RawCount();
+            if (size == 0)
+                throw ItertoolsModule.Stop();
+            var value = _saved.RawGet((int)_index);
+            _index++;
+            if (_index >= _saved.RawCount())
+                _index = 0;
+            return value;
+        }
+
+        // cycle_reduce: a new cycle over the iterator, then the saved state.
+        internal PyObject Reduce()
+        {
+            if (_it == null)
+            {
+                var it = _saved.GetIterator();
+                if (_index != 0)
+                    it.GetAttribute("__setstate__").Call(new PyObject[] { new PyInt(_index) }, null);
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(it), ItertoolsModule.Pack(_saved, PyBool.True));
+            }
+            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_it),
+                ItertoolsModule.Pack(_saved, PyBool.FromBool(_firstpass)));
+        }
+
+        // cycle_setstate: "O!i"; the second item is 1/0 in old pickles and True/False in new ones.
+        internal void SetState(PyObject state)
+        {
+            var items = ItertoolsModule.StateTuple(state, 2, 2);
+            var saved = ItertoolsModule.StateItem<PyList>(items, 0, "list");
+            int firstpass = PyArgs.ParseInt(items[1]);
+            _saved = saved;
+            _firstpass = firstpass != 0;
+            _index = 0;
+        }
+    }
+
+    /// <summary>dropwhileobject</summary>
+    internal sealed class DropWhileObject : ItertoolsObject
+    {
+        private readonly PyObject _func;
+        private readonly PyObject _it;
+        private long _start;
+
+        private DropWhileObject(PyType type, PyObject func, PyObject it) : base(type, ItertoolsModule.DropWhileType)
+        {
+            _func = func;
+            _it = it;
+        }
+
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            ItertoolsModule.NoKeywords(type, ItertoolsModule.DropWhileType, "dropwhile", kwargs);
+            PyArgs.Positional("dropwhile", args, null, 2, 2);
+            var it = args[1].GetIterator();
+            return new DropWhileObject(type, args[0], it);
+        }
+
+        // dropwhile_next
+        public override PyObject Next()
+        {
+            while (true)
+            {
+                var item = _it.Next();
+                if (_start == 1)
+                    return item;
+                var good = _func.Call(new[] { item }, null);
+                if (!good.IsTrue())
+                {
+                    _start = 1;
+                    return item;
+                }
+            }
+        }
+
+        internal PyObject Reduce() => ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_func, _it), new PyInt(_start));
+
+        internal void SetState(PyObject state) => _start = state.IsTrue() ? 1 : 0;
+    }
+
+    /// <summary>takewhileobject</summary>
+    internal sealed class TakeWhileObject : ItertoolsObject
+    {
+        private readonly PyObject _func;
+        private readonly PyObject _it;
+        private long _stop;
+
+        private TakeWhileObject(PyType type, PyObject func, PyObject it) : base(type, ItertoolsModule.TakeWhileType)
+        {
+            _func = func;
+            _it = it;
+        }
+
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            ItertoolsModule.NoKeywords(type, ItertoolsModule.TakeWhileType, "takewhile", kwargs);
+            PyArgs.Positional("takewhile", args, null, 2, 2);
+            var it = args[1].GetIterator();
+            return new TakeWhileObject(type, args[0], it);
+        }
+
+        // takewhile_next
+        public override PyObject Next()
+        {
+            if (_stop == 1)
+                throw ItertoolsModule.Stop();
+            var item = _it.Next();
+            var good = _func.Call(new[] { item }, null);
+            if (good.IsTrue())
+                return item;
+            _stop = 1;
+            throw ItertoolsModule.Stop();
+        }
+
+        internal PyObject Reduce() => ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_func, _it), new PyInt(_stop));
+
+        internal void SetState(PyObject state) => _stop = state.IsTrue() ? 1 : 0;
+    }
+
+    /// <summary>isliceobject</summary>
+    internal sealed class ISliceObject : ItertoolsObject
+    {
+        private PyObject _it;
+        private long _next;
+        private readonly long _stop;
+        private readonly long _step;
+        private long _cnt;
+
+        private ISliceObject(PyType type, PyObject it, long start, long stop, long step) : base(type, ItertoolsModule.ISliceType)
+        {
+            _it = it;
+            _next = start;
+            _stop = stop;
             _step = step;
         }
 
-        public override PyObject Next()
+        private const string StopMessage = "Stop argument for islice() must be None or an integer: 0 <= x <= sys.maxsize.";
+
+        // islice_new
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
         {
-            var result = _current;
-            _current = PyVM.Instance.ExecuteBinaryOpType(_current, _step, BinaryOpType.ADD);
-            return result;
-        }
-
-        public override string ToString() => $"count({_current.ToRepr().Value}, {_step.ToRepr().Value})";
-    }
-
-    /// <summary>
-    /// cycle 이터레이터 구현
-    /// </summary>
-    public class CycleIterator : PyIterator
-    {
-        protected override string IteratorName => "itertools.cycle";
-        private readonly List<PyObject> _items;
-        private int _index = 0;
-
-        public CycleIterator(PyObject iterable)
-        {
-            _items = new List<PyObject>();
-            var iterator = iterable.GetIterator();
-            
-            try
+            long start = 0, stop = -1, step = 1;
+            ItertoolsModule.NoKeywords(type, ItertoolsModule.ISliceType, "islice", kwargs);
+            PyArgs.Positional("islice", args, null, 2, 4);
+            var seq = args[0];
+            var a1 = args[1];
+            var a2 = args.Length > 2 ? args[2] : null;
+            var a3 = args.Length > 3 ? args[3] : null;
+            if (args.Length == 2)
             {
-                while (true)
-                {
-                    _items.Add(iterator.Next());
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 모든 아이템을 수집 완료
-            }
-
-            if (_items.Count == 0)
-                throw PyStopIteration.Create();
-        }
-
-        public override PyObject Next()
-        {
-            if (_items.Count == 0)
-                throw PyStopIteration.Create();
-
-            var result = _items[_index];
-            _index = (_index + 1) % _items.Count;
-            return result;
-        }
-
-        public override string ToString() => $"cycle({_items.Count} items)";
-    }
-
-    /// <summary>
-    /// repeat 이터레이터 구현
-    /// </summary>
-    public class RepeatIterator : PyIterator
-    {
-        protected override string IteratorName => "itertools.repeat";
-        private readonly PyObject _object;
-        private int? _remaining;
-
-        public RepeatIterator(PyObject obj, int? times)
-        {
-            _object = obj;
-            _remaining = times;
-        }
-
-        public override PyObject Next()
-        {
-            if (_remaining.HasValue)
-            {
-                if (_remaining <= 0)
-                    throw PyStopIteration.Create();
-                _remaining--;
-            }
-
-            return _object;
-        }
-
-        public override string ToString() => 
-            _remaining.HasValue ? $"repeat({_object}, {_remaining})" : $"repeat({_object})";
-
-        // repeat_len: an endless repeat has no length.
-        internal override PyObject RemainingHint() =>
-            _remaining.HasValue ? new PyInt(Math.Max(_remaining.Value, 0)) : throw PyTypeError.Create("len() of unsized object");
-    }
-
-    #endregion
-
-    /// <summary>
-    /// combinations(iterable, r) 이터레이터 구현
-    /// </summary>
-    public class CombinationsIterator : PyIterator
-    {
-        protected override string IteratorName => "itertools.combinations";
-        private readonly List<PyObject> _pool;
-        private readonly int _r;
-        private int[] _indices;
-        private bool _started = false;
-
-        public CombinationsIterator(PyObject iterable, int r)
-        {
-            _pool = new List<PyObject>();
-            var iterator = iterable.GetIterator();
-            try
-            {
-                while (true)
-                {
-                    _pool.Add(iterator.Next());
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
-
-            _r = r;
-            if (r < 0 || r > _pool.Count)
-            {
-                _indices = null; // Empty iterator
+                if (a1 is not PyNone && (!ItertoolsModule.TryNumberSsize(a1, out stop) || stop == -1))
+                    throw PyValueError.Create(StopMessage);
             }
             else
             {
-                // Performance: Eliminated LINQ
-                _indices = new int[r];
-                for (int i = 0; i < r; i++)
-                {
-                    _indices[i] = i;
-                }
+                if (a1 is not PyNone)
+                    ItertoolsModule.TryNumberSsize(a1, out start);
+                if (a2 is not PyNone && (!ItertoolsModule.TryNumberSsize(a2, out stop) || stop == -1))
+                    throw PyValueError.Create(StopMessage);
             }
+            if (start < 0 || stop < -1)
+                throw PyValueError.Create("Indices for islice() must be None or an integer: 0 <= x <= sys.maxsize.");
+            if (a3 != null && a3 is not PyNone)
+                ItertoolsModule.TryNumberSsize(a3, out step);
+            if (step < 1)
+                throw PyValueError.Create("Step for islice() must be a positive integer or None.");
+            var it = seq.GetIterator();
+            return new ISliceObject(type, it, start, stop, step);
         }
 
+        // islice_next: whatever ends the input, an error or its end, lets it go.
         public override PyObject Next()
         {
-            if (_indices == null)
-                throw PyStopIteration.Create();
-
-            if (!_started)
-            {
-                _started = true;
-                // Performance: Eliminated LINQ
-                var result = new PyObject[_indices.Length];
-                for (int idx = 0; idx < _indices.Length; idx++)
-                {
-                    result[idx] = _pool[_indices[idx]];
-                }
-                return new PyTuple(result);
-            }
-
-            // Generate next combination
-            int i = _r - 1;
-            while (i >= 0 && _indices[i] == _pool.Count - _r + i)
-                i--;
-
-            if (i < 0)
-                throw PyStopIteration.Create();
-
-            _indices[i]++;
-            for (int j = i + 1; j < _r; j++)
-                _indices[j] = _indices[j - 1] + 1;
-
-            // Performance: Eliminated LINQ
-            var resultArray = new PyObject[_indices.Length];
-            for (int idx = 0; idx < _indices.Length; idx++)
-            {
-                resultArray[idx] = _pool[_indices[idx]];
-            }
-            return new PyTuple(resultArray);
-        }
-    }
-
-    /// <summary>
-    /// permutations(iterable, r) 이터레이터 구현
-    /// </summary>
-    public class PermutationsIterator : PyIterator
-    {
-        protected override string IteratorName => "itertools.permutations";
-        private readonly List<PyObject> _pool;
-        private readonly int _r;
-        private int[] _indices;
-        private int[] _cycles;
-        private bool _started = false;
-
-        public PermutationsIterator(PyObject iterable, int? r)
-        {
-            _pool = new List<PyObject>();
-            var iterator = iterable.GetIterator();
+            var it = _it;
+            long stop = _stop;
+            if (it == null)
+                throw ItertoolsModule.Stop();
             try
             {
-                while (true)
+                while (_cnt < _next)
                 {
-                    _pool.Add(iterator.Next());
+                    it.Next();
+                    _cnt++;
                 }
+                if (stop != -1 && _cnt >= stop)
+                {
+                    _it = null;
+                    throw ItertoolsModule.Stop();
+                }
+                var item = it.Next();
+                _cnt++;
+                long oldnext = _next;
+                _next = unchecked(_next + _step);
+                if (_next < oldnext || (stop != -1 && _next > stop))
+                    _next = stop;
+                return item;
             }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
-
-            _r = r ?? _pool.Count;
-
-            if (_r > _pool.Count)
+            catch (PythonException)
             {
-                _indices = null; // Empty iterator
-            }
-            else
-            {
-                // Performance: Eliminated LINQ
-                _indices = new int[_pool.Count];
-                for (int i = 0; i < _pool.Count; i++)
-                {
-                    _indices[i] = i;
-                }
-
-                _cycles = new int[_r];
-                for (int i = 0; i < _r; i++)
-                {
-                    _cycles[i] = _pool.Count - i;
-                }
+                _it = null;
+                throw;
             }
         }
 
+        // islice_reduce: a new object with the same bounds, then 'setstate' with the count.
+        internal PyObject Reduce()
+        {
+            if (_it == null)
+            {
+                var emptyIt = new PyList().GetIterator();
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(emptyIt, new PyInt(0)), new PyInt(0));
+            }
+            PyObject stop = _stop == -1 ? PyNone.Instance : new PyInt(_stop);
+            return ItertoolsModule.Pack(GetPyType(),
+                ItertoolsModule.Pack(_it, new PyInt(_next), stop, new PyInt(_step)), new PyInt(_cnt));
+        }
+
+        internal void SetState(PyObject state) => _cnt = ItertoolsModule.AsSsize(state);
+    }
+
+    /// <summary>starmapobject</summary>
+    internal sealed class StarmapObject : ItertoolsObject
+    {
+        private readonly PyObject _func;
+        private readonly PyObject _it;
+
+        private StarmapObject(PyType type, PyObject func, PyObject it) : base(type, ItertoolsModule.StarmapType)
+        {
+            _func = func;
+            _it = it;
+        }
+
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            ItertoolsModule.NoKeywords(type, ItertoolsModule.StarmapType, "starmap", kwargs);
+            PyArgs.Positional("starmap", args, null, 2, 2);
+            var it = args[1].GetIterator();
+            return new StarmapObject(type, args[0], it);
+        }
+
+        // starmap_next
         public override PyObject Next()
         {
-            if (_indices == null)
-                throw PyStopIteration.Create();
+            var args = _it.Next();
+            var items = args is PyTuple tuple && tuple.GetType() == typeof(PyTuple) && !tuple.HasCustomType
+                ? tuple.Items
+                : ItertoolsModule.SequenceTuple(args);
+            return _func.Call(items, null);
+        }
 
-            if (!_started)
-            {
-                _started = true;
-                // Performance: Eliminated LINQ
-                var result = new PyObject[_r];
-                for (int idx = 0; idx < _r; idx++)
-                {
-                    result[idx] = _pool[_indices[idx]];
-                }
-                return new PyTuple(result);
-            }
+        internal PyObject Reduce() => ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_func, _it));
+    }
 
-            for (int i = _r - 1; i >= 0; i--)
+    /// <summary>chainobject: an iterator over the input iterables, and the one running now.</summary>
+    internal sealed class ChainObject : ItertoolsObject
+    {
+        private PyObject _source;
+        private PyObject _active;
+
+        // chain_new_internal
+        internal ChainObject(PyType type, PyObject source) : base(type, ItertoolsModule.ChainType) => _source = source;
+
+        // chain_new
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            ItertoolsModule.NoKeywords(type, ItertoolsModule.ChainType, "chain", kwargs);
+            var source = new PyTuple(args).GetIterator();
+            return new ChainObject(type, source);
+        }
+
+        // chain_next
+        public override PyObject Next()
+        {
+            while (_source != null)
             {
-                _cycles[i]--;
-                if (_cycles[i] == 0)
+                if (_active == null)
                 {
-                    // Rotate indices
-                    var first = _indices[i];
-                    Array.Copy(_indices, i + 1, _indices, i, _pool.Count - i - 1);
-                    _indices[_pool.Count - 1] = first;
-                    _cycles[i] = _pool.Count - i;
-                }
-                else
-                {
-                    // Swap
-                    int j = _pool.Count - _cycles[i];
-                    (_indices[i], _indices[j]) = (_indices[j], _indices[i]);
-                    // Performance: Eliminated LINQ
-                    var resultArray = new PyObject[_r];
-                    for (int idx = 0; idx < _r; idx++)
+                    PyObject iterable;
+                    try
                     {
-                        resultArray[idx] = _pool[_indices[idx]];
+                        iterable = ItertoolsModule.IterNext(_source);
                     }
-                    return new PyTuple(resultArray);
+                    catch (PythonException)
+                    {
+                        _source = null;
+                        throw;
+                    }
+                    if (iterable == null)
+                    {
+                        _source = null;
+                        throw ItertoolsModule.Stop();       // no more input sources
+                    }
+                    try
+                    {
+                        _active = iterable.GetIterator();
+                    }
+                    catch (PythonException)
+                    {
+                        _source = null;
+                        throw;                              // input not iterable
+                    }
                 }
-            }
-
-            throw PyStopIteration.Create();
-        }
-    }
-
-    /// <summary>
-    /// product(*iterables, repeat=1) 이터레이터 구현
-    /// </summary>
-    public class ProductIterator : PyIterator
-    {
-        protected override string IteratorName => "itertools.product";
-        private readonly List<PyObject>[] _pools;
-        private readonly int[] _indices;
-        private bool _started = false;
-
-        public ProductIterator(PyObject[] iterables, int repeat)
-        {
-            var expandedIterables = new List<PyObject>();
-            for (int r = 0; r < repeat; r++)
-            {
-                expandedIterables.AddRange(iterables);
-            }
-            
-            _pools = new List<PyObject>[expandedIterables.Count];
-            
-            for (int i = 0; i < expandedIterables.Count; i++)
-            {
-                _pools[i] = new List<PyObject>();
-                var iterator = expandedIterables[i].GetIterator();
                 try
                 {
-                    while (true)
-                    {
-                        _pools[i].Add(iterator.Next());
-                    }
+                    return _active.Next();
                 }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
-                
-                if (_pools[i].Count == 0)
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
                 {
-                    _indices = null; // Empty iterator if any pool is empty
-                    return;
                 }
+                // the active iterator is consumed, try with the next iterable
+                _active = null;
             }
-            
-            _indices = new int[_pools.Length];
+            // Everything had been consumed already.
+            throw ItertoolsModule.Stop();
         }
 
-        public override PyObject Next()
+        // chain_reduce
+        internal PyObject Reduce()
         {
-            if (_indices == null)
-                throw PyStopIteration.Create();
+            if (_source != null)
+                return _active != null
+                    ? ItertoolsModule.Pack(GetPyType(), PyTuple.Empty, ItertoolsModule.Pack(_source, _active))
+                    : ItertoolsModule.Pack(GetPyType(), PyTuple.Empty, ItertoolsModule.Pack(_source));
+            return ItertoolsModule.Pack(GetPyType(), PyTuple.Empty);   // exhausted
+        }
 
-            if (!_started)
-            {
-                _started = true;
-                // Performance: Eliminated LINQ
-                var result = new PyObject[_indices.Length];
-                for (int i = 0; i < _indices.Length; i++)
-                {
-                    result[i] = _pools[i][_indices[i]];
-                }
-                return new PyTuple(result);
-            }
-
-            // Increment indices (like odometer)
-            for (int i = _pools.Length - 1; i >= 0; i--)
-            {
-                _indices[i]++;
-                if (_indices[i] < _pools[i].Count)
-                {
-                    // Performance: Eliminated LINQ
-                    var resultArray = new PyObject[_indices.Length];
-                    for (int poolIdx = 0; poolIdx < _indices.Length; poolIdx++)
-                    {
-                        resultArray[poolIdx] = _pools[poolIdx][_indices[poolIdx]];
-                    }
-                    return new PyTuple(resultArray);
-                }
-                _indices[i] = 0;
-            }
-
-            throw PyStopIteration.Create();
+        // chain_setstate: "O|O", both iterators.
+        internal void SetState(PyObject state)
+        {
+            var items = ItertoolsModule.StateTuple(state, 1, 2);
+            var source = items[0];
+            var active = items.Length > 1 ? items[1] : null;
+            if (!source.IsIterator || (active != null && !active.IsIterator))
+                throw PyTypeError.Create("Arguments must be iterators.");
+            _source = source;
+            _active = active;
         }
     }
 
-    /// <summary>
-    /// itertools.accumulate iterator
-    /// CPython 3.12: Modules/itertoolsmodule.c:3587-3616 (accumulate_next)
-    /// </summary>
-    public class AccumulateIterator : PyIterator
+    /// <summary>productobject: a tuple of pool tuples and one index per pool.</summary>
+    internal sealed class ProductObject : ItertoolsObject
     {
-        protected override string IteratorName => "itertools.accumulate";
-        private readonly PyIterator _iterator;
-        private readonly PyObject _binop;  // CPython: lz->binop
-        private PyObject _total;           // CPython: lz->total
-        private PyObject _initial;         // CPython: lz->initial
+        private const long BasicSize = 48;
 
-        public AccumulateIterator(PyObject iterable, PyObject func, PyObject initial)
+        private readonly PyObject[][] _pools;
+        private readonly PyObject _poolsTuple;
+        private readonly long[] _indices;
+        private PyObject[] _result;
+        private bool _stopped;
+
+        private ProductObject(PyType type, PyObject[][] pools, PyObject poolsTuple, long[] indices) : base(type, ItertoolsModule.ProductType)
         {
-            var iterObj = iterable.GetIterator();
-            if (iterObj == null)
-                throw PyTypeError.Create("accumulate argument must be iterable");
-            _iterator = PyObjectIteratorShim.Of(iterObj);
-            _binop = func;
-            _total = null;
+            _pools = pools;
+            _poolsTuple = poolsTuple;
+            _indices = indices;
+        }
+
+        // product_new
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            long repeat = 1;
+            if (kwargs != null)
+            {
+                // PyArg_ParseTupleAndKeywords((), kwds, "|n:product", {"repeat"})
+                var fast = PyArgs.Unpack("product", Array.Empty<PyObject>(), kwargs, new[] { "repeat" }, 0, 0, 1);
+                if (fast[0] != null)
+                    repeat = PyArgs.Ssize(fast[0]);
+                if (repeat < 0)
+                    throw PyValueError.Create("repeat argument cannot be negative");
+            }
+            long nargs;
+            if (repeat == 0)
+                nargs = 0;
+            else
+            {
+                nargs = args.Length;
+                if ((ulong)nargs > (ulong)long.MaxValue / sizeof(long) / (ulong)repeat)
+                    throw PyOverflowError.Create("repeat argument too large");
+            }
+            long npools = nargs * repeat;
+            var indices = ItertoolsModule.Indices(npools);
+            var pools = new PyObject[npools][];
+            var poolObjects = new PyObject[npools];
+            long i;
+            for (i = 0; i < nargs; i++)
+            {
+                var pool = args[i] is PyTuple exact && exact.GetType() == typeof(PyTuple) && !exact.HasCustomType
+                    ? exact
+                    : new PyTuple(ItertoolsModule.SequenceTuple(args[i]));
+                poolObjects[i] = pool;
+                pools[i] = pool.Items;
+            }
+            for (; i < npools; i++)
+            {
+                poolObjects[i] = poolObjects[i - nargs];
+                pools[i] = pools[i - nargs];
+            }
+            return new ProductObject(type, pools, new PyTuple(poolObjects), indices);
+        }
+
+        // product_sizeof
+        internal PyObject SizeOf() => new PyInt(ObjectSize(BasicSize) + (long)_pools.Length * sizeof(long));
+
+        // product_next: the result is a fresh tuple each time, the one CPython reuses when no one
+        // else holds it is never visible as the same object here.
+        public override PyObject Next()
+        {
+            var pools = _pools;
+            int npools = pools.Length;
+            if (_stopped)
+                throw ItertoolsModule.Stop();
+            if (_result == null)
+            {
+                // On the first pass, return an initial tuple filled with the first element from each pool.
+                var result = new PyObject[npools];
+                _result = result;
+                for (int i = 0; i < npools; i++)
+                {
+                    if (pools[i].Length == 0)
+                        return Empty();
+                    result[i] = pools[i][0];
+                }
+            }
+            else
+            {
+                var result = (PyObject[])_result.Clone();
+                _result = result;
+                var indices = _indices;
+                // Update the pool indices right-to-left.  Only advance to the next pool when the previous one rolls-over.
+                int i;
+                for (i = npools - 1; i >= 0; i--)
+                {
+                    var pool = pools[i];
+                    indices[i]++;
+                    if (indices[i] == pool.Length)
+                    {
+                        // Roll-over and advance to next pool
+                        indices[i] = 0;
+                        result[i] = pool[0];
+                    }
+                    else
+                    {
+                        // No rollover. Just increment and stop here.
+                        result[i] = pool[indices[i]];
+                        break;
+                    }
+                }
+                // If i is negative, then the indices have all rolled-over and we're done.
+                if (i < 0)
+                    return Empty();
+            }
+            return new PyTuple((PyObject[])_result.Clone());
+        }
+
+        private PyObject Empty()
+        {
+            _stopped = true;
+            throw ItertoolsModule.Stop();
+        }
+
+        // product_reduce
+        internal PyObject Reduce()
+        {
+            if (_stopped)
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyTuple.Empty));
+            if (_result == null)
+                return ItertoolsModule.Pack(GetPyType(), _poolsTuple);
+            // the indices for setstate, which also say that the iterator has started
+            var indices = new PyObject[_pools.Length];
+            for (int i = 0; i < indices.Length; i++)
+                indices[i] = new PyInt(_indices[i]);
+            return ItertoolsModule.Pack(GetPyType(), _poolsTuple, new PyTuple(indices));
+        }
+
+        // product_setstate
+        internal void SetState(PyObject state)
+        {
+            int n = _pools.Length;
+            if (state is not PyTuple tuple || tuple.Items.Length != n)
+                throw PyValueError.Create("invalid arguments");
+            for (int i = 0; i < n; i++)
+            {
+                long index = ItertoolsModule.AsSsize(tuple.Items[i]);
+                int poolsize = _pools[i].Length;
+                if (poolsize == 0)
+                {
+                    _stopped = true;
+                    return;
+                }
+                // clamp the index
+                if (index < 0)
+                    index = 0;
+                else if (index > poolsize - 1)
+                    index = poolsize - 1;
+                _indices[i] = index;
+            }
+            var result = new PyObject[n];
+            for (int i = 0; i < n; i++)
+                result[i] = _pools[i][_indices[i]];
+            _result = result;
+        }
+    }
+
+    /// <summary>combinationsobject</summary>
+    internal sealed class CombinationsObject : ItertoolsObject
+    {
+        private const long BasicSize = 56;
+
+        private readonly PyTuple _pool;
+        private readonly long[] _indices;
+        private PyObject[] _result;
+        private readonly long _r;
+        private bool _stopped;
+
+        private CombinationsObject(PyType type, PyTuple pool, long[] indices, long r) : base(type, ItertoolsModule.CombinationsType)
+        {
+            _pool = pool;
+            _indices = indices;
+            _r = r;
+            _stopped = r > pool.Items.Length;
+        }
+
+        // itertools_combinations: "iterable", "r" by position or name.
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            var fast = PyArgs.Unpack("combinations", args, kwargs, new[] { "iterable", "r" }, 0, 2, 2);
+            long r = PyArgs.Ssize(fast[1]);
+            var pool = new PyTuple(ItertoolsModule.SequenceTuple(fast[0]));
+            if (r < 0)
+                throw PyValueError.Create("r must be non-negative");
+            var indices = ItertoolsModule.Indices(r);
+            for (long i = 0; i < r; i++)
+                indices[i] = i;
+            return new CombinationsObject(type, pool, indices, r);
+        }
+
+        internal PyObject SizeOf() => new PyInt(ObjectSize(BasicSize) + _r * sizeof(long));
+
+        // combinations_next
+        public override PyObject Next()
+        {
+            var pool = _pool.Items;
+            var indices = _indices;
+            long n = pool.Length;
+            long r = _r;
+            if (_stopped)
+                throw ItertoolsModule.Stop();
+            if (_result == null)
+            {
+                // On the first pass, initialize result tuple using the indices
+                var result = new PyObject[r];
+                for (long i = 0; i < r; i++)
+                    result[i] = pool[indices[i]];
+                _result = result;
+            }
+            else
+            {
+                var result = (PyObject[])_result.Clone();
+                _result = result;
+                // Scan indices right-to-left until finding one that is not at its maximum (i + n - r).
+                long i;
+                for (i = r - 1; i >= 0 && indices[i] == i + n - r; i--)
+                {
+                }
+                // If i is negative, then the indices are all at their maximum value and we're done.
+                if (i < 0)
+                {
+                    _stopped = true;
+                    throw ItertoolsModule.Stop();
+                }
+                // Increment the current index which we know is not at its maximum. Then move back to
+                // the right setting each index to its lowest possible value.
+                indices[i]++;
+                for (long j = i + 1; j < r; j++)
+                    indices[j] = indices[j - 1] + 1;
+                // Update the result tuple for the new indices starting with i, the leftmost index that changed
+                for (; i < r; i++)
+                    result[i] = pool[indices[i]];
+            }
+            return new PyTuple((PyObject[])_result.Clone());
+        }
+
+        // combinations_reduce
+        internal PyObject Reduce()
+        {
+            if (_result == null)
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, new PyInt(_r)));
+            if (_stopped)
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyTuple.Empty, new PyInt(_r)));
+            var indices = new PyObject[_r];
+            for (long i = 0; i < _r; i++)
+                indices[i] = new PyInt(_indices[i]);
+            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, new PyInt(_r)), new PyTuple(indices));
+        }
+
+        // combinations_setstate
+        internal void SetState(PyObject state)
+        {
+            long n = _pool.Items.Length;
+            if (state is not PyTuple tuple || tuple.Items.Length != _r)
+                throw PyValueError.Create("invalid arguments");
+            for (long i = 0; i < _r; i++)
+            {
+                long index = ItertoolsModule.AsSsize(tuple.Items[i]);
+                long max = i + n - _r;
+                // clamp the index (beware of negative max)
+                if (index > max)
+                    index = max;
+                if (index < 0)
+                    index = 0;
+                _indices[i] = index;
+            }
+            var result = new PyObject[_r];
+            for (long i = 0; i < _r; i++)
+                result[i] = _pool.Items[_indices[i]];
+            _result = result;
+        }
+    }
+
+    /// <summary>cwrobject</summary>
+    internal sealed class CwrObject : ItertoolsObject
+    {
+        private const long BasicSize = 56;
+
+        private readonly PyTuple _pool;
+        private readonly long[] _indices;
+        private PyObject[] _result;
+        private readonly long _r;
+        private bool _stopped;
+
+        private CwrObject(PyType type, PyTuple pool, long[] indices, long r) : base(type, ItertoolsModule.CwrType)
+        {
+            _pool = pool;
+            _indices = indices;
+            _r = r;
+            _stopped = pool.Items.Length == 0 && r != 0;
+        }
+
+        // itertools_combinations_with_replacement: "iterable", "r" by position or name.
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            var fast = PyArgs.Unpack("combinations_with_replacement", args, kwargs, new[] { "iterable", "r" }, 0, 2, 2);
+            long r = PyArgs.Ssize(fast[1]);
+            var pool = new PyTuple(ItertoolsModule.SequenceTuple(fast[0]));
+            if (r < 0)
+                throw PyValueError.Create("r must be non-negative");
+            var indices = ItertoolsModule.Indices(r);
+            return new CwrObject(type, pool, indices, r);
+        }
+
+        internal PyObject SizeOf() => new PyInt(ObjectSize(BasicSize) + _r * sizeof(long));
+
+        // cwr_next
+        public override PyObject Next()
+        {
+            var pool = _pool.Items;
+            var indices = _indices;
+            long n = pool.Length;
+            long r = _r;
+            if (_stopped)
+                throw ItertoolsModule.Stop();
+            if (_result == null)
+            {
+                // On the first pass, initialize result tuple with pool[0]
+                var result = new PyObject[r];
+                if (n > 0)
+                    for (long i = 0; i < r; i++)
+                        result[i] = pool[0];
+                _result = result;
+            }
+            else
+            {
+                var result = (PyObject[])_result.Clone();
+                _result = result;
+                // Scan indices right-to-left until finding one that is not at its maximum (n-1).
+                long i;
+                for (i = r - 1; i >= 0 && indices[i] == n - 1; i--)
+                {
+                }
+                // If i is negative, then the indices are all at their maximum value and we're done.
+                if (i < 0)
+                {
+                    _stopped = true;
+                    throw ItertoolsModule.Stop();
+                }
+                // Increment the current index which we know is not at its maximum. Then set all to
+                // the right to the same value.
+                long index = indices[i] + 1;
+                var elem = pool[index];
+                for (; i < r; i++)
+                {
+                    indices[i] = index;
+                    result[i] = elem;
+                }
+            }
+            return new PyTuple((PyObject[])_result.Clone());
+        }
+
+        // cwr_reduce
+        internal PyObject Reduce()
+        {
+            if (_result == null)
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, new PyInt(_r)));
+            if (_stopped)
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyTuple.Empty, new PyInt(_r)));
+            var indices = new PyObject[_r];
+            for (long i = 0; i < _r; i++)
+                indices[i] = new PyInt(_indices[i]);
+            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, new PyInt(_r)), new PyTuple(indices));
+        }
+
+        // cwr_setstate
+        internal void SetState(PyObject state)
+        {
+            if (state is not PyTuple tuple || tuple.Items.Length != _r)
+                throw PyValueError.Create("invalid arguments");
+            long n = _pool.Items.Length;
+            for (long i = 0; i < _r; i++)
+            {
+                long index = ItertoolsModule.AsSsize(tuple.Items[i]);
+                // clamp the index
+                if (index < 0)
+                    index = 0;
+                else if (index > n - 1)
+                    index = n - 1;
+                _indices[i] = index;
+            }
+            var result = new PyObject[_r];
+            for (long i = 0; i < _r; i++)
+                result[i] = _pool.Items[_indices[i]];
+            _result = result;
+        }
+    }
+
+    /// <summary>permutationsobject</summary>
+    internal sealed class PermutationsObject : ItertoolsObject
+    {
+        private const long BasicSize = 64;
+
+        private readonly PyTuple _pool;
+        private readonly long[] _indices;
+        private readonly long[] _cycles;
+        private PyObject[] _result;
+        private readonly long _r;
+        private bool _stopped;
+
+        private PermutationsObject(PyType type, PyTuple pool, long[] indices, long[] cycles, long r) : base(type, ItertoolsModule.PermutationsType)
+        {
+            _pool = pool;
+            _indices = indices;
+            _cycles = cycles;
+            _r = r;
+            _stopped = r > pool.Items.Length;
+        }
+
+        // itertools_permutations: "iterable", "r"=None by position or name.
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            var fast = PyArgs.Unpack("permutations", args, kwargs, new[] { "iterable", "r" }, 0, 1, 2);
+            var robj = fast[1] ?? PyNone.Instance;
+            var pool = new PyTuple(ItertoolsModule.SequenceTuple(fast[0]));
+            long n = pool.Items.Length;
+            long r = n;
+            if (robj is not PyNone)
+            {
+                if (!ItertoolsModule.LongValue(robj, out _))
+                    throw PyTypeError.Create("Expected int as r");
+                r = ItertoolsModule.AsSsize(robj);
+            }
+            if (r < 0)
+                throw PyValueError.Create("r must be non-negative");
+            var indices = ItertoolsModule.Indices(n);
+            var cycles = ItertoolsModule.Indices(r);
+            for (long i = 0; i < n; i++)
+                indices[i] = i;
+            for (long i = 0; i < r; i++)
+                cycles[i] = n - i;
+            return new PermutationsObject(type, pool, indices, cycles, r);
+        }
+
+        internal PyObject SizeOf() => new PyInt(ObjectSize(BasicSize) + (long)_pool.Items.Length * sizeof(long) + _r * sizeof(long));
+
+        // permutations_next
+        public override PyObject Next()
+        {
+            var pool = _pool.Items;
+            var indices = _indices;
+            var cycles = _cycles;
+            long n = pool.Length;
+            long r = _r;
+            if (_stopped)
+                throw ItertoolsModule.Stop();
+            if (_result == null)
+            {
+                // On the first pass, initialize result tuple using the indices
+                var result = new PyObject[r];
+                for (long i = 0; i < r; i++)
+                    result[i] = pool[indices[i]];
+                _result = result;
+            }
+            else
+            {
+                if (n == 0)
+                {
+                    _stopped = true;
+                    throw ItertoolsModule.Stop();
+                }
+                var result = (PyObject[])_result.Clone();
+                _result = result;
+                // Decrement rightmost cycle, moving leftward upon zero rollover
+                long i;
+                for (i = r - 1; i >= 0; i--)
+                {
+                    cycles[i] -= 1;
+                    if (cycles[i] == 0)
+                    {
+                        // rotatation: indices[i:] = indices[i+1:] + indices[i:i+1]
+                        long index = indices[i];
+                        for (long j = i; j < n - 1; j++)
+                            indices[j] = indices[j + 1];
+                        indices[n - 1] = index;
+                        cycles[i] = n - i;
+                    }
+                    else
+                    {
+                        long j = cycles[i];
+                        long index = indices[i];
+                        indices[i] = indices[n - j];
+                        indices[n - j] = index;
+                        // start with i, the leftmost element that changed
+                        for (long k = i; k < r; k++)
+                            result[k] = pool[indices[k]];
+                        break;
+                    }
+                }
+                // If i is negative, then the cycles have all rolled-over and we're done.
+                if (i < 0)
+                {
+                    _stopped = true;
+                    throw ItertoolsModule.Stop();
+                }
+            }
+            return new PyTuple((PyObject[])_result.Clone());
+        }
+
+        // permutations_reduce
+        internal PyObject Reduce()
+        {
+            if (_result == null)
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, new PyInt(_r)));
+            if (_stopped)
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyTuple.Empty, new PyInt(_r)));
+            // the indices and cycles for setstate
+            long n = _pool.Items.Length;
+            var indices = new PyObject[n];
+            for (long i = 0; i < n; i++)
+                indices[i] = new PyInt(_indices[i]);
+            var cycles = new PyObject[_r];
+            for (long i = 0; i < _r; i++)
+                cycles[i] = new PyInt(_cycles[i]);
+            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, new PyInt(_r)),
+                ItertoolsModule.Pack(new PyTuple(indices), new PyTuple(cycles)));
+        }
+
+        // permutations_setstate: "O!O!", two tuples.
+        internal void SetState(PyObject state)
+        {
+            var items = ItertoolsModule.StateTuple(state, 2, 2);
+            var indices = ItertoolsModule.StateItem<PyTuple>(items, 0, "tuple");
+            var cycles = ItertoolsModule.StateItem<PyTuple>(items, 1, "tuple");
+            long n = _pool.Items.Length;
+            if (indices.Items.Length != n || cycles.Items.Length != _r)
+                throw PyValueError.Create("invalid arguments");
+            for (long i = 0; i < n; i++)
+            {
+                long index = ItertoolsModule.AsSsize(indices.Items[i]);
+                // clamp the index
+                if (index < 0)
+                    index = 0;
+                else if (index > n - 1)
+                    index = n - 1;
+                _indices[i] = index;
+            }
+            for (long i = 0; i < _r; i++)
+            {
+                long index = ItertoolsModule.AsSsize(cycles.Items[i]);
+                if (index < 1)
+                    index = 1;
+                else if (index > n - i)
+                    index = n - i;
+                _cycles[i] = index;
+            }
+            var result = new PyObject[_r];
+            for (long i = 0; i < _r; i++)
+                result[i] = _pool.Items[_indices[i]];
+            _result = result;
+        }
+    }
+
+    /// <summary>accumulateobject</summary>
+    internal sealed class AccumulateObject : ItertoolsObject
+    {
+        private PyObject _total;
+        private readonly PyObject _it;
+        private readonly PyObject _binop;
+        private PyObject _initial;
+
+        private AccumulateObject(PyType type, PyObject it, PyObject binop, PyObject initial) : base(type, ItertoolsModule.AccumulateType)
+        {
+            _it = it;
+            _binop = binop;
             _initial = initial;
         }
 
+        // itertools_accumulate: "iterable", "func"=None, and the keyword-only "initial"=None.
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            var fast = PyArgs.Unpack("accumulate", args, kwargs, new[] { "iterable", "func", "initial" }, 0, 1, 2);
+            var binop = fast[1] ?? PyNone.Instance;
+            var initial = fast[2] ?? PyNone.Instance;
+            var it = fast[0].GetIterator();
+            return new AccumulateObject(type, it, binop is PyNone ? null : binop, initial);
+        }
+
+        // accumulate_next
         public override PyObject Next()
         {
-            // CPython 3.12: Modules/itertoolsmodule.c:3591-3594
-            // if (lz->initial != Py_None) { lz->total = lz->initial; ... return lz->total; }
-            if (_initial != null)
+            if (_initial is not PyNone)
             {
                 _total = _initial;
-                _initial = null;
+                _initial = PyNone.Instance;
                 return _total;
             }
-
-            // CPython 3.12: Modules/itertoolsmodule.c:3596-3598
-            var val = _iterator.Next();
-
-            // CPython 3.12: Modules/itertoolsmodule.c:3600-3603
-            // if (lz->total == NULL) { lz->total = val; return lz->total; }
+            var val = _it.Next();
             if (_total == null)
             {
                 _total = val;
                 return _total;
             }
-
-            // CPython 3.12: Modules/itertoolsmodule.c:3605-3608
-            // if (lz->binop == NULL) newtotal = PyNumber_Add(lz->total, val);
-            // else newtotal = PyObject_CallFunctionObjArgs(lz->binop, lz->total, val, NULL);
-            PyObject newtotal;
-            if (_binop == null)
-            {
-                newtotal = PyVM.Instance.ExecuteBinaryOpType(_total, val, BinaryOpType.ADD);
-            }
-            else
-            {
-                newtotal = _binop.Call(new[] { _total, val }, null);
-            }
-
+            var newtotal = _binop == null
+                ? PyVM.Instance.ExecuteBinaryOpType(_total, val, BinaryOpType.ADD)
+                : _binop.Call(new[] { _total, val }, null);
             _total = newtotal;
             return newtotal;
         }
-    }
 
-    /// <summary>
-    /// itertools.compress iterator
-    /// CPython 3.12: Modules/itertoolsmodule.c:2890-2922 (compress_next)
-    /// </summary>
-    public class CompressIterator : PyIterator
-    {
-        protected override string IteratorName => "itertools.compress";
-        private readonly PyIterator _dataIterator;     // CPython: lz->data
-        private readonly PyIterator _selectorIterator; // CPython: lz->selectors
-
-        public CompressIterator(PyObject data, PyObject selectors)
+        // accumulate_reduce
+        internal PyObject Reduce()
         {
-            var dataObj = data.GetIterator();
-            if (dataObj == null)
-                throw PyTypeError.Create("compress data must be iterable");
-            _dataIterator = PyObjectIteratorShim.Of(dataObj);
-
-            var selectorsObj = selectors.GetIterator();
-            if (selectorsObj == null)
-                throw PyTypeError.Create("compress selectors must be iterable");
-            _selectorIterator = PyObjectIteratorShim.Of(selectorsObj);
+            PyObject binop = _binop ?? PyNone.Instance;
+            if (_initial is not PyNone)
+            {
+                var it = ItertoolsModule.ChainType.Call(new PyObject[] { ItertoolsModule.Pack(_initial), _it }, null);
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(it, binop), PyNone.Instance);
+            }
+            if (_total is PyNone)
+            {
+                var it = ItertoolsModule.ChainType.Call(new PyObject[] { ItertoolsModule.Pack(_total), _it }, null);
+                it = GetPyType().Call(new[] { it, binop }, null);
+                return ItertoolsModule.Pack(ItertoolsModule.ISliceType, ItertoolsModule.Pack(it, new PyInt(1), PyNone.Instance));
+            }
+            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_it, binop), _total ?? PyNone.Instance);
         }
 
+        internal void SetState(PyObject state) => _total = state;
+    }
+
+    /// <summary>compressobject</summary>
+    internal sealed class CompressObject : ItertoolsObject
+    {
+        private readonly PyObject _data;
+        private readonly PyObject _selectors;
+
+        private CompressObject(PyType type, PyObject data, PyObject selectors) : base(type, ItertoolsModule.CompressType)
+        {
+            _data = data;
+            _selectors = selectors;
+        }
+
+        // itertools_compress: "data", "selectors" by position or name.
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            var fast = PyArgs.Unpack("compress", args, kwargs, new[] { "data", "selectors" }, 0, 2, 2);
+            var data = fast[0].GetIterator();
+            var selectors = fast[1].GetIterator();
+            return new CompressObject(type, data, selectors);
+        }
+
+        // compress_next: datum, then selector, then the selector's truth, as the pure Python version.
         public override PyObject Next()
         {
-            // CPython 3.12: Modules/itertoolsmodule.c:2896-2921
             while (true)
             {
-                // datum = (*Py_TYPE(lz->data)->tp_iternext)(lz->data);
-                // selector = (*Py_TYPE(lz->selectors)->tp_iternext)(lz->selectors);
-                var datum = _dataIterator.Next();
-                var selector = _selectorIterator.Next();
-
-                // ok = PyObject_IsTrue(selector);
-                bool ok = selector.ToBool();
-
-                // if (ok > 0) return datum;
-                if (ok)
+                var datum = _data.Next();
+                var selector = _selectors.Next();
+                if (selector.IsTrue())
                     return datum;
-                // Continue (skip non-selected items)
             }
         }
+
+        internal PyObject Reduce() => ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_data, _selectors));
     }
 
-    /// <summary>
-    /// itertools.dropwhile iterator
-    /// CPython 3.12: Modules/itertoolsmodule.c:1422-1452 (dropwhile_next)
-    /// </summary>
-    public class DropWhileIterator : PyIterator
+    /// <summary>filterfalseobject</summary>
+    internal sealed class FilterFalseObject : ItertoolsObject
     {
-        protected override string IteratorName => "itertools.dropwhile";
-        private readonly PyObject _func;      // CPython: lz->func
-        private readonly PyIterator _iterator; // CPython: lz->it
-        private int _start;                    // CPython: lz->start (0=dropping, 1=started)
+        private readonly PyObject _func;
+        private readonly PyObject _it;
 
-        public DropWhileIterator(PyObject predicate, PyObject iterable)
+        private FilterFalseObject(PyType type, PyObject func, PyObject it) : base(type, ItertoolsModule.FilterFalseType)
         {
-            _func = predicate;
-            var iterObj = iterable.GetIterator();
-            if (iterObj == null)
-                throw PyTypeError.Create("dropwhile argument 2 must be iterable");
-            _iterator = PyObjectIteratorShim.Of(iterObj);
-            _start = 0;
+            _func = func;
+            _it = it;
         }
 
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            ItertoolsModule.NoKeywords(type, ItertoolsModule.FilterFalseType, "filterfalse", kwargs);
+            PyArgs.Positional("filterfalse", args, null, 2, 2);
+            var it = args[1].GetIterator();
+            return new FilterFalseObject(type, args[0], it);
+        }
+
+        // filterfalse_next
         public override PyObject Next()
         {
-            // CPython 3.12: Modules/itertoolsmodule.c:1430-1451
             while (true)
             {
-                // item = iternext(it);
-                var item = _iterator.Next();
-
-                // CPython 3.12: Modules/itertoolsmodule.c:1434-1435
-                // if (lz->start == 1) return item;
-                if (_start == 1)
-                    return item;
-
-                // CPython 3.12: Modules/itertoolsmodule.c:1437-1443
-                // good = PyObject_CallOneArg(lz->func, item);
-                // ok = PyObject_IsTrue(good);
-                // Note: Using ToBool() instead of IsTrue() because PyObject_IsTrue
-                // uses nb_bool slot directly (CPython Objects/object.c:1684-1686)
-                var good = _func.Call(new[] { item }, null);
-                bool ok = good.ToBool();
-
-                // CPython 3.12: Modules/itertoolsmodule.c:1444-1447
-                // if (ok == 0) { lz->start = 1; return item; }
+                var item = _it.Next();
+                bool ok = _func is PyNone || ReferenceEquals(_func, PyType.BoolType)
+                    ? item.IsTrue()
+                    : _func.Call(new[] { item }, null).IsTrue();
                 if (!ok)
-                {
-                    _start = 1;
                     return item;
-                }
-                // Continue dropping (Py_DECREF(item) in CPython)
             }
         }
+
+        internal PyObject Reduce() => ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_func, _it));
     }
 
     /// <summary>
-    /// itertools.takewhile iterator
-    /// CPython 3.12: Modules/itertoolsmodule.c:1566-1592 (takewhile_next)
+    /// countobject. fast_mode: cnt counts by one while it is below PY_SSIZE_T_MAX and no other
+    /// step was given. slow_mode: cnt is PY_SSIZE_T_MAX and long_cnt advances by long_step.
     /// </summary>
-    public class TakeWhileIterator : PyIterator
+    internal sealed class CountObject : ItertoolsObject
     {
-        protected override string IteratorName => "itertools.takewhile";
-        private readonly PyObject _func;       // CPython: lz->func
-        private readonly PyIterator _iterator;  // CPython: lz->it
-        private int _stop;                      // CPython: lz->stop
+        private long _cnt;
+        private PyObject _longCnt;
+        private readonly PyObject _longStep;
 
-        public TakeWhileIterator(PyObject predicate, PyObject iterable)
+        private CountObject(PyType type, long cnt, PyObject longCnt, PyObject longStep) : base(type, ItertoolsModule.CountType)
         {
-            _func = predicate;
-            var iterObj = iterable.GetIterator();
-            if (iterObj == null)
-                throw PyTypeError.Create("takewhile argument 2 must be iterable");
-            _iterator = PyObjectIteratorShim.Of(iterObj);
-            _stop = 0;
+            _cnt = cnt;
+            _longCnt = longCnt;
+            _longStep = longStep;
         }
 
-        public override PyObject Next()
+        // itertools_count: "start"=0, "step"=1 by position or name.
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
         {
-            // CPython 3.12: Modules/itertoolsmodule.c:1572-1573
-            // if (lz->stop == 1) return NULL;
-            if (_stop == 1)
-                throw PyStopIteration.Create();
-
-            // CPython 3.12: Modules/itertoolsmodule.c:1575-1577
-            // item = (*Py_TYPE(it)->tp_iternext)(it);
-            var item = _iterator.Next();
-
-            // CPython 3.12: Modules/itertoolsmodule.c:1579-1585
-            // good = PyObject_CallOneArg(lz->func, item);
-            // ok = PyObject_IsTrue(good);
-            // Note: Using ToBool() instead of IsTrue() because PyObject_IsTrue
-            // uses nb_bool slot directly (CPython Objects/object.c:1684-1686)
-            var good = _func.Call(new[] { item }, null);
-            bool ok = good.ToBool();
-
-            // CPython 3.12: Modules/itertoolsmodule.c:1586-1591
-            // if (ok > 0) return item;
-            // if (ok == 0) lz->stop = 1;
-            // return NULL;
-            if (ok)
+            var fast = PyArgs.Unpack("count", args, kwargs, new[] { "start", "step" }, 0, 0, 2);
+            var longCnt = fast[0];
+            var longStep = fast[1];
+            if ((longCnt != null && !PyObject.NumberCheck(longCnt)) || (longStep != null && !PyObject.NumberCheck(longStep)))
+                throw PyTypeError.Create("a number is required");
+            bool fastMode = (longCnt == null || ItertoolsModule.LongValue(longCnt, out _)) &&
+                            (longStep == null || ItertoolsModule.LongValue(longStep, out _));
+            long cnt = 0;
+            // If not specified, start defaults to 0
+            if (longCnt != null)
             {
-                return item;
+                if (fastMode)
+                {
+                    ItertoolsModule.LongValue(longCnt, out var start);
+                    if (start < long.MinValue || start > long.MaxValue)
+                        fastMode = false;
+                    else
+                        cnt = (long)start;
+                }
             }
             else
+                longCnt = SmallIntCache.Zero;
+            // If not specified, step defaults to 1
+            longStep ??= SmallIntCache.One;
+            // Fast mode only works when the step is 1
+            if (fastMode)
             {
-                _stop = 1;
-                throw PyStopIteration.Create();
+                ItertoolsModule.LongValue(longStep, out var step);
+                if (step != 1)
+                    fastMode = false;
             }
-        }
-    }
-
-    /// <summary>
-    /// itertools.filterfalse iterator
-    /// CPython 3.12: Modules/itertoolsmodule.c:3903-3934 (filterfalse_next)
-    /// </summary>
-    public class FilterFalseIterator : PyIterator
-    {
-        protected override string IteratorName => "itertools.filterfalse";
-        private readonly PyObject _func;       // CPython: lz->func
-        private readonly PyIterator _iterator;  // CPython: lz->it
-
-        public FilterFalseIterator(PyObject predicate, PyObject iterable)
-        {
-            _func = predicate;
-            var iterObj = iterable.GetIterator();
-            if (iterObj == null)
-                throw PyTypeError.Create("filterfalse argument 2 must be iterable");
-            _iterator = PyObjectIteratorShim.Of(iterObj);
-        }
-
-        public override PyObject Next()
-        {
-            // CPython 3.12: Modules/itertoolsmodule.c:3911-3933
-            while (true)
-            {
-                // item = iternext(it);
-                var item = _iterator.Next();
-
-                bool ok;
-                // CPython 3.12: Modules/itertoolsmodule.c:3916-3927
-                // if (lz->func == Py_None || lz->func == (PyObject *)&PyBool_Type)
-                //     ok = PyObject_IsTrue(item);
-                // else { good = PyObject_CallOneArg(lz->func, item); ok = PyObject_IsTrue(good); }
-                // Note: Using ToBool() instead of IsTrue() because PyObject_IsTrue
-                // uses nb_bool slot directly (CPython Objects/object.c:1684-1686)
-                if (_func == null || _func is PyNone)
-                {
-                    ok = item.ToBool();
-                }
-                else
-                {
-                    var good = _func.Call(new[] { item }, null);
-                    ok = good.ToBool();
-                }
-
-                // CPython 3.12: Modules/itertoolsmodule.c:3928-3929
-                // if (ok == 0) return item;
-                if (!ok)
-                {
-                    return item;
-                }
-                // Continue filtering (Py_DECREF(item) in CPython)
-            }
-        }
-    }
-
-    public class ISliceIterator : PyIterator
-    {
-        protected override string IteratorName => "itertools.islice";
-
-        private PyObject _iterator;
-        private long _next, _stop, _step, _count;
-
-        // PyNumber_AsSsize_t, and any failure is the same complaint.
-        private static long Index(PyObject value, long missing, string complaint)
-        {
-            if (value is PyNone)
-                return missing;
-            try
-            {
-                long number = BytesMethods.AsSsize(value);
-                if (number >= 0)
-                    return number;
-            }
-            catch (PythonException)
-            {
-            }
-            throw PyValueError.Create(complaint);
-        }
-
-        private const string StopComplaint = "Stop argument for islice() must be None or an integer: 0 <= x <= sys.maxsize.";
-        private const string IndexComplaint = "Indices for islice() must be None or an integer: 0 <= x <= sys.maxsize.";
-
-        // islice_new
-        public ISliceIterator(PyObject[] args)
-        {
-            if (args.Length is < 2 or > 4)
-                throw PyTypeError.Create(args.Length < 2 ? $"islice expected at least 2 arguments, got {args.Length}" : $"islice expected at most 4 arguments, got {args.Length}");
-            _step = 1;
-            if (args.Length == 2)
-                _stop = Index(args[1], -1, StopComplaint);
+            if (fastMode)
+                longCnt = null;
             else
-            {
-                _next = Index(args[1], 0, IndexComplaint);
-                _stop = Index(args[2], -1, StopComplaint);
-                if (args.Length == 4)
-                    _step = Index(args[3], 1, "Step for islice() must be a positive integer or None.");
-                if (_step < 1)
-                    throw PyValueError.Create("Step for islice() must be a positive integer or None.");
-            }
-            _iterator = args[0].GetIterator();
+                cnt = long.MaxValue;
+            return new CountObject(type, cnt, longCnt, longStep);
         }
 
-        // islice_next
+        // count_next and count_nextlong
         public override PyObject Next()
         {
-            if (_iterator == null)
-                throw PyStopIteration.Create();
-            long stop = _stop == -1 ? _next : Math.Min(_next, _stop);
-            try
+            if (_cnt == long.MaxValue)
             {
-                while (_count < stop)
-                {
-                    _iterator.Next();
-                    _count++;
-                }
-                if (stop != -1 && _count >= stop && _stop != -1 && _count >= _stop)
-                    throw PyStopIteration.Create();
-                var item = _iterator.Next();
-                _count++;
-                long previous = _next;
-                _next = unchecked(_next + _step);
-                if (_next < previous || (_stop != -1 && _next > _stop))
-                    _next = _stop;
-                return item;
+                // Switch to slow_mode
+                var longCnt = _longCnt ?? new PyInt(long.MaxValue);
+                var steppedUp = PyVM.Instance.ExecuteBinaryOpType(longCnt, _longStep, BinaryOpType.ADD);
+                _longCnt = steppedUp;
+                return longCnt;
             }
-            catch (PythonException error) when (error.PyException is PyStopIteration)
-            {
-                _iterator = null;
-                throw;
-            }
+            return new PyInt(_cnt++);
+        }
+
+        // count_repr
+        public override PyString ToRepr()
+        {
+            if (_customType is PyClass)
+                return SubclassInstanceSupport.Repr(this, CountRepr);
+            return CountRepr();
+        }
+
+        private PyString CountRepr()
+        {
+            if (_longCnt == null)
+                return new PyString($"{ShortTypeName}({_cnt})");
+            // Don't display step when it is an integer equal to 1
+            if (ItertoolsModule.LongValue(_longStep, out var step) && step == 1)
+                return new PyString($"{ShortTypeName}({_longCnt.ToRepr().Value})");
+            return new PyString($"{ShortTypeName}({_longCnt.ToRepr().Value}, {_longStep.ToRepr().Value})");
+        }
+
+        // count_reduce
+        internal PyObject Reduce()
+        {
+            if (_cnt == long.MaxValue)
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_longCnt, _longStep));
+            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(new PyInt(_cnt)));
         }
     }
 
-    /// <summary>
-    /// groupby_next and _grouper_next (Modules/itertoolsmodule.c). The outer iterator and the current
-    /// group share one source, so moving the outer iterator on ends the group it handed out.
-    /// </summary>
-    public class GroupByIterator : PyIterator
+    /// <summary>repeatobject: cnt is -1 for ever.</summary>
+    internal sealed class RepeatObject : ItertoolsObject
     {
-        protected override string IteratorName => "itertools.groupby";
-        private readonly PyObject _source;
-        private readonly PyObject _key;
-        private PyObject _current, _currentKey, _targetKey;
-        private object _activeGroup;
+        private readonly PyObject _element;
+        private long _cnt;
 
-        public GroupByIterator(PyObject iterable, PyObject key)
+        private RepeatObject(PyType type, PyObject element, long cnt) : base(type, ItertoolsModule.RepeatType)
         {
-            _source = iterable.GetIterator();
-            _key = key;
+            _element = element;
+            _cnt = cnt;
         }
 
-        private bool Advance()
+        // repeat_new: "O|n:repeat" over "object", "times".
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
         {
-            try { _current = _source.Next(); }
-            catch (PythonException error) when (error.PyException is PyStopIteration)
-            {
-                _current = null;
-                return false;
-            }
-            _currentKey = _key == null ? _current : _key.Call(new[] { _current }, null);
-            return true;
+            int nArgs = args.Length + (kwargs?.Length() ?? 0);
+            var fast = PyArgs.Unpack("repeat", args, kwargs, new[] { "object", "times" }, 0, 1, 2);
+            long cnt = fast[1] == null ? -1 : PyArgs.Ssize(fast[1]);
+            // Does user supply times argument?
+            if (nArgs == 2 && cnt < 0)
+                cnt = 0;
+            return new RepeatObject(type, fast[0], cnt);
         }
 
-        private static bool SameKey(PyObject a, PyObject b) =>
-            ReferenceEquals(a, b) || PyObject.Compare(a, b, PyObject.CompareOp.EQ).IsTrue();
-
+        // repeat_next
         public override PyObject Next()
         {
-            _activeGroup = null;
-            while (true)
-            {
-                if (_currentKey == null)
-                {
-                    if (!Advance()) throw PyStopIteration.Create();
-                }
-                else if (_targetKey == null) break;
-                else if (!SameKey(_targetKey, _currentKey)) break;
-                else if (!Advance()) throw PyStopIteration.Create();
-                if (_targetKey == null) break;
-            }
-            _targetKey = _currentKey;
-            var group = new Grouper(this, _targetKey);
-            _activeGroup = group;
-            return new PyTuple(new PyObject[] { _currentKey, group });
+            if (_cnt == 0)
+                throw ItertoolsModule.Stop();
+            if (_cnt > 0)
+                _cnt--;
+            return _element;
         }
 
-        private sealed class Grouper : PyIterator
+        // repeat_repr
+        public override PyString ToRepr()
         {
-            private readonly GroupByIterator _parent;
-            private readonly PyObject _groupKey;
-
-            internal Grouper(GroupByIterator parent, PyObject groupKey)
-            {
-                _parent = parent;
-                _groupKey = groupKey;
-            }
-
-            public override PyObject Next()
-            {
-                if (!ReferenceEquals(_parent._activeGroup, this) || _parent._current == null)
-                    throw PyStopIteration.Create();
-                if (!SameKey(_groupKey, _parent._currentKey)) throw PyStopIteration.Create();
-                var value = _parent._current;
-                if (!_parent.Advance()) _parent._currentKey = null;
-                return value;
-            }
+            if (_customType is PyClass)
+                return SubclassInstanceSupport.Repr(this, RepeatRepr);
+            return RepeatRepr();
         }
+
+        private PyString RepeatRepr() => _cnt == -1
+            ? new PyString($"{ShortTypeName}({_element.ToRepr().Value})")
+            : new PyString($"{ShortTypeName}({_element.ToRepr().Value}, {_cnt})");
+
+        // repeat_len
+        internal override PyObject RemainingHint() => _cnt == -1 ? throw PyTypeError.Create("len() of unsized object") : new PyInt(_cnt);
+
+        // repeat_reduce: a new repeat with the object and what is left of the count.
+        internal PyObject Reduce() => _cnt >= 0
+            ? ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_element, new PyInt(_cnt)))
+            : ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_element));
     }
 
-    /// <summary>
-    /// itertools.zip_longest iterator
-    /// CPython 3.12: Modules/itertoolsmodule.c:4320-4380 (zip_longest_next)
-    /// </summary>
-    public class ZipLongestIterator : PyIterator
+    /// <summary>ziplongestobject</summary>
+    internal sealed class ZipLongestObject : ItertoolsObject
     {
-        protected override string IteratorName => "itertools.zip_longest";
-        private readonly PyIterator[] _iterators;   // CPython: lz->ittuple
-        private readonly PyObject _fillvalue;       // CPython: lz->fillvalue
-        private readonly bool[] _active;            // Track active iterators
+        private readonly PyObject[] _ittuple;
+        private long _numactive;
+        private PyObject _fillvalue;
 
-        public ZipLongestIterator(PyObject[] iterables, PyObject fillvalue)
+        private ZipLongestObject(PyType type, PyObject[] ittuple, PyObject fillvalue) : base(type, ItertoolsModule.ZipLongestType)
         {
+            _ittuple = ittuple;
+            _numactive = ittuple.Length;
             _fillvalue = fillvalue;
-            _iterators = new PyIterator[iterables.Length];
-            _active = new bool[iterables.Length];
-
-            for (int i = 0; i < iterables.Length; i++)
-            {
-                var iterObj = iterables[i].GetIterator();
-                if (iterObj == null)
-                    throw PyTypeError.Create("zip_longest argument must be iterable");
-                _iterators[i] = PyObjectIteratorShim.Of(iterObj);
-                _active[i] = true;
-            }
         }
 
+        // zip_longest_new
+        internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
+        {
+            PyObject fillvalue = PyNone.Instance;
+            if (kwargs != null && kwargs.Length() > 0)
+            {
+                fillvalue = null;
+                var key = new PyString("fillvalue");
+                if (kwargs.Length() == 1 && kwargs.ContainsKey(key))
+                    fillvalue = kwargs.GetItem(key);
+                if (fillvalue == null)
+                    throw PyTypeError.Create("zip_longest() got an unexpected keyword argument");
+            }
+            var ittuple = new PyObject[args.Length];
+            for (int i = 0; i < args.Length; i++)
+                ittuple[i] = args[i].GetIterator();
+            return new ZipLongestObject(type, ittuple, fillvalue);
+        }
+
+        // zip_longest_next: the branch that builds a new tuple, which is the only one seen here.
         public override PyObject Next()
         {
-            // CPython 3.12: Modules/itertoolsmodule.c:4328-4375
-            var result = new PyObject[_iterators.Length];
-            bool anyActive = false;
-
-            for (int i = 0; i < _iterators.Length; i++)
+            int tuplesize = _ittuple.Length;
+            if (tuplesize == 0)
+                throw ItertoolsModule.Stop();
+            if (_numactive == 0)
+                throw ItertoolsModule.Stop();
+            var result = new PyObject[tuplesize];
+            for (int i = 0; i < tuplesize; i++)
             {
-                if (_active[i])
+                var it = _ittuple[i];
+                PyObject item;
+                if (it == null)
+                    item = _fillvalue;
+                else
                 {
                     try
                     {
-                        result[i] = _iterators[i].Next();
-                        anyActive = true;
+                        item = ItertoolsModule.IterNext(it);
                     }
-                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    catch (PythonException)
                     {
-                        _active[i] = false;
-                        result[i] = _fillvalue;
+                        _numactive = 0;
+                        throw;
+                    }
+                    if (item == null)
+                    {
+                        _numactive -= 1;
+                        if (_numactive == 0)
+                            throw ItertoolsModule.Stop();
+                        item = _fillvalue;
+                        _ittuple[i] = null;
                     }
                 }
-                else
-                {
-                    result[i] = _fillvalue;
-                }
+                result[i] = item;
             }
-
-            // If all iterators are exhausted, stop
-            if (!anyActive)
-                throw PyStopIteration.Create();
-
             return new PyTuple(result);
         }
-    }
 
-    /// <summary>
-    /// itertools.starmap iterator
-    /// CPython 3.12: Modules/itertoolsmodule.c:1166-1190 (starmap_next)
-    /// </summary>
-    public class StarmapIterator : PyIterator
-    {
-        protected override string IteratorName => "itertools.starmap";
-        private readonly PyObject _func;       // CPython: lz->func
-        private readonly PyIterator _iterator; // CPython: lz->it
-
-        public StarmapIterator(PyObject func, PyObject iterable)
+        // zip_longest_reduce: empty tuples for the inputs that are done, then setstate with the fillvalue.
+        internal PyObject Reduce()
         {
-            _func = func;
-            var iterObj = iterable.GetIterator();
-            if (iterObj == null)
-                throw PyTypeError.Create("starmap argument 2 must be iterable");
-            _iterator = PyObjectIteratorShim.Of(iterObj);
+            var args = new PyObject[_ittuple.Length];
+            for (int i = 0; i < args.Length; i++)
+                args[i] = _ittuple[i] ?? PyTuple.Empty;
+            return ItertoolsModule.Pack(GetPyType(), new PyTuple(args), _fillvalue);
         }
 
-        public override PyObject Next()
-        {
-            // CPython 3.12: Modules/itertoolsmodule.c:1172-1188
-            // args = iternext(lz->it);
-            var args = _iterator.Next();
-
-            // result = PyObject_Call(lz->func, args, NULL);
-            // Unpack args and call function
-            PyObject[] argsArray;
-            if (args is PyTuple tuple)
-            {
-                argsArray = tuple.Items;
-            }
-            else if (args is PyList list)
-            {
-                argsArray = list.Items.ToArray();
-            }
-            else
-            {
-                // Try to iterate
-                var tempList = new System.Collections.Generic.List<PyObject>();
-                var iter = args.GetIterator();
-                try
-                {
-                    while (true)
-                    {
-                        tempList.Add(iter.Next());
-                    }
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
-                argsArray = tempList.ToArray();
-            }
-
-            return _func.Call(argsArray, null);
-        }
+        internal void SetState(PyObject state) => _fillvalue = state;
     }
 }

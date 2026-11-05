@@ -502,7 +502,7 @@ public class PyModule : PyObject
             ["_testcapi"] = () => SharpPy.Modules._TestCapiModule.Create(),
             ["_heapq"] = () => SharpPy.Modules._HeapqModule.Create(),
             ["_bisect"] = () => SharpPy.Modules._BisectModule.Create(),
-            ["itertools"] = () => ItertoolsModule.Instance,
+            ["itertools"] = SharpPy.Modules.ItertoolsModule.Create,
             ["_collections"] = () => SharpPy.Modules._CollectionsModule.CreateCollectionsModule(),
             ["_functools"] = () => SharpPy.Modules._FunctoolsModule.CreateFunctoolsModule(),
 

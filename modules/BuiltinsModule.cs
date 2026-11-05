@@ -195,8 +195,9 @@ namespace SharpPy.Modules
             module.ModuleDict["range"] = BuiltinCallableType(PyType.RangeType, "range");
             module.ModuleDict["enumerate"] = BuiltinCallableType(PyType.GetIteratorType("enumerate"), "enumerate");
             module.ModuleDict["zip"] = BuiltinCallableType(PyType.ZipType, "zip");
-            module.ModuleDict["map"] = BuiltinCallableType(PyType.MapType, "map");
-            module.ModuleDict["filter"] = BuiltinCallableType(PyType.FilterType, "filter");
+            // map_new and filter_new: "(type == base || type->tp_init == base->tp_init) && !_PyArg_NoKeywords".
+            module.ModuleDict["map"] = BuiltinCallableType(PyType.MapType, new PyBuiltinFunction("map"), keywordsForInit: true);
+            module.ModuleDict["filter"] = BuiltinCallableType(PyType.FilterType, new PyBuiltinFunction("filter"), keywordsForInit: true);
             module.ModuleDict["sorted"] = new PyBuiltinFunction("sorted");
             module.ModuleDict["reversed"] = BuiltinCallableType(PyType.ReversedType, "reversed");
             module.ModuleDict["sum"] = new PyBuiltinFunction("sum");
@@ -268,11 +269,15 @@ namespace SharpPy.Modules
         private static PyType BuiltinCallableType(PyType type, string name) =>
             BuiltinCallableType(type, new PyBuiltinFunction(name));
 
-        private static PyType BuiltinCallableType(PyType type, PyBuiltinFunction implementation)
+        /// <summary>keywordsForInit: the keywords are left to a subclass's own __init__, the new
+        /// function refuses them only for the type itself or a subclass with object's __init__.</summary>
+        private static PyType BuiltinCallableType(PyType type, PyBuiltinFunction implementation, bool keywordsForInit = false)
         {
             type.ConstructedByNewSlot = true;
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
             {
+                if (keywordsForInit && !ReferenceEquals(cls, type) && !PyType.TypeInitIsObjectInit((PyType)cls))
+                    kwargs = null;
                 var created = implementation.Call(args, kwargs);
                 // A Python subclass gets the same object under its class.
                 if (!ReferenceEquals(cls, type))

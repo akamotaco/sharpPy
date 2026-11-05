@@ -75,8 +75,8 @@ def collect():
             if raw is not None:
                 entries[f"builtins.{name}"] = raw
     # Native modules: "<module>.__doc__" for the module, "<module>.<name>" for what it holds.
-    import _bisect, _collections, _heapq, time
-    for module in (_bisect, _collections, _heapq, time):
+    import _bisect, _collections, _heapq, itertools, time
+    for module in (_bisect, _collections, _heapq, itertools, time):
         entries[f"{module.__name__}.__doc__"] = module.__doc__
         for name, obj in vars(module).items():
             if isinstance(obj, type):

@@ -181,6 +181,8 @@ namespace SharpPy
 
         // A method of a class: its name goes before this one in __qualname__.
         internal string OwnerClass;
+        // The type a METH_CLASS function belongs to, which its doc is filed under.
+        internal PyType OwnerType;
 
         // CPython builtin_function_repr for an unbound (module-level) builtin:
         // <built-in function NAME>. repr()/str() route through ToRepr/ToStr, not the
