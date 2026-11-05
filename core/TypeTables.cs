@@ -209,10 +209,16 @@ namespace SharpPy
             Repr(match);
         }
 
-        internal static void InstallStruct(PyType type)
+        // Py_tp_setattro of PyObject_GenericSetAttr: the __setattr__ and __delattr__ wrappers.
+        internal static void GenericSetAttributes(params PyType[] types)
         {
-            GetSets<PyObject>(type, Field, "format", "size");
-            GenericAttributes(type);
+            var set = PyType.ObjectType.TypeDict["__setattr__"];
+            var delete = PyType.ObjectType.TypeDict["__delattr__"];
+            foreach (var type in types)
+            {
+                Wrapper(type, "__setattr__", (self, args) => set.Call(new[] { self, args[0], args[1] }, null));
+                Wrapper(type, "__delattr__", (self, args) => delete.Call(new[] { self, args[0] }, null));
+            }
         }
 
         private static PyObject[] Prepended(PyObject self, PyObject[] args)

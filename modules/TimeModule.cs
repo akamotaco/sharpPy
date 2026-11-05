@@ -29,8 +29,8 @@ namespace SharpPy
         {
             if (PyDocs.Lookup("time.__doc__") is { } doc)
                 SetAttribute("__doc__", new PyString(doc));
-            Function("time", (args, kwargs) => { PyArgs.NoArgs("time", args, kwargs); return FloatFromPyTime(SystemTime()); });
-            Function("time_ns", (args, kwargs) => { PyArgs.NoArgs("time_ns", args, kwargs); return PyTime.AsNanosecondsObject(SystemTime()); });
+            Function("time", (args, kwargs) => { PyArgs.NoArgs("time.time", args, kwargs); return FloatFromPyTime(SystemTime()); });
+            Function("time_ns", (args, kwargs) => { PyArgs.NoArgs("time.time_ns", args, kwargs); return PyTime.AsNanosecondsObject(SystemTime()); });
             Function("sleep", Sleep);
             Function("gmtime", GmTime);
             Function("localtime", LocalTime);
@@ -39,14 +39,14 @@ namespace SharpPy
             Function("mktime", MkTime);
             Function("strftime", StrFTime);
             Function("strptime", StrPTime);
-            Function("monotonic", (args, kwargs) => { PyArgs.NoArgs("monotonic", args, kwargs); return FloatFromPyTime(Monotonic()); });
-            Function("monotonic_ns", (args, kwargs) => { PyArgs.NoArgs("monotonic_ns", args, kwargs); return PyTime.AsNanosecondsObject(Monotonic()); });
-            Function("process_time", (args, kwargs) => { PyArgs.NoArgs("process_time", args, kwargs); return FloatFromPyTime(ProcessTime()); });
-            Function("process_time_ns", (args, kwargs) => { PyArgs.NoArgs("process_time_ns", args, kwargs); return PyTime.AsNanosecondsObject(ProcessTime()); });
-            Function("thread_time", (args, kwargs) => { PyArgs.NoArgs("thread_time", args, kwargs); return FloatFromPyTime(ThreadTime()); });
-            Function("thread_time_ns", (args, kwargs) => { PyArgs.NoArgs("thread_time_ns", args, kwargs); return PyTime.AsNanosecondsObject(ThreadTime()); });
-            Function("perf_counter", (args, kwargs) => { PyArgs.NoArgs("perf_counter", args, kwargs); return FloatFromPyTime(PerfCounter()); });
-            Function("perf_counter_ns", (args, kwargs) => { PyArgs.NoArgs("perf_counter_ns", args, kwargs); return PyTime.AsNanosecondsObject(PerfCounter()); });
+            Function("monotonic", (args, kwargs) => { PyArgs.NoArgs("time.monotonic", args, kwargs); return FloatFromPyTime(Monotonic()); });
+            Function("monotonic_ns", (args, kwargs) => { PyArgs.NoArgs("time.monotonic_ns", args, kwargs); return PyTime.AsNanosecondsObject(Monotonic()); });
+            Function("process_time", (args, kwargs) => { PyArgs.NoArgs("time.process_time", args, kwargs); return FloatFromPyTime(ProcessTime()); });
+            Function("process_time_ns", (args, kwargs) => { PyArgs.NoArgs("time.process_time_ns", args, kwargs); return PyTime.AsNanosecondsObject(ProcessTime()); });
+            Function("thread_time", (args, kwargs) => { PyArgs.NoArgs("time.thread_time", args, kwargs); return FloatFromPyTime(ThreadTime()); });
+            Function("thread_time_ns", (args, kwargs) => { PyArgs.NoArgs("time.thread_time_ns", args, kwargs); return PyTime.AsNanosecondsObject(ThreadTime()); });
+            Function("perf_counter", (args, kwargs) => { PyArgs.NoArgs("time.perf_counter", args, kwargs); return FloatFromPyTime(PerfCounter()); });
+            Function("perf_counter_ns", (args, kwargs) => { PyArgs.NoArgs("time.perf_counter_ns", args, kwargs); return PyTime.AsNanosecondsObject(PerfCounter()); });
             Function("get_clock_info", GetClockInfo);
             if (!Windows)
                 Function("tzset", TzSet);
@@ -80,7 +80,7 @@ namespace SharpPy
         // time_sleep
         private static PyObject Sleep(PyObject[] args, PyDict kwargs)
         {
-            PyArgs.One("sleep", args, kwargs);
+            PyArgs.One("time.sleep", args, kwargs);
             long timeout = PyTime.FromSecondsObject(args[0], PyTimeRound.Timeout);
             if (timeout < 0)
                 throw PyValueError.Create("sleep length must be non-negative");
@@ -339,7 +339,7 @@ namespace SharpPy
         // time_mktime
         private static PyObject MkTime(PyObject[] args, PyDict kwargs)
         {
-            PyArgs.One("mktime", args, kwargs);
+            PyArgs.One("time.mktime", args, kwargs);
             var tm = GetTmArg(args[0], "mktime(): illegal time tuple argument");
             tm.Wday = -1;
             long tt = CTimeRuntime.MkTime(ref tm);
@@ -351,7 +351,7 @@ namespace SharpPy
         // time_tzset, where tzset works.
         private PyObject TzSet(PyObject[] args, PyDict kwargs)
         {
-            PyArgs.NoArgs("tzset", args, kwargs);
+            PyArgs.NoArgs("time.tzset", args, kwargs);
             CTimeRuntime.TzSet();
             InitTimezone();
             return PyNone.Instance;

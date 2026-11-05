@@ -35,7 +35,8 @@ namespace SharpPy.Modules
         private static PyBuiltinFunction Fast(string name, int count, Func<PyObject[], PyObject> body) =>
             new(name, (args, kwargs) =>
             {
-                PyArgs.Positional(name, args, kwargs, count, count);
+                PyArgs.NoKeywords("_heapq." + name, kwargs);
+                PyArgs.Positional(name, args, null, count, count);
                 return body(args);
             });
 
@@ -43,7 +44,7 @@ namespace SharpPy.Modules
         private static PyBuiltinFunction One(string name, Func<PyList, PyObject> body) =>
             new(name, (args, kwargs) =>
             {
-                PyArgs.One(name, args, kwargs);
+                PyArgs.One("_heapq." + name, args, kwargs);
                 return body(ListArg(name, args[0]));
             });
 

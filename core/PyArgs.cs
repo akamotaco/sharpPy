@@ -43,6 +43,16 @@ internal static class PyArgs
             throw PyTypeError.Create($"{qualname}() takes exactly one argument ({args.Length} given)");
     }
 
+    /// <summary>
+    /// The keyword refusal of a METH_FASTCALL function: _PyObject_FunctionStr names a module-level
+    /// function with its module ("_heapq.heappush()"), a builtin without it.
+    /// </summary>
+    internal static void NoKeywords(string funcstr, PyDict kwargs)
+    {
+        if (kwargs != null && kwargs.Length() != 0)
+            throw PyTypeError.Create($"{funcstr}() takes no keyword arguments");
+    }
+
     // _PyArg_CheckPositional, after _PyArg_NoKwnames
     internal static void Positional(string name, PyObject[] args, PyDict kwargs, int min, int max)
     {

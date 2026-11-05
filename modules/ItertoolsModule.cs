@@ -29,7 +29,8 @@ namespace SharpPy.Modules
             // ITERTOOLS_TEE_METHODDEF: METH_FASTCALL, "n" defaulting to 2.
             d["tee"] = new PyBuiltinFunction("tee", (args, kwargs) =>
             {
-                PyArgs.Positional("tee", args, kwargs, 1, 2);
+                PyArgs.NoKeywords("itertools.tee", kwargs);
+                PyArgs.Positional("tee", args, null, 1, 2);
                 long n = args.Length < 2 ? 2 : PyArgs.Ssize(args[1]);
                 return TeeObject.Tee(args[0], n);
             });
@@ -275,8 +276,9 @@ namespace SharpPy.Modules
         // _PyType_Name(Py_TYPE(self)): tp_name after its last dot.
         protected string ShortTypeName => GetPyType().Name;
 
-        // _PyObject_SIZE(Py_TYPE(self)): a Python subclass adds its __dict__ and __weakref__ slots.
-        protected long ObjectSize(long basicsize) => _customType is PyClass ? basicsize + 16 : basicsize;
+        // _PyObject_SIZE(Py_TYPE(self)): a Python subclass keeps its __dict__ and __weakref__ managed,
+        // outside the basicsize.
+        protected static long ObjectSize(long basicsize) => basicsize;
     }
 
     /// <summary>batchedobject</summary>

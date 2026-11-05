@@ -889,6 +889,45 @@ namespace SharpPy
             return _length == 0 ? ReadOnlySpan<byte>.Empty : StorageSpan().Slice(_offset, _length);
         }
 
+        // PyBuffer_IsContiguous(view, 'C')
+        internal bool IsCContiguous
+        {
+            get
+            {
+                CheckReleased();
+                return _length <= 1 || _stride == _itemsize;
+            }
+        }
+
+        // Py_buffer.len
+        internal long ByteLength
+        {
+            get
+            {
+                CheckReleased();
+                return (long)_length * _itemsize;
+            }
+        }
+
+        // The bytes of a C-contiguous view in place, for a native reader that runs no Python code.
+        internal ReadOnlySpan<byte> ContiguousBytes()
+        {
+            if (!IsCContiguous)
+                throw PyBufferError.Create("memoryview: underlying buffer is not C-contiguous");
+            int n = _length * _itemsize;
+            return n == 0 ? ReadOnlySpan<byte>.Empty : StorageSpan().Slice(_offset, n);
+        }
+
+        // memcpy into a writable C-contiguous view at a byte offset.
+        internal void WriteBytes(long offset, ReadOnlySpan<byte> data)
+        {
+            if (!IsCContiguous)
+                throw PyBufferError.Create("memoryview: underlying buffer is not C-contiguous");
+            if (_readonly)
+                throw PyTypeError.Create("cannot modify read-only memory");
+            data.CopyTo(StorageSpan().Slice(_offset + (int)offset, data.Length));
+        }
+
         // Synchronous native IO only: fills the front of a writable, C-contiguous byte view.
         internal void WriteContiguous(ReadOnlySpan<byte> data)
         {

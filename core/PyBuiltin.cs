@@ -1370,7 +1370,9 @@ namespace SharpPy
             var modeArg = args[2];
             // builtin_compile_impl: PyCF_MASK, PyCF_MASK_OBSOLETE and PyCF_COMPILE_MASK.
             var flagsArgument = args.Length > 3 ? args[3] : KwValue(kwargs, "flags");
-            if (flagsArgument != null && (flagsArgument.ToInt() & ~(0x1FE0000 | 0x10 | 0x400 | 0x200 | 0x1000 | 0x2000 | 0x4000)) != 0)
+            // The clinic's int converter: _PyLong_AsInt over __index__.
+            int compileFlags = flagsArgument == null ? 0 : PyArgs.Int(flagsArgument);
+            if ((compileFlags & ~(0x1FE0000 | 0x10 | 0x400 | 0x200 | 0x1000 | 0x2000 | 0x4000)) != 0)
                 throw PyValueError.Create("compile(): unrecognised flags");
             // int flags = args.Length > 3 ? ... : 0;  // Future: compilation flags
             // bool dont_inherit = args.Length > 4 ? ... : false;
@@ -1401,8 +1403,7 @@ namespace SharpPy
             // builtin_compile_impl: flags, dont_inherit, optimize, and a tree in place of text.
             PyObject Option(int position, string name) => args.Length > position ? args[position]
                 : kwargs != null ? PyObject.KwValue(kwargs, name) : null;
-            int compileFlags = Option(3, "flags") is PyInt flagsValue ? flagsValue.ToInt() : 0;
-            int optimizeLevel = Option(5, "optimize") is PyInt optimizeValue ? optimizeValue.ToInt() : -1;
+            int optimizeLevel = Option(5, "optimize") is PyObject optimizeValue ? PyArgs.Int(optimizeValue) : -1;
             if (optimizeLevel < 0)
                 optimizeLevel = 0;
             var compileMode = mode switch

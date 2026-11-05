@@ -145,8 +145,119 @@ namespace SharpPy.Modules
                 PyAbstract.SequenceDelItem(Nullable(args[0]), PyArgs.Ssize(args[1]));
                 return new PyInt(0);
             });
+
+            // The meth_* functions: a module-level one has the module as its self.
+            foreach (var name in MethNames)
+            {
+                var kind = name;
+                d[kind] = new PyBuiltinFunction(kind, (args, kwargs) => Meth(kind, "_testcapi." + kind, module, args, kwargs));
+            }
+            d["MethInstance"] = MethType("MethInstance", "Class with normal (instance) methods to test calling conventions",
+                (type, kind) => new PyMethodDescriptor(kind, type,
+                    (self, args, kwargs) => Meth(kind, type.Name + "." + kind, self, args, kwargs),
+                    minArgs: 0, maxArgs: int.MaxValue, acceptsKwargs: true));
+            d["MethClass"] = MethType("MethClass", "Class with class methods to test calling conventions",
+                (type, kind) => new PyClassMethodDescriptor(kind, type, new PyBuiltinFunction(kind,
+                    (args, kwargs) => Meth(kind, type.Name + "." + kind, args[0], args[1..], kwargs))));
+            d["MethStatic"] = MethType("MethStatic", "Class with static methods to test calling conventions",
+                (type, kind) => PyType.StaticMethodType.Call(new PyObject[] { new PyBuiltinFunction(kind,
+                    (args, kwargs) => Meth(kind, kind, null, args, kwargs)) }, null));
+
+            // Modules/_testcapi/vectorcall.c
+            Add(d, "pyobject_fastcall", args =>
+            {
+                Parse("pyobject_fastcall", args, 2);
+                return args[0].Call(FastcallArgs(args[1]), null);
+            });
+            Add(d, "pyobject_fastcalldict", args =>
+            {
+                Parse("pyobject_fastcalldict", args, 3);
+                var stack = FastcallArgs(args[1]);
+                PyDict kwargs = args[2] is PyNone ? null
+                    : args[2] as PyDict ?? throw PyTypeError.Create("kwnames must be None or a dict");
+                return args[0].Call(stack, kwargs);
+            });
+            Add(d, "pyobject_vectorcall", args =>
+            {
+                Parse("pyobject_vectorcall", args, 3);
+                var stack = FastcallArgs(args[1]);
+                if (args[2] is PyNone)
+                    return args[0].Call(stack, null);
+                if (args[2] is not PyTuple kwnames)
+                    throw PyTypeError.Create("kwnames must be None or a tuple");
+                int nkw = kwnames.Items.Length;
+                if (stack.Length < nkw)
+                    throw PyValueError.Create("kwnames longer than args");
+                int nargs = stack.Length - nkw;
+                var kwargs = new PyDict();
+                for (int i = 0; i < nkw; i++)
+                    kwargs.SetItem(kwnames.Items[i], stack[nargs + i]);
+                return args[0].Call(stack[..nargs], kwargs);
+            });
             return module;
         }
+
+        private static readonly string[] MethNames =
+        {
+            "meth_varargs", "meth_varargs_keywords", "meth_o", "meth_noargs", "meth_fastcall", "meth_fastcall_keywords",
+        };
+
+        /// <summary>
+        /// The C calling conventions under test: each meth_* returns the C-level arguments it got, None
+        /// for a NULL self or kwargs. funcstr is what _PyObject_FunctionStr names the callable by.
+        /// </summary>
+        private static PyObject Meth(string kind, string funcstr, PyObject self, PyObject[] args, PyDict kwargs)
+        {
+            self ??= PyNone.Instance;
+            bool keywords = kwargs != null && kwargs.Length() != 0;
+            switch (kind)
+            {
+                case "meth_varargs":
+                    // cfunction_call: the ml_name alone.
+                    if (keywords)
+                        throw PyTypeError.Create($"{kind}() takes no keyword arguments");
+                    return new PyTuple(new[] { self, new PyTuple(args) });
+                case "meth_varargs_keywords":
+                    return new PyTuple(new[] { self, new PyTuple(args), keywords ? kwargs.Copy() : PyNone.Instance });
+                case "meth_o":
+                    PyArgs.One(funcstr, args, kwargs);
+                    return new PyTuple(new[] { self, args[0] });
+                case "meth_noargs":
+                    PyArgs.NoArgs(funcstr, args, kwargs);
+                    return self;
+                case "meth_fastcall":
+                    PyArgs.NoKeywords(funcstr, kwargs);
+                    return new PyTuple(new[] { self, new PyTuple(args) });
+                default:
+                    // meth_fastcall_keywords: PyObject_Vectorcall(dict, ..., kwnames) makes the dict.
+                    return new PyTuple(new[] { self, new PyTuple(args), keywords ? kwargs.Copy() : new PyDict() });
+            }
+        }
+
+        // A static type with PyType_GenericNew and one method of each convention.
+        private static PyType MethType(string name, string doc, Func<PyType, string, PyObject> method)
+        {
+            var type = new PyType(name, new[] { PyType.ObjectType }) { ConstructedByNewSlot = true };
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type,
+                (cls, args, kwargs) => new MethObject((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
+            foreach (var kind in MethNames)
+                type.TypeDict[kind] = method(type, kind);
+            type.TypeDict["__doc__"] = new PyString(doc);
+            return type;
+        }
+
+        private sealed class MethObject : PyObject
+        {
+            internal MethObject(PyType type) => SetCustomType(type);
+        }
+
+        // fastcall_args
+        private static PyObject[] FastcallArgs(PyObject args) => args switch
+        {
+            PyNone => Array.Empty<PyObject>(),
+            PyTuple tuple => tuple.Items,
+            _ => throw PyTypeError.Create("args must be None or a tuple"),
+        };
 
         private static void Add(System.Collections.Generic.IDictionary<string, PyObject> d, string name, Func<PyObject[], PyObject> body) =>
             d[name] = new PyBuiltinFunction(name, (args, kwargs) =>

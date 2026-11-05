@@ -3205,25 +3205,10 @@ namespace SharpPy
 
                         // CPython 3.12: Check for descriptor BEFORE calling GetAttribute
                         // This allows us to distinguish staticmethod from regular methods
-                        bool isStaticMethod = false;
-                        if (obj is PyClassInstance instance && pushNullForMethod)
-                        {
-                            // Check if this attribute is a staticmethod descriptor
-                            foreach (var mroType in instance.InstanceType.MRO)
-                            {
-                                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(attrName, out PyObject classValue))
-                                {
-                                    if (classValue is PyStaticmethod)
-                                    {
-                                        isStaticMethod = true;
-                                        #if DEBUG_LOG
-                                        Console.WriteLine($"   → Found staticmethod descriptor for '{attrName}'");
-                                        #endif
-                                    }
-                                    break;
-                                }
-                            }
-                        }
+                        // _PyObject_GetMethod: what the type's MRO holds under the name decides, for a
+                        // native type as for a class; a staticmethod is no method descriptor.
+                        bool isStaticMethod = pushNullForMethod && obj is not PyType
+                            && obj.GetPyType().FindNameInMro(attrName) is PyStaticmethod;
 
                         // Get attribute using existing system
                         PyObject attr;

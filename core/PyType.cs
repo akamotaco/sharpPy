@@ -576,6 +576,10 @@ namespace SharpPy
 
         internal virtual TypeLayout Layout => _builtinLayout ??= TypeLayouts.Of(this);
 
+        // PyType_FromSpec: the basicsize and flags of a module's spec, which the generated table of
+        // static types does not hold.
+        internal void SetSpecLayout(TypeLayout layout) => _builtinLayout = layout;
+
         /// <summary>tp_name of a type that keeps its module in it, as a compiled one does.</summary>
         internal virtual string FullName => this is PyClass || string.IsNullOrEmpty(Module) || Module == "builtins" ? Name : Module + "." + Name;
 
