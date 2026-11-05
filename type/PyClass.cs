@@ -82,6 +82,13 @@ namespace SharpPy
             throw PyTypeError.Create($"'{Name}' object is not iterable");
         }
 
+        /// <summary>tp_iter is the function of owner's slot wrapper, as inherited from that base.</summary>
+        internal bool IterSlotIs(PyType owner)
+        {
+            ref var slot = ref UpdateOneSlot(ref _tpIter, "__iter__");
+            return slot.Specific != null && ReferenceEquals(slot.Specific.OwnerType, owner);
+        }
+
         internal PyObject IterSlot(PyObject self)
         {
             ref var slot = ref UpdateOneSlot(ref _tpIter, "__iter__");

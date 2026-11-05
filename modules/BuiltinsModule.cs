@@ -542,12 +542,7 @@ namespace SharpPy.Modules
 
             var obj = args[0];
 
-            // Get repr() of the object
-            var reprStr = obj.ToRepr();
-            if (reprStr is not PyString pyStr)
-            {
-                throw PyTypeError.Create($"__repr__ returned non-string (type {reprStr.GetTypeName()})");
-            }
+            var pyStr = obj.ToRepr();
 
             // Escape non-ASCII characters. CPython escapes one *code point* at a time
             // (Python/run.c repr with the ASCII flag), so an astral character becomes a single

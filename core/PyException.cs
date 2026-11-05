@@ -563,18 +563,7 @@ namespace SharpPy
         {
             var args = PyExceptionSlots.ArgsOf(self);
             if (args.Length != 1) return BaseExceptionStr(self);
-            var key = args[0];
-            if (key is PyClassInstance)
-            {
-                var method = key.LookupSpecialMethodUncached("__repr__");
-                if (method != null)
-                {
-                    var result = key.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-                    if (result is PyString text) return text;
-                    throw PyTypeError.Create($"__repr__ returned non-string (type {result.GetTypeName()})");
-                }
-            }
-            return key.ToRepr();
+            return args[0].ToRepr();
         }
         public override PyType GetPyType() => PyType.KeyErrorType;
         public override string GetTypeName() => "KeyError";

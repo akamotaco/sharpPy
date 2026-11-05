@@ -308,12 +308,7 @@ namespace SharpPy
             return text.ToString();
         }
 
-        protected internal override PyString Repr()
-        {
-            if (ReferenceEquals(_type, PyType.GenericAliasType))
-                return new PyString(GaRepr());
-            return (PyString)LookupSpecialMethodUncached("__repr__").Call(new PyObject[] { this }, null);
-        }
+        protected internal override PyString Repr() => new PyString(GaRepr());
 
         protected internal override PyString Str() => ToRepr();
 

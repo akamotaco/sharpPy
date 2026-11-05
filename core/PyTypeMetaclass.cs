@@ -329,7 +329,7 @@ namespace SharpPy
 
             // dict_merge: the storage, unless the class has its own __iter__, as OrderedDict does.
             var dict = new Dictionary<string, PyObject>();
-            if (args[3].LookupUserSpecial("__iter__") == null)
+            if (PyDict.IterIsDictIter(args[3]))
             {
                 foreach (var entry in ns.InternalDict)
                     if (entry.Key is PyString key)

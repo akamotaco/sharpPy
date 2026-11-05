@@ -827,6 +827,13 @@ namespace SharpPy
         internal static bool IsDictLike(PyObject value) =>
             value is PyDict || (value is PyClassInstance ci && ci.GetDictStorage() != null);
 
+        /// <summary>
+        /// dict_merge (Objects/dictobject.c): PyDict_Check(b) and Py_TYPE(b)->tp_iter == dict_iter,
+        /// when the storage may be read directly instead of through keys().
+        /// </summary>
+        internal static bool IterIsDictIter(PyObject value) =>
+            IsDictLike(value) && (value.GetPyType() is not SharpPy.PyClass heap || heap.IterSlotIs(PyType.DictType));
+
         internal static PyDict RequireDictOperand(PyObject self, string name)
         {
             if (self is PyDict dict)
@@ -858,7 +865,7 @@ namespace SharpPy
             }
 
             // dict_merge reads the storage unless the subclass has its own __iter__.
-            if (IsDictLike(source) && source.LookupUserSpecial("__iter__") == null)
+            if (IterIsDictIter(source))
             {
                 var storage = source is PyDict sd ? sd : ((PyClassInstance)source).GetDictStorage()!;
                 foreach (var entry in storage.GetInternalDict())
@@ -1127,9 +1134,7 @@ namespace SharpPy
         {
             // PyDict_Copy skips callbacks for empty storage. Otherwise an
             // overridden iteration slot selects dict_merge's mapping path.
-            if (storage.Length() == 0 || ReferenceEquals(
-                source.LookupSpecialMethodUncached("__iter__"),
-                storage.LookupSpecialMethodUncached("__iter__")))
+            if (storage.Length() == 0 || IterIsDictIter(source))
                 return storage.Copy();
 
             var output = source.GetAttribute("keys").Call(Array.Empty<PyObject>(), null);
