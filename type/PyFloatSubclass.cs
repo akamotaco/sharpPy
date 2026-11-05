@@ -94,26 +94,9 @@ namespace SharpPy
         /// Measured: float(FO) answers through a user __float__ (9.5), and keeps the payload when
         /// the class declares none (2.7). Validation text is CPython's, which names the type.
         /// </summary>
-        public override PyFloat AsFloat()
-        {
-            var declared = CallUserSpecialOrNull("__float__", System.Array.Empty<PyObject>());
-            if (declared != null)
-                return PyFloat.CheckFloatResult(this, declared);
-            return new PyFloat(_floatValue.Value);
-        }
-
-        /// <summary>
-        /// Measured: int(FO) honours a user __int__ (77); with none declared, float's truncation
-        /// applies (2).
-        /// </summary>
-        public override PyInt AsInt()
-        {
-            var declared = CallUserSpecialOrNull("__int__", System.Array.Empty<PyObject>());
-            if (declared != null)
-                return declared as PyInt ?? throw PyTypeError.Create(
-                    $"__int__ returned non-int (type {declared.GetTypeName()})");
-            return _floatValue.AsInt();
-        }
+        // The inherited float_float and float___trunc__, on the value.
+        protected internal override PyObject NbFloat() => new PyFloat(_floatValue.Value);
+        protected internal override PyObject NbInt() => _floatValue.NbInt();
 
         /// <summary>
         /// CPython reads nb_divmod through the subclass, so a user __divmod__ wins and anything

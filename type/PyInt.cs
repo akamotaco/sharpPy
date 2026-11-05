@@ -254,7 +254,7 @@ namespace SharpPy
             regIntUn("__floor__", s => s);
             regIntUn("__ceil__", s => s);
             regIntUn("__int__", s => s);
-            regIntUn("__float__", s => new PyFloat((double)((PyInt)s).Value));
+            regIntUn("__float__", s => s.NbFloat());
             regIntRev("__rdivmod__", (o, s) => o.DivMod(s));
 
             intType.TypeDict["__pow__"] = new PyWrapperDescriptor("__pow__", intType, (self, args, kwargs) =>
@@ -1454,10 +1454,8 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyInt를 PyInt로 변환 (자기 자신 반환)
         /// </summary>
-        public override PyInt AsInt()
-        {
-            return this; // 이미 PyInt이므로 자기 자신 반환
-        }
+        // long_long: the int itself, a subclass's value as an int.
+        protected internal override PyObject NbInt() => this;
         
         /// <summary>
         /// CPython 호환: PyInt를 PyFloat로 변환
@@ -1480,7 +1478,8 @@ namespace SharpPy
             return q * p10;
         }
 
-        public override PyFloat AsFloat()
+        // long_float: PyLong_AsDouble.
+        protected internal override PyObject NbFloat()
         {
             // CPython PyLong_AsDouble: correctly rounded decimal→binary conversion,
             // and overflow is an error, not infinity.
@@ -1695,25 +1694,67 @@ namespace SharpPy
                     throw PyValueError.Create("int() base must be >= 2 and <= 36, or 0");
                 baseValue = (int)index.Value;
             }
-            if (value is PyString text) return FromString(text.Value, baseValue);
-            if (value is PyBytes bytes)
-                return FromString(System.Text.Encoding.Latin1.GetString(bytes.Value), baseValue, false, value);
-            if (value is PyBytesObject binary)
-                return FromString(System.Text.Encoding.Latin1.GetString(binary.BufferSpan), baseValue, false, value);
-            if (value is PyByteArray buffer)
-                return FromString(System.Text.Encoding.Latin1.GetString(buffer.BufferSpan), baseValue, false, value);
-            // PyNumber_Long ends with any object exporting a buffer.
-            if (radix == null && value.LookupUserSpecial("__int__") == null && value.LookupUserSpecial("__index__") == null &&
-                value.LookupUserSpecial("__trunc__") == null && value.SupportsBuffer() && BytesMethods.Buffer(value) is { } exported)
-                return FromString(System.Text.Encoding.Latin1.GetString(exported), baseValue, false, value);
-            if (radix != null) throw PyTypeError.Create("int() can't convert non-string with explicit base");
-            // int(float) truncates toward zero into an arbitrary-precision integer.
-            // Must not go through AsInt()/ToInt() (which clamp to Int32 and raise
-            // OverflowError for |value| > int.MaxValue). new BigInteger(double)
-            // reproduces CPython's exact-binary-value conversion.
-            if (value is PyFloat pyf)
-                return new PyInt(FloatToIntegral(pyf.Value));
-            return value.AsInt();
+            // long_new_impl: without a base, PyNumber_Long; with one, a str, bytes or bytearray.
+            if (radix == null)
+                return NumberLong(value);
+            return ParseText(value, baseValue) ?? throw PyTypeError.Create("int() can't convert non-string with explicit base");
+        }
+
+        // The text forms of long_new_impl and PyNumber_Long: a str, bytes or bytearray.
+        private static PyInt ParseText(PyObject value, int baseValue) => value switch
+        {
+            PyString text => FromString(text.Value, baseValue),
+            PyBytes bytes => FromString(System.Text.Encoding.Latin1.GetString(bytes.Value), baseValue, false, value),
+            PyBytesObject binary => FromString(System.Text.Encoding.Latin1.GetString(binary.BufferSpan), baseValue, false, value),
+            PyByteArray buffer => FromString(System.Text.Encoding.Latin1.GetString(buffer.BufferSpan), baseValue, false, value),
+            _ => null,
+        };
+
+        /// <summary>
+        /// PyNumber_Long (Objects/abstract.c): an exact int is itself; then nb_int, whose answer
+        /// must be an int (_PyLong_FromNbInt); nb_index; the deprecated __trunc__; the text of a
+        /// str, bytes or bytearray; the bytes of a buffer.
+        /// </summary>
+        internal static PyInt NumberLong(PyObject value)
+        {
+            if (value.GetType() == typeof(PyInt))
+                return (PyInt)value;
+            var result = value.TpNbInt();
+            if (result != null)
+                return FromNbInt(result, "__int__");
+            if (value.HasTypeSlot("__index__"))
+                return PyObject.IndexOrThrow(value);
+            var truncate = value.LookupSpecialMethodUncached("__trunc__");
+            if (truncate != null)
+            {
+                PyWarnings.Deprecated("The delegation of int() to __trunc__ is deprecated.");
+                var whole = value.BindSpecialMethod(truncate).Call(Array.Empty<PyObject>(), null);
+                if (whole is PyInt or PyBool or PyIntSubclass)
+                    return PyObject.TryGetIndex(whole);
+                if (!whole.HasTypeSlot("__index__"))
+                    throw PyTypeError.Create($"__trunc__ returned non-Integral (type {whole.GetPyType().FullName})");
+                return PyObject.IndexOrThrow(whole);
+            }
+            var parsed = ParseText(value, 10);
+            if (parsed != null)
+                return parsed;
+            if (value.SupportsBuffer() && BytesMethods.Buffer(value) is { } exported)
+                return FromString(System.Text.Encoding.Latin1.GetString(exported), 10, false, value);
+            throw PyTypeError.Create(
+                $"int() argument must be a string, a bytes-like object or a real number, not '{value.GetPyType().FullName}'");
+        }
+
+        // _PyLong_FromNbInt: an exact int, or a strict subclass with a DeprecationWarning.
+        private static PyInt FromNbInt(PyObject result, string name)
+        {
+            if (result.GetType() == typeof(PyInt))
+                return (PyInt)result;
+            if (result is PyInt or PyBool or PyIntSubclass)
+            {
+                PyWarnings.Deprecated($"{name} returned non-int (type {result.GetPyType().FullName}).  The ability to return an instance of a strict subclass of int is deprecated, and may be removed in a future version of Python.");
+                return PyObject.TryGetIndex(result);
+            }
+            throw PyTypeError.Create($"{name} returned non-int (type {result.GetPyType().FullName})");
         }
 
         internal static BigInteger FloatToIntegral(double d)

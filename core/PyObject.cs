@@ -638,7 +638,7 @@ namespace SharpPy
             if (value is PyBool asBool)
                 return asBool.Value ? 1 : 0;
             if (value is PyIntSubclass intSub)
-                return (int)intSub.AsInt().Value;
+                return (int)intSub.GetIntValue().Value;
             throw PyTypeError.Create(
                 $"'{value.GetTypeName()}' object cannot be interpreted as an integer");
         }
@@ -1034,18 +1034,24 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: 현재 PyObject를 PyInt로 변환/캐스팅
         /// </summary>
-        public virtual PyInt AsInt()
-        {
-            return new PyInt(ToInt());
-        }
+        /// <summary>The nb_int function of this object's CLR implementation; null when it has none.</summary>
+        protected internal virtual PyObject NbInt() => null;
+
+        /// <summary>The nb_float function of this object's CLR implementation; null when it has none.</summary>
+        protected internal virtual PyObject NbFloat() => null;
+
+        // Py_TYPE(o)->tp_as_number->nb_int and nb_float, a class written in Python's from update_one_slot.
+        internal PyObject TpNbInt() => GetPyType() is SharpPy.PyClass heap ? heap.NbIntSlot(this) : NbInt();
+        internal PyObject TpNbFloat() => GetPyType() is SharpPy.PyClass heap ? heap.NbFloatSlot(this) : NbFloat();
+
+        /// <summary>PyNumber_Long (Objects/abstract.c).</summary>
+        public PyInt AsInt() => PyInt.NumberLong(this);
 
         /// <summary>
         /// CPython 호환: 현재 PyObject를 PyFloat로 변환/캐스팅
         /// </summary>
-        public virtual PyFloat AsFloat()
-        {
-            return new PyFloat(ToFloat());
-        }
+        /// <summary>PyNumber_Float (Objects/abstract.c).</summary>
+        public PyFloat AsFloat() => PyFloat.NumberFloat(this);
 
         /// <summary>
         /// CPython 호환: 현재 PyObject를 PyBool로 변환/캐스팅

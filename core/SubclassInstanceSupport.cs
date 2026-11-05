@@ -54,56 +54,6 @@ namespace SharpPy
             return heapTarget;
         }
 
-        // PyNumber_Long: nb_int, then nb_index, and the result is an int.
-        internal static PyInt Int(PyObject self)
-        {
-            var method = self.LookupSpecialMethodUncached("__int__");
-            if (method != null)
-            {
-                var result = self.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-                if (result is PyInt exact)
-                    return exact;
-                // PyNumber_Long: a strict subclass of int still answers, with a warning.
-                if (result is PyBool or PyIntSubclass)
-                {
-                    PyWarnings.Deprecated($"__int__ returned non-int (type {result.GetTypeName()}).  The ability to return an instance of a strict subclass of int is deprecated, and may be removed in a future version of Python.");
-                    return result is PyBool truth ? new PyInt(truth.Value ? 1 : 0) : ((PyIntSubclass)result).GetIntValue();
-                }
-                throw PyTypeError.Create($"__int__ returned non-int (type {result.GetTypeName()})");
-            }
-            var index = PyClassInstance.TryGetIndex(self);
-            if (index != null) return index;
-            // PyNumber_Long: __trunc__, deprecated and still honoured in 3.12.
-            var truncate = self.LookupSpecialMethodUncached("__trunc__");
-            if (truncate != null)
-            {
-                PyWarnings.Deprecated("The delegation of int() to __trunc__ is deprecated.");
-                var whole = self.BindSpecialMethod(truncate).Call(Array.Empty<PyObject>(), null);
-                switch (whole)
-                {
-                    case PyInt exact: return exact;
-                    case PyBool truth: return new PyInt(truth.Value ? 1 : 0);
-                    case PyIntSubclass subclass: return subclass.GetIntValue();
-                }
-                return PyClassInstance.TryGetIndex(whole) ??
-                    throw PyTypeError.Create($"__trunc__ returned non-Integral (type {whole.GetTypeName()})");
-            }
-            throw PyTypeError.Create(
-                $"int() argument must be a string, a bytes-like object or a real number, not '{self.GetTypeName()}'");
-        }
-
-        // PyNumber_Float: nb_float, then nb_index. PyInt.AsFloat owns the overflow rule.
-        internal static PyFloat Float(PyObject self)
-        {
-            var method = self.LookupSpecialMethodUncached("__float__");
-            if (method != null)
-            {
-                return PyFloat.CheckFloatResult(self, self.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null));
-            }
-            return PyClassInstance.TryGetIndex(self)?.AsFloat() ?? throw PyTypeError.Create(
-                $"float() argument must be a string or a real number, not '{self.GetTypeName()}'");
-        }
-
         /// <summary>
         /// tp_getattro of a Python class over a builtin: slot_tp_getattr_hook (Objects/typeobject.c)
         /// calls a __getattribute__ the class writes, or PyObject_GenericGetAttr (self.GenericGetAttr),

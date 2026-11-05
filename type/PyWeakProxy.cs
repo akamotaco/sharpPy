@@ -59,9 +59,10 @@ namespace SharpPy
             return Target.Call(args, kwargs);
         }
 
-        public override PyInt AsInt() => Target.AsInt();
+        // proxy_int and proxy_float: PyNumber_Long and PyNumber_Float of the referent.
+        protected internal override PyObject NbInt() => Target.AsInt();
 
-        public override PyFloat AsFloat() => Target.AsFloat();
+        protected internal override PyObject NbFloat() => Target.AsFloat();
 
         public override int ToInt() => Target.ToInt();
 

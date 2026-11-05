@@ -83,21 +83,21 @@ namespace SharpPy
             return new PyFloat(subclass.Value);
         }
 
-        // PyNumber_Float
+        /// <summary>
+        /// PyNumber_Float: an exact float is itself; then nb_float, whose answer must be a float;
+        /// nb_index through PyLong_AsDouble; the value of a float subclass; PyFloat_FromString.
+        /// </summary>
         internal static PyFloat NumberFloat(PyObject value)
         {
-            if (value is PyFloat exact)
-                return exact;
-            var declared = value.LookupUserSpecial("__float__");
-            if (declared != null)
-                return CheckFloatResult(value, value.BindSpecialMethod(declared).Call(Array.Empty<PyObject>(), null));
-            if (value is PyFloatSubclass subclass)
-                return new PyFloat(subclass.Value);
-            if (value is PyInt or PyBool or PyIntSubclass)
-                return value.AsFloat();
-            var index = PyObject.TryGetIndex(value);
-            if (index != null)
-                return index.AsFloat();
+            if (value.GetType() == typeof(PyFloat))
+                return (PyFloat)value;
+            var result = value.TpNbFloat();
+            if (result != null)
+                return CheckFloatResult(value, result);
+            if (value.HasTypeSlot("__index__"))
+                return (PyFloat)PyObject.IndexOrThrow(value).NbFloat();
+            if (value is PyFloat real)
+                return new PyFloat(real.Value);
             return FromObject(value);
         }
 
@@ -208,7 +208,7 @@ namespace SharpPy
 
             // CPython publishes float.__int__ and float.__float__ too. __float__ returns the object
             // itself, not a fresh float, so it needs the raw self rather than the payload.
-            regFloatUn("__int__", s => s.AsInt());
+            regFloatUn("__int__", s => s.NbInt());
             floatType.TypeDict["__float__"] = new PyWrapperDescriptor("__float__", floatType,
                 (self, args, kwargs) =>
                 {
@@ -985,7 +985,7 @@ namespace SharpPy
             {
                 case PyFloat exact: value = exact.Value; return true;
                 case PyFloatSubclass subclass: value = subclass.Value; return true;
-                case PyInt or PyBool or PyIntSubclass: value = operand.AsFloat().Value; return true;
+                case PyInt or PyBool or PyIntSubclass: value = ((PyFloat)PyObject.TryGetIndex(operand).NbFloat()).Value; return true;
                 default: return false;
             }
         }
@@ -1046,21 +1046,14 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyFloat를 PyFloat로 변환 (자기 자신 반환)
         /// </summary>
-        public override PyFloat AsFloat()
-        {
-            return this; // 이미 PyFloat이므로 자기 자신 반환
-        }
+        // float_float: the float itself, a subclass's value as a float.
+        protected internal override PyObject NbFloat() => GetType() == typeof(PyFloat) ? this : new PyFloat(Value);
         
         /// <summary>
         /// CPython 호환: PyFloat를 PyInt로 변환
         /// </summary>
-        public override PyInt AsInt()
-        {
-            // AsInt is the *Python-type* conversion: arbitrary-precision, truncate
-            // toward zero. Must NOT go through ToInt() (a bounded C# Int32), or
-            // large finite floats overflow. This is the root fix behind p35.
-            return new PyInt(PyInt.FloatToIntegral(Value));
-        }
+        // float___trunc___impl, nb_int: arbitrary precision, toward zero.
+        protected internal override PyObject NbInt() => new PyInt(PyInt.FloatToIntegral(Value));
         
         /// <summary>
         /// CPython 호환: PyFloat를 PyBool로 변환

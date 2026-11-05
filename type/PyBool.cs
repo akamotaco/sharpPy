@@ -340,18 +340,13 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyBool을 PyInt로 변환
         /// </summary>
-        public override PyInt AsInt()
-        {
-            return Value ? SmallIntCache.One : SmallIntCache.Zero;
-        }
+        // bool inherits long_long, which copies a strict subclass into an exact int.
+        protected internal override PyObject NbInt() => Value ? SmallIntCache.One : SmallIntCache.Zero;
 
         /// <summary>
         /// CPython 호환: PyBool을 PyFloat로 변환
         /// </summary>
-        public override PyFloat AsFloat()
-        {
-            return Value ? FloatCache.One : FloatCache.Zero;
-        }
+        protected internal override PyObject NbFloat() => Value ? FloatCache.One : FloatCache.Zero;
         
         /// <summary>
         /// CPython 호환: PyBool을 PyString으로 변환

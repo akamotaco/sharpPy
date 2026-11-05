@@ -500,7 +500,6 @@ namespace SharpPy
 
         // CPython 3.12: Objects/floatobject.c PyFloat_FromString accepts any buffer, so
         // float(b'1.5') is a text conversion, not a type error.
-        public override PyFloat AsFloat() => PyFloat.FromObject(this);
 
         /// <summary>
         /// PEP 688: bytes objects implement the buffer protocol

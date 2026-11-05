@@ -40,7 +40,19 @@ namespace SharpPy
 
         // Version 0 is never a tag, so every slot starts undecided.
         private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool, _sqContains, _tpHash, _mpSubscript,
-            _mpSetItem, _mpDelItem;
+            _mpSetItem, _mpDelItem, _nbInt, _nbFloat;
+
+        // nb_int and nb_float: slot_nb_int and slot_nb_float call the method; null is NULL.
+        internal PyObject NbIntSlot(PyObject self) => UnarySlot(ref _nbInt, "__int__", self);
+        internal PyObject NbFloatSlot(PyObject self) => UnarySlot(ref _nbFloat, "__float__", self);
+
+        private PyObject UnarySlot(ref Slot slot, string name, PyObject self)
+        {
+            ref var decided = ref UpdateOneSlot(ref slot, name);
+            if (decided.Specific != null)
+                return decided.Specific._implementation(self, Array.Empty<PyObject>(), null);
+            return decided.Generic == null ? null : self.BindSpecialMethod(decided.Generic).Call(Array.Empty<PyObject>(), null);
+        }
 
         internal PyObject SubscriptSlot(PyObject self, PyObject key)
         {
@@ -2153,17 +2165,6 @@ namespace SharpPy
             deleteMethod.Call(new PyObject[] { instance }, null);
         }
 
-        // CPython Objects/abstract.c PyNumber_Long: the nb_int slot (a class __int__) is
-        // consulted **before** nb_index, and its result must be an int. SharpPy implements
-        // native nb_int/nb_float as CLR virtuals on the builtin types, so a user class's
-        // numeric coercion belongs in this override.
-        public override PyInt AsInt() => SubclassInstanceSupport.Int(this);
-
-        // CPython Objects/abstract.c PyNumber_Float: nb_float, then nb_index. __int__ is
-        // deliberately not consulted - measured float(Both()) == 30.0 while int(Both())
-        // == 70 for the same object, and PyFloat.FromNumber keeps the arbitrary-precision
-        // overflow rule (int too large to convert to float).
-        public override PyFloat AsFloat() => SubclassInstanceSupport.Float(this);
 
         public override PyObject RichCompare(PyObject other, CompareOp op)
         {
