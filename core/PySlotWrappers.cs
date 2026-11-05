@@ -131,7 +131,7 @@ namespace SharpPy
                 case "__le__":
                 case "__gt__":
                 case "__ge__":
-                    return value.RichCompare(PyNativeStorage.Unwrap(args[0]), Comparison(name));
+                    return value.TpRichCompare(PyNativeStorage.Unwrap(args[0]), Comparison(name));
                 case "__hash__": return new PyInt(value.Hash());
                 case "__repr__": return value.Repr();
                 case "__str__": return value.Str();

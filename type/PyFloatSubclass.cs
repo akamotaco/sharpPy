@@ -69,8 +69,8 @@ namespace SharpPy
 
         #region Comparison and hashing
 
-        public override PyObject RichCompare(PyObject other, CompareOp op) =>
-            TryCompareSpecial(other, op, PyType.FloatType) ?? _floatValue.RichCompare(other, op);
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op) =>
+            _floatValue.TpRichCompare(other, op);
 
         // CPython: tp_hash is float's, so FSub(2.0) and 2.0 collide in a dict.
         // _Py_HashDouble: a NaN hashes by the identity of the object asked.

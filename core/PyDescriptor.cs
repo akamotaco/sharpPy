@@ -251,7 +251,7 @@ namespace SharpPy
         /// builtins are equal when the receiver is the same object and they wrap the same function
         /// (Objects/methodobject.c:306-:308), and only == / != compare (:298-:303).
         /// </summary>
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if ((op != CompareOp.EQ && op != CompareOp.NE) || !(other is PyBoundMethodDescriptor bound))
                 return PyNotImplemented.Instance;
@@ -649,7 +649,7 @@ namespace SharpPy
         PyObject IWrapperObject.WrapperSelf => Instance;
 
         // wrapper_richcompare: the same slot of the same object, == and != only.
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if ((op != CompareOp.EQ && op != CompareOp.NE) || other is not PyBoundWrapperDescriptor wrapper)
                 return PyNotImplemented.Instance;

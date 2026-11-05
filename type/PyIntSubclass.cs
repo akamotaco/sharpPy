@@ -112,14 +112,12 @@ namespace SharpPy
 
         #region Comparison Operations - Delegate to PyInt
 
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
-            var result = TryCompareSpecial(other, op, PyType.IntType);
-            if (result != null) return result;
             // Use the full payload and dispatch the operation only once.
             if (other is PyIntSubclass otherSubclass)
                 other = otherSubclass._intValue;
-            return _intValue.RichCompare(other, op);
+            return _intValue.TpRichCompare(other, op);
         }
 
         #endregion

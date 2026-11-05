@@ -53,12 +53,12 @@ namespace SharpPy
         }
 
         // cell_richcompare: by the contents, and an empty cell is below any other.
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if (other is not PyCell cell)
                 return PyNotImplemented.Instance;
             if (HasValue && cell.HasValue)
-                return _value.RichCompare(cell._value, op);
+                return Compare(_value, cell._value, op);
             int left = HasValue ? 1 : 0, right = cell.HasValue ? 1 : 0;
             return PyBool.FromBool(op switch
             {

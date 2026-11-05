@@ -693,7 +693,7 @@ namespace SharpPy
             return true;
         }
 
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if (other is not PyCodeObject code || (op != CompareOp.EQ && op != CompareOp.NE))
                 return PyNotImplemented.Instance;

@@ -590,7 +590,7 @@ namespace SharpPy
         /// CPython: Objects/setobject.c:set_richcompare (lines 1918-1964)
         /// Implements comparison operators based on subset/superset relationships
         /// </summary>
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             // set_richcompare tests the operands with PySet_Check / PyAnySet_Check, which accept
             // subclasses, so F([1]) < S([2]) has to see through both user objects to their values.
@@ -846,7 +846,7 @@ namespace SharpPy
         /// CPython: Objects/setobject.c:set_richcompare (lines 1918-1964)
         /// Implements comparison operators based on subset/superset relationships
         /// </summary>
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             // set_richcompare tests the operands with PySet_Check / PyAnySet_Check, which accept
             // subclasses, so F([1]) < S([2]) has to see through both user objects to their values.

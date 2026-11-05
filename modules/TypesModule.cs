@@ -127,8 +127,8 @@ namespace SharpPy.Modules
         public override string ToString() => ToRepr().Value;
 
         // namespace_richcompare
-        public override PyObject RichCompare(PyObject other, CompareOp op) => other is PySimpleNamespace namespaceObject
-            ? Dict.RichCompare(namespaceObject.Dict, op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op) => other is PySimpleNamespace namespaceObject
+            ? Compare(Dict, namespaceObject.Dict, op)
             : PyNotImplemented.Instance;
 
         public override bool Equals(object other) => other is PySimpleNamespace && RichCompare((PyObject)other, CompareOp.EQ).IsTrue();

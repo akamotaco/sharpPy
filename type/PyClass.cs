@@ -41,6 +41,28 @@ namespace SharpPy
         // Version 0 is never a tag, so every slot starts undecided.
         private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool, _sqContains, _tpHash, _mpSubscript,
             _mpSetItem, _mpDelItem, _nbInt, _nbFloat, _nbPositive, _nbNegative, _nbInvert, _nbAbsolute;
+        private readonly Slot[] _tpRichCompare = new Slot[6];
+        private static readonly string[] RichCompareNames = { "__lt__", "__le__", "__eq__", "__ne__", "__gt__", "__ge__" };
+
+        /// <summary>
+        /// tp_richcompare, one slot for the six names: a base's function through the wrapper of the
+        /// operation, or slot_tp_richcompare, lookup_maybe_method of the operation's name, whose
+        /// failure to bind is NotImplemented (Objects/typeobject.c).
+        /// </summary>
+        internal PyObject RichCompareSlot(PyObject self, PyObject other, CompareOp op)
+        {
+            ref var slot = ref UpdateOneSlot(ref _tpRichCompare[(int)op], RichCompareNames[(int)op]);
+            if (slot.Specific != null)
+                return slot.Specific._implementation(self, new[] { other }, null);
+            if (slot.Generic == null)
+                return PyNotImplemented.Instance;
+            if (slot.Generic.GetType() == typeof(PyFunction))
+                return slot.Generic.Call(new[] { self, other }, null);
+            PyObject bound;
+            try { bound = self.BindSpecialMethod(slot.Generic); }
+            catch (PythonException) { return PyNotImplemented.Instance; }
+            return bound.Call(new[] { other }, null);
+        }
 
         // slot_nb_positive and the like (SLOT0); without the method, the type's CLR function refuses.
         internal PyObject NbPositiveSlot(PyObject self) => UnarySlot(ref _nbPositive, "__pos__", self) ?? self.NbPositive();
@@ -237,43 +259,6 @@ namespace SharpPy
             throw PyTypeError.Create($"'{Name}' object is not iterable");
         }
 
-        private ComparisonMisses _comparisonMisses;
-
-        private sealed class ComparisonMisses
-        {
-            internal ulong Epoch;
-            internal PyType NativeBase;
-            internal int Missing;
-        }
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal PyObject LookupComparisonMethod(CompareOp op, PyType nativeBase)
-        {
-            var cache = _comparisonMisses;
-            if (cache != null && cache.Epoch == ComparisonCacheEpoch &&
-                ReferenceEquals(cache.NativeBase, nativeBase) && (cache.Missing & (1 << (int)op)) != 0)
-                return null;
-            return LookupUncachedComparison(op, nativeBase);
-        }
-
-        private PyObject LookupUncachedComparison(CompareOp op, PyType nativeBase)
-        {
-            var method = FindComparisonMethod(this, op, nativeBase);
-            // Only cache misses: callbacks stay live and no removed function is retained.
-            if (method == null)
-            {
-                var cache = _comparisonMisses ??= new ComparisonMisses();
-                ulong epoch = ComparisonCacheEpoch;
-                if (cache.Epoch != epoch || !ReferenceEquals(cache.NativeBase, nativeBase))
-                {
-                    cache.Epoch = epoch;
-                    cache.NativeBase = nativeBase;
-                    cache.Missing = 0;
-                }
-                cache.Missing |= 1 << (int)op;
-            }
-            return method;
-        }
         public List<PyObject>? TypeParams { get; set; } // PEP 695 __type_params__
         public PyClass? Metaclass { get; set; } // Metaclass information for type() calls
 
@@ -2141,25 +2126,6 @@ namespace SharpPy
         }
 
 
-        public override PyObject RichCompare(PyObject other, CompareOp op)
-        {
-            var result = TryCompareSpecial(other, op);
-            if (result != null) return result;
-
-            // No Python-level comparison: the base's C slot is still there. unicode_richcompare,
-            // list_richcompare, dict_equal and set_richcompare all compare contents and all accept
-            // subclasses, so SS("x") == "x", C([1, 2]) == [1, 2] and D({'a': 1}) == {'a': 1} are
-            // True for classes that never mention comparison. The storage is the value those slots
-            // would have read, and the other side is seen through the same way.
-            var mine = NativeStorage();
-            if (mine != null)
-            {
-                var theirs = PyNativeStorage.Unwrap(other);
-                if (theirs != null)
-                    return mine.RichCompare(theirs, op);
-            }
-            return base.RichCompare(other, op);
-        }
 
         // CPython 3.12: Objects/object.c:1675-1697 (PyObject_IsTrue) tries nb_bool, then
         // sq_length/mp_length. A container subclass inherits that length slot from its base, so an
@@ -2177,8 +2143,6 @@ namespace SharpPy
     /// </summary>
     public class PyTupleSubclass : PyTuple, IDictBackedInstance
     {
-        public override PyObject RichCompare(PyObject other, CompareOp op) =>
-            TryCompareSpecial(other, op, PyType.TupleType) ?? base.RichCompare(other, op);
 
         public PyClass InstanceType { get; }
         public Dictionary<string, PyObject> InstanceDict { get; }

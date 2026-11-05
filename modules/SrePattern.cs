@@ -397,12 +397,12 @@ namespace SharpPy.Modules
 
         public override int ToHash() => HashCode.Combine(Flags, Code.Length, Pattern.ToHash());
 
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if (op != CompareOp.EQ && op != CompareOp.NE || other is not PySrePattern pattern)
                 return PyNotImplemented.Instance;
             bool same = ReferenceEquals(this, other) || (Flags == pattern.Flags && Code.AsSpan().SequenceEqual(pattern.Code)
-                && _isBytes == pattern._isBytes && Pattern.RichCompare(pattern.Pattern, CompareOp.EQ).IsTrue());
+                && _isBytes == pattern._isBytes && PyObject.CompareBool(Pattern, pattern.Pattern, PyObject.CompareOp.EQ));
             return PyBool.FromBool(op == CompareOp.EQ ? same : !same);
         }
     }

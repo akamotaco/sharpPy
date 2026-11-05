@@ -71,7 +71,7 @@ namespace SharpPy
             return new PyString($"<weakref at 0x{PyObjectId.Of(this):x}; to '{target.GetTypeName()}' at 0x{PyObjectId.Of(target):x}>");
         }
 
-        public override PyObject RichCompare(PyObject other, CompareOp op) => SlotCompare(other, op);
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op) => SlotCompare(other, op);
 
         // weakref_richcompare: == and != only; with a dead side the references themselves are
         // compared, otherwise PyObject_RichCompare of the referents.
@@ -175,7 +175,7 @@ namespace SharpPy
 
         protected internal override PyString Repr() => SlotRepr();
 
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             var name = op == CompareOp.EQ ? "__eq__" : op == CompareOp.NE ? "__ne__" : null;
             var declared = name == null ? null : this.CallUserSpecialOrNull(name, new[] { other });

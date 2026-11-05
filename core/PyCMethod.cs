@@ -46,7 +46,7 @@ namespace SharpPy
         /// object and the wrapped implementation is the same object (:306-:308). Only == and !=
         /// compare (:298-:303). Measured: dict.fromkeys == dict.fromkeys is True.
         /// </summary>
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if ((op != CompareOp.EQ && op != CompareOp.NE) || !(other is PyCMethod bound))
                 return PyNotImplemented.Instance;

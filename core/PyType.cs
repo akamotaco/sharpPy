@@ -209,8 +209,6 @@ namespace SharpPy
         /// </summary>
         public ulong TypeVersionTag => _typeVersionTag;
 
-        // Includes ancestor edits, unlike a single type's version tag.
-        internal static ulong ComparisonCacheEpoch { get; private set; } = 1;
 
         /// <summary>
         /// Invalidate type cache when ClassDict changes (CPython: type_modified)
@@ -220,7 +218,6 @@ namespace SharpPy
         {
             // Assign new version tag to invalidate cache
             _typeVersionTag = _nextVersionTag++;
-            ComparisonCacheEpoch++;
 
             // type_modified: what a subclass cached from here is stale too.
             foreach (var subclass in LiveSubclasses())
@@ -4019,17 +4016,6 @@ namespace SharpPy
             return PyBool.FromBool(ReferenceEquals(this, other));
         }
 
-        // slot_tp_richcompare: a class whose metaclass is a Python class compares through it.
-        public override PyObject RichCompare(PyObject other, CompareOp op)
-        {
-            if (GetPyType() is PyClass meta && meta is not PyTypeMetaclass)
-            {
-                var result = TryCompareSpecial(other, op, TypeType);
-                if (result != null)
-                    return result;
-            }
-            return base.RichCompare(other, op);
-        }
 
         #endregion
 

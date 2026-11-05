@@ -402,7 +402,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             return;
         _encodingStartOfStream = true;
         var cookie = Call(_buffer, "tell");
-        if (!cookie.RichCompare(new PyInt(0), CompareOp.EQ).IsTrue())
+        if (!PyObject.CompareBool(cookie, new PyInt(0), PyObject.CompareOp.EQ))
         {
             _encodingStartOfStream = false;
             Call(_encoder, "setstate", new PyInt(0));
@@ -902,13 +902,13 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         switch (whence)
         {
             case 1:
-                if (!cookieObject.RichCompare(zero, CompareOp.EQ).IsTrue())
+                if (!PyObject.CompareBool(cookieObject, zero, PyObject.CompareOp.EQ))
                     throw Unsupported("can't do nonzero cur-relative seeks");
                 cookieObject = Call(this, "tell");
                 break;
             case 2:
             {
-                if (!cookieObject.RichCompare(zero, CompareOp.EQ).IsTrue())
+                if (!PyObject.CompareBool(cookieObject, zero, PyObject.CompareOp.EQ))
                     throw Unsupported("can't do nonzero end-relative seeks");
                 Call(this, "flush");
                 SetDecodedChars(null);
@@ -917,7 +917,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
                     Call(_decoder, "reset");
                 var result = Call(_buffer, "seek", zero, new PyInt(2));
                 if (_encoder != null)
-                    EncoderReset(result.RichCompare(zero, CompareOp.EQ).IsTrue());
+                    EncoderReset(PyObject.CompareBool(result, zero, PyObject.CompareOp.EQ));
                 return result;
             }
             case 0:
@@ -925,7 +925,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             default:
                 throw PyValueError.Create($"invalid whence ({whence}, should be 0, 1 or 2)");
         }
-        if (cookieObject.RichCompare(zero, CompareOp.LT).IsTrue())
+        if (PyObject.CompareBool(cookieObject, zero, PyObject.CompareOp.LT))
             throw PyValueError.Create($"negative seek position {cookieObject.ToRepr().Value}");
         Call(this, "flush");
         var cookie = ParseCookie(cookieObject);

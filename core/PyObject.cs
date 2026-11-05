@@ -276,7 +276,19 @@ namespace SharpPy
             return PyNotImplemented.Instance;
         }
 
-        public virtual PyObject RichCompare(PyObject other, CompareOp op)
+        /// <summary>
+        /// Py_TYPE(self)->tp_richcompare(self, other, op): a builtin's slot is its function, a class
+        /// written in Python has the slot update_one_slot gave it. do_richcompare (Compare) asks both
+        /// operands in the order CPython does.
+        /// </summary>
+        public PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if ((uint)op >= 6) ThrowInvalidComparison(op);
+            return GetPyType() is SharpPy.PyClass heap ? heap.RichCompareSlot(this, other, op) : TpRichCompare(other, op);
+        }
+
+        /// <summary>The tp_richcompare function of this object's CLR implementation (object_richcompare).</summary>
+        protected internal virtual PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             return op switch
             {
@@ -379,34 +391,10 @@ namespace SharpPy
             return Compare(left, right, op).IsTrue();
         }
 
-        // A null result means no method was found, not Python NotImplemented.
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal PyObject TryCompareSpecial(PyObject other, CompareOp op, PyType nativeBase = null)
-        {
-            if ((uint)op >= 6) ThrowInvalidComparison(op);
-            var type = GetPyType();
-            var method = type is PyClass cls
-                ? cls.LookupComparisonMethod(op, nativeBase)
-                : FindComparisonMethod(type, op, nativeBase);
-            return method == null ? null : CallComparisonMethod(method, other);
-        }
-
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         private static void ThrowInvalidComparison(CompareOp op)
         {
             throw PyValueError.Create($"Invalid comparison operator: {op}");
-        }
-
-        private PyObject CallComparisonMethod(PyObject method, PyObject other)
-        {
-            // Exact Python functions bind by prepending self. Avoid two temporary objects.
-            if (method.GetType() == typeof(PyFunction))
-                return method.Call(new PyObject[] { this, other }, null);
-            PyObject bound;
-            try { bound = BindSpecialMethod(method); }
-            catch (PythonException) { return PyNotImplemented.Instance; }
-            // CPython slot_tp_richcompare clears binding errors, but not call errors.
-            return bound.Call(new PyObject[] { other }, null);
         }
 
         /// <summary>
@@ -423,30 +411,6 @@ namespace SharpPy
             return kwargs.ContainsKey(key) ? kwargs.GetItem(key) : null;
         }
 
-        internal static PyObject FindComparisonMethod(PyType owner, CompareOp op, PyType nativeBase)
-        {
-            string name = op switch
-            {
-                CompareOp.LT => "__lt__", CompareOp.LE => "__le__",
-                CompareOp.EQ => "__eq__", CompareOp.NE => "__ne__",
-                CompareOp.GT => "__gt__", CompareOp.GE => "__ge__",
-                _ => throw PyValueError.Create($"Invalid comparison operator: {op}")
-            };
-            PyObject method = null;
-            foreach (var type in owner.MRO)
-            {
-                // The native slot wins over mixins later in the MRO.
-                if (ReferenceEquals(type, nativeBase)) return null;
-                if (type is PyClass cls)
-                {
-                    // ClassDict is the class's own namespace; copied native slots
-                    // in TypeDict must not shadow later MRO entries.
-                    if (cls.ClassDict.TryGetValue(name, out method)) break;
-                }
-                else if (type.TypeDict.TryGetValue(name, out method)) break;
-            }
-            return method;
-        }
 
         #endregion
 

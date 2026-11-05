@@ -79,7 +79,7 @@ namespace SharpPy
             // dedup_and_flatten_args: a generic alias is the same by value, the rest by identity.
             foreach (var seen in parts)
                 if (ReferenceEquals(seen, value) || (seen is PyGenericAlias && value is PyGenericAlias &&
-                    seen.RichCompare(value, CompareOp.EQ).IsTrue()))
+                    PyObject.CompareBool(seen, value, PyObject.CompareOp.EQ)))
                     return;
             parts.Add(value);
         }
@@ -96,11 +96,11 @@ namespace SharpPy
         }
 
         // union_richcompare: as sets of their members.
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if (other is not PyUnionType union || (op != CompareOp.EQ && op != CompareOp.NE))
                 return PyNotImplemented.Instance;
-            bool equal = new PySet(Args).RichCompare(new PySet(union.Args), CompareOp.EQ).IsTrue();
+            bool equal = PyObject.CompareBool(new PySet(Args), new PySet(union.Args), PyObject.CompareOp.EQ);
             return PyBool.FromBool(equal == (op == CompareOp.EQ));
         }
 

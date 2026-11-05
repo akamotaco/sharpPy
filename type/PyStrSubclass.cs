@@ -77,26 +77,7 @@ namespace SharpPy
         /// inherited value comparison produced an answer before the class was consulted.
         /// NotImplemented still falls through to the payload comparison, as in CPython.
         /// </summary>
-        public override PyObject RichCompare(PyObject other, CompareOp op)
-        {
-            var dunder = op switch
-            {
-                CompareOp.EQ => "__eq__",
-                CompareOp.NE => "__ne__",
-                CompareOp.LT => "__lt__",
-                CompareOp.LE => "__le__",
-                CompareOp.GT => "__gt__",
-                CompareOp.GE => "__ge__",
-                _ => null,
-            };
-            if (dunder != null)
-            {
-                var declared = CallUserSpecialOrNull(dunder, new[] { other });
-                if (declared != null && !ReferenceEquals(declared, PyNotImplemented.Instance))
-                    return declared;
-            }
-            return _strValue.RichCompare(other, op);
-        }
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op) => _strValue.TpRichCompare(other, op);
 
         #endregion
 

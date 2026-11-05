@@ -99,7 +99,7 @@ namespace SharpPy
                 if (!target.Contains(item).Value) return false;
             return true;
         }
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if (!IsSetView || !SetLike(other)) return PyNotImplemented.Instance;
             int left = Length(), right = other.Length();

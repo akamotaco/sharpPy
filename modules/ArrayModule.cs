@@ -237,7 +237,7 @@ namespace SharpPy.Modules
             {
                 for (int i = 0; i < _count; i++)
                 {
-                    if (ReadItem(_buffer, i, _typecode).RichCompare(item, PyObject.CompareOp.EQ).IsTrue())
+                    if (PyObject.CompareBool(ReadItem(_buffer, i, _typecode), item, PyObject.CompareOp.EQ))
                         return PyBool.FromBool(true);
                 }
                 return PyBool.FromBool(false);
@@ -421,7 +421,7 @@ namespace SharpPy.Modules
                 return result;
             }
 
-            public override PyObject RichCompare(PyObject other, PyObject.CompareOp op)
+            protected internal override PyObject TpRichCompare(PyObject other, PyObject.CompareOp op)
             {
                 if (!(other is PyArray arr))
                     return PyNotImplemented.Instance;
@@ -439,10 +439,10 @@ namespace SharpPy.Modules
                 {
                     var a = ReadItem(_buffer, i, _typecode);
                     var b = ReadItem(arr._buffer, i, arr._typecode);
-                    var cmp = a.RichCompare(b, PyObject.CompareOp.EQ);
+                    var cmp = PyObject.Compare(a, b, PyObject.CompareOp.EQ);
                     if (!cmp.IsTrue())
                     {
-                        var lt = a.RichCompare(b, PyObject.CompareOp.LT);
+                        var lt = PyObject.Compare(a, b, PyObject.CompareOp.LT);
                         bool aLess = lt.IsTrue();
                         switch (op)
                         {
@@ -544,7 +544,7 @@ namespace SharpPy.Modules
             {
                 for (int i = 0; i < _count; i++)
                 {
-                    if (ReadItem(_buffer, i, _typecode).RichCompare(value, PyObject.CompareOp.EQ).IsTrue())
+                    if (PyObject.CompareBool(ReadItem(_buffer, i, _typecode), value, PyObject.CompareOp.EQ))
                     {
                         int itemSize = ItemSize;
                         int tailLen = _count - i - 1;
@@ -579,7 +579,7 @@ namespace SharpPy.Modules
                 if (stop > _count) stop = _count;
                 for (long i = start; i < stop; i++)
                 {
-                    if (ReadItem(_buffer, (int)i, _typecode).RichCompare(x, PyObject.CompareOp.EQ).IsTrue())
+                    if (PyObject.CompareBool(ReadItem(_buffer, (int)i, _typecode), x, PyObject.CompareOp.EQ))
                         return new PyInt(i);
                 }
                 throw PyValueError.Create("array.index(x): x not in array");
@@ -590,7 +590,7 @@ namespace SharpPy.Modules
                 long c = 0;
                 for (int i = 0; i < _count; i++)
                 {
-                    if (ReadItem(_buffer, i, _typecode).RichCompare(value, PyObject.CompareOp.EQ).IsTrue())
+                    if (PyObject.CompareBool(ReadItem(_buffer, i, _typecode), value, PyObject.CompareOp.EQ))
                         c++;
                 }
                 return new PyInt(c);

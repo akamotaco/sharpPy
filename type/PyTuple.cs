@@ -330,7 +330,7 @@ namespace SharpPy
             return hash;
         }
 
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if (other is not PyTuple tuple) return PyNotImplemented.Instance;
             int count = Math.Min(Items.Length, tuple.Items.Length);

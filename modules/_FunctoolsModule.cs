@@ -108,7 +108,7 @@ namespace SharpPy.Modules
             type.TypeDict["__hash__"] = PyNone.Instance;
             foreach (var (name, op) in new[] { ("__lt__", CompareOp.LT), ("__le__", CompareOp.LE), ("__eq__", CompareOp.EQ),
                          ("__ne__", CompareOp.NE), ("__gt__", CompareOp.GT), ("__ge__", CompareOp.GE) })
-                type.TypeDict[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) => self.RichCompare(args[0], op));
+                type.TypeDict[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) => self.TpRichCompare(args[0], op));
             return type;
         }
 
@@ -128,7 +128,7 @@ namespace SharpPy.Modules
 
         // keyobject_richcompare: both keyobjects of the same type, the user's three-way result
         // compared with zero by PyObject_RichCompare.
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if (other is not PyKeyWrapper otherKey)
                 throw PyTypeError.Create("other argument must be K instance");

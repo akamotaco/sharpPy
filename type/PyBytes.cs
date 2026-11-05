@@ -1179,7 +1179,7 @@ namespace SharpPy
         /// <summary>
         /// bytes equality comparison (used by equals operation)
         /// </summary>
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             // bytes_richcompare leaves other types to reflected comparison.
             if (other is not PyBytes bytes) return PyNotImplemented.Instance;

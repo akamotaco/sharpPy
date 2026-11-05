@@ -63,11 +63,6 @@ namespace SharpPy
         /// also exactly CPython's precedence: the subclass's own definition shadows bytes' slot.
         /// </summary>
 
-        public override PyObject RichCompare(PyObject other, CompareOp op)
-        {
-            var special = TryCompareSpecial(other, op, PyType.BytesType);
-            return special ?? base.RichCompare(other, op);
-        }
 
 
         #endregion

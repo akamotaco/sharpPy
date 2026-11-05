@@ -50,7 +50,7 @@ namespace SharpPy
                     ("__lt__", PyObject.CompareOp.LT), ("__le__", PyObject.CompareOp.LE), ("__eq__", PyObject.CompareOp.EQ),
                     ("__ne__", PyObject.CompareOp.NE), ("__gt__", PyObject.CompareOp.GT), ("__ge__", PyObject.CompareOp.GE),
                 })
-                    Wrapper(type, name, (self, args) => self.RichCompare(args[0], op));
+                    Wrapper(type, name, (self, args) => self.TpRichCompare(args[0], op));
         }
 
         internal static void Hashed(params PyType[] types)

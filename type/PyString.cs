@@ -724,7 +724,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"str.{name}() takes no keyword arguments");
                     if (args.Length != 1)
                         throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                    return recv.RichCompare(args[0], op);
+                    return recv.TpRichCompare(args[0], op);
                 });
             }
 

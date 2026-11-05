@@ -69,7 +69,7 @@ namespace SharpPy
         protected internal override PyString Repr() => new PyString($"mappingproxy({Mapping.ToRepr().Value})");
 
         // mappingproxy_richcompare: PyObject_RichCompare(v->mapping, w, op)
-        public override PyObject RichCompare(PyObject other, CompareOp op) => Compare(Mapping, other, op);
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op) => Compare(Mapping, other, op);
 
         // nb_or, which binary_op1 calls with this object on the left.
         public override PyObject BitwiseOr(PyObject other) => Or(this, other);

@@ -316,9 +316,9 @@ namespace SharpPy
                 return PyNotImplemented.Instance;
             if (_starred != alias._starred)
                 return PyBool.False;
-            if (!Origin.RichCompare(alias.Origin, CompareOp.EQ).IsTrue())
+            if (!PyObject.CompareBool(Origin, alias.Origin, PyObject.CompareOp.EQ))
                 return PyBool.False;
-            return Args.RichCompare(alias.Args, CompareOp.EQ);
+            return Compare(Args, alias.Args, CompareOp.EQ);
         }
 
         // ga_iternext: *tuple[int] is an alias that unpacks

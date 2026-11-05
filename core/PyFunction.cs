@@ -808,7 +808,7 @@ public partial class PyFunction : PyObject, IDescriptor
         /// identity (:261). An instance's own __eq__ therefore cannot make two bindings equal, and
         /// o.f == Weird().f stays False.
         /// </summary>
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if ((op != CompareOp.EQ && op != CompareOp.NE) || !(other is PyMethod bound))
                 return PyNotImplemented.Instance;
@@ -933,7 +933,7 @@ public partial class PyFunction : PyObject, IDescriptor
         /// else compares (:298-:303). Measured: l.append == l.append is True, while
         /// l.append == l.extend and l.append == print are False.
         /// </summary>
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if ((op != CompareOp.EQ && op != CompareOp.NE) || !(other is PyBuiltinBoundMethod bound))
                 return PyNotImplemented.Instance;

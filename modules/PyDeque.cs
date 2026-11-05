@@ -937,7 +937,7 @@ namespace SharpPy.Modules
         }
 
         // deque_richcompare: the first pair that differs decides; else the lengths do.
-        public override PyObject RichCompare(PyObject other, PyObject.CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, PyObject.CompareOp op)
         {
             if (other is not PyDeque w)
                 return PyNotImplemented.Instance;

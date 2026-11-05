@@ -52,8 +52,6 @@ namespace SharpPy
         /// contents, which is what list_richcompare does for any PyList_Check operand
         /// (Objects/listobject.c).
         /// </summary>
-        public override PyObject RichCompare(PyObject other, CompareOp op) =>
-            TryCompareSpecial(other, op, PyType.ListType) ?? base.RichCompare(other, op);
 
         // Declared dunders win, otherwise the inherited slot reads the value - the same decision
         // update_one_slot makes once (Objects/typeobject.c). See SubclassInstanceSupport.

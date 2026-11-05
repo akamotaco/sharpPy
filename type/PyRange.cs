@@ -110,7 +110,7 @@ namespace SharpPy
         public override int ToHash() => unchecked((int)GetPythonHash());
 
         // range_richcompare: == and != only.
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if (other is not PyRange range || (op != CompareOp.EQ && op != CompareOp.NE))
                 return PyNotImplemented.Instance;

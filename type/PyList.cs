@@ -1198,7 +1198,7 @@ namespace SharpPy
         /// CPython 3.12: list rich comparison - Lexicographic comparison
         /// CPython: Objects/listobject.c:list_richcompare (lines 2710-2772)
         /// </summary>
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             // CPython: Objects/listobject.c:2715-2716 - Type check
             if (other is not PyList otherList)
