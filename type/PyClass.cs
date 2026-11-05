@@ -11,59 +11,56 @@ namespace SharpPy
     {
         public Dictionary<string, PyObject> ClassDict { get; }
 
-        // tp_iternext as update_one_slot (Objects/typeobject.c) leaves it, for the version of the type
-        // it was decided at. update_slot reruns it when __next__ changes here or in a base, and
-        // type_modified moves the version tag of this type and its subclasses then.
-        // Specific is the d_wrapped of a base's slot wrapper: that base's function, applied to self.
-        private ulong _iterNextVersion = ulong.MaxValue;
-        private PyWrapperDescriptor _iterNextSpecific;
-        private bool _iterNextGeneric;
+        /// <summary>
+        /// One slot of the type as update_one_slot (Objects/typeobject.c) leaves it, for the version
+        /// of the type it was decided at: update_slot reruns it when the name changes here or in a
+        /// base, and type_modified moves the version tag of this type and its subclasses then.
+        /// Specific is a base's slot wrapper whose d_wrapped is the slot; Generic is any other
+        /// object the MRO names, for which the slot is the slot_* function; neither is NULL.
+        /// </summary>
+        private struct Slot
+        {
+            internal ulong Version;
+            internal PyWrapperDescriptor Specific;
+            internal PyObject Generic;
+        }
+
+        private ref Slot UpdateOneSlot(ref Slot slot, string name)
+        {
+            if (slot.Version != TypeVersionTag)
+            {
+                var descr = FindNameInMro(name);
+                slot.Specific = descr is PyWrapperDescriptor wrapper && wrapper.Name == name &&
+                    wrapper.OwnerType != null && IsSubclassOf(wrapper.OwnerType) ? wrapper : null;
+                slot.Generic = slot.Specific == null ? descr : null;
+                slot.Version = TypeVersionTag;
+            }
+            return ref slot;
+        }
+
+        // Version 0 is never a tag, so every slot starts undecided.
+        private Slot _tpIter, _tpIterNext;
 
         internal PyObject IterNextSlot(PyObject self)
         {
-            if (_iterNextVersion != TypeVersionTag)
-                UpdateIterNextSlot();
-            if (_iterNextSpecific != null)
-                return _iterNextSpecific._implementation(self, Array.Empty<PyObject>(), null);
+            ref var slot = ref UpdateOneSlot(ref _tpIterNext, "__next__");
+            if (slot.Specific != null)
+                return slot.Specific._implementation(self, Array.Empty<PyObject>(), null);
             // slot_tp_iternext: vectorcall_method(&_Py_ID(__next__), stack, 1)
-            if (_iterNextGeneric)
+            if (slot.Generic != null)
                 return self.InvokeNextMethod();
             // _PyObject_NextNotImplemented (Objects/object.c)
             throw PyTypeError.Create($"'{Name}' object is not iterable");
         }
 
-        // update_one_slot for tp_iternext: the base's own function when the __next__ found first in
-        // the MRO is that base's slot wrapper, slot_tp_iternext for anything else.
-        private void UpdateIterNextSlot()
-        {
-            var descr = FindNameInMro("__next__");
-            _iterNextSpecific = descr is PyWrapperDescriptor wrapper && wrapper.Name == "__next__" &&
-                wrapper.OwnerType != null && IsSubclassOf(wrapper.OwnerType) ? wrapper : null;
-            _iterNextGeneric = descr != null && _iterNextSpecific == null;
-            _iterNextVersion = TypeVersionTag;
-        }
-
-        // tp_iter as update_one_slot leaves it: a base's own function (its slot wrapper), slot_tp_iter,
-        // or NULL when no class in the MRO names __iter__.
-        private ulong _iterVersion = ulong.MaxValue;
-        private PyWrapperDescriptor _iterSpecific;
-        private PyObject _iterGeneric;
-
         internal PyObject IterSlot(PyObject self)
         {
-            if (_iterVersion != TypeVersionTag)
-            {
-                var descr = FindNameInMro("__iter__");
-                _iterSpecific = descr is PyWrapperDescriptor wrapper && wrapper.Name == "__iter__" &&
-                    wrapper.OwnerType != null && IsSubclassOf(wrapper.OwnerType) ? wrapper : null;
-                _iterGeneric = _iterSpecific == null ? descr : null;
-                _iterVersion = TypeVersionTag;
-            }
-            if (_iterSpecific != null)
-                return _iterSpecific._implementation(self, Array.Empty<PyObject>(), null);
+            ref var slot = ref UpdateOneSlot(ref _tpIter, "__iter__");
+            if (slot.Specific != null)
+                return slot.Specific._implementation(self, Array.Empty<PyObject>(), null);
             // slot_tp_iter: __iter__ = None refuses; a lookup that fails falls back to __getitem__.
-            if (_iterGeneric != null)
-                return self.InvokeIteratorMethod(_iterGeneric);
+            if (slot.Generic != null)
+                return self.InvokeIteratorMethod(slot.Generic);
             // PyObject_GetIter with tp_iter NULL: PySequence_Check, which a dict subclass fails.
             if (FindNameInMro("__getitem__") != null && !IsSubclassOf(DictType))
                 return new PyGenericIterator(self);
