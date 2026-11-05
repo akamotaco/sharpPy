@@ -171,7 +171,7 @@ namespace SharpPy
         }
 
         // complex_neg
-        public override PyObject Negative() => new PyComplex(-Real, -Imag);
+        protected internal override PyObject NbNegative() => new PyComplex(-Real, -Imag);
 
         private string FormatNumber(double value)
         {
@@ -417,13 +417,14 @@ namespace SharpPy
             return new PyComplex(-Real, -Imag);
         }
 
-        public override PyObject Positive()
+        protected internal override PyObject NbPositive()
         {
             return new PyComplex(Real, Imag);
         }
 
         // complex_abs, _Py_c_abs
-        public PyObject Absolute()
+        // complex_abs
+        protected internal override PyObject NbAbsolute()
         {
             if (double.IsInfinity(Real) || double.IsInfinity(Imag))
                 return new PyFloat(double.PositiveInfinity);

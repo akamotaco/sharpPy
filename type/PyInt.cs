@@ -282,9 +282,9 @@ namespace SharpPy
                 }
                 return new PyInt(BigInteger.ModPow(baseValue, exponent, modulus));
             });
-            regIntUn("__neg__", s => s.Negative());
-            regIntUn("__pos__", s => s.Positive());
-            regIntUn("__invert__", s => s.BitwiseNot());
+            regIntUn("__neg__", s => s.NbNegative());
+            regIntUn("__pos__", s => s.NbPositive());
+            regIntUn("__invert__", s => s.NbInvert());
             regIntUn("__abs__", s => new PyInt(BigInteger.Abs(AsIntObj(s).Value)));
 
             // CPython 3.12: Objects/longobject.c long_round exposed as the int.__round__ slot, so a
@@ -1401,10 +1401,10 @@ namespace SharpPy
 
         #region Unary Operations
 
-        public override PyObject Negative() => new PyInt(-Value);
-        public override PyObject Positive() => this;
+        protected internal override PyObject NbNegative() => new PyInt(-Value);
+        protected internal override PyObject NbPositive() => this;
         public PyObject Absolute() => new PyInt(BigInteger.Abs(Value));
-        public override PyObject BitwiseNot() => new PyInt(~Value);
+        protected internal override PyObject NbInvert() => new PyInt(~Value);
 
         #endregion
 
@@ -1454,6 +1454,9 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyInt를 PyInt로 변환 (자기 자신 반환)
         /// </summary>
+        // long_abs
+        protected internal override PyObject NbAbsolute() => new PyInt(BigInteger.Abs(Value));
+
         // long_long: the int itself, a subclass's value as an int.
         protected internal override PyObject NbInt() => this;
         

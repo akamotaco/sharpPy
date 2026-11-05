@@ -148,10 +148,10 @@ namespace SharpPy
                     return PyNone.Instance;
                 case "__call__": return value.Call(args, kwargs);
                 case "__bool__": return PyBool.FromBool(value.Bool());
-                case "__abs__": return PyBuiltinFunction.Absolute(value);
-                case "__neg__": return value.Negative();
-                case "__pos__": return value.Positive();
-                case "__invert__": return value.BitwiseNot();
+                case "__abs__": return value.NbAbsolute();
+                case "__neg__": return value.NbNegative();
+                case "__pos__": return value.NbPositive();
+                case "__invert__": return value.NbInvert();
                 case "__add__": return value.Add(args[0]);
                 case "__sub__": return value.Subtract(args[0]);
                 case "__mul__": return value.Multiply(args[0]);

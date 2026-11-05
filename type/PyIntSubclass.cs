@@ -55,9 +55,6 @@ namespace SharpPy
         #region Arithmetic Operations - Delegate to PyInt
 
         // The unary slots dispatch on the CLR virtual, so a written __neg__ is read here.
-        private PyObject Num0(string dunder, System.Func<PyObject> valueOp)
-            => CallUserSpecialOrNull(dunder, System.Array.Empty<PyObject>()) ?? valueOp();
-
         // The binary slots are the base type's on the value. A dunder the class writes is
         // slot_nb_* on the type, which binary_op1 and SLOT1BINFULL (PyVM.BinaryOp1) call first.
         public override PyObject Add(PyObject other)
@@ -139,21 +136,21 @@ namespace SharpPy
         public override PyObject LeftShift(PyObject other) => _intValue.LeftShift(other);
         public override PyObject RightShift(PyObject other) => _intValue.RightShift(other);
 
-        // nb_invert: a unary slot, dispatched on the CLR virtual, so a written __invert__ is read here.
-        public override PyObject BitwiseNot() => Num0("__invert__", () => _intValue.BitwiseNot());
+        // nb_invert of the value; a written __invert__ is the class's slot.
+        protected internal override PyObject NbInvert() => _intValue.NbInvert();
 
         #endregion
 
         #region Unary Operations - Delegate to PyInt
 
-        public override PyObject Negative()
+        protected internal override PyObject NbNegative()
         {
-            return Num0("__neg__", () => _intValue.Negative());
+            return _intValue.NbNegative();
         }
 
-        public override PyObject Positive()
+        protected internal override PyObject NbPositive()
         {
-            return Num0("__pos__", () => _intValue.Positive());
+            return _intValue.NbPositive();
         }
 
         #endregion

@@ -70,11 +70,11 @@ namespace SharpPy
 
         protected internal override long Len() => Target.Length();
 
-        public override PyObject Positive() => Target.Positive();
+        protected internal override PyObject NbPositive() => Target.Positive();
 
-        public override PyObject Negative() => Target.Negative();
+        protected internal override PyObject NbNegative() => Target.Negative();
 
-        public override PyObject BitwiseNot() => Target.BitwiseNot();
+        protected internal override PyObject NbInvert() => Target.BitwiseNot();
 
         public override PyObject DivMod(PyObject other) => Target.DivMod(Unwrap(other));
 

@@ -40,7 +40,13 @@ namespace SharpPy
 
         // Version 0 is never a tag, so every slot starts undecided.
         private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool, _sqContains, _tpHash, _mpSubscript,
-            _mpSetItem, _mpDelItem, _nbInt, _nbFloat;
+            _mpSetItem, _mpDelItem, _nbInt, _nbFloat, _nbPositive, _nbNegative, _nbInvert, _nbAbsolute;
+
+        // slot_nb_positive and the like (SLOT0); without the method, the type's CLR function refuses.
+        internal PyObject NbPositiveSlot(PyObject self) => UnarySlot(ref _nbPositive, "__pos__", self) ?? self.NbPositive();
+        internal PyObject NbNegativeSlot(PyObject self) => UnarySlot(ref _nbNegative, "__neg__", self) ?? self.NbNegative();
+        internal PyObject NbInvertSlot(PyObject self) => UnarySlot(ref _nbInvert, "__invert__", self) ?? self.NbInvert();
+        internal PyObject NbAbsoluteSlot(PyObject self) => UnarySlot(ref _nbAbsolute, "__abs__", self) ?? self.NbAbsolute();
 
         // nb_int and nb_float: slot_nb_int and slot_nb_float call the method; null is NULL.
         internal PyObject NbIntSlot(PyObject self) => UnarySlot(ref _nbInt, "__int__", self);
@@ -1603,37 +1609,6 @@ namespace SharpPy
         {
             var result = BinaryOpWithMagicMethod(other, "__divmod__", "__rdivmod__");
             return result ?? base.DivMod(other);
-        }
-
-        // CPython 3.12: nb_positive/nb_negative/nb_invert slots for user classes
-        // (Objects/typeobject.c slot_nb_* -> __pos__/__neg__/__invert__).
-        public override PyObject Positive()
-        {
-            var m = LookupSpecialMethodUncached("__pos__");
-            if (m != null) return CallSpecial(m);
-            return base.Positive();
-        }
-
-        public override PyObject Negative()
-        {
-            var m = LookupSpecialMethodUncached("__neg__");
-            if (m != null) return CallSpecial(m);
-            return base.Negative();
-        }
-
-        public override PyObject BitwiseNot()
-        {
-            var m = LookupSpecialMethodUncached("__invert__");
-            if (m != null) return CallSpecial(m);
-            return base.BitwiseNot();
-        }
-
-        /// <summary>CPython nb_absolute: abs(inst) prefers __abs__.</summary>
-        public PyObject AbsoluteOrNotImplemented()
-        {
-            var m = LookupSpecialMethodUncached("__abs__");
-            if (m != null) return CallSpecial(m);
-            return PyNotImplemented.Instance;
         }
 
         // slot_tp_getattr_hook finds __getattr__ on the type, inherited or not.

@@ -297,11 +297,11 @@ namespace SharpPy
 
         #region Unary Operations
 
-        public override PyObject Negative() => Value ? SmallIntCache.MinusOne : SmallIntCache.Zero;
-        public override PyObject Positive() => Value ? SmallIntCache.One : SmallIntCache.Zero;
+        protected internal override PyObject NbNegative() => Value ? SmallIntCache.MinusOne : SmallIntCache.Zero;
+        protected internal override PyObject NbPositive() => Value ? SmallIntCache.One : SmallIntCache.Zero;
         public PyObject Absolute() => Value ? SmallIntCache.One : SmallIntCache.Zero;
         // bool_invert
-        public override PyObject BitwiseNot()
+        protected internal override PyObject NbInvert()
         {
             PyWarnings.Deprecated("Bitwise inversion '~' on bool is deprecated and will be removed in Python 3.16. This returns the bitwise inversion of the underlying int object and is usually not what you expect from negating a bool. Use the 'not' operator for boolean negation or ~int(x) if you really want the bitwise inversion of the underlying int.");
             return SmallIntCache.GetOrCreate(Value ? -2 : -1); // ~True = -2, ~False = -1;
@@ -340,6 +340,9 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyBool을 PyInt로 변환
         /// </summary>
+        // bool inherits long_abs.
+        protected internal override PyObject NbAbsolute() => Value ? SmallIntCache.One : SmallIntCache.Zero;
+
         // bool inherits long_long, which copies a strict subclass into an exact int.
         protected internal override PyObject NbInt() => Value ? SmallIntCache.One : SmallIntCache.Zero;
 

@@ -53,9 +53,6 @@ namespace SharpPy
         #region Arithmetic - float semantics, result reported as plain float (CPython)
 
         // The unary slots dispatch on the CLR virtual, so a written __neg__ is read here.
-        private PyObject Num0(string dunder, System.Func<PyObject> valueOp)
-            => CallUserSpecialOrNull(dunder, System.Array.Empty<PyObject>()) ?? valueOp();
-
         // The binary slots are the base type's on the value. A dunder the class writes is
         // slot_nb_* on the type, which binary_op1 and SLOT1BINFULL (PyVM.BinaryOp1) call first.
         public override PyObject Add(PyObject other) => _floatValue.Add(other);
@@ -65,8 +62,8 @@ namespace SharpPy
         public override PyObject FloorDivide(PyObject other) => _floatValue.FloorDivide(other);
         public override PyObject Modulo(PyObject other) => _floatValue.Modulo(other);
         public override PyObject Power(PyObject other) => _floatValue.Power(other);
-        public override PyObject Negative() => Num0("__neg__", () => _floatValue.Negative());
-        public override PyObject Positive() => Num0("__pos__", () => _floatValue.Positive());
+        protected internal override PyObject NbNegative() => _floatValue.NbNegative();
+        protected internal override PyObject NbPositive() => _floatValue.NbPositive();
 
         #endregion
 

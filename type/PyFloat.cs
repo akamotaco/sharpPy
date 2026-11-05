@@ -994,12 +994,12 @@ namespace SharpPy
 
         #region Unary Operations
 
-        public override PyObject Negative()
+        protected internal override PyObject NbNegative()
         {
             return new PyFloat(-Value);
         }
 
-        public override PyObject Positive()
+        protected internal override PyObject NbPositive()
         {
             return this; // +x는 x와 같음
         }
@@ -1046,6 +1046,9 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyFloat를 PyFloat로 변환 (자기 자신 반환)
         /// </summary>
+        // float_abs
+        protected internal override PyObject NbAbsolute() => new PyFloat(Math.Abs(Value));
+
         // float_float: the float itself, a subclass's value as a float.
         protected internal override PyObject NbFloat() => GetType() == typeof(PyFloat) ? this : new PyFloat(Value);
         

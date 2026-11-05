@@ -1290,26 +1290,23 @@ namespace SharpPy
         /// <summary>
         /// 단항 플러스 연산 (__pos__)
         /// </summary>
-        public virtual PyObject Positive()
-        {
+        // nb_positive, nb_negative, nb_invert and nb_absolute of this object's CLR implementation.
+        protected internal virtual PyObject NbPositive() =>
             throw PyTypeError.Create($"bad operand type for unary +: '{GetTypeName()}'");
-        }
-
-        /// <summary>
-        /// 단항 마이너스 연산 (__neg__)
-        /// </summary>
-        public virtual PyObject Negative()
-        {
+        protected internal virtual PyObject NbNegative() =>
             throw PyTypeError.Create($"bad operand type for unary -: '{GetTypeName()}'");
-        }
-
-        /// <summary>
-        /// 비트 NOT 연산 (__invert__)
-        /// </summary>
-        public virtual PyObject BitwiseNot()
-        {
+        protected internal virtual PyObject NbInvert() =>
             throw PyTypeError.Create($"bad operand type for unary ~: '{GetTypeName()}'");
-        }
+        protected internal virtual PyObject NbAbsolute() =>
+            throw PyTypeError.Create($"bad operand type for abs(): '{GetTypeName()}'");
+
+        /// <summary>PyNumber_Positive, PyNumber_Negative, PyNumber_Invert and PyNumber_Absolute: the type's slot.</summary>
+        public PyObject Positive() => GetPyType() is SharpPy.PyClass heap ? heap.NbPositiveSlot(this) : NbPositive();
+        public PyObject Negative() => GetPyType() is SharpPy.PyClass heap ? heap.NbNegativeSlot(this) : NbNegative();
+        public PyObject BitwiseNot() => GetPyType() is SharpPy.PyClass heap ? heap.NbInvertSlot(this) : NbInvert();
+        public PyObject Absolute() => GetPyType() is SharpPy.PyClass heap ? heap.NbAbsoluteSlot(this) : NbAbsolute();
+
+
 
         /// <summary>
         /// 논리 NOT 연산
