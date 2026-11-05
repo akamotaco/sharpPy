@@ -91,7 +91,7 @@ namespace SharpPy.Modules
 
         public override PyType GetPyType() => Type;
         public override string GetTypeName() => "ScandirIterator";
-        public override PyObject GetIterator() => this;
+        protected internal override PyObject Iter() => this;
 
         protected internal override PyObject IterNext()
         {

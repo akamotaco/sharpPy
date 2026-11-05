@@ -135,7 +135,7 @@ namespace SharpPy
                 case "__hash__": return new PyInt(value.GetPythonHash());
                 case "__repr__": return value.ToRepr();
                 case "__str__": return value.AsString();
-                case "__iter__": return value.GetIterator();
+                case "__iter__": return value.Iter();
                 case "__next__": return value.IterNext();
                 case "__len__": return value is PyRange range ? new PyInt(range.ClampedLength()) : new PyInt(value.Length());
                 case "__contains__": return value.Contains(args[0]);

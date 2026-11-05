@@ -1016,7 +1016,7 @@ namespace SharpPy
         // element count stays in _length for storage arithmetic.
         public override int Length() { CheckReleased(); return _shape == null ? _length : _shape[0]; }
 
-        public override PyObject GetIterator()
+        protected internal override PyObject Iter()
         {
             CheckReleased();
             int n = _length;

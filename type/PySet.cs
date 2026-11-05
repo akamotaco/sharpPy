@@ -721,7 +721,7 @@ namespace SharpPy
         /// <summary>
         /// Iterator protocol 구현 - Python __iter__ 메서드
         /// </summary>
-        public override PyIterator GetIterator()
+        protected internal override PyObject Iter()
         {
             return new PySetIterator(this);
         }
@@ -930,7 +930,7 @@ namespace SharpPy
         /// CPython 3.12: frozenset iterator support
         /// Reference: Objects/setobject.c tp_iter slot (line 2252-2253)
         /// </summary>
-        public override PyIterator GetIterator()
+        protected internal override PyObject Iter()
         {
             return new PySetIterator(this);
         }

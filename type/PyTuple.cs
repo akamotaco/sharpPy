@@ -28,11 +28,6 @@ namespace SharpPy
             return declared == null ? null : BindSpecialMethod(declared).Call(args, null);
         }
 
-        private PyObject LookupDeclaredIterator()
-        {
-            // Lookup only: the dunder must be invoked by InvokeIteratorMethod, not before it.
-            return LookupUserSpecial("__iter__");
-        }
 
 
         static PyTuple()
@@ -68,7 +63,7 @@ namespace SharpPy
                     if (self is not PyTuple it)
                         throw PyTypeError.Create($"descriptor '__iter__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
                     if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
-                    return it.Stored.GetIterator();
+                    return it.Stored.Iter();
                 }, minArgs: 0, maxArgs: 0);
 
             tupleType.TypeDict["__contains__"] = new PyWrapperDescriptor(
@@ -517,16 +512,7 @@ namespace SharpPy
         /// <summary>
         /// Iterator protocol 구현 - Python __iter__ 메서드
         /// </summary>
-        public override PyObject GetIterator()
-        {
-            var declared = LookupDeclaredIterator();
-            if (declared != null)
-            {
-                var result = InvokeIteratorMethod(declared);
-                return result is PyIterator iterator ? iterator : new PyObjectIteratorShim(result);
-            }
-            return new PyTupleIterator(this);
-        }
+        protected internal override PyObject Iter() => new PyTupleIterator(this);
 
         #endregion
 
@@ -608,10 +594,6 @@ namespace SharpPy
         {
             if (!IsExact) return base.AsList();
             // CPython list(tuple) 동작: 튜플 요소들을 리스트로 변환
-            // A declared __iter__ takes over first: CPython's list() goes through tp_iter, so
-            // copying Items directly answered (1, 2) where CPython answered ['t'].
-            if (LookupDeclaredIterator() != null)
-                return base.AsList();
             return ListCache.Create(Items);
         }
         

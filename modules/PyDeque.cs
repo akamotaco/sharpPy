@@ -885,10 +885,8 @@ namespace SharpPy.Modules
         public override bool IsTrue() => Size > 0;
 
         // PyObject_GetIter: a subclass's own __iter__, otherwise deque_iter.
-        public override PyObject GetIterator()
+        protected internal override PyObject Iter()
         {
-            if (_type is PyClass && _type.LookupSpecial("__iter__") is PyFunction)
-                return BindSpecialMethod(_type.LookupSpecial("__iter__")).Call(Array.Empty<PyObject>(), null);
             return new DequeIterator(this);
         }
 

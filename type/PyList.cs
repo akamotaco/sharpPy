@@ -958,7 +958,7 @@ namespace SharpPy
         }
 
         // 이터레이터 지원
-        public override PyObject GetIterator() => RawIterator();
+        protected internal override PyObject Iter() => RawIterator();
         
         #region Type Conversion (CPython Compatible)
 

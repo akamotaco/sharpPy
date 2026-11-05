@@ -10,7 +10,7 @@ namespace SharpPy
             foreach (var type in new[] { PyType.DictKeysType, PyType.DictValuesType, PyType.DictItemsType })
             {
                 type.TypeDict["__iter__"] = new PyMethodDescriptor("__iter__", type,
-                    (self, args, kwargs) => ((PyDictView)self).GetIterator(), minArgs: 0, maxArgs: 0);
+                    (self, args, kwargs) => ((PyDictView)self).Iter(), minArgs: 0, maxArgs: 0);
                 type.TypeDict["__len__"] = new PyMethodDescriptor("__len__", type,
                     (self, args, kwargs) => new PyInt(((PyDictView)self).Length()), minArgs: 0, maxArgs: 0);
                 type.TypeDict["__contains__"] = new PyMethodDescriptor("__contains__", type,
@@ -52,7 +52,7 @@ namespace SharpPy
             _ => _dictionary.Items()
         };
         public override PyTuple AsTuple() => new PyTuple(AsList().Items);
-        public override PyObject GetIterator() => _kind switch
+        protected internal override PyObject Iter() => _kind switch
         {
             DictViewKind.Keys => new PyDictKeyIterator(_dictionary),
             DictViewKind.Values => new PyDictValueIterator(_dictionary),

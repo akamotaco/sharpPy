@@ -3780,7 +3780,7 @@ namespace SharpPy
         /// <summary>
         /// Iterator support for string iteration (for char in "string")
         /// </summary>
-        public override PyObject GetIterator()
+        protected internal override PyObject Iter()
         {
             return new PyStringIterator(this);
         }

@@ -552,7 +552,7 @@ namespace SharpPy
         /// </summary>
         public override PyBool Contains(PyObject item) => PyBool.FromBool(BytesMethods.Contains(ToByteArrayCopy(), item));
 
-        public override PyObject GetIterator()
+        protected internal override PyObject Iter()
         {
             return new PyByteArrayIterator(this);
         }
@@ -849,7 +849,7 @@ namespace SharpPy
             baType.TypeDict["__rmul__"] = new PyMethodDescriptor("__rmul__", baType,
                 (self, args, kwargs) => self.Multiply(args[0]), minArgs: 1, maxArgs: 1);
             baType.TypeDict["__iter__"] = new PyMethodDescriptor("__iter__", baType,
-                (self, args, kwargs) => self.GetIterator(), minArgs: 0, maxArgs: 0);
+                (self, args, kwargs) => self.Iter(), minArgs: 0, maxArgs: 0);
         }
 
         private static byte[] AsBytes(PyObject self)

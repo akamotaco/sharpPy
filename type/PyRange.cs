@@ -316,7 +316,7 @@ namespace SharpPy
         /// <summary>
         /// 반복자 생성 (for 루프 지원)
         /// </summary>
-        public override PyObject GetIterator()
+        protected internal override PyObject Iter()
         {
             // range_iter: a length or an end that overflows long goes through longrange_iterator.
             ulong length = LengthUnsigned();

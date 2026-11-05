@@ -308,7 +308,7 @@ namespace SharpPy.Modules
             public override PyType GetPyType() => ReaderType;
             public override string GetTypeName() => "reader";
 
-            public override PyObject GetIterator() => this;
+            protected internal override PyObject Iter() => this;
 
             protected internal override PyObject IterNext()
             {
@@ -600,7 +600,7 @@ namespace SharpPy.Modules
         private static PyType CreateReaderType()
         {
             var t = new PyType("reader", new[] { PyType.ObjectType }, "_csv");
-            t.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", t, (self, args, kwargs) => self.GetIterator());
+            t.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", t, (self, args, kwargs) => self.Iter());
             t.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", t, (self, args, kwargs) => self.IterNext());
             t.TypeDict["dialect"] = new PyGetSetDescriptor("dialect", t, self => ((PyReader)self)._dialect);
             t.TypeDict["line_num"] = new PyGetSetDescriptor("line_num", t, self => new PyInt(((PyReader)self)._lineNum));

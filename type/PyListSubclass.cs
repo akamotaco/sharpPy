@@ -64,9 +64,6 @@ namespace SharpPy
         public override PyBool Contains(PyObject item) =>
             SubclassInstanceSupport.Contains(this, item, () => base.Contains(item));
 
-        public override PyObject GetIterator() =>
-            SubclassInstanceSupport.Iterate(this, base.GetIterator);
-
         public override bool IsTrue() => SubclassInstanceSupport.IsTrue(this, base.IsTrue);
 
         public override PyInt AsInt() => SubclassInstanceSupport.Int(this);

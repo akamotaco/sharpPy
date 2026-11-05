@@ -332,7 +332,7 @@ namespace SharpPy
         }
 
         // ga_iternext: *tuple[int] is an alias that unpacks
-        public override PyObject GetIterator() => new PyList(new PyObject[]
+        protected internal override PyObject Iter() => new PyList(new PyObject[]
             { new PyGenericAlias(Origin, Args, _type, starred: true) }).GetIterator();
 
         public override PyObject BitwiseOr(PyObject other) => PyUnionType.Or(this, other);

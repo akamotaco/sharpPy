@@ -45,7 +45,8 @@ namespace SharpPy.Modules
             Method(ContextType, "get", (self, args, kwargs) =>
                 ((PyContext)self).Vars.TryGetValue(CheckVar(args[0]), out var value)
                     ? value : args.Length > 1 ? args[1] : PyNone.Instance, 1, 2);
-            Method(ContextType, "__iter__", (self, args, kwargs) => IterOf(Keys((PyContext)self)), 0, 0);
+            // tp_iter: a slot wrapper.
+            ContextType.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", ContextType, (self, args, kwargs) => IterOf(Keys((PyContext)self)));
             Method(ContextType, "keys", (self, args, kwargs) => IterOf(Keys((PyContext)self)), 0, 0);
             Method(ContextType, "values", (self, args, kwargs) =>
             {
@@ -170,7 +171,7 @@ namespace SharpPy.Modules
 
             public override PyType GetPyType() => ContextType;
             public override string GetTypeName() => "Context";
-            public override PyObject GetIterator() => IterOf(Keys(this));
+            protected internal override PyObject Iter() => IterOf(Keys(this));
         }
 
         private sealed class PyContextVar : PyObject

@@ -58,7 +58,7 @@ namespace SharpPy
         public bool ContainsKey(string key) => _table != null ? _table.ContainsKey(key) : Contains(new PyString(key)).Value;
 
         // mappingproxy_getiter: PyObject_GetIter(pp->mapping)
-        public override PyObject GetIterator() => Mapping.GetIterator();
+        protected internal override PyObject Iter() => Mapping.GetIterator();
 
         // mappingproxy_hash: PyObject_Hash(pp->mapping)
         public override int ToHash() => Mapping.ToHash();

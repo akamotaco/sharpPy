@@ -20,11 +20,6 @@ namespace SharpPy
             return declared == null ? null : BindSpecialMethod(declared).Call(args, null);
         }
 
-        private PyObject LookupDeclaredIterator()
-        {
-            // Lookup only: the dunder must be invoked by InvokeIteratorMethod, not before it.
-            return LookupUserSpecial("__iter__");
-        }
 
 
         static PyBytes()
@@ -410,13 +405,7 @@ namespace SharpPy
                     if (self is not PyBytes selfBytes)
                         throw PyTypeError.Create("descriptor '__iter__' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
 
-                    // Return a bytes iterator that yields PyInt for each byte
-                    var items = new PyObject[selfBytes.Value.Length];
-                    for (int i = 0; i < selfBytes.Value.Length; i++)
-                    {
-                        items[i] = new PyInt(selfBytes.Value[i]);
-                    }
-                    return new PyListIterator(new PyList(items));
+                    return selfBytes.Iter();
                 },
                 minArgs: 0,
                 maxArgs: 0
@@ -462,12 +451,8 @@ namespace SharpPy
         /// CPython 3.12: Objects/bytesobject.c:2890-2920 - bytes iterator
         /// Return an iterator that yields PyInt for each byte (0-255)
         /// </summary>
-        public override PyObject GetIterator()
+        protected internal override PyObject Iter()
         {
-            var declared = LookupDeclaredIterator();
-            if (declared != null)
-                return InvokeIteratorMethod(declared);
-
             var items = new PyObject[Value.Length];
             for (int i = 0; i < Value.Length; i++)
             {

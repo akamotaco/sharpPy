@@ -81,19 +81,6 @@ namespace SharpPy
             return declared == null ? _strValue.Contains(item) : PyBool.FromBool(declared.PyBoolValue());
         }
 
-        /// <summary>
-        /// A declared __iter__ wins, otherwise the inherited slot iterates the characters. The
-        /// lookup must be lookup-only: CallUserSpecialOrNull calls the dunder and hands back the
-        /// iterator, and feeding that iterator to InvokeIteratorMethod is what produced the earlier
-        /// "'list_iterator' object is not callable".
-        /// </summary>
-        public override PyObject GetIterator()
-        {
-            var declared = LookupUserSpecial("__iter__");
-            if (declared != null)
-                return InvokeIteratorMethod(declared);
-            return _strValue.GetIterator();
-        }
 
         /// <summary>
         /// CPython's tp_richcompare for a str subclass is the slot wrapper around the declared

@@ -78,7 +78,7 @@ namespace SharpPy
 
         public override PyObject DivMod(PyObject other) => Target.DivMod(Unwrap(other));
 
-        public override PyObject GetIterator() => Target.GetIterator();
+        protected internal override PyObject Iter() => Target.GetIterator();
 
         protected internal override PyObject IterNext()
         {

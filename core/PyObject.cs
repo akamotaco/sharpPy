@@ -1457,8 +1457,6 @@ namespace SharpPy
                 if (bound is PyNone) throw PyTypeError.Create($"'{GetPyType().Name}' object is not iterable");
                 iterator = bound.Call(Array.Empty<PyObject>(), null);
             }
-            if (!iterator.IsIterator)
-                throw PyTypeError.Create($"iter() returned non-iterator of type '{iterator.GetPyType().Name}'");
             return iterator;
         }
 
@@ -1480,11 +1478,24 @@ namespace SharpPy
         internal bool IsIterator => (this is PyIterator && GetPyType() is not SharpPy.PyClass) || HasTypeSlot("__next__");
 
         /// <summary>
-        /// 이터레이터 객체 반환 (__iter__)
+        /// The tp_iter function of this object's CLR implementation: what a builtin type puts in its
+        /// slot, and what its __iter__ slot wrapper calls. Without one, tp_iter is NULL.
         /// </summary>
-        public virtual PyObject GetIterator()
+        protected internal virtual PyObject Iter()
         {
             throw PyTypeError.Create($"'{GetTypeName()}' object is not iterable");
+        }
+
+        /// <summary>
+        /// PyObject_GetIter (Objects/abstract.c): Py_TYPE(o)->tp_iter(o), and what it answers must
+        /// be an iterator. A class written in Python has the slot update_one_slot gave it.
+        /// </summary>
+        public PyObject GetIterator()
+        {
+            var iterator = GetPyType() is SharpPy.PyClass heap ? heap.IterSlot(this) : Iter();
+            if (!iterator.IsIterator)
+                throw PyTypeError.Create($"iter() returned non-iterator of type '{iterator.GetPyType().FullName}'");
+            return iterator;
         }
 
         /// <summary>

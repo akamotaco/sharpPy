@@ -138,12 +138,6 @@ namespace SharpPy
             return declared != null ? PyBool.FromBool(declared.IsTrue()) : inherited();
         }
 
-        internal static PyObject Iterate(PyObject self, Func<PyObject> inherited)
-        {
-            var declared = self.CallUserSpecialOrNull("__iter__", Array.Empty<PyObject>());
-            return declared ?? inherited();
-        }
-
         /// <summary>
         /// Objects/object.c:1675 PyObject_IsTrue: nb_bool, then sq_length/mp_length. A class that
         /// declares only __len__ still decides its own truthiness.

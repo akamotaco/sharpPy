@@ -293,7 +293,7 @@ namespace SharpPy
             }
             Slot(PyType.FrozenSetType, "__len__", (self, args) => new PyInt(PyNativeStorage.ForFrozenSet(self).Length()));
             Slot(PyType.FrozenSetType, "__contains__", (self, args) => PyNativeStorage.ForFrozenSet(self).Contains(args[0]));
-            Slot(PyType.FrozenSetType, "__iter__", (self, args) => PyNativeStorage.ForFrozenSet(self).GetIterator());
+            Slot(PyType.FrozenSetType, "__iter__", (self, args) => PyNativeStorage.ForFrozenSet(self).Iter());
 
             Method(PyType.DictType, "__reversed__", (self, args) =>
             {
@@ -339,7 +339,7 @@ namespace SharpPy
             PyBaseExceptionGroup.InstallOn(PyType.BaseExceptionGroupType);
 
             var proxy = PyType.MappingProxyType;
-            Slot(proxy, "__iter__", (self, args) => self.GetIterator());
+            Slot(proxy, "__iter__", (self, args) => self.Iter());
             PyMappingProxy.Install();
         }
 

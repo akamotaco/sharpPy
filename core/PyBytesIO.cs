@@ -266,7 +266,7 @@ public class PyBytesIO : PyIOBaseInstance
         return ReadBytes(n);
     }
 
-    public override PyObject GetIterator() => this;
+    protected internal override PyObject Iter() => this;
 
     // bytesio_getstate
     private PyObject GetState()

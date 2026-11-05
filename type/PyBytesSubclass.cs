@@ -91,18 +91,6 @@ namespace SharpPy
         public override PyObject GetItem(PyObject index) =>
             Op("__getitem__", index, () => base.GetItem(index));
 
-        /// <summary>
-        /// Lookup only, then InvokeIteratorMethod: the call-and-return helper would hand the resulting
-        /// iterator back to be called again.
-        /// </summary>
-        public override PyObject GetIterator()
-        {
-            var declared = LookupUserSpecial("__iter__");
-            if (declared != null)
-                return InvokeIteratorMethod(declared);
-            return base.GetIterator();
-        }
-
         public override PyObject RichCompare(PyObject other, CompareOp op)
         {
             var special = TryCompareSpecial(other, op, PyType.BytesType);

@@ -2644,7 +2644,7 @@ namespace SharpPy
             TypeDict["__len__"] = new PyWrapperDescriptor("__len__", this, (self, args, kwargs) =>
                 new PyInt(PyNativeStorage.ForSet(self).Items.Count()));
             TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", this, (self, args, kwargs) =>
-                PyNativeStorage.ForSet(self).GetIterator());
+                PyNativeStorage.ForSet(self).Iter());
             TypeDict["__contains__"] = new PyWrapperDescriptor("__contains__", this, (self, args, kwargs) =>
                 PyNativeStorage.ForSet(self).Contains(args[0]));
 

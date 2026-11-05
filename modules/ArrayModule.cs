@@ -231,7 +231,7 @@ namespace SharpPy.Modules
 
             public override bool IsTrue() => _count > 0;
 
-            public override PyObject GetIterator() => new PyArrayIterator(this);
+            protected internal override PyObject Iter() => new PyArrayIterator(this);
 
             public override PyBool Contains(PyObject item)
             {
@@ -1044,7 +1044,7 @@ namespace SharpPy.Modules
 
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) =>
             {
-                return ((PyArray)self).GetIterator();
+                return ((PyArray)self).Iter();
             });
 
             type.TypeDict["__getitem__"] = new PyWrapperDescriptor("__getitem__", type, (self, args, kwargs) =>

@@ -1344,7 +1344,7 @@ namespace SharpPy
         /// Iterator support for dictionary iteration (for key in dict) - CPython compatible
         /// Returns keys only, same as CPython behavior
         /// </summary>
-        public override PyObject GetIterator()
+        protected internal override PyObject Iter()
         {
             return new PyDictKeyIterator(this);
         }

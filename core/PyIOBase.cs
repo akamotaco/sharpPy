@@ -60,7 +60,7 @@ public class PyIOBaseInstance : PyObject, IDictBackedInstance
     /// iobase_iternext calls readline until it answers empty). The VM reaches native objects
     /// through these CLR virtuals rather than the TypeDict descriptors, so both shapes exist.
     /// </summary>
-    public override PyObject GetIterator()
+    protected internal override PyObject Iter()
     {
         // iobase_iter: iobase_check_closed.
         PyIOBaseSlots.CheckClosedOf(this);
@@ -404,12 +404,13 @@ public static class PyIOBaseSlots
             return PyNone.Instance;
         }, 0, 0);
 
-        IOBaseType.TypeDict["__iter__"] = new PyMethodDescriptor(
+        // tp_iter: a slot wrapper, iobase_iter.
+        IOBaseType.TypeDict["__iter__"] = new PyWrapperDescriptor(
             "__iter__", IOBaseType, (self, args, kwargs) =>
             {
                 CheckClosed(self);
                 return self;
-            }, minArgs: 0, maxArgs: 0);
+            });
 
         // tp_iternext: a slot wrapper.
         IOBaseType.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", IOBaseType, (self, args, kwargs) => IterNext(self));

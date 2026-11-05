@@ -132,17 +132,14 @@ namespace SharpPy
                 });
 
             // __iter__ method descriptor
-            iterType.TypeDict["__iter__"] = new PyMethodDescriptor(
+            // tp_iter: a slot wrapper, PyObject_SelfIter.
+            iterType.TypeDict["__iter__"] = new PyWrapperDescriptor(
                 "__iter__", iterType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create("__iter__() takes no arguments");
                     if (self is not PyIterator iterator)
                         throw PyTypeError.Create($"descriptor '__iter__' requires a 'iterator' object but received a '{self.GetTypeName()}'");
                     return iterator;
-                },
-                minArgs: 0, maxArgs: 0
-            );
+                });
 
             // CPython exposes tp_iternext/tp_iter of map/zip/filter/callable_iterator/
             // reversed as slot wrappers bound to the concrete type (measured wording:
@@ -206,15 +203,11 @@ namespace SharpPy
         /// </summary>
         protected internal abstract override PyObject IterNext();
 
-        /// <summary>
-        /// 자기 자신을 반환 (Python __iter__ 메서드)
-        /// </summary>
-        public virtual PyIterator Iter() => this;
 
         /// <summary>
         /// 자기 자신을 반환 (Python __iter__ 메서드) - PyObject 오버라이드
         /// </summary>
-        public override PyObject GetIterator() => this;
+        protected internal override PyObject Iter() => this;
 
         /// <summary>
         /// CPython 3.12: iterator objects are NOT callable (list_iterator() raises
@@ -450,9 +443,9 @@ namespace SharpPy
         {
             _string = pyString?.Value ?? throw new ArgumentNullException(nameof(pyString));
             _index = 0;
-            // CPython: iterating an ASCII string yields str_ascii_iterator; any
-            // non-ASCII code point yields str_iterator.
-            bool ascii = true;
+            // unicode_iter: PyUnicode_IS_COMPACT_ASCII picks str_ascii_iterator. A subclass
+            // instance is never compact (unicode_subtype_new), so it has str_iterator.
+            bool ascii = pyString.GetType() == typeof(PyString);
             foreach (var ch in _string) { if (ch > 127) { ascii = false; break; } }
             _name = ascii ? "str_ascii_iterator" : "str_iterator";
         }

@@ -55,7 +55,7 @@ namespace SharpPy
             }
         }
 
-        public override PyObject GetIterator() => new BigRangeIterator(this);
+        protected internal override PyObject Iter() => new BigRangeIterator(this);
 
         private sealed class BigRangeIterator : PyIterator
         {

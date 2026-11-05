@@ -454,11 +454,12 @@ namespace SharpPy.Core
                     PyCoroutine.CheckSendArguments("coroutine_wrapper", args, kwargs);
                     return wrapper.Send(args[0]);
                 }, minArgs: 1, maxArgs: 1);
-            WrapperType.TypeDict["__iter__"] = new PyMethodDescriptor("__iter__", WrapperType,
+            // tp_iter: a slot wrapper.
+            WrapperType.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", WrapperType,
                 (self, args, kwargs) => {
                     CheckIteratorArguments(self, args, kwargs, "__iter__");
                     return self;
-                }, minArgs: 0, maxArgs: 0);
+                });
             // tp_iternext: a slot wrapper.
             WrapperType.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", WrapperType,
                 (self, args, kwargs) => {

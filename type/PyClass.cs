@@ -43,6 +43,33 @@ namespace SharpPy
             _iterNextVersion = TypeVersionTag;
         }
 
+        // tp_iter as update_one_slot leaves it: a base's own function (its slot wrapper), slot_tp_iter,
+        // or NULL when no class in the MRO names __iter__.
+        private ulong _iterVersion = ulong.MaxValue;
+        private PyWrapperDescriptor _iterSpecific;
+        private PyObject _iterGeneric;
+
+        internal PyObject IterSlot(PyObject self)
+        {
+            if (_iterVersion != TypeVersionTag)
+            {
+                var descr = FindNameInMro("__iter__");
+                _iterSpecific = descr is PyWrapperDescriptor wrapper && wrapper.Name == "__iter__" &&
+                    wrapper.OwnerType != null && IsSubclassOf(wrapper.OwnerType) ? wrapper : null;
+                _iterGeneric = _iterSpecific == null ? descr : null;
+                _iterVersion = TypeVersionTag;
+            }
+            if (_iterSpecific != null)
+                return _iterSpecific._implementation(self, Array.Empty<PyObject>(), null);
+            // slot_tp_iter: __iter__ = None refuses; a lookup that fails falls back to __getitem__.
+            if (_iterGeneric != null)
+                return self.InvokeIteratorMethod(_iterGeneric);
+            // PyObject_GetIter with tp_iter NULL: PySequence_Check, which a dict subclass fails.
+            if (FindNameInMro("__getitem__") != null && !IsSubclassOf(DictType))
+                return new PyGenericIterator(self);
+            throw PyTypeError.Create($"'{Name}' object is not iterable");
+        }
+
         private ComparisonMisses _comparisonMisses;
 
         private sealed class ComparisonMisses
@@ -524,7 +551,7 @@ namespace SharpPy
         }
 
         // Class objects use the iteration slots of their metaclass.
-        public override PyObject GetIterator()
+        protected internal override PyObject Iter()
         {
             var method = LookupSpecialMethodUncached("__iter__");
             if (method != null) return InvokeIteratorMethod(method);
@@ -1475,21 +1502,6 @@ namespace SharpPy
             return base.Length();
         }
 
-        // CPython 3.12: PyObject_GetIter / slot_tp_iter.
-        public override PyObject GetIterator()
-        {
-            var method = LookupSpecialMethodUncached("__iter__");
-            if (method != null) return InvokeIteratorMethod(method);
-
-            // The value of the builtin base in the MRO (dict/list/set/frozenset/str) is iterated,
-            // because CPython's slot for that base was inherited by the subclass.
-            var containerIter = NativeStorage();
-            if (containerIter != null) return containerIter.GetIterator();
-            if (LookupSpecialMethodUncached("__getitem__") != null)
-                return new PyGenericIterator(this);
-            return base.GetIterator();
-        }
-
         /// <summary>
         /// CPython 3.12: Get next item by calling __next__ method
         /// </summary>
@@ -2367,9 +2379,6 @@ namespace SharpPy
 
         public override PyBool Contains(PyObject item) =>
             SubclassInstanceSupport.Contains(this, item, () => base.Contains(item));
-
-        public override PyObject GetIterator() =>
-            SubclassInstanceSupport.Iterate(this, base.GetIterator);
 
         public override PyObject GetItem(PyObject index) =>
             CallUserSpecialOrNull("__getitem__", new[] { index }) ?? base.GetItem(index);
