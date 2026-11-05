@@ -758,7 +758,7 @@ public partial class PyFunction : PyObject, IDescriptor
     // changes, so repr follows the name the object actually carries.
     public string ReprName => QualName;
     // CPython: repr(func) == "<function QUALNAME at 0xADDR>" (funcobject.c).
-    public override PyString ToRepr()
+    protected internal override PyString Repr()
         => new PyString($"<function {ReprName} at 0x{GetHashCode():x}>");
     public override string ToString() => $"<function {ReprName}>";
     
@@ -900,7 +900,7 @@ public partial class PyFunction : PyObject, IDescriptor
             }
         }
 
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
             => new PyString($"<bound method {ReprName} of {Instance.ToRepr().Value}>");
         public override string ToString() => ToRepr().Value;
     }
@@ -968,7 +968,7 @@ public partial class PyFunction : PyObject, IDescriptor
 
         // CPython builtin_method_repr: <built-in method NAME of TYPE object at 0xID>
         // where the address is the bound self object's identity.
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
             => new PyString($"<built-in method {BuiltinFunction.Name} of {Instance.GetTypeName()} object at 0x{Instance.GetHashCode():x}>");
         public override string ToString() => ToRepr().Value;
     }

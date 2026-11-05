@@ -64,9 +64,9 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Str() => ToRepr();
 
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             if (Step == 1)
                 return new PyString($"range({Start}, {Stop})");

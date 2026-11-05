@@ -743,7 +743,7 @@ namespace SharpPy
         internal static PyStaticBuiltinMethod ForNew(PyType owner, Func<PyObject[], PyDict, PyObject> method) =>
             new PyStaticBuiltinMethod("__new__", method, owner);
 
-        public override PyString ToRepr() => _owner == null ? base.ToRepr() :
+        protected internal override PyString Repr() => _owner == null ? (PyString)base.Repr() :
             new PyString($"<built-in method {Name} of type object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_owner):x}>");
 
         public PyStaticBuiltinMethod(string name, Func<PyObject[], PyDict, PyObject> method, PyType owner = null)
@@ -1154,7 +1154,7 @@ namespace SharpPy
         string IDescrObject.DescrName => "__doc__";
         PyType IDescrObject.DescrType => PyType.TypeType;
         public override string ToString() => "<attribute '__doc__' of 'type' objects>";
-        public override PyString ToRepr() => new PyString(ToString());
+        protected internal override PyString Repr() => new PyString(ToString());
         public override PyType GetPyType() => PyType.GetSetDescriptorType;
         public override string GetTypeName() => "getset_descriptor";
 

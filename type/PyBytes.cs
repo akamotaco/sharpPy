@@ -461,7 +461,10 @@ namespace SharpPy
             return new PyListIterator(new PyList(items), "bytes_iterator", this);
         }
         
-        public override PyString ToRepr()
+        // bytes_str and bytearray_str: this type's own repr function, not the type's slot.
+        protected internal override PyString Str() => (PyString)Repr();
+
+        protected internal override PyString Repr()
         {
             // PyBytes_Repr: single quotes, unless the text has them and no double quotes.
             bool hasSingle = false, hasDouble = false;

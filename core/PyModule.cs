@@ -414,16 +414,8 @@ public class PyModule : PyObject
         return HasSourceFile ? $"<module '{Name}' from '{FileName}'>" : $"<module '{Name}' (built-in)>";
     }
 
-    // repr(module) == str(module) in CPython; the default ToRepr would print the
-    // address form, so route repr through the module repr above.
-    public override PyString ToRepr()
-    {
-        var declared = (_type as PyClass)?.LookupInMRO("__repr__");
-        if (declared != null && !ReferenceEquals(declared, PyType.ObjectType.TypeDict.GetValueOrDefault("__repr__")) &&
-            CallSpecial(declared) is PyString text)
-            return text;
-        return new PyString(ToString());
-    }
+    // module_repr; a module subclass's __repr__ is its tp_repr, which PyObject_Repr reaches first.
+    protected internal override PyString Repr() => new PyString(ToString());
     
     /// <summary>
     /// 모듈에 함수 추가 (표준 라이브러리 모듈용)

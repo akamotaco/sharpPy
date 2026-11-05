@@ -39,7 +39,7 @@ namespace SharpPy
         internal static void Repr(params PyType[] types)
         {
             foreach (var type in types)
-                Wrapper(type, "__repr__", (self, args) => self.ToRepr());
+                Wrapper(type, "__repr__", (self, args) => self.Repr());
         }
 
         internal static void Compared(params PyType[] types)

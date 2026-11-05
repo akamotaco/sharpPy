@@ -97,20 +97,6 @@ namespace SharpPy
             return special ?? base.RichCompare(other, op);
         }
 
-        public override PyString ToRepr()
-        {
-            var declared = LookupUserSpecial("__repr__");
-            if (declared != null)
-            {
-                var result = BindSpecialMethod(declared).Call(Array.Empty<PyObject>(), null);
-                if (result is PyString str)
-                    return str;
-                throw PyTypeError.Create(
-                    $"__repr__ returned non-string (type {result.GetTypeName()})");
-            }
-            return base.ToRepr();
-        }
-
         public override int GetHashCode()
         {
             // CPython calls tp_hash, and a user __hash__ must return an int. The value is the Python

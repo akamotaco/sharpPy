@@ -23,13 +23,13 @@ namespace SharpPy
         // UNWRAP
         internal static PyObject Unwrap(PyObject value) => value is PyWeakProxy proxy ? proxy.Target : value;
 
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             var target = Referent ?? PyNone.Instance;
             return new PyString($"<weakproxy at 0x{PyObjectId.Of(this):x} to {target.GetTypeName()} at 0x{PyObjectId.Of(target):x}>");
         }
 
-        public override PyString AsString() => new PyString(Target.ToClrString());
+        protected internal override PyString Str() => new PyString(Target.ToClrString());
 
         public override string ToClrString() => Target.ToClrString();
 

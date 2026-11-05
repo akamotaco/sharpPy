@@ -18,7 +18,7 @@ namespace SharpPy
                 type.TypeDict["mapping"] = new PyGetSetDescriptor("mapping", type,
                     self => new PyMappingProxy((PyObject)((PyDictView)self)._dictionary));
                 type.TypeDict["__repr__"] = new PyMethodDescriptor("__repr__", type,
-                    (self, args, kwargs) => ((PyDictView)self).ToRepr(), minArgs: 0, maxArgs: 0);
+                    (self, args, kwargs) => ((PyDictView)self).Repr(), minArgs: 0, maxArgs: 0);
             }
         }
 
@@ -59,7 +59,7 @@ namespace SharpPy
             _ => new PyDictItemIterator(_dictionary)
         };
         // dictview_repr: Py_ReprEnter, then the list of what it shows.
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             if (!PyReprGuard.Enter(this))
                 return new PyString("...");
@@ -72,7 +72,7 @@ namespace SharpPy
                 PyReprGuard.Leave(this);
             }
         }
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Str() => ToRepr();
 
         public override PyBool Contains(PyObject item)
         {

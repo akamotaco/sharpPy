@@ -133,8 +133,8 @@ namespace SharpPy
                 case "__ge__":
                     return value.RichCompare(PyNativeStorage.Unwrap(args[0]), Comparison(name));
                 case "__hash__": return new PyInt(value.GetPythonHash());
-                case "__repr__": return value.ToRepr();
-                case "__str__": return value.AsString();
+                case "__repr__": return value.Repr();
+                case "__str__": return value.Str();
                 case "__iter__": return value.Iter();
                 case "__next__": return value.IterNext();
                 case "__len__": return value is PyRange range ? new PyInt(range.ClampedLength()) : new PyInt(value.Length());

@@ -75,7 +75,7 @@ namespace SharpPy
         // args slot, so they read it through PyExceptionSlots.ArgsOf like the member descriptor
         // does. Before this, repr used the CLR field while a Python subclass instance kept its value
         // elsewhere - which is how a raised object could answer .args with ('z',) and repr with K().
-        public override PyString AsString() => BaseExceptionStr(this);
+        protected internal override PyString Str() => BaseExceptionStr(this);
 
         /// <summary>BaseException_init: no keywords (named by the object's type), then args.</summary>
         internal static void BaseExceptionInit(PyObject self, PyObject[] args, PyDict kwargs)
@@ -96,7 +96,7 @@ namespace SharpPy
             return new PyString($"({string.Join(", ", args.Select(a => a.ToRepr().Value))})");
         }
 
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             var args = PyExceptionSlots.ArgsOf(this);
             return new PyString($"{GetTypeName()}{PyType.ArgsReprForException(args)}");
@@ -226,7 +226,7 @@ namespace SharpPy
         // CPython 3.12: Objects/exceptions.c:79-105 (BaseException_str)
         // For user-defined exceptions, delegate ToStr() to OriginalInstance
         // This ensures BaseException.__str__ descriptor is properly invoked
-        public override PyString AsString()
+        protected internal override PyString Str()
         {
             // CPython 3.12: User-defined exception instances use __str__ method from class hierarchy
             if (OriginalInstance != null)
@@ -235,7 +235,7 @@ namespace SharpPy
             }
 
             // CPython 3.12: C-level exceptions use Args-based string representation
-            return base.AsString();
+            return (PyString)base.Str();
         }
 
         // CPython 3.12: Objects/exceptions.c:42-849
@@ -555,7 +555,7 @@ namespace SharpPy
         public PyKeyError(PyObject key) : base(new[] { key }, null) { }
         internal PyKeyError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
         public PyKeyError(string message) : base(message) { }
-        public override PyString AsString() => KeyErrorStr(this);
+        protected internal override PyString Str() => KeyErrorStr(this);
 
         // KeyError_str (Objects/exceptions.c:2603)
         // KeyError has no fields of its own: it reads the args of whatever object it is given.
@@ -669,7 +669,7 @@ namespace SharpPy
         }
 
         // ImportError_init (Objects/exceptions.c:1538): keywords name and path, msg from a single argument.
-        public override PyString AsString() => ImportErrorStr(this);
+        protected internal override PyString Str() => ImportErrorStr(this);
 
         // ImportError_str: msg when it is exactly a str, otherwise BaseException_str of the object.
         internal PyString ImportErrorStr(PyObject self) =>
@@ -961,7 +961,7 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.SyntaxErrorType;
         public override string GetTypeName() => "SyntaxError";
 
-        public override PyString AsString() => SyntaxErrorStr();
+        protected internal override PyString Str() => SyntaxErrorStr();
 
         // SyntaxError_str (Objects/exceptions.c:2420).
         internal PyString SyntaxErrorStr()
@@ -1615,7 +1615,7 @@ namespace SharpPy
             SetWritten(AsWrittenCount(value));
         }
 
-        public override PyString AsString() => OSErrorStr(this);
+        protected internal override PyString Str() => OSErrorStr(this);
 
         // OSError_str (Objects/exceptions.c); self is the object whose args BaseException_str reads.
         internal PyString OSErrorStr(PyObject self)
@@ -2010,7 +2010,7 @@ namespace SharpPy
         public override string GetTypeName() => "UnicodeDecodeError";
         public override PyType GetPyType() => PyType.UnicodeDecodeErrorType;
 
-        public override PyString AsString() => UnicodeDecodeErrorStr();
+        protected internal override PyString Str() => UnicodeDecodeErrorStr();
 
         // UnicodeDecodeError_str (Objects/exceptions.c:3012).
         internal PyString UnicodeDecodeErrorStr() => new PyString(Fields[1] == null ? "" : OneItem
@@ -2042,7 +2042,7 @@ namespace SharpPy
         public override string GetTypeName() => "UnicodeEncodeError";
         public override PyType GetPyType() => PyType.UnicodeEncodeErrorType;
 
-        public override PyString AsString() => UnicodeEncodeErrorStr();
+        protected internal override PyString Str() => UnicodeEncodeErrorStr();
 
         // UnicodeEncodeError_str (Objects/exceptions.c:2891).
         internal PyString UnicodeEncodeErrorStr() => new PyString(Fields[1] == null ? "" : OneItem
@@ -2071,7 +2071,7 @@ namespace SharpPy
         public override string GetTypeName() => "UnicodeTranslateError";
         public override PyType GetPyType() => PyType.UnicodeTranslateErrorType;
 
-        public override PyString AsString() => UnicodeTranslateErrorStr();
+        protected internal override PyString Str() => UnicodeTranslateErrorStr();
 
         // UnicodeTranslateError_str
         internal PyString UnicodeTranslateErrorStr() => new PyString(Fields[1] == null ? "" : OneItem
@@ -2373,12 +2373,12 @@ namespace SharpPy
         public override PyType GetPyType() => TracebackPyType;
         public override string GetTypeName() => "traceback";
 
-        public override PyString AsString()
+        protected internal override PyString Str()
         {
             return new PyString($"<traceback object at {GetHashCode():X}>");
         }
 
-        public override PyString ToRepr() => AsString();
+        protected internal override PyString Repr() => AsString();
 
         internal PyObject Read(string name)
         {
@@ -2416,12 +2416,12 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "ExceptionInfo";
 
-        public override PyString AsString()
+        protected internal override PyString Str()
         {
             return new PyString($"ExceptionInfo(type={ExcType}, value={ExcValue}, traceback={ExcTraceback}, lasti={Lasti})");
         }
 
-        public override PyString ToRepr() => AsString();
+        protected internal override PyString Repr() => AsString();
     }
 
     #endregion

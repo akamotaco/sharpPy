@@ -9,7 +9,7 @@ namespace SharpPy
     public class PyCell : PyObject
     {
         // cell_repr (Objects/cellobject.c)
-        public override PyString ToRepr() => new PyString(HasValue
+        protected internal override PyString Repr() => new PyString(HasValue
             ? $"<cell at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}: {_value.GetTypeName()} object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_value):x}>"
             : $"<cell at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}: empty>");
 

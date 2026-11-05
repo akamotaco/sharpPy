@@ -66,7 +66,7 @@ namespace SharpPy
         public override string GetTypeName() => "method_descriptor";
 
         // CPython method_descriptor_repr: <method 'NAME' of 'TYPE' objects>
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
             => OwnerType != null
                 ? new PyString($"<method '{Name}' of '{OwnerType.FullName}' objects>")
                 : new PyString($"<method '{Name}'>");
@@ -223,7 +223,7 @@ namespace SharpPy
         PyObject ICFunction.MethodSelf => OwnerType;
         PyObject ICFunction.MethodModule => null;
 
-        public override PyString ToRepr() => new PyString($"<built-in method {Name} of type object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(OwnerType):x}>");
+        protected internal override PyString Repr() => new PyString($"<built-in method {Name} of type object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(OwnerType):x}>");
         public override string ToString() => ToRepr().Value;
     }
 
@@ -291,7 +291,7 @@ namespace SharpPy
 
         // CPython builtin_method_repr for a bound method_descriptor:
         // <built-in method NAME of TYPE object at 0xID> (address is the bound self).
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
             => new PyString($"<built-in method {MethodDescriptor.Name} of {Instance.GetTypeName()} object at 0x{Instance.GetHashCode():x}>");
         public override string ToString() => ToRepr().Value;
     }
@@ -383,7 +383,7 @@ namespace SharpPy
         public bool IsDataDescriptor() => true;
 
         public override string ToString() => $"<attribute '{Name}' of '{OwnerType.FullName}' objects>";
-        public override PyString ToRepr() => new PyString(ToString());
+        protected internal override PyString Repr() => new PyString(ToString());
     }
 
     /// <summary>
@@ -471,7 +471,7 @@ namespace SharpPy
         public bool IsDataDescriptor() => true;
 
         public override string ToString() => $"<member '{Name}' of '{OwnerType.FullName}' objects>";
-        public override PyString ToRepr() => new PyString(ToString());
+        protected internal override PyString Repr() => new PyString(ToString());
     }
 
     /// <summary>
@@ -522,7 +522,7 @@ namespace SharpPy
         public override string GetTypeName() => "wrapper_descriptor";
 
         // CPython wrapper_descriptor_repr: <slot wrapper 'NAME' of 'TYPE' objects>
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
             => OwnerType != null
                 ? new PyString($"<slot wrapper '{Name}' of '{OwnerType.FullName}' objects>")
                 : new PyString($"<slot wrapper '{Name}'>");
@@ -663,7 +663,7 @@ namespace SharpPy
             System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(WrapperDescriptor));
 
         // CPython method-wrapper repr: <method-wrapper 'NAME' of TYPE object at 0xID>
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
             => new PyString($"<method-wrapper '{WrapperDescriptor.Name}' of {Instance.GetTypeName()} object at 0x{Instance.GetHashCode():x}>");
         public override string ToString() => ToRepr().Value;
     }

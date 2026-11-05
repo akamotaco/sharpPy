@@ -235,9 +235,9 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Str() => ToRepr();
 
-        public override PyString ToRepr() => Repr("set", exactType: true);
+        protected internal override PyString Repr() => Repr("set", exactType: true);
 
         /// <summary>
         /// CPython Objects/setobject.c:507 set_repr formats with Py_TYPE(so)-&gt;tp_name, which is why
@@ -773,11 +773,11 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Str() => ToRepr();
 
         // set_repr is shared with set (see PySet.Repr): the prefix is always present because
         // PySet_CheckExact() is false for a frozenset, giving frozenset({1, 2}) and frozenset().
-        public override PyString ToRepr() => Repr("frozenset");
+        protected internal override PyString Repr() => Repr("frozenset");
 
         internal PyString Repr(string typeName)
         {

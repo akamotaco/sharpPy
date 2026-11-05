@@ -126,8 +126,7 @@ namespace SharpPy
 
         public override bool PyBoolValue() => _floatValue.PyBoolValue();
 
-        public override PyString AsString() => SubclassInstanceSupport.Str(this, ToRepr);
-        public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, _floatValue.ToRepr);
+        protected internal override PyString Repr() => (PyString)_floatValue.Repr();
 
         #endregion
 

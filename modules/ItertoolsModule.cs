@@ -1843,12 +1843,7 @@ namespace SharpPy.Modules
         }
 
         // count_repr
-        public override PyString ToRepr()
-        {
-            if (_customType is PyClass)
-                return SubclassInstanceSupport.Repr(this, CountRepr);
-            return CountRepr();
-        }
+        protected internal override PyString Repr() => CountRepr();
 
         private PyString CountRepr()
         {
@@ -1904,12 +1899,7 @@ namespace SharpPy.Modules
         }
 
         // repeat_repr
-        public override PyString ToRepr()
-        {
-            if (_customType is PyClass)
-                return SubclassInstanceSupport.Repr(this, RepeatRepr);
-            return RepeatRepr();
-        }
+        protected internal override PyString Repr() => RepeatRepr();
 
         private PyString RepeatRepr() => _cnt == -1
             ? new PyString($"{ShortTypeName}({_element.ToRepr().Value})")

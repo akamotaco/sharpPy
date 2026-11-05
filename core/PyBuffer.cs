@@ -88,7 +88,7 @@ namespace SharpPy
         }
 
         public override string ToString() => $"<buffer at 0x{GetHashCode():X}>";
-        public override PyString ToRepr() => new PyString(ToString());
+        protected internal override PyString Repr() => new PyString(ToString());
     }
 
     /// <summary>
@@ -1034,6 +1034,6 @@ namespace SharpPy
         // throw here, which would break print(f"{view}") for a writable or released view.
         public override string ToString() =>
             $"<{(_data == null ? "released memory" : "memory")} at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):X}>";
-        public override PyString ToRepr() => new PyString(ToString());
+        protected internal override PyString Repr() => new PyString(ToString());
     }
 }

@@ -1046,7 +1046,7 @@ namespace SharpPy
         public override string ToString() => $"<code object {Name}>";
 
         // code_repr
-        public override PyString ToRepr() => new PyString(FileName != null
+        protected internal override PyString Repr() => new PyString(FileName != null
             ? $"<code object {PyFrame.BindErrorName(Name)} at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}, file \"{FileName}\", line {GetFirstLineNo()}>"
             : $"<code object {PyFrame.BindErrorName(Name)} at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}, file ???, line {GetFirstLineNo()}>");
         

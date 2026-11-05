@@ -736,7 +736,7 @@ namespace SharpPy
         public override string ToString() => $"<frame for {Code.Name}>";
 
         // frame_repr
-        public override PyString ToRepr() => new PyString(
+        protected internal override PyString Repr() => new PyString(
             $"<frame at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}, file {new PyString(Code.FileName ?? "<unknown>").ToRepr().Value}, line {Read("f_lineno").ToRepr().Value}, code {Read("f_code").GetAttribute("co_name").AsString().Value}>");
 
         // PyObject required overrides

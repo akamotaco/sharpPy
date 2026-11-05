@@ -43,8 +43,8 @@ namespace SharpPy
 
         public override string GetTypeName() => "map";
         public override PyType GetPyType() => _customType ?? PyType.MapType;
-        public override PyString ToRepr() => new PyString($"<map object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Repr() => new PyString($"<map object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
+        protected internal override PyString Str() => ToRepr();
     }
 
     /// <summary>
@@ -115,8 +115,8 @@ namespace SharpPy
 
         public override string GetTypeName() => "zip";
         public override PyType GetPyType() => _customType ?? PyType.ZipType;
-        public override PyString ToRepr() => new PyString($"<zip object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Repr() => new PyString($"<zip object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
+        protected internal override PyString Str() => ToRepr();
     }
 
     /// <summary>CPython filter object: lazy; func None means truthiness test.</summary>
@@ -152,8 +152,8 @@ namespace SharpPy
 
         public override string GetTypeName() => "filter";
         public override PyType GetPyType() => _customType ?? PyType.FilterType;
-        public override PyString ToRepr() => new PyString($"<filter object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Repr() => new PyString($"<filter object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
+        protected internal override PyString Str() => ToRepr();
     }
 
     /// <summary>
@@ -202,8 +202,8 @@ namespace SharpPy
 
         public override string GetTypeName() => "callable_iterator";
         public override PyType GetPyType() => PyType.CallableIteratorType;
-        public override PyString ToRepr() => new PyString($"<callable_iterator object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Repr() => new PyString($"<callable_iterator object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
+        protected internal override PyString Str() => ToRepr();
     }
 
     /// <summary>

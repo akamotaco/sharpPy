@@ -352,7 +352,7 @@ namespace SharpPy.Modules
                 _count--;
             }
 
-            public override PyString ToRepr()
+            protected internal override PyString Repr()
             {
                 var sb = new StringBuilder();
                 sb.Append("array('");
@@ -386,7 +386,7 @@ namespace SharpPy.Modules
                 return new PyString(sb.ToString());
             }
 
-            public override PyString AsString() => ToRepr();
+            protected internal override PyString Str() => ToRepr();
 
             public override PyObject Add(PyObject other)
             {

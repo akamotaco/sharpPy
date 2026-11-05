@@ -10,17 +10,30 @@ namespace SharpPy
     /// </summary>
     internal static class PyCRecursion
     {
-        internal static readonly int Limit = OperatingSystem.IsWindows() ? 3000 : 10000;
+        internal static int Limit => CRecursionLimit.Value;
 
-        [ThreadStatic] private static int _depth;
+        // tstate->c_recursion_remaining: the thread's state is read once per Enter and per Leave.
+        internal sealed class State { internal int Depth; }
+        [ThreadStatic] private static State _state;
 
-        internal static void Enter(string where)
+        internal static void Enter(string where) => EnterState(where);
+
+        /// <summary>Enter, answering the thread's state so the caller leaves without reading it again.</summary>
+        internal static State EnterState(string where)
         {
-            if (_depth >= Limit || !System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack())
+            var state = _state ??= new State();
+            if (state.Depth >= CRecursionLimit.Value || !System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack())
                 throw new PythonException(new PyRecursionError("maximum recursion depth exceeded" + where));
-            _depth++;
+            state.Depth++;
+            return state;
         }
 
-        internal static void Leave() => _depth--;
+        internal static void Leave() => _state.Depth--;
+    }
+
+    // Apart from PyCRecursion, whose thread-static is then read without a class-initialization check.
+    internal static class CRecursionLimit
+    {
+        internal static readonly int Value = OperatingSystem.IsWindows() ? 3000 : 10000;
     }
 }

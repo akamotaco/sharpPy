@@ -170,27 +170,7 @@ namespace SharpPy
 
         #region Type Conversion - Delegate to PyString
 
-        // CPython 3.12: str(x) dispatches type(x).__str__. A user-defined __str__ in the
-        // class dict wins over the inherited unicode tp_str (which returns contents).
-        public override PyString AsString()
-        {
-            foreach (var mroType in _class.MRO)
-            {
-                if (mroType is PyClass userClass &&
-                    userClass.ClassDict.TryGetValue("__str__", out var method) &&
-                    method is PyFunction func)
-                {
-                    var result = new PyMethod(this, func).Call(new PyObject[0], null);
-                    if (result is PyString pyStr)
-                        return pyStr;
-                    throw PyTypeError.Create($"__str__ returned non-string (type {result.GetTypeName()})");
-                }
-                if (mroType == PyType.StrType)
-                    break;
-            }
-            return _strValue;
-        }
-        public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, _strValue.ToRepr);
+        protected internal override PyString Repr() => (PyString)_strValue.Repr();
         public override int ToHash() => _strValue.ToHash();
         public override bool PyBoolValue() => _strValue.PyBoolValue();
 

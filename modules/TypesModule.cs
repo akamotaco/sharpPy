@@ -104,7 +104,7 @@ namespace SharpPy.Modules
         }
 
         // namespace_repr
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             string name = ReferenceEquals(_type, PySimpleNamespaceType.Instance) ? "namespace" : _type.FullName;
             if (!PyReprGuard.Enter(this))
@@ -123,7 +123,7 @@ namespace SharpPy.Modules
             }
         }
 
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Str() => ToRepr();
         public override string ToString() => ToRepr().Value;
 
         // namespace_richcompare

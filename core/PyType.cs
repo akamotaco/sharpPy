@@ -1857,12 +1857,13 @@ namespace SharpPy
         {
             Func<PyObject, PyObject> repr = Name switch
             {
-                "dict" => self => PyNativeStorage.ForDict(self).ToRepr(),
-                "list" => self => new PyList(PyNativeStorage.ForList(self).Items).ToRepr(),
-                "tuple" => self => new PyTuple(((PyTuple)self).Items).ToRepr(),
-                "set" => self => SubclassSetRepr(self, PyNativeStorage.ForSet(self).ToRepr().Value, "set"),
-                "frozenset" => self => SubclassSetRepr(self, PyNativeStorage.ForFrozenSet(self).ToRepr().Value, "frozenset"),
-                "bool" => self => self.ToRepr(),
+                // The value's own repr function: Py_ReprEnter marks that object, not a copy of it.
+                "dict" => self => PyNativeStorage.ForDict(self).Repr(),
+                "list" => self => PyNativeStorage.ForList(self).Repr(),
+                "tuple" => self => ((PyTuple)self).Repr(),
+                "set" => self => SubclassSetRepr(self, ((PyString)PyNativeStorage.ForSet(self).Repr()).Value, "set"),
+                "frozenset" => self => SubclassSetRepr(self, ((PyString)PyNativeStorage.ForFrozenSet(self).Repr()).Value, "frozenset"),
+                "bool" => self => self.Repr(),
                 _ => null,
             };
             if (repr != null)
@@ -2575,22 +2576,8 @@ namespace SharpPy
                 maxArgs: 0
             );
 
-            // CPython has no type.__str__ of its own: type.__str__ resolves to
-            // object.__str__, which calls tp_repr dynamically - so a metaclass __repr__
-            // is honoured here (measured: type.__str__(C) == 'META-repr:C').
-            TypeDict["__str__"] = new PyMethodDescriptor(
-                "__str__",
-                typeType,
-                (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"__str__() takes no arguments ({args.Length} given)");
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__str__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return type.ToRepr();
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
+            // CPython has no type.__str__ of its own: type.__str__ resolves to object.__str__,
+            // object_str, the metaclass's tp_repr (measured: type.__str__(C) == 'META-repr:C').
 
             // type.__format__ - CPython 3.12 (defaults to __str__)
             TypeDict["__format__"] = new PyMethodDescriptor(
@@ -4012,29 +3999,9 @@ namespace SharpPy
             return null;
         }
 
-        public override PyString ToRepr()
-        {
-            var hook = MetaSpecial("__repr__");
-            if (hook != null)
-            {
-                if (hook is PyString reprText)
-                    return reprText;
-                throw PyTypeError.Create($"__repr__ returned non-string (type {hook.GetTypeName()})");
-            }
-            return TypeRepr();
-        }
+        // type_repr: a metaclass's __repr__ is its tp_repr, which PyObject_Repr reaches first.
+        protected internal override PyString Repr() => TypeRepr();
 
-        public override PyString AsString()
-        {
-            var hook = MetaSpecial("__str__");
-            if (hook != null)
-            {
-                if (hook is PyString strText)
-                    return strText;
-                throw PyTypeError.Create($"__str__ returned non-string (type {hook.GetTypeName()})");
-            }
-            return TypeRepr();
-        }
 
         #endregion
 
@@ -4378,6 +4345,6 @@ namespace SharpPy
 
         // CPython: str(object()) == repr(object()) == '<object object at 0x...>'
         public override string ToString() => ToRepr().Value;
-        public override PyString ToRepr() => new PyString($"<object object at 0x{GetHashCode():x}>");
+        protected internal override PyString Repr() => new PyString($"<object object at 0x{GetHashCode():x}>");
     }
 }

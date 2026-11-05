@@ -404,7 +404,7 @@ namespace SharpPy.Core
         // Note: GetAttribute is inherited from PyObject, which uses GenericGetAttribute
         // All coroutine methods (send, throw, close, __await__) are registered as descriptors in PyType.CoroutineType
 
-        public override PyString ToRepr() =>
+        protected internal override PyString Repr() =>
             new PyString($"<coroutine object {Qualname.ToClrString()} at 0x{PyObjectId.Of(this):x}>");
 
         public override string ToString()

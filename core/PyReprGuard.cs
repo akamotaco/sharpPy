@@ -31,18 +31,13 @@ namespace SharpPy
             // Reference identity: these containers are unhashable in Python terms, a user class may
             // define __hash__ that matches other objects, and CPython marks the object, not a value.
             Active ??= new HashSet<PyObject>(ReferenceEqualityComparer.Instance);
-            // PyObject_Repr's _Py_EnterRecursiveCall, the count C recursion shares.
-            PyCRecursion.Enter(" while getting the repr of an object");
-            if (Active.Add(obj))
-                return true;
-            PyCRecursion.Leave();
-            return false;
+            // Py_ReprEnter marks the object; the recursion is PyObject_Repr's to count.
+            return Active.Add(obj);
         }
 
         internal static void Leave(PyObject obj)
         {
-            if (Active != null && Active.Remove(obj))
-                PyCRecursion.Leave();
+            Active?.Remove(obj);
         }
     }
 }

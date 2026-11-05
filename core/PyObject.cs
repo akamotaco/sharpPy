@@ -59,57 +59,63 @@ namespace SharpPy
         #region String Representation
 
         // Python repr() - returns PyString
-        public virtual PyString ToRepr()
+        /// <summary>
+        /// The tp_repr function of this object's CLR implementation, what its __repr__ slot wrapper
+        /// calls; object_repr (Objects/typeobject.c) unless a builtin type has its own.
+        /// </summary>
+        protected internal virtual PyObject Repr() => SharpPy.PyClass.ObjectRepr(this);
+
+        /// <summary>
+        /// PyObject_Repr (Objects/object.c): Py_TYPE(v)->tp_repr(v) inside a recursive call, and
+        /// what it answers must be a str. A class written in Python has the slot update_one_slot
+        /// gave it.
+        /// </summary>
+        public PyString ToRepr()
         {
-            // CPython 3.12: Try to call __repr__ method if it exists
+            PyObject result;
+            var recursion = PyCRecursion.EnterState(" while getting the repr of an object");
             try
             {
-                // lookup_maybe_method: the type's __repr__, not an attribute of the instance.
-                var reprMethod = LookupSpecialMethodUncached("__repr__");
-                var reprAttr = reprMethod == null ? null : BindSpecialMethod(reprMethod);
-                if (reprAttr != null && reprAttr != PyNone.Instance)
-                {
-                    var result = reprAttr.Call(new PyObject[0], null);
-                    if (result is PyString pyStr)
-                    {
-                        return pyStr;
-                    }
-                }
+                result = TpRepr();
             }
-            catch
+            finally
             {
-                // If __repr__ fails, fall back to default
+                recursion.Depth--;
             }
-
-            // Default representation
-            return new PyString($"<{GetTypeName()} object at 0x{GetHashCode():x}>");
+            // PyUnicode_Check: a str subclass instance answers too.
+            return result as PyString ?? PyNativeStorage.Unwrap(result) as PyString ??
+                throw PyTypeError.Create($"__repr__ returned non-string (type {result.GetPyType().FullName})");
         }
 
-        // Python str() - returns PyString.  As~ = Python 타입 변환 (AsInt/AsFloat/AsBool과 통일).
-        //
-        // CPython PyObject_Str: __str__가 **없는 경우에만** __repr__로 폴백한다.
-        // __str__ 호출 중 발생한 예외는 그대로 전파되고, 반환이 str이 아니면 TypeError다.
-        public virtual PyString AsString()
+        // Py_TYPE(v)->tp_repr(v): the type's repr slot, without PyObject_Repr's checks.
+        internal PyObject TpRepr() => GetPyType() is SharpPy.PyClass heap ? heap.ReprSlot(this) : Repr();
+
+        /// <summary>
+        /// The tp_str function of this object's CLR implementation, what its __str__ slot wrapper
+        /// calls; object_str (Objects/typeobject.c), the type's tp_repr, unless a builtin has its own.
+        /// </summary>
+        protected internal virtual PyObject Str() => TpRepr();
+
+        /// <summary>
+        /// PyObject_Str (Objects/object.c): an exact str is itself; otherwise Py_TYPE(v)->tp_str(v)
+        /// inside a recursive call, and what it answers must be a str.
+        /// </summary>
+        public PyString AsString()
         {
-            PyObject strAttr;
+            if (GetType() == typeof(PyString))
+                return (PyString)this;
+            PyObject result;
+            var recursion = PyCRecursion.EnterState(" while getting the str of an object");
             try
             {
-                var strMethod = LookupSpecialMethodUncached("__str__");
-                strAttr = strMethod == null ? null : BindSpecialMethod(strMethod);
+                result = GetPyType() is SharpPy.PyClass heap ? heap.StrSlot(this) : Str();
             }
-            catch
+            finally
             {
-                // 속성 조회 자체가 실패하면 없는 것으로 취급한다.
-                return ToRepr();
+                recursion.Depth--;
             }
-
-            if (strAttr == null || strAttr == PyNone.Instance)
-                return ToRepr();
-
-            var result = strAttr.Call(new PyObject[0], null);
-            if (result is PyString ok)
-                return ok;
-            throw PyTypeError.Create($"__str__ returned non-string (type {result.GetTypeName()})");
+            return result as PyString ?? PyNativeStorage.Unwrap(result) as PyString ??
+                throw PyTypeError.Create($"__str__ returned non-string (type {result.GetPyType().FullName})");
         }
 
         // CPython-internal 호환 이름. **비가상**이므로 서브클래스는 반드시 AsString()을
@@ -1659,8 +1665,8 @@ namespace SharpPy
 
         public override string GetTypeName() => "NotImplementedType";
         public override PyType GetPyType() => PyType.NotImplementedType;
-        public override PyString AsString() => new PyString("NotImplemented");
-        public override PyString ToRepr() => new PyString("NotImplemented");
+        protected internal override PyString Str() => new PyString("NotImplemented");
+        protected internal override PyString Repr() => new PyString("NotImplemented");
     }
 
     /// <summary>
@@ -1760,18 +1766,18 @@ namespace SharpPy
                     return created;
                 }),
                 "__str__" => new PyBuiltinFunction("__str__", args => {
-                    // object.__str__() delegates to __repr__
+                    // object_str: the type's tp_repr, whatever __str__ the type declares.
                     if (args.Length > 0)
                     {
-                        return new PyString(args[0].ToStr().Value);
+                        return args[0].ToRepr();
                     }
                     throw PyTypeError.Create("__str__() missing 1 required positional argument: 'self'");
                 }),
                 "__repr__" => new PyBuiltinFunction("__repr__", args => {
-                    // object.__repr__() returns default representation
+                    // object.__repr__ is object_repr, whatever the type declares.
                     if (args.Length > 0)
                     {
-                        return new PyString(args[0].ToRepr().Value);
+                        return SharpPy.PyClass.ObjectRepr(args[0]);
                     }
                     throw PyTypeError.Create("__repr__() missing 1 required positional argument: 'self'");
                 }),

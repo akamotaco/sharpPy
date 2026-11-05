@@ -104,26 +104,6 @@ namespace SharpPy
                 $"float() argument must be a string or a real number, not '{self.GetTypeName()}'");
         }
 
-        internal static PyString Repr(PyObject self, Func<PyString> inherited)
-        {
-            var declared = self.CallUserSpecialOrNull("__repr__", Array.Empty<PyObject>());
-            if (declared == null)
-                return inherited();
-            if (!(declared is PyString text))
-                throw PyTypeError.Create(
-                    $"__repr__ returned non-string (type {declared.GetTypeName()})");
-            return text;
-        }
-
-        /// <summary>object_str: tp_str is inherited as a call of tp_repr unless the class declares __str__.</summary>
-        internal static PyString Str(PyObject self, Func<PyString> repr)
-        {
-            var declared = self.CallUserSpecialOrNull("__str__", Array.Empty<PyObject>());
-            if (declared == null) return repr();
-            return declared as PyString ?? throw PyTypeError.Create(
-                $"__str__ returned non-string (type {declared.GetTypeName()})");
-        }
-
         internal static int Length(PyObject self, Func<int> inherited)
         {
             var declared = self.CallUserSpecialOrNull("__len__", Array.Empty<PyObject>());

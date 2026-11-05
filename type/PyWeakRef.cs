@@ -62,7 +62,7 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.WeakRefType;
         public override string GetTypeName() => "weakref.ReferenceType";
 
-        public override PyString ToRepr() => SlotRepr();
+        protected internal override PyString Repr() => SlotRepr();
 
         internal PyString SlotRepr()
         {
@@ -173,7 +173,7 @@ namespace SharpPy
         public override PyObject Call(PyObject[] args, PyDict kwargs) =>
             this.CallUserSpecialOrNull("__call__", args) ?? SlotCall(args);
 
-        public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, SlotRepr);
+        protected internal override PyString Repr() => SlotRepr();
 
         public override PyObject RichCompare(PyObject other, CompareOp op)
         {

@@ -31,7 +31,7 @@ namespace SharpPy
         // 0x prefix: <built-in method NAME of str object at 0xID>.
         public override string ToString() => $"<built-in method {_methodName} of str object at 0x{_instance.GetHashCode():x}>";
 
-        public override PyString ToRepr() => new PyString(ToString());
+        protected internal override PyString Repr() => new PyString(ToString());
 
         /// <summary>
         /// 메서드 호출 구현

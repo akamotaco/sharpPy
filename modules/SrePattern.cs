@@ -375,7 +375,7 @@ namespace SharpPy.Modules
         }
 
         // pattern_repr.
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             var flags = new List<string>();
             int remaining = Flags;
@@ -393,7 +393,7 @@ namespace SharpPy.Modules
             return new PyString(flags.Count == 0 ? $"re.compile({text})" : $"re.compile({text}, {string.Join("|", flags)})");
         }
 
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Str() => ToRepr();
 
         public override int ToHash() => HashCode.Combine(Flags, Code.Length, Pattern.ToHash());
 
@@ -546,14 +546,14 @@ namespace SharpPy.Modules
         }
 
         // match_repr: at most fifty characters of repr.
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             string text = GroupValue(0, PyNone.Instance).ToRepr().Value;
             if (text.Length > 50) text = text.Substring(0, 50);
             return new PyString($"<re.Match object; span=({_marks[0]}, {_marks[1]}), match={text}>");
         }
 
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Str() => ToRepr();
         public override bool IsTrue() => true;
     }
 

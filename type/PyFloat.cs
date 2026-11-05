@@ -483,9 +483,9 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString AsString() => new PyString(FormatFloat(Value, ""));
+        protected internal override PyString Str() => new PyString(FormatFloat(Value, ""));
 
-        public override PyString ToRepr() => AsString();
+        protected internal override PyString Repr() => AsString();
 
         #endregion
 

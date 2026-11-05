@@ -62,7 +62,7 @@ namespace SharpPy
         }
 
         public override string GetTypeName() => "test_context_manager";
-        public override PyString ToRepr() => new PyString($"<TestContextManager '{_name}'>");
+        protected internal override PyString Repr() => new PyString($"<TestContextManager '{_name}'>");
 
         public override PyObject Enter()
         {

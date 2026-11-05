@@ -772,8 +772,8 @@ namespace SharpPy
                 throw PyValueError.Create($"Exceeds the limit ({limit} digits) for integer string conversion; use sys.set_int_max_str_digits() to increase the limit");
             return text;
         }
-        public override PyString AsString() => new PyString(DecimalString());
-        public override PyString ToRepr() => new PyString(DecimalString());
+        protected internal override PyString Str() => new PyString(DecimalString());
+        protected internal override PyString Repr() => new PyString(DecimalString());
 
         #endregion
 

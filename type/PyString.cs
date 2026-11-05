@@ -657,8 +657,8 @@ namespace SharpPy
                         throw PyTypeError.Create("str.__str__() takes no keyword arguments");
                     if (args.Length != 0)
                         throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
-                    if (self is PyString)
-                        return self;
+                    if (self is PyString text)
+                        return text.Str();
                     // Measured CPython 3.12.15: str.__str__(CS("w")) == "w" (raw content,
                     // exact str), NOT the user __str__ result; str(CS("w")) dispatches
                     // type(x).__str__ separately.
@@ -1667,9 +1667,9 @@ namespace SharpPy
         #region String Representation
 
         // Python str() - PyString은 이미 문자열이므로 자신을 반환
-        public override PyString AsString() => this;
+        protected internal override PyString Str() => GetType() == typeof(PyString) ? this : new PyString(Value);
 
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             // CPython-compatible repr() implementation
             bool hasSingleQuote = Value.Contains('\'');

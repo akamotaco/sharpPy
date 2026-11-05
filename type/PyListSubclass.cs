@@ -57,7 +57,6 @@ namespace SharpPy
 
         // Declared dunders win, otherwise the inherited slot reads the value - the same decision
         // update_one_slot makes once (Objects/typeobject.c). See SubclassInstanceSupport.
-        public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, base.ToRepr);
 
         public override int Length() => SubclassInstanceSupport.Length(this, base.Length);
 

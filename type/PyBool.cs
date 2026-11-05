@@ -30,8 +30,8 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString AsString() => new PyString(Value ? "True" : "False");
-        public override PyString ToRepr() => new PyString(Value ? "True" : "False");
+        protected internal override PyString Str() => new PyString(Value ? "True" : "False");
+        protected internal override PyString Repr() => new PyString(Value ? "True" : "False");
         public override string ToString() => Value ? "True" : "False";
 
         #endregion

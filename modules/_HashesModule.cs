@@ -304,8 +304,8 @@ namespace SharpPy.Modules {
 
             public override PyType GetPyType() => HashType;
             public override string GetTypeName() => "HASH";
-            public override PyString ToRepr() => new PyString("<" + Name + " HASH object>");
-            public override PyString AsString() => ToRepr();
+            protected internal override PyString Repr() => new PyString("<" + Name + " HASH object>");
+            protected internal override PyString Str() => ToRepr();
 
             internal void DoCompress(byte[] block) {
                 switch (Family) {

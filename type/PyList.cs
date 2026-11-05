@@ -571,7 +571,7 @@ namespace SharpPy
             return new string(chars);
         }
 
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             if (_items.Count == 0) return StringCache.GetOrCreate("[]");
 

@@ -229,9 +229,9 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Str() => ToRepr();
 
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             if (Items.Length == 0) return StringCache.GetOrCreate("()");
 

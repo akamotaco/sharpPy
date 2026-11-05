@@ -891,7 +891,7 @@ namespace SharpPy.Modules
         }
 
         // deque_repr
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             if (!PyReprGuard.Enter(this))
                 return new PyString("[...]");
@@ -909,7 +909,7 @@ namespace SharpPy.Modules
             }
         }
 
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Str() => ToRepr();
 
         public override PyObject Add(PyObject other) => Concat(other);
 

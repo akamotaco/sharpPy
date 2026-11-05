@@ -79,7 +79,7 @@ namespace SharpPy.Core
         }
         public override PyType GetPyType() => PyType.AsyncGeneratorType;
         public override string GetTypeName() => "async_generator";
-        public override PyString ToRepr() => new PyString($"<async_generator object {Name}>");
+        protected internal override PyString Repr() => new PyString($"<async_generator object {Name}>");
         public PyObject ANext() => ASend(PyNone.Instance);
         public PyObject ASend(PyObject value)
         {
@@ -370,8 +370,8 @@ namespace SharpPy.Core
         public override string GetTypeName() => "async_generator_wrapped_value";
         public override PyType GetPyType() => PyType.ObjectType; // Internal type, no public PyType
 
-        public override PyString ToRepr() => new PyString($"<async_generator_wrapped_value {Value.ToRepr().Value}>");
-        public override PyString AsString() => Value.ToStr();
+        protected internal override PyString Repr() => new PyString($"<async_generator_wrapped_value {Value.ToRepr().Value}>");
+        protected internal override PyString Str() => Value.ToStr();
 
         public override bool Equals(object obj)
         {

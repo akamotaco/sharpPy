@@ -104,7 +104,7 @@ namespace SharpPy
         public override bool IsCallable() => true;
 
         // method_repr
-        public override PyString ToRepr() => new PyString($"<method '{_name}' of '{_ownerType.Name}' objects>");
+        protected internal override PyString Repr() => new PyString($"<method '{_name}' of '{_ownerType.Name}' objects>");
 
         public override string GetTypeName() => "classmethod_descriptor";
         public override PyType GetPyType() => PyType.ClassMethodDescriptorType;

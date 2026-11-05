@@ -50,7 +50,7 @@ namespace SharpPy.Modules
 
         public override PyType GetPyType() => Type;
         public override string GetTypeName() => "DirEntry";
-        public override PyString ToRepr() => new PyString($"<DirEntry {new PyString(_name).ToRepr().Value}>");
+        protected internal override PyString Repr() => new PyString($"<DirEntry {new PyString(_name).ToRepr().Value}>");
 
         public override PyObject GetAttribute(string name) => name switch
         {

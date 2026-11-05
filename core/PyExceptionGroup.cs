@@ -57,7 +57,7 @@ namespace SharpPy
         /// BaseExceptionGroup_str: "message (N sub-exception)" - note that the members are NOT
         /// included, unlike repr(), which CPython produces from args.
         /// </summary>
-        public override PyString AsString() => GroupStr();
+        protected internal override PyString Str() => GroupStr();
 
         internal PyString GroupStr()
             => new PyString($"{Msg.ToStr().Value} ({Exc.Length} sub-exception{(Exc.Length != 1 ? "s" : "")})");

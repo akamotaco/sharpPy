@@ -40,7 +40,7 @@ namespace SharpPy
             TypeDict["n_fields"] = new PyInt(fields.Length);
             TypeDict["n_unnamed_fields"] = new PyInt(fields.Length - members.Count);
             TypeDict["__match_args__"] = new PyTuple(matchArgs.ToArray());
-            TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", this, (self, args, kwargs) => self.ToRepr());
+            TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", this, (self, args, kwargs) => self.Repr());
             TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", this, (self, args, kwargs) => ((PyStructSequence)self).Reduce());
             if (Layout.NoInstances)
                 return;
@@ -130,7 +130,7 @@ namespace SharpPy
         public override string GetTypeName() => _type.FullName;
 
         // structseq_repr: the names of tp_members, so an unnamed field shows under the next name.
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             var text = new System.Text.StringBuilder(_type.FullName).Append('(');
             for (int i = 0; i < _type.Visible; i++)
@@ -142,7 +142,7 @@ namespace SharpPy
             return new PyString(text.Append(')').ToString());
         }
 
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Str() => ToRepr();
 
         // structseq_reduce
         internal PyObject Reduce()

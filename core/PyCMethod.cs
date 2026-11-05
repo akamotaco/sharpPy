@@ -66,7 +66,7 @@ namespace SharpPy
         }
 
         // meth_repr: "<built-in method %s of %s object at %p>" with the type of m_self.
-        public override PyString ToRepr() => new PyString(
+        protected internal override PyString Repr() => new PyString(
             $"<built-in method {((ICFunction)this).MethodName} of {_boundClass.GetPyType().Name} object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_boundClass):x}>");
 
         public override string GetTypeName() => "builtin_function_or_method";

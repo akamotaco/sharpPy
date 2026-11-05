@@ -936,7 +936,7 @@ public sealed class PyBuffered : PyIOBaseInstance
     }
 
     // buffered_repr
-    public override PyString ToRepr()
+    protected internal override PyString Repr()
     {
         string typeName = GetPyType() is PyClass ? GetPyType().Name : GetPyType().FullName;
         PyObject name = null;
@@ -996,7 +996,7 @@ public sealed class PyBuffered : PyIOBaseInstance
             Self(self, type, "__init__").Initialize(kind, args, kwargs);
             return PyNone.Instance;
         }, 0, int.MaxValue, acceptsKwargs: true);
-        type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type, (self, args, kwargs) => self.ToRepr());
+        type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type, (self, args, kwargs) => self.Repr());
 
         void Method(string method, Func<PyBuffered, PyObject[], PyObject> body, int min = 0, int max = 0) =>
             type.TypeDict[method] = new PyMethodDescriptor(method, type, (self, args, kwargs) =>

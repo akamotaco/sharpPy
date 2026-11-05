@@ -187,8 +187,8 @@ namespace SharpPy
         // CPython builtin_function_repr for an unbound (module-level) builtin:
         // <built-in function NAME>. repr()/str() route through ToRepr/ToStr, not the
         // C# ToString(), so these must be overridden explicitly.
-        public override PyString ToRepr() => new PyString($"<built-in function {Name}>");
-        public override PyString AsString() => new PyString($"<built-in function {Name}>");
+        protected internal override PyString Repr() => new PyString($"<built-in function {Name}>");
+        protected internal override PyString Str() => new PyString($"<built-in function {Name}>");
 
         /// <summary>
         /// CPython 호환: 내장 함수 구현 테이블 초기화
@@ -2887,7 +2887,7 @@ namespace SharpPy
         // CPython super_repr:
         //   obj_type != NULL: <super: <class 'TYPE'>, <OBJTYPE object>>
         //   obj_type == NULL: <super: <class 'TYPE'>, NULL>
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
             => ObjectType != null
                 ? new PyString($"<super: <class '{Type.Name}'>, <{ObjectType.Name} object>>")
                 : new PyString($"<super: <class '{Type.Name}'>, NULL>");
@@ -2976,7 +2976,7 @@ namespace SharpPy
         }
 
         // CPython: Lib/_sitebuiltins.py:30-36
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             return new PyString(_message);
         }
@@ -3027,7 +3027,7 @@ namespace SharpPy
     {
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "object";
-        public override PyString ToRepr() => new PyString($"<object object at 0x{GetHashCode():x}>");
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Repr() => new PyString($"<object object at 0x{GetHashCode():x}>");
+        protected internal override PyString Str() => ToRepr();
     }
 }

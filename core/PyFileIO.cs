@@ -332,7 +332,7 @@ public sealed class PyFileIO : PyIOBaseInstance
     }
 
     // fileio_repr
-    public override PyString ToRepr()
+    protected internal override PyString Repr()
     {
         string typeName = GetPyType() is PyClass ? $"{GetPyType().Module}.{GetPyType().Name}" : "_io.FileIO";
         if (Fd < 0)
@@ -394,7 +394,7 @@ public sealed class PyFileIO : PyIOBaseInstance
             Self(self, "__init__").Initialize(args, kwargs);
             return PyNone.Instance;
         }, 0, int.MaxValue, acceptsKwargs: true);
-        type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type, (self, args, kwargs) => self.ToRepr());
+        type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type, (self, args, kwargs) => self.Repr());
 
         Method(type, "read", (self, args) =>
         {

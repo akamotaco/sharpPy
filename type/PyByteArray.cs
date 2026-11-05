@@ -317,7 +317,10 @@ namespace SharpPy
 
         public override PyObject Modulo(PyObject other) => new PyByteArray(PyBytes.Format(ToByteArrayCopy(), other));
 
-        public override PyString ToRepr()
+        // bytes_str and bytearray_str: this type's own repr function, not the type's slot.
+        protected internal override PyString Str() => (PyString)Repr();
+
+        protected internal override PyString Repr()
         {
             // bytearray_repr: the quote is chosen as for bytes, but ' is escaped either way.
             bool hasSingle = false, hasDouble = false;

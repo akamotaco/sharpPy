@@ -505,7 +505,7 @@ namespace SharpPy.Modules
                 }
             }
 
-            public override PyString ToRepr()
+            protected internal override PyString Repr()
             {
                 var itemReprs = new string[_items.Length];
                 for (int i = 0; i < _items.Length; i++)

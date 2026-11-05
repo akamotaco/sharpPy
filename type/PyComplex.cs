@@ -157,9 +157,9 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString AsString() => ToRepr();
+        protected internal override PyString Str() => ToRepr();
 
-        public override PyString ToRepr()
+        protected internal override PyString Repr()
         {
             // complex_repr: with a real part of +0 there is neither real part nor parens.
             if (Real == 0.0 && !double.IsNegative(Real))
@@ -645,8 +645,6 @@ namespace SharpPy
 
         public override PyObject RichCompare(PyObject other, CompareOp op) =>
             TryCompareSpecial(other, op, PyType.ComplexType) ?? base.RichCompare(other, op);
-
-        public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, () => base.ToRepr());
     }
 
 }

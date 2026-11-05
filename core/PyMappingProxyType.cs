@@ -65,8 +65,8 @@ namespace SharpPy
         internal override long GetPythonHash() => Mapping.GetPythonHash();
 
         // mappingproxy_str and mappingproxy_repr
-        public override PyString AsString() => Mapping.ToStr();
-        public override PyString ToRepr() => new PyString($"mappingproxy({Mapping.ToRepr().Value})");
+        protected internal override PyString Str() => Mapping.ToStr();
+        protected internal override PyString Repr() => new PyString($"mappingproxy({Mapping.ToRepr().Value})");
 
         // mappingproxy_richcompare: PyObject_RichCompare(v->mapping, w, op)
         public override PyObject RichCompare(PyObject other, CompareOp op) => Compare(Mapping, other, op);

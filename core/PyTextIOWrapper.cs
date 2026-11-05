@@ -1099,7 +1099,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     }
 
     // textiowrapper_repr
-    public override PyString ToRepr()
+    protected internal override PyString Repr()
     {
         CheckInitialized();
         string typeName = "_io.TextIOWrapper";
@@ -1165,7 +1165,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             ((PyTextIOWrapper)self).Initialize(args, kwargs);
             return PyNone.Instance;
         }, 0, int.MaxValue, acceptsKwargs: true);
-        type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type, (self, args, kwargs) => self.ToRepr());
+        type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type, (self, args, kwargs) => self.Repr());
 
         void Method(string name, Func<PyTextIOWrapper, PyObject[], PyObject> body, int min = 0, int max = 0) =>
             type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) =>

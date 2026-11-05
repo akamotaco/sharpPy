@@ -39,7 +39,36 @@ namespace SharpPy
         }
 
         // Version 0 is never a tag, so every slot starts undecided.
-        private Slot _tpIter, _tpIterNext;
+        private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr;
+
+        internal PyObject StrSlot(PyObject self)
+        {
+            ref var slot = ref UpdateOneSlot(ref _tpStr, "__str__");
+            if (slot.Specific != null)
+                return slot.Specific._implementation(self, Array.Empty<PyObject>(), null);
+            // slot_tp_str: vectorcall_method(&_Py_ID(__str__), stack, 1)
+            if (slot.Generic != null)
+                return self.BindSpecialMethod(slot.Generic).Call(Array.Empty<PyObject>(), null);
+            return self.TpRepr();
+        }
+
+        internal PyObject ReprSlot(PyObject self)
+        {
+            ref var slot = ref UpdateOneSlot(ref _tpRepr, "__repr__");
+            if (slot.Specific != null)
+                return slot.Specific._implementation(self, Array.Empty<PyObject>(), null);
+            // slot_tp_repr: lookup_maybe_method, and a lookup that fails is cleared for the
+            // "<%s object at %p>" of tp_name.
+            if (slot.Generic != null)
+            {
+                PyObject bound;
+                try { bound = self.BindSpecialMethod(slot.Generic); }
+                catch (PythonException) { bound = null; }
+                if (bound != null)
+                    return bound.Call(Array.Empty<PyObject>(), null);
+            }
+            return new PyString($"<{Name} object at 0x{self.GetHashCode():x}>");
+        }
 
         internal PyObject IterNextSlot(PyObject self)
         {
@@ -2205,99 +2234,6 @@ namespace SharpPy
         // overflow rule (int too large to convert to float).
         public override PyFloat AsFloat() => SubclassInstanceSupport.Float(this);
 
-        public override PyString ToRepr()
-        {
-            // CPython PyObject_Repr: __repr__를 찾으면 호출하고 그 안에서 발생한 예외는
-            // 전파된다. 반환이 str이 아니면 TypeError고, __repr__가 없을 때만 아래 기본
-            // 표현(<module.Name object at 0x…>)을 쓴다.
-            bool hasRepr = false;
-            PyObject reprResult = null;
-
-            if (TryGetInstanceAttribute("__repr__", out var ownRepr))
-            {
-                hasRepr = true;
-                reprResult = ownRepr.Call(new PyObject[0], null);
-            }
-
-            if (!hasRepr)
-            {
-                foreach (var mroType in InstanceType.MRO)
-                {
-                    if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__repr__"))
-                    {
-                        hasRepr = true;
-                        reprResult = CallSpecial(customClass.ClassDict["__repr__"]);
-                        break;
-                    }
-                    // Stop before reaching object type to avoid default __repr__
-                    if (mroType.Name == "object")
-                    {
-                        break;
-                    }
-                    // A builtin level of the MRO carries __repr__ the same way a Python class does.
-                    // BaseException_repr (Objects/exceptions.c:131) lives here, so a Python subclass of
-                    // an exception gets Name(args) instead of the CLR "<Name object at 0x...>".
-                    if (mroType.TypeDict != null
-                        && mroType.TypeDict.TryGetValue("__repr__", out var levelRepr)
-                        && levelRepr is PyWrapperDescriptor reprSlot)
-                    {
-                        hasRepr = true;
-                        reprResult = reprSlot._implementation(this, new PyObject[0], null);
-                        break;
-                    }
-                }
-            }
-
-            if (hasRepr)
-            {
-                if (reprResult is PyString reprStr)
-                    return reprStr;
-                throw PyTypeError.Create($"__repr__ returned non-string (type {reprResult.GetTypeName()})");
-            }
-
-            // No Python-level __repr__ in the MRO does **not** mean object's repr. PyType_Ready
-            // installs the builtin base's C slot on the subclass (update_one_slot: a list subclass
-            // gets list_repr at Objects/listobject.c:379, a dict subclass dict_repr at
-            // Objects/dictobject.c:2400, a set subclass set_repr at Objects/setobject.c:507), and
-            // the storage object holds exactly the value those slots would have read.
-            var inheritedRepr = NativeStorage();
-            if (inheritedRepr != null)
-            {
-                // set_repr formats with Py_TYPE(so)->tp_name, so the subclass name has to travel
-                // with it: C({1, 2}) and C(), never a bare {1, 2}.
-                if (inheritedRepr is PySet mutableSet)
-                    return mutableSet.Repr(GetTypeName(), exactType: false);
-                if (inheritedRepr is PyFrozenSet frozenSet)
-                    return frozenSet.Repr(GetTypeName());
-                return inheritedRepr.ToRepr();
-            }
-
-            // Default representation: CPython prefixes the qualified name with the
-            // class's module (except builtins): <__main__.O object at 0x...>.
-            string modulePrefix = "";
-            if (InstanceType is PyClass reprClass &&
-                reprClass.ClassDict.TryGetValue("__module__", out var moduleObj) &&
-                moduleObj is PyString moduleStr &&
-                moduleStr.Value.Length > 0 && moduleStr.Value != "builtins" && moduleStr.Value != "None")
-                modulePrefix = moduleStr.Value + ".";
-            return new PyString($"<{modulePrefix}{InstanceType.QualNameText} object at 0x{GetHashCode():x}>");
-        }
-
-        // PyObject_Str -> slot_tp_str: __str__ from the type (_PyType_Lookup), never the instance.
-        // object_str is repr(self); a builtin base's own slot is the value it stores.
-        public override PyString AsString()
-        {
-            var method = InstanceType.FindNameInMro("__str__");
-            if (method == null || ReferenceEquals(method, PyType.ObjectType.FindNameInMro("__str__")))
-                return ToRepr();
-            if (method is PyWrapperDescriptor { CallsVirtual: true })
-                return NativeStorage()?.AsString() ?? ToRepr();
-            var result = BindSpecialMethod(method).Call(new PyObject[0], null);
-            if (result is PyString pyStr)
-                return pyStr;
-            throw PyTypeError.Create($"__str__ returned non-string (type {result.GetTypeName()})");
-        }
-
         public override PyObject RichCompare(PyObject other, CompareOp op)
         {
             var result = TryCompareSpecial(other, op);
@@ -2368,9 +2304,7 @@ namespace SharpPy
         public PyObject[] ConstructorArgs { get; set; }
 
         // update_one_slot: a declared __repr__ or __str__ replaces the slot, otherwise tuple's stays.
-        public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, () => base.ToRepr());
 
-        public override PyString AsString() => SubclassInstanceSupport.Str(this, ToRepr);
 
         public override int Length() => SubclassInstanceSupport.Length(this, base.Length);
 

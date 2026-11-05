@@ -147,7 +147,7 @@ namespace SharpPy
 
         public override string ToString() => $"<classmethod({Callable?.ToRepr().Value})>";
 
-        public override PyString ToRepr() => new(ToString());
+        protected internal override PyString Repr() => new(ToString());
     }
 
     // Objects/funcobject.c: staticmethod
@@ -168,6 +168,6 @@ namespace SharpPy
 
         public override string ToString() => $"<staticmethod({Callable?.ToRepr().Value})>";
 
-        public override PyString ToRepr() => new(ToString());
+        protected internal override PyString Repr() => new(ToString());
     }
 }
