@@ -189,7 +189,7 @@ namespace SharpPy
                 PyIntSubclass number => number.GetIntValue().IsTrue(),
                 PyFloatSubclass real => real.GetFloatValue().IsTrue(),
                 PyComplex value => value.Real != 0 || value.Imag != 0,
-                _ => self.IsTrue(),
+                _ => self.Bool(),
             }));
             foreach (var type in new[] { PyType.IntType, PyType.FloatType, PyType.ComplexType })
                 Slot(type, "__bool__", truth);
@@ -256,13 +256,13 @@ namespace SharpPy
                 ("and", (a, b) => a.BitwiseAnd(b)), ("or", (a, b) => a.BitwiseOr(b)), ("xor", (a, b) => a.BitwiseXor(b)),
             })
                 Slot(PyType.BoolType, $"__r{name}__", (self, args) => args[0] is PyInt or PyBool ? operation(args[0], self) : PyNotImplemented.Instance);
-            Slot(PyNotImplemented.Instance.GetPyType(), "__bool__", (self, args) => PyBool.FromBool(self.IsTrue()));
+            Slot(PyNotImplemented.Instance.GetPyType(), "__bool__", (self, args) => PyBool.FromBool(self.Bool()));
             Method(PyType.BytesType, "__getnewargs__", (self, args) => new PyTuple(new[] { self }));
             Slot(PyType.BytesType, "__mod__", (self, args) => self.Modulo(args[0]));
             Slot(PyType.BytesType, "__rmod__", (self, args) => args[0] is PyBytes format ? format.Modulo(self) : PyNotImplemented.Instance);
 
             var array = PyType.BytearrayType;
-            Slot(array, "__len__", (self, args) => new PyInt(self.Length()));
+            Slot(array, "__len__", (self, args) => new PyInt(self.Len()));
             Slot(array, "__iadd__", (self, args) => ((PyByteArray)self).InPlaceConcat(args[0]));
             Slot(array, "__imul__", (self, args) => ((PyByteArray)self).InPlaceRepeat(args[0]));
             Slot(array, "__contains__", (self, args) => self.Contains(args[0]));
@@ -291,7 +291,7 @@ namespace SharpPy
                 SetOperator(type, "sub", (a, b) => a.Subtract(b));
                 SetOperator(type, "xor", (a, b) => a.BitwiseXor(b));
             }
-            Slot(PyType.FrozenSetType, "__len__", (self, args) => new PyInt(PyNativeStorage.ForFrozenSet(self).Length()));
+            Slot(PyType.FrozenSetType, "__len__", (self, args) => new PyInt(PyNativeStorage.ForFrozenSet(self).Len()));
             Slot(PyType.FrozenSetType, "__contains__", (self, args) => PyNativeStorage.ForFrozenSet(self).Contains(args[0]));
             Slot(PyType.FrozenSetType, "__iter__", (self, args) => PyNativeStorage.ForFrozenSet(self).Iter());
 

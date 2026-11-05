@@ -4007,7 +4007,7 @@ namespace SharpPy
 
         #region Hash and Comparison
 
-        public override bool PyBoolValue() => true;
+        protected internal override bool Bool() => true;
 
         protected override int GetDefaultHash()
         {

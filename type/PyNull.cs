@@ -65,7 +65,7 @@ namespace SharpPy
 
         #region Truth Value
 
-        public override bool PyBoolValue() => false; // NULL은 항상 falsy
+        protected internal override bool Bool() => false; // NULL은 항상 falsy
 
         #endregion
 
@@ -85,7 +85,7 @@ namespace SharpPy
 
         #region Length (NULL은 길이 없음)
 
-        public override int Length()
+        protected internal override long Len()
         {
             throw PyTypeError.Create("NULL values have no length");
         }

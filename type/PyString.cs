@@ -1660,7 +1660,7 @@ namespace SharpPy
 
         // CPython 3.12: Objects/unicodeobject.c - unicode_bool
         // Optimized: Direct length check, no MRO traversal
-        public override bool IsTrue() => Value.Length > 0;
+        protected internal override bool Bool() => Value.Length > 0;
 
         #endregion
 
@@ -3117,7 +3117,7 @@ namespace SharpPy
 
         // CPython: PyUnicode_GET_LENGTH counts characters. Everything above this line that needs a
         // unit offset converts through CodePointToUnit.
-        public override int Length() => HasPairs ? CodePointCount(Value) : Value.Length;
+        protected internal override long Len() => HasPairs ? CodePointCount(Value) : Value.Length;
         
         public PyBool Contains(string substring) => PyBool.FromBool(Value.Contains(substring));
         
@@ -3145,7 +3145,6 @@ namespace SharpPy
         /// <summary>
         /// CPython PyObject_IsTrue 호환: PyString에서 C# bool 값 추출
         /// </summary>
-        public override bool PyBoolValue() => Value.Length > 0;
         
         /// <summary>
         /// CPython PyUnicode_AsLong 호환: PyString에서 C# int 값 추출

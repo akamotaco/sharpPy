@@ -554,7 +554,7 @@ namespace SharpPy.Modules
         }
 
         protected internal override PyString Str() => ToRepr();
-        public override bool IsTrue() => true;
+        protected internal override bool Bool() => true;
     }
 
     /// <summary>The compiled form of a replacement: literal, then (group, literal) pairs.</summary>

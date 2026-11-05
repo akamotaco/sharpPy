@@ -142,9 +142,9 @@ namespace SharpPy
                 var item = _iterator.Next();
                 bool keep;
                 if (_func is PyNone)
-                    keep = item.PyBoolValue();
+                    keep = item.IsTrue();
                 else
-                    keep = _func.Call(new PyObject[] { item }, null).PyBoolValue();
+                    keep = _func.Call(new PyObject[] { item }, null).IsTrue();
                 if (keep)
                     return item;
             }

@@ -881,8 +881,8 @@ namespace SharpPy.Modules
             return PyDequeModule.BasicSize + blocks * PyDequeModule.BlockSize;
         }
 
-        public override int Length() => (int)Size;
-        public override bool IsTrue() => Size > 0;
+        protected internal override long Len() => (int)Size;
+        protected internal override bool Bool() => Size > 0;
 
         // PyObject_GetIter: a subclass's own __iter__, otherwise deque_iter.
         protected internal override PyObject Iter()

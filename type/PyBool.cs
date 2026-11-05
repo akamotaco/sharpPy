@@ -24,7 +24,7 @@ namespace SharpPy
 
         // CPython 3.12: Objects/boolobject.c - bool is subclass of int
         // Optimized: Direct value check, no MRO traversal
-        public override bool IsTrue() => Value;
+        protected internal override bool Bool() => Value;
 
         #endregion
 
@@ -323,7 +323,6 @@ namespace SharpPy
         /// <summary>
         /// CPython PyObject_IsTrue 호환: PyBool에서 C# bool 값 추출
         /// </summary>
-        public override bool PyBoolValue() => Value;
         
         // === As* Methods: Type Conversion (PyBool → PyObject types) ===
         

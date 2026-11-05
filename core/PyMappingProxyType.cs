@@ -30,7 +30,7 @@ namespace SharpPy
         public override string GetTypeName() => "mappingproxy";
 
         // mappingproxy_len: PyObject_Size(pp->mapping)
-        public override int Length() => InternalCount;
+        protected internal override long Len() => InternalCount;
 
         // mappingproxy_getitem: PyObject_GetItem(pp->mapping, key)
         public override PyObject GetItem(PyObject key)

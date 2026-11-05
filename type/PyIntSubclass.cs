@@ -162,7 +162,7 @@ namespace SharpPy
 
         public override int ToInt() => _intValue.ToInt();
         public override double ToFloat() => _intValue.ToFloat();
-        public override bool PyBoolValue() => _intValue.PyBoolValue();
+        protected internal override bool Bool() => _intValue.IsTrue();
         protected internal override PyString Repr() => (PyString)_intValue.Repr();
 
         #endregion

@@ -494,9 +494,17 @@ namespace SharpPy
 
         #region Truth Value Protocol
 
-        public virtual bool PyBoolValue()
+        /// <summary>
+        /// The nb_bool function of this object's CLR implementation. A builtin without one is
+        /// true unless it has a length (PyObject_IsTrue reads mp_length or sq_length then); its
+        /// slots may be only the functions of the wrappers in its dict.
+        /// </summary>
+        protected internal virtual bool Bool()
         {
-            return true; // 기본값: 모든 객체는 truthy
+            var type = GetPyType();
+            if (type.FindNameInMro("__bool__") is PyWrapperDescriptor wrapper)
+                return wrapper._implementation(this, Array.Empty<PyObject>(), null).IsTrue();
+            return type.FindNameInMro("__len__") == null || Len() != 0;
         }
 
         /// <summary>
@@ -512,36 +520,13 @@ namespace SharpPy
         /// 5. If __len__ exists (mapping or sequence), call it and return length > 0
         /// 6. Otherwise → true (default for all objects)
         /// </summary>
-        public virtual bool IsTrue()
+        public bool IsTrue()
         {
+            // PyObject_IsTrue (Objects/object.c): Py_True, Py_False and Py_None first, then nb_bool,
+            // and a class written in Python has the slot update_one_slot gave it.
             if (this is PyBool boolean) return boolean.Value;
-            if (this == PyNone.Instance) return false;
-            // NotImplemented_bool
-            if (ReferenceEquals(this, PyNotImplemented.Instance))
-            {
-                PyWarnings.Deprecated("NotImplemented should not be used in a boolean context");
-                return true;
-            }
-            var method = LookupSpecialMethodUncached("__bool__");
-            if (method != null)
-            {
-                var result = BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-                if (result is PyBool truth) return truth.Value;
-                throw PyTypeError.Create($"__bool__ should return bool, returned {result.GetTypeName()}");
-            }
-            method = LookupSpecialMethodUncached("__len__");
-            if (method != null)
-            {
-                var result = BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-                var length = TryGetIndex(result);
-                if (length == null)
-                    throw PyTypeError.Create($"'{result.GetTypeName()}' object cannot be interpreted as an integer");
-                if (length.Value.Sign < 0) throw PyValueError.Create("__len__() should return >= 0");
-                if (length.Value > nint.MaxValue)
-                    throw PyOverflowError.Create($"cannot fit '{result.GetTypeName()}' into an index-sized integer");
-                return !length.Value.IsZero;
-            }
-            return PyBoolValue();
+            if (ReferenceEquals(this, PyNone.Instance)) return false;
+            return GetPyType() is SharpPy.PyClass heap ? heap.BoolSlot(this) : Bool();
         }
 
         #endregion
@@ -1084,7 +1069,7 @@ namespace SharpPy
         /// <summary>
         /// CPython PyObject_IsTrue 호환: PyObject에서 C# bool 값 추출
         /// </summary>
-        public virtual bool ToBool() => PyBoolValue();
+        public virtual bool ToBool() => IsTrue();
 
         // === As* Methods: PyObject → PyObject Types (Type Conversion/Casting) ===
         
@@ -1163,24 +1148,6 @@ namespace SharpPy
         }
 
         // CPython PyObject_LengthHint: TypeError from len/call is a fallback,
-        // PyObject_Size: __len__ must give a non-negative index-sized int.
-        internal long SequenceLength()
-        {
-            if (this is PyRange range)
-                return range.PythonLength();
-            var method = LookupUserSpecial("__len__");
-            if (method == null)
-                return Length();
-            var result = CallSpecial(method);
-            var length = TryGetIndex(result) ??
-                throw PyTypeError.Create($"'{result.GetTypeName()}' object cannot be interpreted as an integer");
-            if (length.Value.Sign < 0)
-                throw PyValueError.Create("__len__() should return >= 0");
-            if (length.Value > long.MaxValue)
-                throw PyOverflowError.Create($"cannot fit '{result.GetTypeName()}' into an index-sized integer");
-            return (long)length.Value;
-        }
-
         // while invalid hint return values and other exceptions propagate.
         internal long LengthHint(long defaultValue)
         {
@@ -1189,19 +1156,8 @@ namespace SharpPy
             if (this is not PyIterator)
             try
             {
-                var lengthMethod = LookupSpecialMethodUncached("__len__");
-                if (lengthMethod == null) return Length();
-                var result = BindSpecialMethod(lengthMethod).Call(Array.Empty<PyObject>(), null);
-                var length = TryGetIndex(result);
-                if (length == null)
-                    throw PyTypeError.Create($"'{result.GetTypeName()}' object cannot be interpreted as an integer");
-                if (length.Value.Sign < 0)
-                    throw PyValueError.Create("__len__() should return >= 0");
-                try { return (long)nint.CreateChecked(length.Value); }
-                catch (OverflowException)
-                {
-                    throw PyOverflowError.Create($"cannot fit '{result.GetTypeName()}' into an index-sized integer");
-                }
+                // PyObject_Length; a TypeError is a type without a length.
+                return Size();
             }
             catch (PythonException ex) when (ex.PyException is PyTypeError) { }
 
@@ -1225,11 +1181,35 @@ namespace SharpPy
         }
 
         // PyObject_Size: sq_length or mp_length, which a class fills with slot_sq_length.
-        public virtual int Length()
+        /// <summary>
+        /// The sq_length or mp_length function of this object's CLR implementation. A builtin's
+        /// slot may be only the function of the wrapper in its dict.
+        /// </summary>
+        protected internal virtual long Len()
         {
-            var lenMethod = LookupSpecialMethodUncached("__len__")
-                ?? throw PyTypeError.Create($"object of type '{GetTypeName()}' has no len()");
-            return ToLengthResult(BindSpecialMethod(lenMethod).Call(System.Array.Empty<PyObject>(), null));
+            switch (GetPyType().FindNameInMro("__len__"))
+            {
+                case PyWrapperDescriptor wrapper:
+                    return ToLengthResult(wrapper._implementation(this, Array.Empty<PyObject>(), null));
+                case PyMethodDescriptor method:
+                    return ToLengthResult(method._implementation(this, Array.Empty<PyObject>(), null));
+            }
+            throw PyTypeError.Create($"object of type '{GetTypeName()}' has no len()");
+        }
+
+        /// <summary>
+        /// PyObject_Size (Objects/abstract.c): sq_length, then mp_length, of the type; a class
+        /// written in Python has the slot update_one_slot gave it.
+        /// </summary>
+        public long Size() => GetPyType() is SharpPy.PyClass heap ? heap.LenSlot(this) : Len();
+
+        /// <summary>PyObject_Size where SharpPy needs an int: a CLR collection is never longer.</summary>
+        public int Length()
+        {
+            long size = Size();
+            if (size > int.MaxValue)
+                throw PyOverflowError.Create("cannot fit 'int' into an index-sized integer");
+            return (int)size;
         }
 
         #endregion
@@ -1372,7 +1352,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyBool Not()
         {
-            return PyBool.FromBool(!PyBoolValue());
+            return PyBool.FromBool(!IsTrue());
         }
 
         /// <summary>
@@ -1574,7 +1554,7 @@ namespace SharpPy
                 if (containsMethod != null && containsMethod != PyNone.Instance)
                 {
                     var result = containsMethod.Call(new PyObject[] { item }, null);
-                    return PyBool.FromBool(result.PyBoolValue());
+                    return PyBool.FromBool(result.IsTrue());
                 }
             }
             catch (PythonException ex) when (ex.PyException is PyAttributeError)
@@ -1667,6 +1647,13 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.NotImplementedType;
         protected internal override PyString Str() => new PyString("NotImplemented");
         protected internal override PyString Repr() => new PyString("NotImplemented");
+
+        // NotImplemented_bool
+        protected internal override bool Bool()
+        {
+            PyWarnings.Deprecated("NotImplemented should not be used in a boolean context");
+            return true;
+        }
     }
 
     /// <summary>

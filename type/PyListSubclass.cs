@@ -58,12 +58,10 @@ namespace SharpPy
         // Declared dunders win, otherwise the inherited slot reads the value - the same decision
         // update_one_slot makes once (Objects/typeobject.c). See SubclassInstanceSupport.
 
-        public override int Length() => SubclassInstanceSupport.Length(this, base.Length);
 
         public override PyBool Contains(PyObject item) =>
             SubclassInstanceSupport.Contains(this, item, () => base.Contains(item));
 
-        public override bool IsTrue() => SubclassInstanceSupport.IsTrue(this, base.IsTrue);
 
         public override PyInt AsInt() => SubclassInstanceSupport.Int(this);
 

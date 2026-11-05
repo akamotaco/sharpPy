@@ -477,7 +477,7 @@ namespace SharpPy
 
         // CPython 3.12: Objects/floatobject.c - float_bool
         // Optimized: Direct value check, no MRO traversal
-        public override bool IsTrue() => Value != 0.0;
+        protected internal override bool Bool() => Value != 0.0;
 
         #endregion
 
@@ -1037,10 +1037,6 @@ namespace SharpPy
         /// <summary>
         /// CPython PyObject_IsTrue 호환: PyFloat에서 C# bool 값 추출
         /// </summary>
-        public override bool PyBoolValue()
-        {
-            return Value != 0.0 && !double.IsNaN(Value);
-        }
         
         // === As* Methods: Type Conversion (PyFloat → PyObject types) ===
         
@@ -1068,7 +1064,7 @@ namespace SharpPy
         /// </summary>
         public override PyBool AsBool()
         {
-            return PyBool.FromBool(PyBoolValue());
+            return PyBool.FromBool(IsTrue());
         }
         
         /// <summary>

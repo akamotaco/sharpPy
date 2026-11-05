@@ -574,7 +574,7 @@ namespace SharpPy
 
         // CPython 3.12: Objects/dictobject.c - dict_bool
         // Optimized: Direct count check, no MRO traversal
-        public override bool IsTrue() => _dict.Count > 0;
+        protected internal override bool Bool() => _dict.Count > 0;
 
         #endregion
 
@@ -1041,8 +1041,7 @@ namespace SharpPy
 
         #region Length and Type Checking
 
-        public override int Length() => _dict.Count;
-        public override bool PyBoolValue() => _dict.Count > 0;
+        protected internal override long Len() => _dict.Count;
 
         #endregion
 
@@ -1508,9 +1507,9 @@ namespace SharpPy
                 return;
             }
             // CPython 3.12: Setting globals()[key] = value modifies the module namespace
-            int before = base.Length();
+            int before = (int)base.Len();
             base.SetItem(key, value);
-            if (key is not PyString) _nonStringCount += base.Length() - before;
+            if (key is not PyString) _nonStringCount += (int)base.Len() - before;
 
             // Sync back to global scope
             if (key is PyString strKey)
@@ -1553,9 +1552,9 @@ namespace SharpPy
             }
             if (key is not PyString name)
             {
-                int before = base.Length();
+                int before = (int)base.Len();
                 var result = base.Pop(key, defaultValue);
-                _nonStringCount += base.Length() - before;
+                _nonStringCount += (int)base.Len() - before;
                 return result;
             }
             bool found = _globalScopeVariables.TryGetValue(name.Value, out var value);
@@ -1592,9 +1591,9 @@ namespace SharpPy
             }
             if (key is not PyString name)
             {
-                int before = base.Length();
+                int before = (int)base.Len();
                 var result = base.SetDefault(key, defaultValue);
-                _nonStringCount += base.Length() - before;
+                _nonStringCount += (int)base.Len() - before;
                 return result;
             }
             if (_globalScopeVariables.TryGetValue(name.Value, out var value))
@@ -1664,9 +1663,8 @@ namespace SharpPy
             return this;
         }
 
-        public override int Length() => _globalScopeVariables is PyNamespace ? base.Length() : _globalScopeVariables.Count + _nonStringCount;
-        public override bool IsTrue() => Length() != 0;
-        public override bool PyBoolValue() => IsTrue();
+        protected internal override long Len() => _globalScopeVariables is PyNamespace ? base.Len() : _globalScopeVariables.Count + _nonStringCount;
+        protected internal override bool Bool() => Len() != 0;
         public override PyBool AsBool() => PyBool.FromBool(IsTrue());
 
         public override PyDict Copy()
@@ -1690,7 +1688,7 @@ namespace SharpPy
                 if (!_globalScopeVariables.TryGetValue(key.Value, out var value)) base.DelItem(key);
                 else if (!ReferenceEquals(_dict.StoredValue(key), value)) base.SetItem(key, value);
             }
-            if (base.Length() == _globalScopeVariables.Count + _nonStringCount) return;
+            if ((int)base.Len() == _globalScopeVariables.Count + _nonStringCount) return;
             foreach (var pair in _globalScopeVariables)
             {
                 var key = StringCache.GetOrCreate(pair.Key);

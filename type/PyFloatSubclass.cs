@@ -124,7 +124,7 @@ namespace SharpPy
             => CallUserSpecialOrNull("__divmod__", new[] { other })
                ?? PyFloat.DivModValues(_floatValue, other);
 
-        public override bool PyBoolValue() => _floatValue.PyBoolValue();
+        protected internal override bool Bool() => _floatValue.IsTrue();
 
         protected internal override PyString Repr() => (PyString)_floatValue.Repr();
 

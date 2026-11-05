@@ -39,7 +39,43 @@ namespace SharpPy
         }
 
         // Version 0 is never a tag, so every slot starts undecided.
-        private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr;
+        private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool;
+
+        internal long LenSlot(PyObject self)
+        {
+            ref var slot = ref UpdateOneSlot(ref _sqLength, "__len__");
+            if (slot.Specific != null)
+                return ToLengthResult(slot.Specific._implementation(self, Array.Empty<PyObject>(), null));
+            if (slot.Generic == null)
+                throw PyTypeError.Create($"object of type '{Name}' has no len()");
+            // slot_sq_length: _PyNumber_Index of what __len__ answers, never negative, and
+            // PyNumber_AsSsize_t(res, PyExc_OverflowError).
+            var result = self.BindSpecialMethod(slot.Generic).Call(Array.Empty<PyObject>(), null);
+            var length = PyObject.IndexOrThrow(result);
+            if (length.Value.Sign < 0)
+                throw PyValueError.Create("__len__() should return >= 0");
+            if (length.Value > long.MaxValue)
+                throw PyOverflowError.Create($"cannot fit '{length.GetPyType().FullName}' into an index-sized integer");
+            return (long)length.Value;
+        }
+
+        internal bool BoolSlot(PyObject self)
+        {
+            ref var slot = ref UpdateOneSlot(ref _nbBool, "__bool__");
+            if (slot.Specific != null)
+                return slot.Specific._implementation(self, Array.Empty<PyObject>(), null).IsTrue();
+            if (slot.Generic != null)
+            {
+                // slot_nb_bool: what __bool__ answers must be a bool.
+                var value = self.BindSpecialMethod(slot.Generic).Call(Array.Empty<PyObject>(), null);
+                if (value is PyBool truth)
+                    return truth.Value;
+                throw PyTypeError.Create($"__bool__ should return bool, returned {value.GetPyType().FullName}");
+            }
+            // PyObject_IsTrue without nb_bool: mp_length or sq_length, else true.
+            ref var length = ref UpdateOneSlot(ref _sqLength, "__len__");
+            return length.Specific == null && length.Generic == null || LenSlot(self) != 0;
+        }
 
         internal PyObject StrSlot(PyObject self)
         {
@@ -917,7 +953,7 @@ namespace SharpPy
             {
                 if (function.Attributes.TryGetValue("__override__", out PyObject overrideAttr))
                 {
-                    return overrideAttr.PyBoolValue();
+                    return overrideAttr.IsTrue();
                 }
             }
             catch
@@ -1513,7 +1549,7 @@ namespace SharpPy
             // around __contains__; consulting the storage first skipped the class's own method.
             var declaredContains = CallUserSpecialOrNull("__contains__", new[] { item });
             if (declaredContains != null)
-                return PyBool.FromBool(declaredContains.PyBoolValue());
+                return PyBool.FromBool(declaredContains.IsTrue());
             var container = NativeStorage();
             if (container != null)
                 return container.Contains(item);
@@ -1521,20 +1557,6 @@ namespace SharpPy
         }
 
         // CPython 3.12: str subclasses inherit sq_length/unicode_length.
-        public override int Length()
-        {
-            // The declared __len__ wins, otherwise the inherited base slot reads the storage.
-            // Only str's storage was consulted here, so len() of a plain dict subclass raised
-            // "object of type 'DPlain' has no len()" while its own __len__ happened to work.
-            var declaredLength = CallUserSpecialOrNull("__len__", System.Array.Empty<PyObject>());
-            if (declaredLength != null)
-                return ToLengthResult(declaredLength);
-            var container = NativeStorage();
-            if (container != null)
-                return container.Length();
-            return base.Length();
-        }
-
         /// <summary>
         /// CPython 3.12: Get next item by calling __next__ method
         /// </summary>
@@ -2281,17 +2303,6 @@ namespace SharpPy
             return base.GetPythonHash();
         }
 
-        public override bool IsTrue()
-        {
-            if (LookupSpecialMethodUncached("__bool__") == null &&
-                LookupSpecialMethodUncached("__len__") == null)
-            {
-                var container = NativeStorage();
-                if (container != null)
-                    return container.IsTrue();
-            }
-            return base.IsTrue();
-        }
 
     }
 
@@ -2313,7 +2324,6 @@ namespace SharpPy
         // update_one_slot: a declared __repr__ or __str__ replaces the slot, otherwise tuple's stays.
 
 
-        public override int Length() => SubclassInstanceSupport.Length(this, base.Length);
 
         public override PyBool Contains(PyObject item) =>
             SubclassInstanceSupport.Contains(this, item, () => base.Contains(item));
@@ -2321,7 +2331,6 @@ namespace SharpPy
         public override PyObject GetItem(PyObject index) =>
             CallUserSpecialOrNull("__getitem__", new[] { index }) ?? base.GetItem(index);
 
-        public override bool IsTrue() => SubclassInstanceSupport.IsTrue(this, base.IsTrue);
 
         public PyTupleSubclass(PyClass instanceType, PyObject[] items) : base(items)
         {

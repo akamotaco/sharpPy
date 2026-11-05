@@ -25,7 +25,7 @@ namespace SharpPy
         }
 
         public override PyInt GetItem(long index) => GetExactItem(index);
-        public override bool PyBoolValue() => !_length.IsZero;
+        protected internal override bool Bool() => !_length.IsZero;
 
         public override long LengthLong()
         {

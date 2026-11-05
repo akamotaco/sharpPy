@@ -223,7 +223,7 @@ namespace SharpPy
             throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
         }
 
-        public override bool PyBoolValue() => true;
+        protected internal override bool Bool() => true;
 
         /// <summary>
         /// CPython 3.12: Use descriptor protocol for attribute access

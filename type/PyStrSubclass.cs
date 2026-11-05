@@ -61,24 +61,19 @@ namespace SharpPy
 
         // CPython 3.12: str subclasses inherit the whole unicode protocol; these slots
         // were missing, so len()/indexing/slices/`in`/iteration failed on subclasses.
-        public override int Length()
-        {
-            var declared = CallUserSpecialOrNull("__len__", System.Array.Empty<PyObject>());
-            return declared == null ? _strValue.Length() : ToLengthResult(declared);
-        }
+        protected internal override long Len() => _strValue.Len();
 
         public override PyObject GetItem(PyObject index) =>
             CallUserSpecialOrNull("__getitem__", new[] { index }) ?? _strValue.GetItem(index);
 
         public override PyList AsList() => new PyList(new List<PyObject>(PySet.IterableItems(this)));
 
-        public override bool IsTrue() => SubclassInstanceSupport.IsTrue(this, base.IsTrue);
 
         public override PyBool Contains(PyObject item)
         {
             // `x in s` is always a bool: CPython coerces whatever __contains__ returns.
             var declared = CallUserSpecialOrNull("__contains__", new[] { item });
-            return declared == null ? _strValue.Contains(item) : PyBool.FromBool(declared.PyBoolValue());
+            return declared == null ? _strValue.Contains(item) : PyBool.FromBool(declared.IsTrue());
         }
 
 
@@ -172,7 +167,7 @@ namespace SharpPy
 
         protected internal override PyString Repr() => (PyString)_strValue.Repr();
         public override int ToHash() => _strValue.ToHash();
-        public override bool PyBoolValue() => _strValue.PyBoolValue();
+        protected internal override bool Bool() => _strValue.Bool();
 
         #endregion
 

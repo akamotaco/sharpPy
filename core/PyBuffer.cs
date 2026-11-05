@@ -322,7 +322,7 @@ namespace SharpPy
                     if (self is not PyMemoryView view)
                         throw PyTypeError.Create($"descriptor '__len__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
                     if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
-                    return SmallIntCache.GetOrCreate(view.Length());
+                    return SmallIntCache.GetOrCreate((int)view.Len());
                 }, minArgs: 0, maxArgs: 0);
 
             // CPython memoryview is iterable and yields one element per position
@@ -1014,7 +1014,7 @@ namespace SharpPy
 
         // len() of an N-D view is its first axis (CPython bf_length), while the flat
         // element count stays in _length for storage arithmetic.
-        public override int Length() { CheckReleased(); return _shape == null ? _length : _shape[0]; }
+        protected internal override long Len() { CheckReleased(); return _shape == null ? _length : _shape[0]; }
 
         protected internal override PyObject Iter()
         {
@@ -1025,8 +1025,7 @@ namespace SharpPy
                 items[i] = ReadElement(StorageIndex(i));
             return new PyList(items).GetIterator();
         }
-        public override bool IsTrue() => Length() != 0;
-        public override bool PyBoolValue() => IsTrue();
+        protected internal override bool Bool() => Len() != 0;
 
         // CPython memory_repr(): <memory at 0x..> or <released memory at 0x..>, and it never
         // raises. It must take the CLR identity hash directly instead of GetHashCode(): the

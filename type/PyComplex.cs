@@ -503,7 +503,7 @@ namespace SharpPy
 
         #region Type Checking
 
-        public override bool PyBoolValue() => Real != 0.0 || Imag != 0.0;
+        protected internal override bool Bool() => Real != 0.0 || Imag != 0.0;
 
         #endregion
 

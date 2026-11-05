@@ -493,14 +493,8 @@ namespace SharpPy
             return new PyString(sb.Append(quote).ToString());
         }
         
-        public override int Length()
-        {
-            var declaredLength = CallDeclared("__len__", System.Array.Empty<PyObject>());
-            if (declaredLength != null)
-                return ToLengthResult(declaredLength);
-            return Value.Length;
-        }
-        public override bool PyBoolValue() => Value.Length > 0;
+        protected internal override long Len() => Value.Length;
+        protected internal override bool Bool() => Value.Length > 0;
 
         #region Buffer Protocol (PEP 688)
 

@@ -312,7 +312,7 @@ namespace SharpPy
 
         protected internal override PyString Str() => ToRepr();
 
-        public override bool PyBoolValue() => true;
+        protected internal override bool Bool() => true;
 
         // ga_richcompare
         protected override PyObject PyEquals(PyObject other)

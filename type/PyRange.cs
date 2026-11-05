@@ -359,13 +359,7 @@ namespace SharpPy
             return (long)length;
         }
 
-        public override int Length()
-        {
-            var len = LengthLong();
-            if (len > int.MaxValue)
-                throw PyOverflowError.Create("Python int too large to convert to C# int");
-            return (int)len;
-        }
+        protected internal override long Len() => PythonLength();
 
         internal virtual long PythonLength()
         {
@@ -375,7 +369,7 @@ namespace SharpPy
             return (long)length;
         }
 
-        public override bool PyBoolValue() => NativeStep > 0 ? NativeStart < NativeStop : NativeStart > NativeStop;
+        protected internal override bool Bool() => NativeStep > 0 ? NativeStart < NativeStop : NativeStart > NativeStop;
 
         #endregion
 
@@ -434,7 +428,7 @@ namespace SharpPy
         /// <summary>
         /// range가 빈지 확인
         /// </summary>
-        public bool IsEmpty() => !PyBoolValue();
+        public bool IsEmpty() => !Bool();
 
         /// <summary>
         /// range의 최소값

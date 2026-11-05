@@ -656,8 +656,8 @@ namespace SharpPy
 
         #region Length and Type Checking
 
-        public override int Length() => _items.Count;
-        public override bool PyBoolValue() => _items.Count > 0;
+        protected internal override long Len() => _items.Count;
+        protected internal override bool Bool() => _items.Count > 0;
 
         #endregion
 
@@ -913,8 +913,8 @@ namespace SharpPy
 
         #region Length and Type Checking
 
-        public override int Length() => _items.Count;
-        public override bool PyBoolValue() => _items.Count > 0;
+        protected internal override long Len() => _items.Count;
+        protected internal override bool Bool() => _items.Count > 0;
 
         #endregion
 

@@ -227,9 +227,9 @@ namespace SharpPy.Modules
                 return (int)i;
             }
 
-            public override int Length() => _count;
+            protected internal override long Len() => _count;
 
-            public override bool IsTrue() => _count > 0;
+            protected internal override bool Bool() => _count > 0;
 
             protected internal override PyObject Iter() => new PyArrayIterator(this);
 
@@ -1039,7 +1039,7 @@ namespace SharpPy.Modules
 
             type.TypeDict["__len__"] = new PyWrapperDescriptor("__len__", type, (self, args, kwargs) =>
             {
-                return new PyInt(((PyArray)self).Length());
+                return new PyInt(((PyArray)self).Len());
             });
 
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) =>

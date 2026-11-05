@@ -104,31 +104,12 @@ namespace SharpPy
                 $"float() argument must be a string or a real number, not '{self.GetTypeName()}'");
         }
 
-        internal static int Length(PyObject self, Func<int> inherited)
-        {
-            var declared = self.CallUserSpecialOrNull("__len__", Array.Empty<PyObject>());
-            return declared != null ? PyObject.ToLengthResult(declared) : inherited();
-        }
-
         /// <summary>sq_contains/mp_contains: a declared __contains__ replaces the slot, and its
         /// result is coerced to a bool the way sq_contains returns 0/1/-1.</summary>
         internal static PyBool Contains(PyObject self, PyObject item, Func<PyBool> inherited)
         {
             var declared = self.CallUserSpecialOrNull("__contains__", new[] { item });
             return declared != null ? PyBool.FromBool(declared.IsTrue()) : inherited();
-        }
-
-        /// <summary>
-        /// Objects/object.c:1675 PyObject_IsTrue: nb_bool, then sq_length/mp_length. A class that
-        /// declares only __len__ still decides its own truthiness.
-        /// </summary>
-        internal static bool IsTrue(PyObject self, Func<bool> inherited)
-        {
-            var declaredBool = self.CallUserSpecialOrNull("__bool__", Array.Empty<PyObject>());
-            if (declaredBool != null) return declaredBool.IsTrue();
-            var declaredLength = self.CallUserSpecialOrNull("__len__", Array.Empty<PyObject>());
-            if (declaredLength != null) return PyObject.ToLengthResult(declaredLength) != 0;
-            return inherited();
         }
 
         /// <summary>

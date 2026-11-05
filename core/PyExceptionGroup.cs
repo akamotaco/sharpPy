@@ -386,7 +386,7 @@ namespace SharpPy
                     return Of(exc) == null && _leafIds.Contains(exc);
                 }
                 if (_predicate != null)
-                    return _predicate.Call(new PyObject[] { exc }, null).PyBoolValue();
+                    return _predicate.Call(new PyObject[] { exc }, null).IsTrue();
                 return PyVM.ExceptionMatchesHandler(exc, _byType);
             }
 

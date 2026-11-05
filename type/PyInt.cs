@@ -700,7 +700,7 @@ namespace SharpPy
 
         // CPython 3.12: Objects/longobject.c - long_bool
         // Optimized: Direct value check, no MRO traversal
-        public override bool IsTrue() => Value != 0;
+        protected internal override bool Bool() => Value != 0;
 
         #endregion
 
@@ -1445,7 +1445,6 @@ namespace SharpPy
         /// <summary>
         /// CPython PyObject_IsTrue 호환: PyInt에서 C# bool 값 추출
         /// </summary>
-        public override bool PyBoolValue() => Value != 0;
         
         // === As* Methods: Type Conversion (PyInt → PyObject types) ===
         

@@ -223,7 +223,7 @@ namespace SharpPy
 
         // CPython 3.12: Objects/tupleobject.c - tuple_bool
         // Optimized: Direct length check, no MRO traversal
-        public override bool IsTrue() => Items.Length > 0;
+        protected internal override bool Bool() => Items.Length > 0;
 
         #endregion
 
@@ -518,14 +518,7 @@ namespace SharpPy
 
         #region Length and Type Checking
 
-        public override int Length()
-        {
-            var declaredLength = CallDeclared("__len__", System.Array.Empty<PyObject>());
-            if (declaredLength != null)
-                return ToLengthResult(declaredLength);
-            return Items.Length;
-        }
-        public override bool PyBoolValue() => Items.Length > 0;
+        protected internal override long Len() => Items.Length;
 
         #endregion
 

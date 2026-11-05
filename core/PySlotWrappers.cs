@@ -137,7 +137,7 @@ namespace SharpPy
                 case "__str__": return value.Str();
                 case "__iter__": return value.Iter();
                 case "__next__": return value.IterNext();
-                case "__len__": return value is PyRange range ? new PyInt(range.ClampedLength()) : new PyInt(value.Length());
+                case "__len__": return value is PyRange range ? new PyInt(range.ClampedLength()) : new PyInt(value.Len());
                 case "__contains__": return value.Contains(args[0]);
                 case "__getitem__": return value.GetItem(args[0]);
                 case "__setitem__":
@@ -147,7 +147,7 @@ namespace SharpPy
                     value.DelItem(args[0]);
                     return PyNone.Instance;
                 case "__call__": return value.Call(args, kwargs);
-                case "__bool__": return PyBool.FromBool(value.IsTrue());
+                case "__bool__": return PyBool.FromBool(value.Bool());
                 case "__abs__": return PyBuiltinFunction.Absolute(value);
                 case "__neg__": return value.Negative();
                 case "__pos__": return value.Positive();

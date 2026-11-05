@@ -356,7 +356,7 @@ namespace SharpPy
                 try
                 {
                     var flushValue = kwargs.GetItem(new PyString("flush"));
-                    flush = flushValue as PyBool ?? PyBool.FromBool(flushValue.PyBoolValue());
+                    flush = flushValue as PyBool ?? PyBool.FromBool(flushValue.IsTrue());
                 }
                 catch { }
             }
@@ -581,7 +581,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"zip() has got an unexpected keyword argument '{key.ToStr().Value}'");
                 }
                 if (kwargs.Contains(new PyString("strict")).ToBool())
-                    strict = kwargs.GetItem(new PyString("strict")).PyBoolValue();
+                    strict = kwargs.GetItem(new PyString("strict")).IsTrue();
             }
 
             var iterators = new PyObject[args.Length];
@@ -735,17 +735,10 @@ namespace SharpPy
                 case PyBytes pb: length = pb.Length(); return true;
                 case PyByteArray pba: length = pba.Length(); return true;
             }
-            var lenDesc = obj.GetPyType()?.LookupSpecial("__len__");
-            if (lenDesc == null)
+            if (!obj.HasTypeSlot("__len__"))
                 return false;
-            var bound = lenDesc is IDescriptor ld ? ld.Get(obj, obj.GetPyType()) : lenDesc;
-            var result = bound.Call(new PyObject[0], null);
-            if (result is PyInt pi)
-            {
-                length = pi.ToLong();
-                return true;
-            }
-            throw PyTypeError.Create($"'{result.GetTypeName()}' object cannot be interpreted as an integer");
+            length = obj.Size();
+            return true;
         }
 
         private static PyObject CallSum(PyObject[] args, PyDict kwargs = null)

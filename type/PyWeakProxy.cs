@@ -39,9 +39,8 @@ namespace SharpPy
 
         public override PyObject RichCompare(PyObject other, CompareOp op) => Target.RichCompare(Unwrap(other), op);
 
-        public override bool PyBoolValue() => Target.IsTrue();
+        protected internal override bool Bool() => Target.IsTrue();
 
-        public override bool IsTrue() => Target.IsTrue();
 
         public override PyObject GetAttribute(string name) => Target.GetAttribute(name);
 
@@ -68,7 +67,7 @@ namespace SharpPy
 
         public override double ToFloat() => Target.ToFloat();
 
-        public override int Length() => Target.Length();
+        protected internal override long Len() => Target.Length();
 
         public override PyObject Positive() => Target.Positive();
 

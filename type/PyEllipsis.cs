@@ -40,7 +40,7 @@ namespace SharpPy
 
         #region Truth Value
 
-        public override bool PyBoolValue() => true; // Ellipsis는 truthy
+        protected internal override bool Bool() => true; // Ellipsis는 truthy
 
         #endregion
 
@@ -60,7 +60,7 @@ namespace SharpPy
 
         #region Length (Ellipsis는 길이 없음)
 
-        public override int Length()
+        protected internal override long Len()
         {
             throw PyTypeError.Create("object of type 'ellipsis' has no len()");
         }

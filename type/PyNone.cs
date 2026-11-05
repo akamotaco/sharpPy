@@ -33,11 +33,10 @@ namespace SharpPy
 
         #region Truth Value
 
-        public override bool PyBoolValue() => false; // None은 항상 falsy
 
         // CPython 3.12: Objects/object.c - Py_None always returns false
         // Optimized: Direct return, no MRO traversal
-        public override bool IsTrue() => false;
+        protected internal override bool Bool() => false;
 
         #endregion
 
@@ -57,7 +56,7 @@ namespace SharpPy
 
         #region Length (None은 길이 없음)
 
-        public override int Length()
+        protected internal override long Len()
         {
             throw PyTypeError.Create("object of type 'NoneType' has no len()");
         }

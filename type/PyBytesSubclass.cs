@@ -69,14 +69,6 @@ namespace SharpPy
 
         public override PyObject Multiply(PyObject other) => Op("__mul__", other, () => base.Multiply(other));
 
-        public override int Length()
-        {
-            var declared = LookupUserSpecial("__len__");
-            if (declared != null)
-                return ToLengthResult(BindSpecialMethod(declared).Call(Array.Empty<PyObject>(), null));
-            return base.Length();
-        }
-
         public override PyBool Contains(PyObject item)
         {
             // CPython coerces __contains__'s result with truthiness, it does not require a bool.

@@ -153,11 +153,11 @@ namespace SharpPy
             long length = -1;
             if (i < 0 && s.HasTypeSlot("__len__"))
             {
-                length = s.SequenceLength();
+                length = s.Size();
                 i += length;
             }
             if (i < 0 && s.GetPyType().LookupSpecial(slot) is not PyFunction)
-                return new PyInt(length < 0 ? s.SequenceLength() : length);
+                return new PyInt(length < 0 ? s.Size() : length);
             return new PyInt(i);
         }
 
@@ -170,7 +170,7 @@ namespace SharpPy
                 throw NullError();
             if (IsMappingOnly(s))
                 throw PyTypeError.Create($"{s.GetTypeName()} is not a sequence");
-            return s.SequenceLength();
+            return s.Size();
         }
 
         private static Exception NullError() => PySystemError.Create("null argument to internal routine");

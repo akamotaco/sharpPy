@@ -533,7 +533,7 @@ namespace SharpPy
 
         // CPython 3.12: Objects/listobject.c - list_bool
         // Optimized: Direct count check, no MRO traversal
-        public override bool IsTrue() => _items.Count > 0;
+        protected internal override bool Bool() => _items.Count > 0;
 
         public override string ToString()
         {
@@ -655,8 +655,7 @@ namespace SharpPy
             return false;
         }
 
-        public override int Length() => RawCount();
-        public override bool PyBoolValue() => _items.Count > 0;
+        protected internal override long Len() => RawCount();
 
         // 인덱싱 지원
         public PyObject GetItem(int index)

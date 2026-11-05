@@ -492,7 +492,7 @@ namespace SharpPy
                         {
                             case ByteCodeOp.POP_JUMP_IF_FALSE:
                             case ByteCodeOp.POP_JUMP_IF_TRUE:
-                                bool isTrue = _constants[oparg].PyBoolValue();
+                                bool isTrue = _constants[oparg].IsTrue();
                                 code[i] = SetOp(code[i], ByteCodeOp.NOP);
                                 bool jumpIfTrue = nextop == ByteCodeOp.POP_JUMP_IF_TRUE;
                                 if (isTrue == jumpIfTrue)

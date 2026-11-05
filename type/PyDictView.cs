@@ -12,7 +12,7 @@ namespace SharpPy
                 type.TypeDict["__iter__"] = new PyMethodDescriptor("__iter__", type,
                     (self, args, kwargs) => ((PyDictView)self).Iter(), minArgs: 0, maxArgs: 0);
                 type.TypeDict["__len__"] = new PyMethodDescriptor("__len__", type,
-                    (self, args, kwargs) => new PyInt(((PyDictView)self).Length()), minArgs: 0, maxArgs: 0);
+                    (self, args, kwargs) => new PyInt(((PyDictView)self).Len()), minArgs: 0, maxArgs: 0);
                 type.TypeDict["__contains__"] = new PyMethodDescriptor("__contains__", type,
                     (self, args, kwargs) => ((PyDictView)self).Contains(args[0]), minArgs: 1, maxArgs: 1);
                 type.TypeDict["mapping"] = new PyGetSetDescriptor("mapping", type,
@@ -38,9 +38,8 @@ namespace SharpPy
             _ => PyType.DictItemsType
         };
         public override string GetTypeName() => GetPyType().Name;
-        public override int Length() => _dictionary.Length();
-        public override bool IsTrue() => Length() != 0;
-        public override bool PyBoolValue() => IsTrue();
+        protected internal override long Len() => _dictionary.Length();
+        protected internal override bool Bool() => Len() != 0;
         public override int ToHash() => _kind == DictViewKind.Values ? base.ToHash()
             : throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
 

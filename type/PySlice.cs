@@ -348,7 +348,7 @@ namespace SharpPy
 
         #region Type Checking
 
-        public override bool PyBoolValue() => true; // 슬라이스는 항상 truthy
+        protected internal override bool Bool() => true; // 슬라이스는 항상 truthy
 
         #endregion
 

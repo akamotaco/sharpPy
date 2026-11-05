@@ -257,7 +257,7 @@ namespace SharpPy.Core
 
             // 기본 타입 변환
             if (targetType == typeof(bool))
-                return pyObj.PyBoolValue();
+                return pyObj.IsTrue();
             
             if (targetType == typeof(int))
             {
