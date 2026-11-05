@@ -108,7 +108,31 @@ namespace SharpPy
             return nativeGetAttribute(name);
         }
 
+        /// <summary>
+        /// slot_tp_setattro (Objects/typeobject.c): a __setattr__ or __delattr__ written in a class
+        /// body is the slot of the type, which calls the one the operation names (value null to
+        /// delete). False when the class wrote neither, so the generic set or delete applies.
+        /// </summary>
+        internal static bool SetattroHook(PyObject self, PyClass type, string name, PyObject value)
+        {
+            var method = type.FindNameInMro(value == null ? "__delattr__" : "__setattr__", out bool written);
+            if (!written)
+                return false;
+            var bound = self.BindSpecialMethod(method);
+            bound.Call(value == null ? new PyObject[] { new PyString(name) } : new[] { new PyString(name), value }, null);
+            return true;
+        }
+
+        /// <summary>tp_setattro of a Python class over a builtin: the hook, else the generic set.</summary>
         internal static void SetAttribute(PyObject self, PyClass instanceType,
+            Dictionary<string, PyObject> instanceDict, string name, PyObject value)
+        {
+            if (!SetattroHook(self, instanceType, name, value))
+                GenericSetAttribute(self, instanceType, instanceDict, name, value);
+        }
+
+        /// <summary>_PyObject_GenericSetAttrWithDict over the dict kept beside the value.</summary>
+        internal static void GenericSetAttribute(PyObject self, PyClass instanceType,
             Dictionary<string, PyObject> instanceDict, string name, PyObject value)
         {
             if (name == "__class__" && self is IHeapInstance heap)
@@ -126,17 +150,11 @@ namespace SharpPy
                 foreach (var entry in copy) PyGlobalsDict.Store(instanceDict, ((PyString)entry.Key).Value, entry.Value);
                 return;
             }
-            foreach (var mroType in instanceType.MRO)
+            var descriptor = PyClassInstance.FindDataDescriptorInMro(instanceType, name);
+            if (descriptor != null)
             {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
-                {
-                    if (classValue is IDescriptor descriptor && descriptor.IsDataDescriptor())
-                    {
-                        descriptor.Set(self, value);
-                        return;
-                    }
-                    break;
-                }
+                PyClassInstance.CallDescriptorSet(descriptor, self, value);
+                return;
             }
 
             if (!instanceType.InstancesHaveDict())

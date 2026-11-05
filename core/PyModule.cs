@@ -239,11 +239,10 @@ public class PyModule : PyObject
     
     public override void SetAttribute(string name, PyObject value)
     {
-        var replaced = OverriddenSlot("__setattr__");
-        if (replaced == null)
-            ModuleSetAttro(name, value);
-        else
-            CallSpecial(replaced, new PyString(name), value);
+        // slot_tp_setattro of a module subclass, else module_setattro.
+        if (_type is PyClass heap && SubclassInstanceSupport.SetattroHook(this, heap, name, value))
+            return;
+        ModuleSetAttro(name, value);
     }
 
     internal void ModuleSetAttro(string name, PyObject value)
@@ -285,11 +284,9 @@ public class PyModule : PyObject
     // module_setattro with NULL: the name goes from the module's dict.
     public override void DelAttribute(string name)
     {
-        var replaced = OverriddenSlot("__delattr__");
-        if (replaced == null)
-            ModuleDelAttro(name);
-        else
-            CallSpecial(replaced, new PyString(name));
+        if (_type is PyClass heap && SubclassInstanceSupport.SetattroHook(this, heap, name, null))
+            return;
+        ModuleDelAttro(name);
     }
 
     internal void ModuleDelAttro(string name)

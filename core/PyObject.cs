@@ -488,11 +488,15 @@ namespace SharpPy
 
         public virtual void SetAttribute(string name, PyObject value)
         {
+            // slot_tp_setattro of a class written in Python, before the type's own set. A class
+            // object's is type_setattro, with its metaclass hooks of its own.
+            if (this is not PyType && GetPyType() is PyClass heapType && SubclassInstanceSupport.SetattroHook(this, heapType, name, value))
+                return;
             if (name == "__class__")
                 throw PyTypeError.Create(value is PyType ? "__class__ assignment only supported for mutable types or ModuleType subclasses" : $"__class__ must be set to a class, not '{value.GetTypeName()}' object");
 
             if (_customType is PyClass heap && this is not IDictBackedInstance)
-                SubclassInstanceSupport.SetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, value);
+                SubclassInstanceSupport.GenericSetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, value);
             else
                 PySetAttribute(name, value);
         }
@@ -501,9 +505,23 @@ namespace SharpPy
 
         public virtual void DelAttribute(string name)
         {
+            if (this is not PyType && GetPyType() is SharpPy.PyClass heap && SubclassInstanceSupport.SetattroHook(this, heap, name, null)) return;
+            GenericDelAttr(name);
+        }
+
+        /// <summary>PyObject_GenericSetAttr with no value, object.__delattr__ of a heap instance.</summary>
+        internal void GenericDelAttr(string name)
+        {
             if (this is IDictBackedInstance owner && PyGlobalsDict.Delete(owner.InstanceDict, name)) return;
+            if (this is not IDictBackedInstance && _customType is SharpPy.PyClass &&
+                HeapAttributes.TryGetValue(this, out var attributes) && PyGlobalsDict.Delete(attributes, name)) return;
             PyDelAttribute(name);
         }
+
+        /// <summary>PyObject_GenericSetAttr, object.__setattr__ of a heap instance other than PyClassInstance.</summary>
+        internal void GenericSetAttr(SharpPy.PyClass heap, string name, PyObject value) =>
+            SubclassInstanceSupport.GenericSetAttribute(this, heap,
+                this is IDictBackedInstance owner ? owner.InstanceDict : HeapAttributes.GetOrCreateValue(this), name, value);
 
         // 내부 attribute 처리 메서드들 (MRO 기반)
         protected virtual PyObject PyGetAttribute(string name)

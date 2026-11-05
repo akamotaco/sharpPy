@@ -198,13 +198,8 @@ public sealed class PyFileIO : PyIOBaseInstance
                 own = true;
             }
             _blksize = 8192;
-            // PyObject_SetAttr: a subclass's own __setattr__ sees it.
-
-            var setter = LookupSpecialMethodUncached("__setattr__");
-            if (setter != null && GetPyType() is PyClass)
-                BindSpecialMethod(setter).Call(new[] { new PyString("name"), nameobj }, null);
-            else
-                SetAttribute("name", nameobj);
+            // PyObject_SetAttr: a subclass's own __setattr__ is the slot it reaches.
+            SetAttribute("name", nameobj);
             if (_appending)
                 Seek(0, 2, true);
             Register();

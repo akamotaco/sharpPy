@@ -1947,17 +1947,9 @@ namespace SharpPy
             Console.WriteLine($"🔧 PyClassInstance.SetAttribute: {InstanceType.Name} instance.{name} = {value}");
             #endif
 
-            // CPython 3.12: Objects/typeobject.c:8893-8910 (slot_tp_setattro)
-            // First check for user-defined __setattr__ method
-            var setattr = LookupSpecialMethod("__setattr__");
-            if (setattr != null)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   → found user __setattr__, calling it");
-                #endif
-                setattr.Call(new PyObject[] { new PyString(name), value }, null);
+            // slot_tp_setattro (Objects/typeobject.c)
+            if (SubclassInstanceSupport.SetattroHook(this, InstanceType, name, value))
                 return;
-            }
 
             // No user __setattr__, use default behavior
             SetAttributeDefault(name, value);
@@ -2002,16 +1994,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// slot_tp_setattro and slot_tp_delattro: the hook _PyType_Lookup finds, when a class body
-        /// wrote it. A builtin's own entry is the C slot this object already runs.
-        /// </summary>
-        private PyObject LookupSpecialMethod(string name)
-        {
-            var method = InstanceType.FindNameInMro(name, out bool written);
-            return written ? BindSpecialMethod(method) : null;
-        }
-
-        /// <summary>
         /// CPython 3.12: Objects/typeobject.c:8893-8910 (slot_tp_setattro)
         /// Override DelAttribute to check for user-defined __delattr__ method.
         /// </summary>
@@ -2021,16 +2003,9 @@ namespace SharpPy
             Console.WriteLine($"🔧 PyClassInstance.DelAttribute: {InstanceType.Name} instance.{name}");
             #endif
 
-            // CPython 3.12: First check for user-defined __delattr__ method
-            var delattr = LookupSpecialMethod("__delattr__");
-            if (delattr != null)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   → found user __delattr__, calling it");
-                #endif
-                delattr.Call(new PyObject[] { new PyString(name) }, null);
+            // slot_tp_setattro without a value
+            if (SubclassInstanceSupport.SetattroHook(this, InstanceType, name, null))
                 return;
-            }
 
             // No user __delattr__, use default behavior
             DelAttributeDefault(name);
@@ -2082,9 +2057,13 @@ namespace SharpPy
         /// _PyType_Lookup (Objects/typeobject.c) searches the MRO once; first hit decides.
         /// Returns the data descriptor or null (non-data descriptor also returns null, stopping search).
         /// </summary>
-        private PyObject FindDataDescriptorInMro(string name)
+        private PyObject FindDataDescriptorInMro(string name) => FindDataDescriptorInMro(InstanceType, name);
+
+        // _PyObject_GenericSetAttrWithDict's _PyType_Lookup: the first level of the MRO that names it,
+        // which counts when it is a data descriptor.
+        internal static PyObject FindDataDescriptorInMro(SharpPy.PyClass type, string name)
         {
-            foreach (var mroType in InstanceType.MRO)
+            foreach (var mroType in type.MRO)
             {
                 if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
                     return IsDataDescriptor(classValue) ? classValue : null;

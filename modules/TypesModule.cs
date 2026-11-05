@@ -99,6 +99,8 @@ namespace SharpPy.Modules
 
         public override void DelAttribute(string name)
         {
+            if (_type is PyClass heap && SubclassInstanceSupport.SetattroHook(this, heap, name, null))
+                return;
             if (!InstanceDict.Remove(name))
                 throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
         }

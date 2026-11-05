@@ -2044,15 +2044,14 @@ namespace SharpPy
                     {
                         instance.SetAttributeDefault(nameStr.Value, args[1]);
                     }
+                    else if (self is PyModule module)
+                        module.ModuleSetAttro(nameStr.Value, args[1]);
+                    // A heap instance's tp_setattro may be slot_tp_setattro; this is the generic set.
+                    else if (self.GetPyType() is SharpPy.PyClass heap)
+                        self.GenericSetAttr(heap, nameStr.Value, args[1]);
+                    // A builtin's tp_setattro is the generic one.
                     else
-                    {
-                        // For other types (built-in types), use SetAttribute directly
-                        // These don't have user-defined __setattr__ so no recursion issue
-                        if (self is PyModule module)
-                            module.ModuleSetAttro(nameStr.Value, args[1]);
-                        else
-                            self.SetAttribute(nameStr.Value, args[1]);
-                    }
+                        self.SetAttribute(nameStr.Value, args[1]);
                     return PyNone.Instance;
                 },
                 minArgs: 2,
@@ -2079,15 +2078,12 @@ namespace SharpPy
                     {
                         instance.DelAttributeDefault(nameStr.Value);
                     }
+                    else if (self is PyModule module)
+                        module.ModuleDelAttro(nameStr.Value);
+                    else if (self.GetPyType() is SharpPy.PyClass)
+                        self.GenericDelAttr(nameStr.Value);
                     else
-                    {
-                        // For other types (built-in types), use DelAttribute directly
-                        // These don't have user-defined __delattr__ so no recursion issue
-                        if (self is PyModule module)
-                            module.ModuleDelAttro(nameStr.Value);
-                        else
-                            self.DelAttribute(nameStr.Value);
-                    }
+                        self.DelAttribute(nameStr.Value);
                     return PyNone.Instance;
                 },
                 minArgs: 1,
