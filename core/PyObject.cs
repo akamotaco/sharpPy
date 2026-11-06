@@ -473,9 +473,6 @@ namespace SharpPy
         /// <summary>tp_getattro of the CLR type: the builtin's own, PyObject_GenericGetAttr by default.</summary>
         protected internal virtual PyObject TpGetattro(string name)
         {
-            if (this is PyType)
-                return PyGetAttribute(name);
-
             // A Python subclass of a builtin with no storage of its own for attributes.
             if (_customType is PyClass heap && this is not IDictBackedInstance)
             {
@@ -751,82 +748,13 @@ namespace SharpPy
         /// </summary>
         protected virtual PyObject GenericGetAttribute(string name)
         {
-            var type = GetPyType();
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 PyObject.GenericGetAttribute: looking for '{name}' on {type.Name}");
-            #endif
-
-            // CPython 3.12: GenericGetAttr does NOT check for __getattribute__!
-            // __getattribute__ is handled at a higher level (tp_getattro slot).
-            // GenericGetAttr is the DEFAULT implementation of tp_getattro.
-            //
-            // Removing the __getattribute__ check here prevents infinite recursion:
-            // - PyIntSubclass.GetAttribute() calls base.TpGetattro()
-            // - base.TpGetattro() calls GenericGetAttribute()
-            // - GenericGetAttribute() should NOT call __getattribute__ again!
-            //
-            // Custom __getattribute__ methods should be handled by overriding
-            // GetAttribute() at the Python class level, not here.
-
-            // _PyType_Lookup, and tp_descr_get of what it found.
-            PyObject attr = type.FindNameInMro(name);
-            IDescriptor descriptor = attr as IDescriptor ?? (attr != null && IsPythonDescriptor(attr) ? new PyDescriptorWrapper(attr) : null);
-
-            // CPython 3.12: For type-level access to METHOD descriptors,
-            // pass null as the instance to get an unbound method.
-            // For getset/member descriptors, pass the type itself to call the getter.
-            PyObject instanceForDescriptor;
-            if ((this is PyType || this is PyClass) && descriptor is PyMethodDescriptor or PyWrapperDescriptor)
-            {
-                instanceForDescriptor = null; // Unbound method for type-level access
-            }
-            else
-            {
-                instanceForDescriptor = this; // Normal descriptor binding
-            }
-
-            // 2. data descriptor라면 우선권
-            if (descriptor != null && descriptor.IsDataDescriptor())
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   → calling data descriptor.Get({instanceForDescriptor?.GetType().Name ?? "null"}, {type}) for '{name}'");
-                #endif
-                return descriptor.Get(instanceForDescriptor, type);
-            }
-
-            // 3. instance dictionary 확인
-            // CPython 3.12: Objects/object.c:1255-1259 - check instance __dict__
-            if (this is IInstanceDictAccessor dictAccessor && dictAccessor.TryGetInstanceAttribute(name, out PyObject value))
-            {
-                return value;
-            }
-            if (this is IObjectDict holder && holder.ObjectDict(false) is { } ownDict
-                && ownDict.TryGetStoredValue(new PyString(name), out var held))
-            {
-                return held;
-            }
-
-            // 4. non-data descriptor 또는 일반 attribute
-            if (descriptor != null)
-            {
-                return descriptor.Get(instanceForDescriptor, type);
-            }
-
-            if (attr != null)
-            {
-                // 함수는 method로 바인딩
-                if (attr is PyFunction func && this is PyClassInstance)
-                {
-                    return new PyMethod(this, func);
-                }
-                return attr;
-            }
-
-            // object.__repr__ and object.__str__ are answered by the type, see PyType.GetAttribute.
-            if (name is "__repr__" or "__str__" && this is not PyType && PyType.ObjectType.GetAttribute(name) is IDescriptor objectSlot)
-                return objectSlot.Get(this, GetPyType());
-            return PySlotWrappers.TryBind(this, name) ?? throw AttributeNotFound(name);
+            // _PyObject_GenericGetAttrWithDict over the object's own store, then what a builtin
+            // answers through its slots (the wrappers PySlotWrappers keeps beside the dict).
+            return SubclassInstanceSupport.GenericGetAttrWithDict(this, GetPyType(), name, null, this as IInstanceDictAccessor)
+                ?? (name is "__repr__" or "__str__" && PyType.ObjectType.GetAttribute(name) is IDescriptor objectSlot
+                    ? objectSlot.Get(this, GetPyType()) : null)
+                ?? PySlotWrappers.TryBind(this, name)
+                ?? throw AttributeNotFound(name);
         }
 
         // CPython distinguishes attribute errors on a class object

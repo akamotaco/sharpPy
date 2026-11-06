@@ -55,28 +55,30 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// _PyObject_GenericGetAttrWithDict (Objects/object.c) for an instance of a class written in
-        /// Python: a data descriptor of the type, then the instance dict (dict, else accessor), then
-        /// a non-data descriptor or plain value that a class body holds. Null when the name is
-        /// neither in the instance dict nor written in a class body: what a builtin base holds, and
-        /// the AttributeError, are the base's own tp_getattro.
+        /// _PyObject_GenericGetAttrWithDict (Objects/object.c): a data descriptor of the type, then
+        /// the instance dict (dict, else the object's own store), then a non-data descriptor or plain
+        /// value of the type. Null when the name is in none of them: the AttributeError, or what a
+        /// builtin's own tp_getattro answers beyond its dict, is the caller's.
         /// </summary>
-        internal static PyObject GenericGetAttrWithDict(PyObject self, PyClass instanceType, string name,
+        internal static PyObject GenericGetAttrWithDict(PyObject self, PyType type, string name,
             Dictionary<string, PyObject> dict, IInstanceDictAccessor accessor)
         {
-            var attribute = instanceType.FindNameInMro(name, out bool inClass);
+            var attribute = type.FindNameInMro(name);
             IDescriptor descriptor = attribute as IDescriptor
                 ?? (attribute != null && attribute.LookupSpecialMethodUncached("__get__") != null
                     ? new PyDescriptorWrapper(attribute) : null);
             if (descriptor != null && descriptor.IsDataDescriptor())
-                return descriptor.Get(self, instanceType);
-            if (dict != null ? dict.TryGetValue(name, out PyObject instanceValue) : accessor.TryGetInstanceAttribute(name, out instanceValue))
+                return descriptor.Get(self, type);
+            if (dict != null ? dict.TryGetValue(name, out PyObject instanceValue)
+                : accessor != null ? accessor.TryGetInstanceAttribute(name, out instanceValue)
+                : self is IObjectDict holder && holder.ObjectDict(false) is { } ownDict
+                    && ownDict.TryGetStoredValue(new PyString(name), out instanceValue))
                 return instanceValue;
-            if (!inClass)
+            if (attribute == null)
                 return null;
             if (attribute.GetType() == typeof(PyFunction))
                 return new PyMethod(self, attribute);
-            return descriptor != null ? descriptor.Get(self, instanceType) : attribute;
+            return descriptor != null ? descriptor.Get(self, type) : attribute;
         }
 
         /// <summary>
