@@ -1337,25 +1337,6 @@ public partial class PyFunction
     #endregion
 }
 
-/// <summary>
-/// PEP 692: **kwargs 검증이 있는 함수 호출 헬퍼
-/// </summary>
-public static class PEP692CallHelper
-{
-    /// <summary>
-    /// **kwargs 타입 검증과 함께 함수 호출
-    /// </summary>
-    public static PyObject CallWithKwargsValidation(PyFunction function, PyObject[] args, PyDict? kwargs = null)
-    {
-        // **kwargs 타입 검증
-        if (function.Signature?.KwargsType != null && kwargs != null)
-        {
-            function.Signature.ValidateKwargs(kwargs);
-        }
-        
-        return function.Call(args, kwargs);
-    }
-}
 
 /// <summary>
 /// typing.TypedDict 구현 - PEP 589

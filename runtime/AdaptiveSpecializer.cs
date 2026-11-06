@@ -330,26 +330,4 @@ namespace SharpPy
         #endregion
     }
 
-    /// <summary>
-    /// Inline cache entry for specialized instructions
-    /// CPython 3.12: _Py_CODEUNIT in Include/internal/pycore_code.h
-    ///
-    /// Specialized instructions can store type information, version tags,
-    /// and other metadata in inline cache entries following the instruction.
-    ///
-    /// TODO: Implement inline cache structure
-    /// </summary>
-    public class InlineCache
-    {
-        // TODO: Add cache fields
-        // - Type version tag
-        // - Attribute offset/index
-        // - Method descriptor
-        // - etc.
-
-        public uint Counter { get; set; }  // Warmup counter
-        public uint Version { get; set; }  // Type version tag
-
-        // TODO: Add more cache fields as needed
-    }
 }

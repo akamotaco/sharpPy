@@ -1527,24 +1527,6 @@ namespace SharpPy
             return netEffect;
         }
 
-        // CPython 3.12 호환: WITH_EXCEPT_START 스택 요구사항
-        public static class WithStatementStack
-        {
-            public const int BEFORE_WITH_MIN_STACK = 1;      // context manager
-            public const int BEFORE_WITH_RESULT_STACK = 2;   // __exit__, result
-            
-            public const int WITH_EXCEPT_START_MIN_STACK = 6; // [...prev_stack, __exit__, exc, exc_type, exc_value, exc_tb, lasti] - __exit__만 pop
-            public const int WITH_EXCEPT_START_RESULT_STACK = 1; // suppress boolean
-            
-            public const int PUSH_EXC_INFO_MIN_STACK = 1;    // exception
-            public const int PUSH_EXC_INFO_RESULT_STACK = 4; // exc_type, exc_value, exc_tb, lasti
-            
-            public const int POP_EXCEPT_MIN_STACK = 4;       // exc_type, exc_value, exc_tb, lasti
-            public const int POP_EXCEPT_RESULT_STACK = 0;    // (nothing)
-            
-            // CPython 3.12 호환: with문 정리 시 __exit__ 호출 인수 개수
-            public const int EXIT_METHOD_ARGS_COUNT = 3;     // __exit__(exc_type, exc_value, exc_tb)
-        }
 
         // CPython 3.12 호환: MAKE_FUNCTION 플래그 상수
         public static class MakeFunctionFlags
@@ -1556,75 +1538,4 @@ namespace SharpPy
         }
     }
 
-    // CPython 3.12: 점프 명령어 통합 관리 시스템
-    public static class JumpInstructionManager
-    {
-        // 점프 명령어 타입 분류
-        public enum JumpType
-        {
-            Forward,        // 앞으로 점프
-            Backward,       // 뒤로 점프  
-            Conditional,    // 조건부 점프
-            Absolute        // 절대 점프
-        }
-
-        // 점프 명령어 분류
-        private static readonly Dictionary<ByteCodeOp, JumpType> _jumpTypes = new()
-        {
-            { ByteCodeOp.JUMP_FORWARD, JumpType.Forward },
-            { ByteCodeOp.JUMP_BACKWARD, JumpType.Backward },
-            { ByteCodeOp.JUMP, JumpType.Absolute },  // CPython 3.12: direction determined by assembler
-            { ByteCodeOp.JUMP_NO_INTERRUPT, JumpType.Absolute },
-            { ByteCodeOp.POP_JUMP_IF_TRUE, JumpType.Conditional },
-            { ByteCodeOp.POP_JUMP_IF_FALSE, JumpType.Conditional },
-            // CPython 3.12: JUMP_IF_*_OR_POP opcodes removed
-        };
-
-        // CPython 3.12 호환: 점프 오프셋 계산 (하드코딩 제거)
-        public static int CalculateJumpOffset(ByteCodeOp jumpOp, int currentIP, int targetOffset, bool hasMainLoopIncrement = true)
-        {
-            if (!_jumpTypes.ContainsKey(jumpOp))
-                return targetOffset; // 점프 명령어가 아닌 경우
-
-            var jumpType = _jumpTypes[jumpOp];
-            int adjustedOffset = targetOffset;
-
-            // CPython 3.12: 메인 루프가 IP를 자동 증가시키는 경우 보정
-            if (hasMainLoopIncrement)
-            {
-                switch (jumpType)
-                {
-                    case JumpType.Forward:
-                    case JumpType.Conditional:
-                    case JumpType.Absolute:
-                        // 절대 오프셋은 -1 보정 필요 (메인 루프에서 +1 될 예정)
-                        adjustedOffset = targetOffset - 1;
-                        break;
-                    case JumpType.Backward:
-                        // 상대 오프셋은 보정 없음
-                        adjustedOffset = targetOffset;
-                        break;
-                }
-            }
-            else
-            {
-                // 메인 루프 자동 증가 없는 경우 그대로 사용
-                adjustedOffset = targetOffset;
-            }
-
-            return adjustedOffset;
-        }
-
-        // 점프 명령어인지 확인
-        public static bool IsJumpInstruction(ByteCodeOp op)
-        {
-            return _jumpTypes.ContainsKey(op);
-        }
-
-        // 점프 타입 반환
-        public static JumpType GetJumpType(ByteCodeOp op)
-        {
-            return _jumpTypes.TryGetValue(op, out var type) ? type : JumpType.Absolute;
-        }
-    }
 }
