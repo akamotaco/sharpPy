@@ -413,8 +413,8 @@ namespace SharpPy
             Value = value ?? new byte[0];
         }
 
-        public override string GetTypeName() => "bytes";
-        public override PyType GetPyType() => PyType.BytesType;
+        public override string GetTypeName() => _customType?.Name ?? "bytes";
+        public override PyType GetPyType() => _customType ?? PyType.BytesType;
 
         public override string ToString() => ToRepr().Value;
 

@@ -22,10 +22,7 @@ namespace SharpPy
     /// </summary>
     public class PyListSubclass : PyList, IDictBackedInstance, IHeapInstance
     {
-        /// <summary>ob_type: the user class, not list.</summary>
-        public PyClass InstanceType { get; private set; }
-
-        public void ChangeClass(PyClass target) => InstanceType = target;
+        public void ChangeClass(PyClass target) => SetCustomType(target);
 
         /// <summary>
         /// The instance __dict__ a heap type adds after the base layout
@@ -33,19 +30,12 @@ namespace SharpPy
         /// </summary>
         public Dictionary<string, PyObject> InstanceDict { get; }
 
-        /// <summary>Arguments tp_new received; observable through __getnewargs__ on some types.</summary>
-        public PyObject[] ConstructorArgs { get; set; }
-
         public PyListSubclass(PyClass instanceType, IEnumerable<PyObject> items = null)
             : base(items ?? Array.Empty<PyObject>())
         {
-            InstanceType = instanceType;
+            SetCustomType(instanceType);
             InstanceDict = new Dictionary<string, PyObject>();
         }
-
-        public override PyType GetPyType() => InstanceType;
-
-        public override string GetTypeName() => InstanceType.Name;
 
         /// <summary>
         /// A user __eq__/__lt__/... wins; otherwise the inherited list comparison runs on the

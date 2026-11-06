@@ -20,8 +20,6 @@ namespace SharpPy
 
         private static byte[] Self(PyObject self) => self is PyBytes bytes ? bytes.Value : ((PyByteArray)self).ToByteArrayCopy();
 
-        private static string TypeName(PyObject self) => self is PyBytes ? "bytes" : "bytearray";
-
         // STRINGLIB_NEW
         private static PyObject New(PyObject self, byte[] value) =>
             self is PyBytes ? new PyBytes(value) : new PyByteArray(value);
@@ -1023,7 +1021,7 @@ namespace SharpPy
         // bytes_concat and bytearray_concat: any buffer on the right, the type of the left.
         internal static PyObject Concat(PyObject self, PyObject other)
         {
-            var right = Buffer(other) ?? throw PyTypeError.Create($"can't concat {other.GetTypeName()} to {TypeName(self)}");
+            var right = Buffer(other) ?? throw PyTypeError.Create($"can't concat {other.GetTypeName()} to {self.GetTypeName()}");
             var left = Self(self);
             var result = new byte[left.Length + right.Length];
             Array.Copy(left, result, left.Length);

@@ -72,7 +72,7 @@ namespace SharpPy
                     }
                     // list_new allocates the list layout with ob_type set to the subclass; the
                     // iterable is consumed by list.__init__, not here.
-                    return new PyListSubclass(listClass) { ConstructorArgs = args };
+                    return new PyListSubclass(listClass);
                 },
                 minArgs: 0, maxArgs: int.MaxValue
             );
@@ -526,8 +526,8 @@ namespace SharpPy
             _items = new List<PyObject>(items);
         }
 
-        public override string GetTypeName() => "list";
-        public override PyType GetPyType() => PyType.ListType;
+        public override string GetTypeName() => _customType?.Name ?? "list";
+        public override PyType GetPyType() => _customType ?? PyType.ListType;
 
         // CPython 3.12: Objects/listobject.c - list_bool
         // Optimized: Direct count check, no MRO traversal

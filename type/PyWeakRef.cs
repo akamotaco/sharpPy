@@ -59,8 +59,8 @@ namespace SharpPy
             }
         }
 
-        public override PyType GetPyType() => PyType.WeakRefType;
-        public override string GetTypeName() => "weakref.ReferenceType";
+        public override PyType GetPyType() => _customType ?? PyType.WeakRefType;
+        public override string GetTypeName() => _customType?.Name ?? "weakref.ReferenceType";
 
         protected internal override PyString Repr() => SlotRepr();
 
@@ -140,18 +140,14 @@ namespace SharpPy
     /// </summary>
     internal sealed class PyWeakRefSubclass : PyWeakRef, IDictBackedInstance
     {
-        public PyClass InstanceType { get; }
         public Dictionary<string, PyObject> InstanceDict { get; }
 
         public PyWeakRefSubclass(PyClass instanceType, PyObject target, PyObject callback)
             : base(target, callback)
         {
-            InstanceType = instanceType;
+            SetCustomType(instanceType);
             InstanceDict = new Dictionary<string, PyObject>();
         }
-
-        public override PyType GetPyType() => InstanceType;
-        public override string GetTypeName() => InstanceType.Name;
 
 
         // update_one_slot: a class that declares the method replaces the slot, otherwise the ref's own

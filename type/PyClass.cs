@@ -583,10 +583,6 @@ namespace SharpPy
                 // frozenset_new iterates now: its errors come out of the constructor.
                 if (classInstance.IsFrozenSetSubclass()) classInstance.GetFrozenStorage();
             }
-            else if (instance is PyTupleSubclass tupleSubclass)
-            {
-                tupleSubclass.ConstructorArgs = args;
-            }
 
             // Step 3: Call __init__ on the instance
             // CPython 3.12: Objects/typeobject.c:1677-1687
@@ -1626,9 +1622,7 @@ namespace SharpPy
     public class PyTupleSubclass : PyTuple, IDictBackedInstance
     {
 
-        public PyClass InstanceType { get; }
         public Dictionary<string, PyObject> InstanceDict { get; }
-        public PyObject[] ConstructorArgs { get; set; }
 
         // update_one_slot: a declared __repr__ or __str__ replaces the slot, otherwise tuple's stays.
 
@@ -1638,28 +1632,8 @@ namespace SharpPy
 
         public PyTupleSubclass(PyClass instanceType, PyObject[] items) : base(items)
         {
-            InstanceType = instanceType;
+            SetCustomType(instanceType);
             InstanceDict = new Dictionary<string, PyObject>();
-        }
-
-        public override PyType GetPyType() => InstanceType;
-
-        public override string GetTypeName() => InstanceType.Name;
-
-        // Override IsInstance to properly check MRO for tuple subclasses
-        // CPython 3.12: PyObject_IsInstance checks tp_mro
-        // NOTE: This override is no longer needed since isinstance() in BuiltinsModule.cs
-        // now properly handles MRO checking for PyType (builtin types) at lines 286-293.
-        // Keeping this as documentation of the fix.
-        public override bool IsInstance(PyType type)
-        {
-            // Check if the type is in our MRO
-            bool mroCheck = InstanceType.IsSubclassOf(type);
-            if (mroCheck)
-                return true;
-
-            // Also check C# inheritance (PyTupleSubclass is a PyTuple in C#)
-            return base.IsInstance(type);
         }
 
         // User-defined descriptors, methods and the instance __dict__ live in the Python class dict,

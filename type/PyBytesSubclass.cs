@@ -12,15 +12,12 @@ namespace SharpPy
     /// </summary>
     public class PyBytesSubclass : PyBytes, IDictBackedInstance, IHeapInstance
     {
-        public PyClass InstanceType { get; private set; }
-
-        public void ChangeClass(PyClass target) => InstanceType = target;
+        public void ChangeClass(PyClass target) => SetCustomType(target);
         public Dictionary<string, PyObject> InstanceDict { get; }
-        public PyObject[] ConstructorArgs { get; set; }
 
         public PyBytesSubclass(PyClass instanceType, byte[] value) : base(value)
         {
-            InstanceType = instanceType;
+            SetCustomType(instanceType);
             InstanceDict = new Dictionary<string, PyObject>();
         }
 
@@ -32,14 +29,9 @@ namespace SharpPy
         /// </summary>
         internal static PyObject BytesSubtypeNew(PyClass cls, PyObject[] args, PyDict kwargs)
         {
-            return new PyBytesSubclass(cls, ((PyBytes)BytesMethods.BytesNew(args, kwargs)).Value) { ConstructorArgs = args };
+            return new PyBytesSubclass(cls, ((PyBytes)BytesMethods.BytesNew(args, kwargs)).Value);
         }
 
-        public override PyType GetPyType() => InstanceType;
-        public override string GetTypeName() => InstanceType.Name;
-
-        public override bool IsInstance(PyType type) =>
-            InstanceType.IsSubclassOf(type) || base.IsInstance(type);
 
         #region Attribute access
 

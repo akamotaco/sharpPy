@@ -278,7 +278,7 @@ namespace SharpPy
         #region Core Overrides
 
         public override string GetTypeName() => GetPyType().Name;
-        public override PyType GetPyType() => PyType.BytearrayType;
+        public override PyType GetPyType() => _customType ?? PyType.BytearrayType;
 
         // bytearray_init: the arguments reach the object tp_new allocated.
         // bytearray___init___impl: "Empty previous contents (yes, do this first of all!)", and the
@@ -977,13 +977,9 @@ namespace SharpPy
     /// <summary>A Python class deriving from bytearray: the layout of bytearray, its own type and __dict__.</summary>
     public sealed class PyByteArraySubclass : PyByteArray, IDictBackedInstance
     {
-        private readonly PyType _type;
-
-        public PyByteArraySubclass(PyType type) => _type = type;
+        public PyByteArraySubclass(PyType type) => SetCustomType(type);
 
         public Dictionary<string, PyObject> InstanceDict { get; } = new();
-
-        public override PyType GetPyType() => _type;
 
     }
 

@@ -20,8 +20,8 @@ namespace SharpPy
             Imag = imag;
         }
 
-        public override PyType GetPyType() => PyType.ComplexType;
-        public override string GetTypeName() => "complex";
+        public override PyType GetPyType() => _customType ?? PyType.ComplexType;
+        public override string GetTypeName() => _customType?.Name ?? "complex";
 
         // complex_subtype_from_c_complex: complex_new builds the value, the subclass gets it.
         internal static void InstallNew()
@@ -553,17 +553,11 @@ namespace SharpPy
     /// <summary>A Python class deriving from complex: the value of complex, its own type and __dict__.</summary>
     public sealed class PyComplexSubclass : PyComplex, IDictBackedInstance, IHeapInstance
     {
-        private PyClass _class;
+        public void ChangeClass(PyClass target) => SetCustomType(target);
 
-        public void ChangeClass(PyClass target) => _class = target;
-
-        public PyComplexSubclass(PyClass cls, double real, double imag) : base(real, imag) => _class = cls;
+        public PyComplexSubclass(PyClass cls, double real, double imag) : base(real, imag) => SetCustomType(cls);
 
         public Dictionary<string, PyObject> InstanceDict { get; } = new();
-
-        public override PyType GetPyType() => _class;
-
-        public override string GetTypeName() => _class.Name;
 
     }
 
