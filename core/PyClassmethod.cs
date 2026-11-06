@@ -41,33 +41,6 @@ namespace SharpPy
         public override PyType GetPyType() => _type;
         public override string GetTypeName() => _type.Name;
 
-        // cm_dict: generic attribute access over the wrapper's own __dict__.
-        private bool TypeHasDataDescriptor(string name) =>
-            _type.LookupSpecial(name) is IDescriptor descriptor && descriptor.IsDataDescriptor();
-
-        protected internal override PyObject TpGetattro(string name)
-        {
-            if (!TypeHasDataDescriptor(name) && InstanceDict.TryGetValue(name, out var value))
-                return value;
-            return base.TpGetattro(name);
-        }
-
-        protected internal override void TpSetattro(string name, PyObject value)
-        {
-            if (name == "__dict__" || TypeHasDataDescriptor(name))
-                base.TpSetattro(name, value);
-            else
-                InstanceDict[name] = value;
-        }
-
-        protected internal override void TpDelattro(string name)
-        {
-            if (name == "__dict__" || TypeHasDataDescriptor(name))
-                base.TpDelattro(name);
-            else if (!InstanceDict.Remove(name))
-                throw PyAttributeError.Create(name);
-        }
-
         public abstract PyObject Get(PyObject instance, PyType owner);
 
         public void Set(PyObject instance, PyObject value) =>
@@ -106,10 +79,12 @@ namespace SharpPy
                 ((PyCallableWrapper)self).Initialize(args[0]);
                 return PyNone.Instance;
             }, 0, int.MaxValue);
-            type.TypeDict["__func__"] = new PyGetSetDescriptor("__func__", type,
-                self => ((PyCallableWrapper)self).Callable, null);
-            type.TypeDict["__wrapped__"] = new PyGetSetDescriptor("__wrapped__", type,
-                self => ((PyCallableWrapper)self).Callable, null);
+            // cm_memberlist / sm_memberlist, and cm_getsetlist's __dict__.
+            type.TypeDict["__func__"] = new PyMemberDescriptor("__func__", type,
+                self => ((PyCallableWrapper)self).Callable, readOnly: true);
+            type.TypeDict["__wrapped__"] = new PyMemberDescriptor("__wrapped__", type,
+                self => ((PyCallableWrapper)self).Callable, readOnly: true);
+            type.TypeDict["__dict__"] = SubclassInstanceSupport.GenericDictGetSet(type);
             type.TypeDict["__isabstractmethod__"] = new PyGetSetDescriptor("__isabstractmethod__", type,
                 self => ((PyCallableWrapper)self).IsAbstract() ? PyBool.True : PyBool.False, null);
             type.TypeDict["__get__"] = new PyWrapperDescriptor("__get__", type, (self, args, kwargs) =>

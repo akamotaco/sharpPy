@@ -144,14 +144,29 @@ namespace SharpPy
             // object_set_dict: the storage stays, __dict__ is a live view of it.
             if (name == "__dict__" && value != null)
             {
-                var replacement = PyNativeStorage.ForDict(value)
-                    ?? throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
-                var copy = new List<KeyValuePair<PyObject, PyObject>>(replacement.InternalDict);
-                instanceDict.Clear();
-                foreach (var entry in copy) PyGlobalsDict.Store(instanceDict, ((PyString)entry.Key).Value, entry.Value);
+                ReplaceDict(instanceDict, value);
                 return;
             }
             GenericSetAttrWithDict(self, instanceType, name, value, instanceDict, null);
         }
+
+        // PyObject_GenericSetDict over a dict kept beside the value: its contents become the new dict's.
+        private static void ReplaceDict(Dictionary<string, PyObject> instanceDict, PyObject value)
+        {
+            var replacement = PyNativeStorage.ForDict(value)
+                ?? throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
+            var copy = new List<KeyValuePair<PyObject, PyObject>>(replacement.InternalDict);
+            instanceDict.Clear();
+            foreach (var entry in copy) PyGlobalsDict.Store(instanceDict, ((PyString)entry.Key).Value, entry.Value);
+        }
+
+        /// <summary>
+        /// {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict} of a builtin whose
+        /// tp_dictoffset dict is the IDictBackedInstance store.
+        /// </summary>
+        internal static PyGetSetDescriptor GenericDictGetSet(PyType type) => new("__dict__", type,
+            self => PyGlobalsDict.OfInstance(((IDictBackedInstance)self).InstanceDict),
+            (self, value) => ReplaceDict(((IDictBackedInstance)self).InstanceDict, value),
+            deleter: self => throw PyTypeError.Create("cannot delete __dict__"));
     }
 }

@@ -46,7 +46,8 @@ namespace SharpPy.Modules
                 ((PySimpleNamespace)self).Update(kwargs);
                 return PyNone.Instance;
             });
-            TypeDict["__dict__"] = new PyMemberDescriptor("__dict__", this, self => ((PySimpleNamespace)self).Dict);
+            // namespace_members: __dict__ is READONLY.
+            TypeDict["__dict__"] = new PyMemberDescriptor("__dict__", this, self => ((PySimpleNamespace)self).Dict, readOnly: true);
             TypeDict["__hash__"] = PyNone.Instance;
             TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", this, (self, args, kwargs) => new PyTuple(new PyObject[]
             {
@@ -79,19 +80,6 @@ namespace SharpPy.Modules
         public override PyType GetPyType() => _type;
         public override string GetTypeName() => _type.FullName;
 
-        protected internal override void TpSetattro(string name, PyObject value)
-        {
-            if (name == "__dict__")
-                throw PyAttributeError.Create("readonly attribute");
-            else
-                InstanceDict[name] = value;
-        }
-
-        protected internal override void TpDelattro(string name)
-        {
-            if (!InstanceDict.Remove(name))
-                throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
-        }
 
         // namespace_repr
         protected internal override PyString Repr()

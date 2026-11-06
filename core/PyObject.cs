@@ -486,7 +486,7 @@ namespace SharpPy
             }
 
             // An instance dict kept beside a native value (IDictBackedInstance) is its __dict__.
-            if (name == "__dict__" && this is IDictBackedInstance dictAccessor && (GetPyType() is not PyClass heapOwner || heapOwner.InstancesHaveDict()))
+            if (name == "__dict__" && HasInstanceDict(out var dictAccessor))
                 return PyGlobalsDict.OfInstance(dictAccessor.InstanceDict);
             return PyGetAttribute(name);
         }
@@ -574,6 +574,13 @@ namespace SharpPy
             TpDelattro(name);
         }
 
+        // tp_dictoffset: the instance dict a builtin keeps beside its value, when its type gives one.
+        private bool HasInstanceDict(out IDictBackedInstance owner)
+        {
+            owner = this as IDictBackedInstance;
+            return owner != null && GetPyType().Layout.DictOffset != 0;
+        }
+
         /// <summary>The instance dict of a Python class over a builtin with no store of its own.</summary>
         internal Dictionary<string, PyObject> HeapDict => this is IDictBackedInstance owner ? owner.InstanceDict : HeapAttributes.GetOrCreateValue(this);
 
@@ -599,7 +606,6 @@ namespace SharpPy
         /// <summary>tp_setattro of the CLR type asked to delete.</summary>
         protected internal virtual void TpDelattro(string name)
         {
-            if (this is IDictBackedInstance owner && PyGlobalsDict.Delete(owner.InstanceDict, name)) return;
             if (this is not IDictBackedInstance && _customType is SharpPy.PyClass &&
                 HeapAttributes.TryGetValue(this, out var attributes) && PyGlobalsDict.Delete(attributes, name)) return;
             PyDelAttribute(name);
@@ -611,8 +617,7 @@ namespace SharpPy
         {
             // CPython 3.12 호환: GenericGetAttribute 사용
             // A heap subclass of a value type keeps its instance dict beside the value; __dict__ is the live view.
-            if (name == "__dict__" && this is IDictBackedInstance owner &&
-                GetPyType() is PyClass { } heapClass && heapClass.InstancesHaveDict())
+            if (name == "__dict__" && HasInstanceDict(out var owner))
                 return PyGlobalsDict.OfInstance(owner.InstanceDict);
             return GenericGetAttribute(name);
         }
@@ -866,7 +871,11 @@ namespace SharpPy
             }
 
             // 2. instance dictionary에 저장
-            if (this is PyClassInstance instance)
+            if (HasInstanceDict(out var owner))
+            {
+                PyGlobalsDict.Store(owner.InstanceDict, name, value);
+            }
+            else if (this is PyClassInstance instance)
             {
                 instance.SetInstanceAttribute(name, value);
             }
@@ -948,6 +957,8 @@ namespace SharpPy
             Console.WriteLine($"   → no data descriptor, trying instance dict");
             #endif
 
+            if (HasInstanceDict(out var owner) && PyGlobalsDict.Delete(owner.InstanceDict, name))
+                return;
             if (this is PyClassInstance instance)
             {
                 if (instance.RemoveInstanceAttribute(name))
