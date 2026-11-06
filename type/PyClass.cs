@@ -175,13 +175,8 @@ namespace SharpPy
             if (bound == null || bound is PyNone)
                 throw PyTypeError.Create($"unhashable type: '{Name}'");
             var result = bound.Call(Array.Empty<PyObject>(), null);
-            System.Numerics.BigInteger value = result switch
-            {
-                PyInt integer => integer.Value,
-                PyIntSubclass subclass => subclass.GetIntValue().Value,
-                PyBool flag => flag.Value ? 1 : 0,
-                _ => throw PyTypeError.Create("__hash__ method should return an integer"),
-            };
+            System.Numerics.BigInteger value = (PyInt.LongValue(result)
+                ?? throw PyTypeError.Create("__hash__ method should return an integer")).Value;
             long hash = value < nint.MinValue || value > nint.MaxValue ? PyInt.PythonHash(value) : (long)value;
             return hash == -1 ? -2 : hash;
         }

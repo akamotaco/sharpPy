@@ -170,7 +170,7 @@ namespace SharpPy
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         /// <summary>PyIndex_Check: the type fills nb_index (int's own included).</summary>
         internal static bool IndexCheck(PyObject value) =>
-            value is PyInt or PyBool or PyIntSubclass || value.HasTypeSlot("__index__");
+            PyInt.LongCheck(value) || value.HasTypeSlot("__index__");
 
         /// <summary>PyNumber_Check: complex has neither __int__ nor __float__.</summary>
         internal static bool NumberCheck(PyObject value) =>
@@ -180,14 +180,8 @@ namespace SharpPy
 
         public static PyInt? TryGetIndex(PyObject obj)
         {
-            // Fast path for int and bool
-            if (obj is PyInt pyInt)
-                return pyInt;
-            if (obj is PyBool pyBool)
-                return pyBool.Value ? SmallIntCache.One : SmallIntCache.Zero;
-            if (obj is PyIntSubclass subclass)
-                return subclass.GetIntValue();
-            return TryGetIndexSlow(obj);
+            // PyNumber_Index: an int (bool and a Python subclass included) is its own value.
+            return PyInt.LongValue(obj) ?? TryGetIndexSlow(obj);
         }
 
         /// <summary>
@@ -700,12 +694,8 @@ namespace SharpPy
         /// </summary>
         internal static int ToLengthResult(PyObject value)
         {
-            if (value is PyInt exact)
-                return (int)exact.Value;
-            if (value is PyBool asBool)
-                return asBool.Value ? 1 : 0;
-            if (value is PyIntSubclass intSub)
-                return (int)intSub.GetIntValue().Value;
+            if (PyInt.LongValue(value) is { } integer)
+                return (int)integer.Value;
             throw PyTypeError.Create(
                 $"'{value.GetTypeName()}' object cannot be interpreted as an integer");
         }
@@ -993,7 +983,7 @@ namespace SharpPy
             try { hint = boundHint.Call(Array.Empty<PyObject>(), null); }
             catch (PythonException ex) when (ex.PyException is PyTypeError) { return defaultValue; }
             if (hint == PyNotImplemented.Instance) return defaultValue;
-            if (hint is not PyInt && hint is not PyBool && hint is not PyIntSubclass)
+            if (!PyInt.LongCheck(hint))
                 throw PyTypeError.Create($"__length_hint__ must be an integer, not {hint.GetTypeName()}");
             long value;
             try { value = (long)nint.CreateChecked(TryGetIndex(hint).Value); }

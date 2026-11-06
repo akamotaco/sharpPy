@@ -143,10 +143,8 @@ namespace SharpPy.Modules
         private static int Position(PyObject value, int fallback)
         {
             if (value == null) return fallback;
-            var number = value is PyBool truth ? (truth.Value ? BigInteger.One : BigInteger.Zero)
-                : value is PyIntSubclass subclass ? subclass.GetIntValue().Value
-                : value is PyInt plain ? plain.Value
-                : throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+            var number = (PyInt.LongValue(value)
+                ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer")).Value;
             return (int)BigInteger.Max(int.MinValue, BigInteger.Min(int.MaxValue, number));
         }
 
@@ -433,7 +431,7 @@ namespace SharpPy.Modules
         private int GroupNumber(PyObject group)
         {
             long number = -1;
-            if (group is PyInt or PyBool or PyIntSubclass)
+            if (PyInt.LongCheck(group))
             {
                 number = group.ToInt();
             }

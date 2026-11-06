@@ -48,7 +48,7 @@ namespace SharpPy.Modules
             var items = ((PyList)args[2]).Items;
             var code = new uint[items.Length];
             for (int i = 0; i < code.Length; i++)
-                code[i] = (uint)((items[i] is PyIntSubclass named ? named.GetIntValue().Value : ((PyInt)items[i]).Value) & uint.MaxValue);
+                code[i] = (uint)(PyInt.LongValue(items[i]).Value & uint.MaxValue);
             var indexGroup = args[5] is PyTuple tuple ? tuple.Items : ((PyList)args[5]).Items;
             return new PySrePattern(args[0], args[1].ToInt(), code, args[3].ToInt(), (PyDict)args[4], indexGroup);
         }

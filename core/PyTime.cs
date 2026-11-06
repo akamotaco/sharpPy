@@ -203,7 +203,7 @@ namespace SharpPy
         // _PyTime_FromNanosecondsObject: an int and nothing else.
         internal static long FromNanosecondsObject(PyObject obj)
         {
-            if (obj is not (PyInt or PyBool or PyIntSubclass))
+            if (!PyInt.LongCheck(obj))
                 throw PyTypeError.Create($"expect int, got {obj.GetTypeName()}");
             return AsLongLong(obj, Overflow);
         }

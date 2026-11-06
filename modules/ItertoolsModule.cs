@@ -118,13 +118,9 @@ namespace SharpPy.Modules
         // PyLong_Check and the value.
         internal static bool LongValue(PyObject value, out BigInteger number)
         {
-            switch (value)
-            {
-                case PyInt exact: number = exact.Value; return true;
-                case PyBool flag: number = flag.Value ? 1 : 0; return true;
-                case PyIntSubclass derived: number = derived.GetIntValue().Value; return true;
-                default: number = 0; return false;
-            }
+            var integer = PyInt.LongValue(value);
+            number = integer?.Value ?? 0;
+            return integer != null;
         }
 
         // PyLong_AsSsize_t: an int and nothing else.

@@ -817,9 +817,7 @@ namespace SharpPy
             // PyLong_Check accepts bool and int subclasses. In this CLR both are siblings of PyInt
             // rather than subclasses, so the family has to be spelled out here.
             System.Numerics.BigInteger value;
-            if (code is PyInt exact) value = exact.Value;
-            else if (code is PyBool flag) value = flag.Value ? 1 : 0;
-            else if (code is PyIntSubclass subclass) value = subclass.GetIntValue().Value;
+            if (PyInt.LongValue(code) is { } integer) value = integer.Value;
             else { toWrite = code; return 1; }
             // C long is 32 bits on Windows, so sys.exit(2**40) overflows even though a CLR long
             // would hold it (measured: rc 4294967295 and
@@ -1288,7 +1286,7 @@ namespace SharpPy
                 return args;
             int code;
             // PyLong_AsLong reads int-subclass storage without invoking conversion hooks.
-            var number = args[3] as PyInt ?? (args[3] as PyIntSubclass)?.GetIntValue();
+            var number = args[3] is PyBool ? null : PyInt.LongValue(args[3]);
             if (number != null)
             {
                 if (number.Value < int.MinValue || number.Value > int.MaxValue)

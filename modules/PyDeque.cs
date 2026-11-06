@@ -845,7 +845,7 @@ namespace SharpPy.Modules
             long maxlen = -1;
             if (maxlenobj != null && maxlenobj is not PyNone)
             {
-                if (maxlenobj is not (PyInt or PyBool or PyIntSubclass))
+                if (!PyInt.LongCheck(maxlenobj))
                     throw PyTypeError.Create("an integer is required");
                 var value = PyObject.TryGetIndex(maxlenobj).Value;
                 if (value < long.MinValue || value > long.MaxValue)

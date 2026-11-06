@@ -19,13 +19,7 @@ namespace SharpPy
             return PowerSlot.None;
         }
 
-        private static PyInt IntValue(PyObject operand) => operand switch
-        {
-            PyInt exact => exact,
-            PyBool flag => new PyInt(flag.Value ? 1 : 0),
-            PyIntSubclass subclass => subclass.GetIntValue(),
-            _ => null,
-        };
+        private static PyInt IntValue(PyObject operand) => PyInt.LongValue(operand);
 
         private static PyObject RunPowerSlot(PowerSlot slot, PyObject v, PyObject w, PyObject z)
         {

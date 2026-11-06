@@ -173,7 +173,7 @@ namespace SharpPy.Modules
         // loghelper
         private static PyObject LogHelper(PyObject arg, Func<double, double> function)
         {
-            if ((arg is PyInt || arg is PyBool || arg is PyIntSubclass) && PyObject.TryGetIndex(arg) is { } integer)
+            if (PyInt.LongCheck(arg) && PyObject.TryGetIndex(arg) is { } integer)
             {
                 var value = integer.Value;
                 if (value.Sign <= 0)
@@ -877,7 +877,7 @@ namespace SharpPy.Modules
         {
             Check2("ldexp", args);
             double x = RealNumber(args[0]);
-            if (!(args[1] is PyInt or PyBool or PyIntSubclass))
+            if (!(PyInt.LongCheck(args[1])))
                 throw PyTypeError.Create("Expected an int as second argument to ldexp.");
             var exponent = PyObject.TryGetIndex(args[1]).Value;
             double r;

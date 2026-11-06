@@ -561,7 +561,7 @@ namespace SharpPy
                 int StarValue()
                 {
                     var given = NextArgument();
-                    if (given is not (PyInt or PyBool or PyIntSubclass))
+                    if (!PyInt.LongCheck(given))
                         throw PyTypeError.Create("* wants int");
                     return given.ToInt();
                 }

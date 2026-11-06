@@ -11,6 +11,18 @@ namespace SharpPy
     /// </summary>
     public class PyInt : PyObject
     {
+        /// <summary>PyLong_Check: an int, a bool, or an instance of a class written over int.</summary>
+        internal static bool LongCheck(PyObject value) => value is PyInt or PyBool or PyIntSubclass;
+
+        /// <summary>The int value of what PyLong_Check accepts (a subclass instance's long_value), else null.</summary>
+        internal static PyInt LongValue(PyObject value) => value switch
+        {
+            PyInt exact => exact,
+            PyBool flag => flag.Value ? SmallIntCache.One : SmallIntCache.Zero,
+            PyIntSubclass subclass => subclass.GetIntValue(),
+            _ => null,
+        };
+
         // Python's numeric hash has native signed width, unlike CLR GetHashCode.
         private static readonly BigInteger PythonHashModulus =
             (BigInteger.One << (IntPtr.Size == 8 ? 61 : 31)) - 1;
@@ -1637,7 +1649,7 @@ namespace SharpPy
             {
                 PyWarnings.Deprecated("The delegation of int() to __trunc__ is deprecated.");
                 var whole = value.BindSpecialMethod(truncate).Call(Array.Empty<PyObject>(), null);
-                if (whole is PyInt or PyBool or PyIntSubclass)
+                if (PyInt.LongCheck(whole))
                     return PyObject.TryGetIndex(whole);
                 if (!whole.HasTypeSlot("__index__"))
                     throw PyTypeError.Create($"__trunc__ returned non-Integral (type {whole.GetPyType().FullName})");
@@ -1657,7 +1669,7 @@ namespace SharpPy
         {
             if (result.GetType() == typeof(PyInt))
                 return (PyInt)result;
-            if (result is PyInt or PyBool or PyIntSubclass)
+            if (PyInt.LongCheck(result))
             {
                 PyWarnings.Deprecated($"{name} returned non-int (type {result.GetPyType().FullName}).  The ability to return an instance of a strict subclass of int is deprecated, and may be removed in a future version of Python.");
                 return PyObject.TryGetIndex(result);

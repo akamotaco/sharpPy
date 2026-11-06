@@ -174,7 +174,7 @@ public class PyBytesIO : PyIOBaseInstance
     {
         CheckClosed();
         long maxsize;
-        if (arg is PyInt or PyBool or PyIntSubclass)
+        if (PyInt.LongCheck(arg))
             maxsize = BytesMethods.AsSsize(arg);
         else if (arg is PyNone)
             maxsize = -1;
@@ -297,7 +297,7 @@ public class PyBytesIO : PyIOBaseInstance
         _pos = 0;
         WriteBytes(tuple.Items[0]);
         var position = tuple.Items[1];
-        if (position is not (PyInt or PyBool or PyIntSubclass))
+        if (!PyInt.LongCheck(position))
             throw PyTypeError.Create($"second item of state must be an integer, not {position.GetTypeName()}");
         long pos = BytesMethods.AsSsize(position);
         if (pos < 0)

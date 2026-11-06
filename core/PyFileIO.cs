@@ -105,7 +105,7 @@ public sealed class PyFileIO : PyIOBaseInstance
         }
 
         int fd = -1;
-        if (nameobj is PyInt or PyBool or PyIntSubclass || (nameobj is not PyString && nameobj is not PyBytes && PyObject.TryGetIndex(nameobj) != null))
+        if (PyInt.LongCheck(nameobj) || (nameobj is not PyString && nameobj is not PyBytes && PyObject.TryGetIndex(nameobj) != null))
         {
             var number = PyObject.TryGetIndex(nameobj).Value;
             if (number < 0)
@@ -187,7 +187,7 @@ public sealed class PyFileIO : PyIOBaseInstance
                 else
                 {
                     var result = opener.Call(new[] { nameobj, new PyInt(flags) }, null);
-                    if (result is not PyInt && result is not PyBool && result is not PyIntSubclass)
+                    if (!PyInt.LongCheck(result))
                         throw PyTypeError.Create("expected integer from opener");
                     Fd = PyObject.TryGetIndex(result).ToInt();
                     if (Fd < 0)

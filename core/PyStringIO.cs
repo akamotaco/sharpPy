@@ -351,7 +351,7 @@ public class PyStringIO : PyIOBaseInstance
         else
             _size = 0;
         var position = tuple.Items[2];
-        if (position is not (PyInt or PyBool or PyIntSubclass))
+        if (!PyInt.LongCheck(position))
             throw PyTypeError.Create($"third item of state must be an integer, got {position.GetTypeName()}");
         long pos = BytesMethods.AsSsize(position);
         if (pos < 0)
