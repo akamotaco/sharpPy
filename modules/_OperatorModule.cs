@@ -436,60 +436,6 @@ namespace SharpPy.Modules
 
         #region Attribute/Item/Method Getters
 
-        /// <summary>
-        /// CPython 3.12: itemgetter class
-        /// operator.py line 271-300
-        /// </summary>
-        private class PyItemGetter : PyObject
-        {
-            private readonly PyObject[] _items;
-            private readonly bool _single;
-
-            public PyItemGetter(PyObject[] items)
-            {
-                _items = items;
-                _single = items.Length == 1;
-            }
-
-            public override string GetTypeName() => "operator.itemgetter";
-
-            public override bool IsCallable() => true;
-
-            public override PyObject Call(PyObject[] args, PyDict kwargs)
-            {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"itemgetter expected 1 argument, got {args.Length}");
-
-                var obj = args[0];
-
-                if (_single)
-                {
-                    // Single item: return obj[item]
-                    return obj.GetItem(_items[0]);
-                }
-                else
-                {
-                    // Multiple items: return tuple of obj[i] for each i
-                    var results = new PyObject[_items.Length];
-                    for (int i = 0; i < _items.Length; i++)
-                    {
-                        results[i] = obj.GetItem(_items[i]);
-                    }
-                    return new PyTuple(results);
-                }
-            }
-
-            protected internal override PyString Repr()
-            {
-                var itemReprs = new string[_items.Length];
-                for (int i = 0; i < _items.Length; i++)
-                {
-                    itemReprs[i] = _items[i].ToRepr().Value;
-                }
-                return new PyString($"operator.itemgetter({string.Join(", ", itemReprs)})");
-            }
-        }
-
         #endregion
     }
 }

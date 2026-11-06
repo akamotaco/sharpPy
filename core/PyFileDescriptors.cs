@@ -112,43 +112,4 @@ namespace SharpPy
         }
     }
 
-    /// <summary>What open(fd) reads and writes: the table's stream, closed with the file if closefd.</summary>
-    internal sealed class PyDescriptorStream : Stream
-    {
-        private readonly Stream _inner;
-        private readonly bool _closeDescriptor;
-        private bool _released;
-
-        internal int Descriptor { get; }
-
-        internal PyDescriptorStream(int descriptor, bool closeDescriptor)
-        {
-            Descriptor = descriptor;
-            _inner = PyFileDescriptors.Get(descriptor);
-            _closeDescriptor = closeDescriptor;
-        }
-
-        public override bool CanRead => _inner.CanRead;
-        public override bool CanSeek => _inner.CanSeek;
-        public override bool CanWrite => _inner.CanWrite;
-        public override long Length => _inner.Length;
-        public override long Position { get => _inner.Position; set => _inner.Position = value; }
-        public override void Flush() => _inner.Flush();
-        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
-        public override long Seek(long offset, SeekOrigin origin) => _inner.Seek(offset, origin);
-        public override void SetLength(long value) => _inner.SetLength(value);
-        public override void Write(byte[] buffer, int offset, int count) => _inner.Write(buffer, offset, count);
-
-        protected override void Dispose(bool disposing)
-        {
-            if (!_released && disposing)
-            {
-                _released = true;
-                _inner.Flush();
-                if (_closeDescriptor)
-                    PyFileDescriptors.Close(Descriptor);
-            }
-            base.Dispose(disposing);
-        }
-    }
 }

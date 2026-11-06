@@ -1614,7 +1614,6 @@ namespace SharpPy
         {
             PyString text => FromString(text.Value, baseValue),
             PyBytes bytes => FromString(System.Text.Encoding.Latin1.GetString(bytes.Value), baseValue, false, value),
-            PyBytesObject binary => FromString(System.Text.Encoding.Latin1.GetString(binary.BufferSpan), baseValue, false, value),
             PyByteArray buffer => FromString(System.Text.Encoding.Latin1.GetString(buffer.BufferSpan), baseValue, false, value),
             _ => null,
         };
@@ -1792,7 +1791,6 @@ namespace SharpPy
         private static Exception InvalidIntegerLiteral(string text, int radix, PyObject literal = null)
         {
             if (literal is PyByteArray buffer) literal = new PyBytes(buffer.BufferSpan.ToArray());
-            if (literal is PyBytesObject binary) literal = new PyBytes(binary.BufferSpan.ToArray());
             return PyValueError.Create($"invalid literal for int() with base {radix}: {(literal ?? new PyString(text)).ToRepr().Value}");
         }
 
