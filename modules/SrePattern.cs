@@ -371,7 +371,7 @@ namespace SharpPy.Modules
                     return new PyMappingProxy(names);
                 }
             }
-            return base.GetAttribute(name);
+            return base.TpGetattro(name);
         }
 
         // pattern_repr.
@@ -542,7 +542,7 @@ namespace SharpPy.Modules
                     return new PyTuple(spans);
                 }
             }
-            return base.GetAttribute(name);
+            return base.TpGetattro(name);
         }
 
         // match_repr: at most fifty characters of repr.
@@ -630,12 +630,12 @@ namespace SharpPy.Modules
             return result;
         }
 
-        public override PyObject GetAttribute(string name) => name switch
+        protected internal override PyObject TpGetattro(string name) => name switch
         {
             "match" => new PyBuiltinFunction("match", _ => Step(false)),
             "search" => new PyBuiltinFunction("search", _ => Step(true)),
             "pattern" => _pattern,
-            _ => base.GetAttribute(name),
+            _ => base.TpGetattro(name),
         };
     }
 

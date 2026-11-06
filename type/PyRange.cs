@@ -57,7 +57,7 @@ namespace SharpPy
             "start" => new PyInt(Start),
             "stop" => new PyInt(Stop),
             "step" => new PyInt(Step),
-            _ => base.GetAttribute(name)
+            _ => base.TpGetattro(name)
         };
 
         #endregion

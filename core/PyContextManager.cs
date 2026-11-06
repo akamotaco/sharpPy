@@ -28,7 +28,7 @@ namespace SharpPy
         /// <returns>True to suppress exception, False to propagate</returns>
         public abstract PyObject Exit(PyObject excType, PyObject excValue, PyObject traceback);
 
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             return name switch
             {
@@ -44,7 +44,7 @@ namespace SharpPy
                         throw PyTypeError.Create("__exit__() takes exactly 3 arguments");
                     return Exit(args[0], args[1], args[2]);
                 }),
-                _ => base.GetAttribute(name)
+                _ => base.TpGetattro(name)
             };
         }
     }

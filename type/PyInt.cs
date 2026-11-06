@@ -1927,7 +1927,7 @@ namespace SharpPy
         /// CPython 3.12: __index__() returns self for int objects
         /// CPython 3.12: __complex__() returns complex(self, 0) for int objects
         /// </summary>
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             if (name == "__index__")
             {
@@ -1940,7 +1940,7 @@ namespace SharpPy
                 // CPython 3.12: Objects/longobject.c:5765 - long___complex___impl
                 return new PyBuiltinFunction("__complex__", (args) => new PyComplex((double)Value, 0));
             }
-            return base.GetAttribute(name);
+            return base.TpGetattro(name);
         }
 
         #endregion

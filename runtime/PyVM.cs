@@ -3235,11 +3235,13 @@ namespace SharpPy
                             var objType = obj.GetType();
                             if (!_hasCustomGetAttributeCache.TryGetValue(objType, out bool hasCustomGetAttribute))
                             {
-                                var getAttrMethod = objType.GetMethod("GetAttribute",
-                                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                                var getAttrMethod = objType.GetMethod("TpGetattro",
+                                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                                 hasCustomGetAttribute = getAttrMethod != null && getAttrMethod.DeclaringType != typeof(PyObject);
                                 _hasCustomGetAttributeCache[objType] = hasCustomGetAttribute;
                             }
+                            // A class written in Python has its own slot, which binds what it finds.
+                            hasCustomGetAttribute |= obj is not PyType && obj.GetPyType() is PyClass;
                             #if DEBUG_LOG
                             if (hasCustomGetAttribute)
                                 Console.WriteLine($"   → Object has custom GetAttribute override: {objType.Name}");

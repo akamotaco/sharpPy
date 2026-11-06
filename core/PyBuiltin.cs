@@ -2843,10 +2843,10 @@ namespace SharpPy
 
         // super_getattro (Objects/typeobject.c): __class__ is the super object's own; every other
         // name goes through do_super_lookup.
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             if (name == "__class__")
-                return base.GetAttribute(name);
+                return base.TpGetattro(name);
             return DoSuperLookup(name);
         }
 
@@ -2879,7 +2879,7 @@ namespace SharpPy
                     return descriptor.Get(ReferenceEquals(Object, ObjectType) ? null : Object, ObjectType);
                 }
             }
-            return base.GetAttribute(name);
+            return base.TpGetattro(name);
         }
 
         // _super_lookup_descr: each base's own dict, starting after __thisclass__ in obj_type's MRO.

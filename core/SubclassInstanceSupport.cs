@@ -55,30 +55,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// tp_getattro of a Python class over a builtin: slot_tp_getattr_hook (Objects/typeobject.c)
-        /// calls a __getattribute__ the class writes, or PyObject_GenericGetAttr (self.GenericGetAttr),
-        /// and __getattr__ when that raises AttributeError.
-        /// </summary>
-        internal static PyObject GetAttribute(PyObject self, PyClass instanceType, string name)
-        {
-            var getattribute = instanceType.FindNameInMro("__getattribute__", out bool written);
-            var hook = instanceType.FindNameInMro("__getattr__");
-            if (hook == null)
-                return written ? CallHook(self, getattribute, name) : self.GenericGetAttr(name);
-            try
-            {
-                return written ? CallHook(self, getattribute, name) : self.GenericGetAttr(name);
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-                return CallHook(self, hook, name);
-            }
-        }
-
-        private static PyObject CallHook(PyObject self, PyObject method, string name) =>
-            self.BindSpecialMethod(method).Call(new PyObject[] { new PyString(name) }, null);
-
-        /// <summary>
         /// _PyObject_GenericGetAttrWithDict (Objects/object.c): a data descriptor of the type, then the
         /// instance dict, then a non-data descriptor or plain attribute of the type. Only what a
         /// Python class body holds is answered here; a builtin's attribute goes to nativeGetAttribute,

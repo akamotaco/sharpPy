@@ -3742,7 +3742,7 @@ namespace SharpPy
             or "__qualname__" or "__module__" or "__dict__" or "__mro__" or "__bases__" or "__base__"
             or "__weakref__" or "__annotations__" or "__subclasses__" or "__call__";
 
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             // CPython 3.12 호환: type_getattro() 구현
             // Equivalent to _Py_type_getattro_impl in Objects/typeobject.c:4800

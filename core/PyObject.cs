@@ -455,18 +455,23 @@ namespace SharpPy
 
         #region Attribute Access Protocol (MRO-based with Descriptor Support)
 
-        public virtual PyObject GetAttribute(string name)
+        /// <summary>
+        /// PyObject_GetAttr: the type's tp_getattro. A class written in Python has the slot
+        /// update_one_slot gave it (slot_tp_getattr_hook when it writes __getattribute__ or has a
+        /// __getattr__); a class object's is type_getattro, its own TpGetattro.
+        /// </summary>
+        public PyObject GetAttribute(string name) =>
+            this is not PyType && GetPyType() is SharpPy.PyClass heap ? heap.GetattroSlot(this, name) : TpGetattro(name);
+
+        /// <summary>tp_getattro of the CLR type: the builtin's own, PyObject_GenericGetAttr by default.</summary>
+        protected internal virtual PyObject TpGetattro(string name)
         {
-            // CPython 3.12: For type-level access (accessing attributes ON a type),
-            // always use descriptor protocol via PyGetAttribute
-            if (this is PyType || this is PyClass)
-            {
+            if (this is PyType)
                 return PyGetAttribute(name);
-            }
 
             // A Python subclass of a builtin with no storage of its own for attributes.
             if (_customType is PyClass heap && this is not IDictBackedInstance)
-                return SubclassInstanceSupport.GetAttribute(this, heap, name);
+                return SubclassInstanceSupport.GenericGetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, PyGetAttribute);
 
             // An instance dict kept beside a native value (IDictBackedInstance) is its __dict__.
             if (name == "__dict__" && this is IDictBackedInstance dictAccessor && (GetPyType() is not PyClass heapOwner || heapOwner.InstancesHaveDict()))
@@ -479,12 +484,7 @@ namespace SharpPy
         /// without the __getattribute__/__getattr__ hook of a Python class. A builtin's own
         /// GetAttribute is both.
         /// </summary>
-        internal virtual PyObject GenericGetAttr(string name)
-        {
-            if (_customType is PyClass heap && this is not IDictBackedInstance)
-                return SubclassInstanceSupport.GenericGetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, PyGetAttribute);
-            return GetAttribute(name);
-        }
+        internal virtual PyObject GenericGetAttr(string name) => TpGetattro(name);
 
         public virtual void SetAttribute(string name, PyObject value)
         {
@@ -674,8 +674,8 @@ namespace SharpPy
             // GenericGetAttr is the DEFAULT implementation of tp_getattro.
             //
             // Removing the __getattribute__ check here prevents infinite recursion:
-            // - PyIntSubclass.GetAttribute() calls base.GetAttribute()
-            // - base.GetAttribute() calls GenericGetAttribute()
+            // - PyIntSubclass.GetAttribute() calls base.TpGetattro()
+            // - base.TpGetattro() calls GenericGetAttribute()
             // - GenericGetAttribute() should NOT call __getattribute__ again!
             //
             // Custom __getattribute__ methods should be handled by overriding
@@ -733,12 +733,6 @@ namespace SharpPy
                     return new PyMethod(this, func);
                 }
                 return attr;
-            }
-
-            // 5. __getattr__ 호출 (있다면)
-            if (HasCustomGetAttr())
-            {
-                return CallGetAttr(name);
             }
 
             // object.__repr__ and object.__str__ are answered by the type, see PyType.GetAttribute.
@@ -911,8 +905,6 @@ namespace SharpPy
 
         #endregion
 
-        protected virtual bool HasCustomGetAttr() => false;
-        protected virtual PyObject CallGetAttr(string name) => null;
 
         // Python의 __call__ 메서드 - 모든 객체가 잠재적으로 호출 가능
         #region Call Protocol

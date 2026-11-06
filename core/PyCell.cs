@@ -78,9 +78,9 @@ namespace SharpPy
         }
 
         // cell_getsetlist (Objects/cellobject.c): cell_contents.
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
-            if (name != "cell_contents") return base.GetAttribute(name);
+            if (name != "cell_contents") return base.TpGetattro(name);
             return HasValue ? _value : throw PyValueError.Create("Cell is empty");
         }
 

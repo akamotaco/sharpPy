@@ -180,13 +180,9 @@ namespace SharpPy.Modules
         public override string GetTypeName() => _type.FullName;
 
         // A Python subclass keeps its attributes in InstanceDict, like the other value subclasses.
-        public override PyObject GetAttribute(string name) => _type is PyClass heap
-            ? SubclassInstanceSupport.GetAttribute(this, heap, name)
-            : base.GetAttribute(name);
-
         internal override PyObject GenericGetAttr(string name) => _type is PyClass heap
-            ? SubclassInstanceSupport.GenericGetAttribute(this, heap, InstanceDict, name, base.GetAttribute)
-            : base.GetAttribute(name);
+            ? SubclassInstanceSupport.GenericGetAttribute(this, heap, InstanceDict, name, base.TpGetattro)
+            : TpGetattro(name);
 
         public override void SetAttribute(string name, PyObject value)
         {

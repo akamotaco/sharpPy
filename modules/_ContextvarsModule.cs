@@ -189,7 +189,7 @@ namespace SharpPy.Modules
             public override string GetTypeName() => "ContextVar";
             public override string ToString() => $"<ContextVar name='{_name.Value}'>";
 
-            public override PyObject GetAttribute(string name) => name == "name" ? _name : base.GetAttribute(name);
+            protected internal override PyObject TpGetattro(string name) => name == "name" ? _name : base.TpGetattro(name);
         }
 
         private sealed class PyContextToken : PyObject
@@ -209,11 +209,11 @@ namespace SharpPy.Modules
             public override PyType GetPyType() => TokenType;
             public override string GetTypeName() => "Token";
 
-            public override PyObject GetAttribute(string name) => name switch
+            protected internal override PyObject TpGetattro(string name) => name switch
             {
                 "var" => Variable,
                 "old_value" => Old ?? Missing,
-                _ => base.GetAttribute(name),
+                _ => base.TpGetattro(name),
             };
         }
     }

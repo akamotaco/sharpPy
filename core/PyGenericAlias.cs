@@ -72,7 +72,7 @@ namespace SharpPy
         }
 
         // attr_exceptions and ga_getattro: what is not the alias's own goes to the origin.
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             switch (name)
             {
@@ -89,7 +89,7 @@ namespace SharpPy
                 case "__reduce__":
                 case "__copy__":
                 case "__deepcopy__":
-                    return base.GetAttribute(name);
+                    return base.TpGetattro(name);
             }
             return Origin.GetAttribute(name);
         }

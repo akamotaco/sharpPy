@@ -38,6 +38,44 @@ namespace SharpPy
             return ref slot;
         }
 
+        // tp_getattro: what the class writes as __getattribute__, and __getattr__ wherever it is.
+        private ulong _getattroVersion;
+        private PyObject _getattribute, _getattr;
+
+        /// <summary>
+        /// tp_getattro of a class written in Python. update_one_slot leaves the base's tp_getattro
+        /// when the class has neither name of its own, else slot_tp_getattr_hook: __getattribute__
+        /// (PyObject_GenericGetAttr when it is object's), and __getattr__ when that raises
+        /// AttributeError (Objects/typeobject.c).
+        /// </summary>
+        internal PyObject GetattroSlot(PyObject self, string name)
+        {
+            if (_getattroVersion != TypeVersionTag)
+            {
+                var getattribute = FindNameInMro("__getattribute__", out bool written);
+                _getattribute = written ? getattribute : null;
+                _getattr = FindNameInMro("__getattr__");
+                _getattroVersion = TypeVersionTag;
+            }
+            var hook = _getattr;
+            var method = _getattribute;
+            if (hook == null)
+                return method == null ? self.GenericGetAttr(name) : CallGetattrMethod(self, method, name);
+            try
+            {
+                return method == null ? self.GenericGetAttr(name) : CallGetattrMethod(self, method, name);
+            }
+            catch (PythonException error) when (error.PyException is PyAttributeError)
+            {
+                return CallGetattrMethod(self, hook, name);
+            }
+        }
+
+        private static PyObject CallGetattrMethod(PyObject self, PyObject method, string name) =>
+            method.GetType() == typeof(PyFunction)
+                ? method.Call(new PyObject[] { self, new PyString(name) }, null)
+                : self.BindSpecialMethod(method).Call(new PyObject[] { new PyString(name) }, null);
+
         // Version 0 is never a tag, so every slot starts undecided.
         private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool, _sqContains, _tpHash, _mpSubscript,
             _mpSetItem, _mpDelItem, _nbInt, _nbFloat, _nbPositive, _nbNegative, _nbInvert, _nbAbsolute;
@@ -715,7 +753,7 @@ namespace SharpPy
         protected internal override PyObject IterNext() => InvokeNextMethod();
 
         // tp_getattro of a class: a metaclass may replace it, or catch what is missing.
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             if (Metaclass == null || ReferenceEquals(Metaclass, PyTypeMetaclass.Instance))
                 return TypeGetAttribute(name);
@@ -864,9 +902,9 @@ namespace SharpPy
                             ? PyClassInstance.CallDescriptorGet(metaAttribute, this, Metaclass)
                             : metaAttribute;
 
-                    var baseResult = base.GetAttribute(name);
+                    var baseResult = base.TpGetattro(name);
                     #if DEBUG_LOG
-                    Console.WriteLine($"   → base.GetAttribute returned: {baseResult?.GetType().Name}");
+                    Console.WriteLine($"   → base.TpGetattro returned: {baseResult?.GetType().Name}");
                     #endif
                     return baseResult;
             }
@@ -1596,12 +1634,6 @@ namespace SharpPy
             return result ?? base.DivMod(other);
         }
 
-        // slot_tp_getattr_hook finds __getattr__ on the type, inherited or not.
-        protected override bool HasCustomGetAttr() => InstanceType.LookupInMRO("__getattr__") != null;
-
-        protected override PyObject CallGetAttr(string name) =>
-            BindSpecialMethod(InstanceType.LookupInMRO("__getattr__")).Call(new PyObject[] { new PyString(name) }, null);
-
         // Descriptor protocol helpers (CPython 3.12: Objects/descrobject.c:1021)
 
         /// <summary>
@@ -1891,49 +1923,6 @@ namespace SharpPy
             throw PyAttributeError.CreateFor(this, name, $"'{InstanceType.Name}' object has no attribute '{name}'");
         }
 
-        public override PyObject GetAttribute(string name)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 PyClassInstance.GetAttribute: {InstanceType.Name} instance.{name}");
-            #endif
-
-            // CPython 3.12: Check for custom __getattribute__ FIRST
-            // (typeobject.c:8867 - _Py_slot_tp_getattr_hook)
-            PyObject customGetAttr = null;
-            foreach (var mroType in InstanceType.MRO)
-            {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__getattribute__", out customGetAttr))
-                {
-                    break;
-                }
-                if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue("__getattribute__", out customGetAttr))
-                {
-                    // Check if it's NOT the default object.__getattribute__
-                    // (CPython: check if d_wrapped == PyObject_GenericGetAttr)
-                    if (mroType == PyType.ObjectType)
-                    {
-                        // This is the default object.__getattribute__, continue with normal logic
-                        customGetAttr = null;
-                    }
-                    break;
-                }
-            }
-
-            // slot_tp_getattr_hook: tp_getattro first, __getattr__ when it raises AttributeError.
-            // The hook is looked up first: __getattribute__ may delete it.
-            var hook = InstanceType.LookupInMRO("__getattr__");
-            if (hook == null)
-                return customGetAttr != null ? CallSpecial(customGetAttr, new PyString(name)) : GetAttributeGeneric(name);
-            try
-            {
-                return customGetAttr != null ? CallSpecial(customGetAttr, new PyString(name)) : GetAttributeGeneric(name);
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-                return CallSpecial(hook, new PyString(name));
-            }
-        }
-
         public override void SetAttribute(string name, PyObject value)
         {
             // object_set_class
@@ -2161,11 +2150,8 @@ namespace SharpPy
 
         // User-defined descriptors, methods and the instance __dict__ live in the Python class dict,
         // which CLR inheritance cannot see. Shared with PyBytesSubclass.
-        public override PyObject GetAttribute(string name) =>
-            SubclassInstanceSupport.GetAttribute(this, InstanceType, name);
-
         internal override PyObject GenericGetAttr(string name) =>
-            SubclassInstanceSupport.GenericGetAttribute(this, InstanceType, InstanceDict, name, n => base.GetAttribute(n));
+            SubclassInstanceSupport.GenericGetAttribute(this, InstanceType, InstanceDict, name, n => base.TpGetattro(n));
 
         public override void SetAttribute(string name, PyObject value) =>
             SubclassInstanceSupport.SetAttribute(this, InstanceType, InstanceDict, name, value);

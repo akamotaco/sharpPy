@@ -228,11 +228,11 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: Use descriptor protocol for attribute access
         /// </summary>
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             // A Python subclass keeps its attributes beside the object, which PyObject's route reads.
             if (_customType is PyClass)
-                return base.GetAttribute(name);
+                return base.TpGetattro(name);
             return GenericGetAttribute(name);
         }
 

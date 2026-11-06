@@ -45,11 +45,11 @@ namespace SharpPy
         private bool TypeHasDataDescriptor(string name) =>
             _type.LookupSpecial(name) is IDescriptor descriptor && descriptor.IsDataDescriptor();
 
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             if (!TypeHasDataDescriptor(name) && InstanceDict.TryGetValue(name, out var value))
                 return value;
-            return base.GetAttribute(name);
+            return base.TpGetattro(name);
         }
 
         public override void SetAttribute(string name, PyObject value)

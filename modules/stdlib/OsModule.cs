@@ -528,7 +528,7 @@ namespace SharpPy.Modules.Stdlib
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "stat_result";
 
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             switch (name)
             {

@@ -951,7 +951,7 @@ namespace SharpPy
         }
 
         // CPython 3.12: Use descriptor protocol for attribute access
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             return GenericGetAttribute(name);
         }

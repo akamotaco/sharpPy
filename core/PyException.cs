@@ -242,7 +242,7 @@ namespace SharpPy
         // Exception attribute lookup follows standard descriptor protocol
         // User-defined exception instances delegate ALL attribute access to OriginalInstance
         // This ensures descriptors (like BaseException.args) are properly invoked
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             // CPython 3.12: Exception chaining attributes are stored on the exception wrapper,
             // not on the user-defined instance. Check these first before delegating.
@@ -256,13 +256,13 @@ namespace SharpPy
                     {
                         return PyExceptionSlots.ArgsTuple(this);
                     }
-                    return base.GetAttribute(name);
+                    return base.TpGetattro(name);
                 case "__cause__":
                 case "__context__":
                 case "__suppress_context__":
                 case "__traceback__":
                     // These are exception-specific attributes stored on the wrapper
-                    return base.GetAttribute(name);
+                    return base.TpGetattro(name);
             }
 
             // CPython 3.12: Objects/exceptions.c:42-849
@@ -277,7 +277,7 @@ namespace SharpPy
             // CPython 3.12: Objects/exceptions.c:785-795
             // For C-level exceptions (PyBaseException), use standard attribute lookup
             // This includes built-in exception types like TypeError, ValueError, etc.
-            return base.GetAttribute(name);
+            return base.TpGetattro(name);
         }
 
         public new static System.Exception Create(string message = "")
@@ -2369,7 +2369,7 @@ namespace SharpPy
                 "tb_next" => (PyObject?)Next ?? PyNone.Instance,
                 "tb_lasti" => new PyInt(LastI * 2),
                 "tb_lineno" => LineNo < 0 ? PyNone.Instance : new PyInt(LineNo),
-                _ => base.GetAttribute(name)
+                _ => base.TpGetattro(name)
             };
         }
     }

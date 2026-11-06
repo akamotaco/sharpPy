@@ -708,7 +708,7 @@ public partial class PyFunction : PyObject, IDescriptor
     public bool IsDataDescriptor() => false; // function은 non-data descriptor
     
     // Function attributes 접근 - CPython 호환: descriptor 테이블 사용
-    public override PyObject GetAttribute(string name)
+    protected internal override PyObject TpGetattro(string name)
     {
         // PyObject_GenericGetAttr: a getset of the type comes before the instance's dict.
         if (PyType.FunctionType.TypeDict.TryGetValue(name, out var slot) && slot is IDescriptor { } getset && getset.IsDataDescriptor())
@@ -861,7 +861,7 @@ public partial class PyFunction : PyObject, IDescriptor
         public override bool IsCallable() => true;
 
         // Method attributes (__self__, __func__ 등)
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             return name switch
             {
@@ -875,7 +875,7 @@ public partial class PyFunction : PyObject, IDescriptor
                 "__doc__" => Function.GetAttribute(name),
                 // method_getattro: method descriptors precede function attributes.
                 _ => LookupSpecialMethodUncached(name) != null
-                    ? base.GetAttribute(name) : Function.GetAttribute(name)
+                    ? base.TpGetattro(name) : Function.GetAttribute(name)
             };
         }
 

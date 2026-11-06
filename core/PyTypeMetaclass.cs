@@ -57,7 +57,7 @@ namespace SharpPy
         // CPython 3.12: Objects/typeobject.c:5339 - PyType_Type.tp_getattro = _Py_type_getattro
         // Override GetAttribute to use type_getattro logic (not PyClass custom logic)
         // This ensures type object attributes invoke descriptors correctly
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             // CPython 3.12: Objects/typeobject.c:4800-4880 (type_getattro_impl)
             // For PyType_Type, metatype = &PyType_Type (type is its own metaclass)
@@ -86,7 +86,7 @@ namespace SharpPy
             }
 
             // Not found in MRO, fall back to base implementation
-            return base.GetAttribute(name);
+            return base.TpGetattro(name);
         }
 
         /// <summary>

@@ -42,7 +42,7 @@ namespace SharpPy
         protected internal override bool Bool() => Target.IsTrue();
 
 
-        public override PyObject GetAttribute(string name) => Target.GetAttribute(name);
+        protected internal override PyObject TpGetattro(string name) => Target.GetAttribute(name);
 
         public override void SetAttribute(string name, PyObject value) => Target.SetAttribute(name, value);
 

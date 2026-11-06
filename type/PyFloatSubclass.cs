@@ -111,19 +111,14 @@ namespace SharpPy
         #region Attribute access
 
         // Do NOT delegate to _floatValue.GetAttribute(): that instance has the plain
-        // [float, object] MRO. base.GetAttribute() walks GetPyType(), i.e. the subclass MRO, and
+        // [float, object] MRO. base.TpGetattro() walks GetPyType(), i.e. the subclass MRO, and
         // the IInstanceDictAccessor seam above supplies the instance __dict__ layer.
         // The class's tp_getattro (SubclassInstanceSupport.GetAttribute); the payload type's own
         // attributes come last. An enum member reads _value_ before the class sets it.
-        public override PyObject GetAttribute(string name)
-        {
-            if (name == "_value_" && !InstanceDict.ContainsKey("_value_"))
-                return _floatValue;
-            return SubclassInstanceSupport.GetAttribute(this, _class, name);
-        }
-
         internal override PyObject GenericGetAttr(string name) =>
-            SubclassInstanceSupport.GenericGetAttribute(this, _class, InstanceDict, name, base.GetAttribute);
+            name == "_value_" && !InstanceDict.ContainsKey("_value_")
+                ? _floatValue
+                : SubclassInstanceSupport.GenericGetAttribute(this, _class, InstanceDict, name, base.TpGetattro);
 
         public override void SetAttribute(string name, PyObject value)
         {

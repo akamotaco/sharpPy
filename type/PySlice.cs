@@ -40,7 +40,7 @@ namespace SharpPy
                 "start" => Start,
                 "stop" => Stop,
                 "step" => Step,
-                _ => base.GetAttribute(name)
+                _ => base.TpGetattro(name)
             };
         }
 

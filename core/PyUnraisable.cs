@@ -52,10 +52,10 @@ namespace SharpPy
         internal PyUnraisableHookArgs(PyObject[] items) : base(items) { }
         public override PyType GetPyType() => ArgsType;
         public override string GetTypeName() => "UnraisableHookArgs";
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             int index = Array.IndexOf(Fields, name);
-            return index >= 0 ? Items[index] : base.GetAttribute(name);
+            return index >= 0 ? Items[index] : base.TpGetattro(name);
         }
         public override void SetAttribute(string name, PyObject value)
             => throw PyAttributeError.Create(Array.IndexOf(Fields, name) >= 0 ? "readonly attribute" : $"'UnraisableHookArgs' object has no attribute '{name}'");

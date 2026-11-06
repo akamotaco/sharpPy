@@ -868,7 +868,7 @@ namespace SharpPy
                 }),
                 "co_lnotab" => LineNumberNotes(),
                 "co_positions" => new PyBuiltinFunction("co_positions", CoPositionsMethod),
-                _ => base.GetAttribute(name)
+                _ => base.TpGetattro(name)
             };
         }
 

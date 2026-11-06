@@ -174,7 +174,7 @@ namespace SharpPy
         /// <summary>
         /// Provide access to TypeVar attributes (__name__, __bound__, etc.)
         /// </summary>
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             return name switch
             {
@@ -183,7 +183,7 @@ namespace SharpPy
                 "__constraints__" => Constraints,
                 "__covariant__" => PyBool.FromBool(Covariant),
                 "__contravariant__" => PyBool.FromBool(Contravariant),
-                _ => base.GetAttribute(name)
+                _ => base.TpGetattro(name)
             };
         }
 
@@ -220,12 +220,12 @@ namespace SharpPy
             return PyBool.FromBool(ReferenceEquals(this, other));
         }
 
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             return name switch
             {
                 "__name__" => new PyString(Name),
-                _ => base.GetAttribute(name)
+                _ => base.TpGetattro(name)
             };
         }
     }
@@ -260,12 +260,12 @@ namespace SharpPy
             return PyBool.FromBool(ReferenceEquals(this, other));
         }
 
-        public override PyObject GetAttribute(string name)
+        protected internal override PyObject TpGetattro(string name)
         {
             return name switch
             {
                 "__name__" => new PyString(Name),
-                _ => base.GetAttribute(name)
+                _ => base.TpGetattro(name)
             };
         }
     }

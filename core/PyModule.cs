@@ -173,22 +173,8 @@ public class PyModule : PyObject
             ModuleDict.TryAdd(key, PyNone.Instance);
     }
 
-    // The slot a module subclass may replace; the module's own lookup is ModuleGetAttro.
-    private PyObject OverriddenSlot(string slot)
-    {
-        if (_type is not PyClass cls) return null;
-        var method = cls.LookupInMRO(slot);
-        return ReferenceEquals(method, PyType.ObjectType.TypeDict[slot]) ? null : method;
-    }
-    
-    // 모듈 attribute 접근 (Variable == Attribute)
-    public override PyObject GetAttribute(string name)
-    {
-        var replaced = OverriddenSlot("__getattribute__");
-        if (replaced == null)
-            return ModuleGetAttro(name);
-        return CallSpecial(replaced, new PyString(name));
-    }
+    // module_getattro; a module subclass's __getattribute__ and __getattr__ are its type's slot.
+    protected internal override PyObject TpGetattro(string name) => ModuleGetAttro(name);
 
     internal PyObject ModuleGetAttro(string name)
     {

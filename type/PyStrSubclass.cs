@@ -150,15 +150,10 @@ namespace SharpPy
 
         // The class's tp_getattro (SubclassInstanceSupport.GetAttribute); the payload type's own
         // attributes come last. An enum member reads _value_ before the class sets it.
-        public override PyObject GetAttribute(string name)
-        {
-            if (name == "_value_" && !InstanceDict.ContainsKey("_value_"))
-                return _strValue;
-            return SubclassInstanceSupport.GetAttribute(this, _class, name);
-        }
-
         internal override PyObject GenericGetAttr(string name) =>
-            SubclassInstanceSupport.GenericGetAttribute(this, _class, InstanceDict, name, base.GetAttribute);
+            name == "_value_" && !InstanceDict.ContainsKey("_value_")
+                ? _strValue
+                : SubclassInstanceSupport.GenericGetAttribute(this, _class, InstanceDict, name, base.TpGetattro);
 
         public override void SetAttribute(string name, PyObject value)
         {
