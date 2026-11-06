@@ -66,7 +66,7 @@ namespace SharpPy.Modules
         {
             if (ItertoolsModule.LongValue(v, out var number))
                 return number;
-            if (!v.HasTypeSlot("__index__"))
+            if (!PyObject.IndexCheck(v))
                 throw Error("required argument is not an integer");
             return PyObject.TryGetIndex(v).Value;
         }

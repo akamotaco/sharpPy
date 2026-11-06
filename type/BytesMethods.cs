@@ -48,8 +48,7 @@ namespace SharpPy
         private static byte[] RequireBuffer(PyObject value) =>
             Buffer(value) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{value.GetTypeName()}'");
 
-        private static bool HasIndex(PyObject value) =>
-            value is PyInt or PyBool or PyIntSubclass || value.HasTypeSlot("__index__");
+        private static bool HasIndex(PyObject value) => PyObject.IndexCheck(value);
 
         private static BigInteger IndexValue(PyObject value) =>
             (PyObject.TryGetIndex(value) ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer")).Value;

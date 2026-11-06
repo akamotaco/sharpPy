@@ -6061,7 +6061,7 @@ namespace SharpPy
         // sequence_repeat, Objects/abstract.c: _PyIndex_Check, then PyNumber_AsSsize_t with OverflowError.
         private static PyObject SequenceRepeat(PyObject sequence, PyObject count)
         {
-            if (count is not (PyInt or PyBool or PyIntSubclass) && count.LookupSpecialMethodUncached("__index__") == null)
+            if (!PyObject.IndexCheck(count))
                 throw PyTypeError.Create($"can't multiply sequence by non-int of type '{count.GetTypeName()}'");
             var native = PyNativeStorage.Unwrap(sequence);
             return native.Multiply(PyArgs.RepeatCount(native, PyArgs.IndexSsize(count)));

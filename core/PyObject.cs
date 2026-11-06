@@ -168,10 +168,13 @@ namespace SharpPy
         /// <param name="obj">The object to convert</param>
         /// <returns>PyInt if successful, null if __index__ not found</returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        /// <summary>PyIndex_Check: the type fills nb_index (int's own included).</summary>
+        internal static bool IndexCheck(PyObject value) =>
+            value is PyInt or PyBool or PyIntSubclass || value.HasTypeSlot("__index__");
+
         /// <summary>PyNumber_Check: complex has neither __int__ nor __float__.</summary>
         internal static bool NumberCheck(PyObject value) =>
-            value is PyInt or PyBool or PyIntSubclass or PyFloat or PyComplex ||
-            value.HasTypeSlot("__index__") ||
+            value is PyFloat or PyComplex || IndexCheck(value) ||
             value.HasTypeSlot("__int__") ||
             value.HasTypeSlot("__float__");
 

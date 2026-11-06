@@ -441,9 +441,10 @@ namespace SharpPy.Modules
             {
                 number = found.ToInt();
             }
-            else if (group.HasTypeSlot("__index__"))
+            // PyIndex_Check, then PyNumber_AsSsize_t: nb_index of the type.
+            else if (PyObject.IndexCheck(group))
             {
-                number = group.GetAttribute("__index__").Call(Array.Empty<PyObject>(), null).ToInt();
+                number = (long)PyObject.IndexOrThrow(group).Value;
             }
             if (number < 0 || number > _pattern.Groups)
                 throw PyIndexError.Create("no such group");
