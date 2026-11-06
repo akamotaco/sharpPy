@@ -95,17 +95,54 @@ namespace SharpPy
         }
 
 
-        /// <summary>_PyObject_GenericSetAttrWithDict over the dict kept beside the value.</summary>
+        /// <summary>
+        /// _PyObject_GenericSetAttrWithDict (Objects/object.c) for an instance of a class written in
+        /// Python, value null to delete: a data descriptor of the type sets or deletes; else the
+        /// instance dict (dict, else the instance's own store), which a class without __dict__
+        /// lacks. object's __class__ getset (object_set_class) refuses deletion.
+        /// </summary>
+        internal static void GenericSetAttrWithDict(PyObject self, PyClass instanceType, string name, PyObject value,
+            Dictionary<string, PyObject> dict, IInstanceDictStore store)
+        {
+            if (name == "__class__" && value == null)
+                throw PyTypeError.Create("can't delete __class__ attribute");
+            var descriptor = PyClassInstance.FindDataDescriptorInMro(instanceType, name);
+            if (descriptor != null)
+            {
+                if (value == null) PyClassInstance.CallDescriptorDelete(descriptor, self);
+                else PyClassInstance.CallDescriptorSet(descriptor, self, value);
+                return;
+            }
+            bool hasDict = instanceType.InstancesHaveDict();
+            if (value == null)
+            {
+                if (dict != null ? PyGlobalsDict.Delete(dict, name) : store.RemoveInstanceAttribute(name))
+                    return;
+                throw NoAttribute(self, instanceType, name, hasDict);
+            }
+            if (!hasDict && !instanceType.IsSlottedAttributeName(name))
+                throw NoAttribute(self, instanceType, name, hasDict);
+            if (dict != null) PyGlobalsDict.Store(dict, name, value);
+            else store.SetInstanceAttribute(name, value);
+        }
+
+        // A name the class holds but that is no data descriptor is read-only without an instance dict.
+        private static Exception NoAttribute(PyObject self, PyClass type, string name, bool hasDict) =>
+            PyAttributeError.Create(!hasDict && type.LookupInMRO(name) != null
+                ? $"'{self.GetTypeName()}' object attribute '{name}' is read-only"
+                : $"'{self.GetTypeName()}' object has no attribute '{name}'");
+
+        /// <summary>The generic set over the dict kept beside a builtin's value; value null to delete.</summary>
         internal static void GenericSetAttribute(PyObject self, PyClass instanceType,
             Dictionary<string, PyObject> instanceDict, string name, PyObject value)
         {
-            if (name == "__class__" && self is IHeapInstance heap)
+            if (name == "__class__" && value != null && self is IHeapInstance heap)
             {
                 heap.ChangeClass(ClassAssignment(instanceType, value));
                 return;
             }
             // object_set_dict: the storage stays, __dict__ is a live view of it.
-            if (name == "__dict__")
+            if (name == "__dict__" && value != null)
             {
                 var replacement = PyNativeStorage.ForDict(value)
                     ?? throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
@@ -114,16 +151,7 @@ namespace SharpPy
                 foreach (var entry in copy) PyGlobalsDict.Store(instanceDict, ((PyString)entry.Key).Value, entry.Value);
                 return;
             }
-            var descriptor = PyClassInstance.FindDataDescriptorInMro(instanceType, name);
-            if (descriptor != null)
-            {
-                PyClassInstance.CallDescriptorSet(descriptor, self, value);
-                return;
-            }
-
-            if (!instanceType.InstancesHaveDict())
-                throw PyAttributeError.Create($"'{instanceType.Name}' object has no attribute '{name}'");
-            PyGlobalsDict.Store(instanceDict, name, value);
+            GenericSetAttrWithDict(self, instanceType, name, value, instanceDict, null);
         }
     }
 }

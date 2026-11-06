@@ -17,6 +17,13 @@ namespace SharpPy
     /// struct, which PyObject_GenericGetAttr and _PyObject_GenericSetAttrWithDict read and write.
     /// null when the object has none yet and create is false.
     /// </summary>
+    /// <summary>An instance whose own store is its __dict__, written through as well as read.</summary>
+    internal interface IInstanceDictStore : IInstanceDictAccessor
+    {
+        void SetInstanceAttribute(string name, PyObject value);
+        bool RemoveInstanceAttribute(string name);
+    }
+
     public interface IObjectDict
     {
         PyDict ObjectDict(bool create);

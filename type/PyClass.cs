@@ -1243,7 +1243,7 @@ namespace SharpPy
     /// <summary>
     /// 사용자 정의 클래스의 인스턴스
     /// </summary>
-    public class PyClassInstance : PyObject, IInstanceDictAccessor
+    public class PyClassInstance : PyObject, IInstanceDictStore
     {
         public PyClass InstanceType { get; private set; }
         public PyObject[] ConstructorArgs { get; set; } // Store constructor arguments
@@ -1828,91 +1828,14 @@ namespace SharpPy
                 SetAttributeDefault(name, value);
         }
 
-        /// <summary>
-        /// CPython 3.12: _PyObject_GenericSetAttrWithDict (Objects/object.c:1563-1572)
-        /// Default attribute setting behavior without __setattr__ lookup.
-        /// Called by object.__setattr__ and directly when no user __setattr__ exists.
-        /// </summary>
-        public void SetAttributeDefault(string name, PyObject value)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 PyClassInstance.SetAttributeDefault: {InstanceType.Name} instance.{name} = {value}");
-            #endif
+        // _PyObject_GenericSetAttrWithDict over the instance's own store; also object.__delattr__.
+        public void SetAttributeDefault(string name, PyObject value) =>
+            SubclassInstanceSupport.GenericSetAttrWithDict(this, InstanceType, name, value, null, this);
 
-            // CPython 3.12 descriptor protocol:
-            // Reference: Objects/object.c:1563-1572 (_PyObject_GenericSetAttrWithDict)
-            // 1. 클래스 MRO에서 attribute 찾기
-            // 2. data descriptor라면 descriptor.__set__() 호출
-            // 3. 아니라면 instance.__dict__[name] = value
-
-            // 1. 클래스 MRO에서 descriptor 찾기
-            var desc = FindDataDescriptorInMro(name);
-            if (desc != null)
-            {
-                CallDescriptorSet(desc, this, value);
-                return;
-            }
-
-            // 3. 인스턴스 __dict__에 저장
-            // CPython 3.12: a __slots__ class that never provides '__dict__' refuses
-            // attributes outside the slot names (Objects/object.c generic setattr).
-            if (!InstanceType.InstancesHaveDict() && !InstanceType.IsSlottedAttributeName(name))
-            {
-                throw PyAttributeError.Create(InstanceType.LookupInMRO(name) != null
-                    ? $"'{GetTypeName()}' object attribute '{name}' is read-only"
-                    : $"'{GetTypeName()}' object has no attribute '{name}'");
-            }
-
-            SetInstanceAttribute(name, value);
-        }
-
-        /// <summary>
-        /// CPython 3.12: Objects/typeobject.c:8893-8910 (slot_tp_setattro)
-        /// Override DelAttribute to check for user-defined __delattr__ method.
-        /// </summary>
         internal override void GenericDelAttr(string name) => DelAttributeDefault(name);
 
-        /// <summary>
-        /// CPython 3.12: _PyObject_GenericSetAttrWithDict with value=NULL (Objects/object.c:1563-1572)
-        /// Default attribute deletion behavior without __delattr__ lookup.
-        /// Called by object.__delattr__ and directly when no user __delattr__ exists.
-        /// </summary>
-        public void DelAttributeDefault(string name)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 PyClassInstance.DelAttributeDefault: {InstanceType.Name} instance.{name}");
-            #endif
-
-            // __class__ is a getset on object whose setter rejects deletion with TypeError
-            // (Objects/typeobject.c:5712-5719), so it is answered before the MRO search.
-            if (name == "__class__")
-                throw PyTypeError.Create("can't delete __class__ attribute");
-
-            // CPython 3.12 descriptor protocol:
-            // 1. 클래스 MRO에서 data descriptor 찾기
-            // 2. data descriptor라면 descriptor.__delete__() 호출
-            // 3. 아니라면 instance.__dict__에서 삭제
-
-            // 1. 클래스 MRO에서 descriptor 찾기
-            var desc = FindDataDescriptorInMro(name);
-            if (desc != null)
-            {
-                CallDescriptorDelete(desc, this);
-                return;
-            }
-
-            // 3. 인스턴스 __dict__에서 삭제
-            if (!RemoveInstanceAttribute(name))
-            {
-                throw PyAttributeError.Create(!InstanceType.InstancesHaveDict() && InstanceType.LookupInMRO(name) != null
-                    ? $"'{GetTypeName()}' object attribute '{name}' is read-only"
-                    : $"'{GetTypeName()}' object has no attribute '{name}'");
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"   → removed from instance dict");
-            #endif
-        }
+        public void DelAttributeDefault(string name) =>
+            SubclassInstanceSupport.GenericSetAttrWithDict(this, InstanceType, name, null, null, this);
 
         /// <summary>
         /// _PyType_Lookup (Objects/typeobject.c) searches the MRO once; first hit decides.

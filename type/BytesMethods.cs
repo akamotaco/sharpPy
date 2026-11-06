@@ -1032,12 +1032,13 @@ namespace SharpPy
             return New(self, result);
         }
 
-        // bytearray_reduce_ex: before protocol 3 there is no bytes, so latin-1 text stands in.
+        // _common_reduce (Objects/bytearrayobject.c): before protocol 3 there is no bytes, so
+        // latin-1 text stands in; the state is _PyObject_GetState's.
         private static PyObject ReduceEx(PyObject self, long protocol)
         {
             var text = Self(self);
-            PyObject state = self is IDictBackedInstance ? self.GetAttribute("__dict__") : PyNone.Instance;
-            PyObject[] arguments = protocol < 3
+            PyObject state = PyType.GetState(self);
+            PyObject[] arguments = text.Length == 0 ? Array.Empty<PyObject>() : protocol < 3
                 ? new PyObject[] { new PyString(Encoding.Latin1.GetString(text)), new PyString("latin-1") }
                 : new PyObject[] { new PyBytes(text) };
             return new PyTuple(new[] { self.GetPyType(), new PyTuple(arguments), state });

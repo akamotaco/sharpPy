@@ -5,6 +5,7 @@ tp_dictoffset and tp_weaklistoffset. SharpPy's instances have no such layout, so
 of the static types come from the reference CPython 3.12 this tool runs on.
 """
 import importlib
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,11 @@ decimal datetime contextvars json pickle csv threading random time zlib""".split
 HEAPTYPE = 1 << 9
 HAVE_GC = 1 << 14
 DISALLOW_INSTANTIATION = 1 << 7
+
+
+def written_in_c(kind):
+    module = sys.modules.get(kind.__module__)
+    return module is not None and not str(getattr(module, '__file__', '') or '').endswith('.py')
 
 
 def main():
@@ -33,7 +39,8 @@ def main():
         stack.extend(type.__subclasses__(kind))
     rows = {}
     for kind in sorted(seen, key=lambda t: (t.__name__, t.__module__)):
-        if kind.__flags__ & HEAPTYPE:
+        # A class written in Python; a C module's heap type (_io's, since 3.12) has a layout.
+        if kind.__flags__ & HEAPTYPE and not written_in_c(kind):
             continue
         rows.setdefault(kind.__name__, (kind.__basicsize__, kind.__itemsize__, kind.__dictoffset__,
                                         kind.__weakrefoffset__, bool(kind.__flags__ & HAVE_GC),

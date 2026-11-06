@@ -242,9 +242,9 @@ public class PyModule : PyObject
             _type = target;
             return;
         }
-        if ((_type as PyClass)?.LookupInMRO(name) is IDescriptor descriptor && descriptor.IsDataDescriptor())
+        if (_type is PyClass heap && PyClassInstance.FindDataDescriptorInMro(heap, name) is { } descriptor)
         {
-            descriptor.Set(this, value);
+            PyClassInstance.CallDescriptorSet(descriptor, this, value);
             return;
         }
         SetVariable(name, value);
@@ -267,10 +267,19 @@ public class PyModule : PyObject
 
     internal void ModuleDelAttro(string name)
     {
+        // _PyObject_GenericSetAttrWithDict over md_dict: __dict__ is a READONLY member, __class__
+        // object's getset, a data descriptor of a subclass deletes.
         if (name == "__dict__")
             throw PyAttributeError.Create("readonly attribute");
+        if (name == "__class__")
+            throw PyTypeError.Create("can't delete __class__ attribute");
+        if (_type is PyClass heap && PyClassInstance.FindDataDescriptorInMro(heap, name) is { } descriptor)
+        {
+            PyClassInstance.CallDescriptorDelete(descriptor, this);
+            return;
+        }
         if (!ModuleDict.Remove(name))
-            base.TpDelattro(name);
+            throw PyAttributeError.Create($"'{(_type is PyClass ? _type.Name : "module")}' object has no attribute '{name}'");
     }
 
     // 모듈 실행 (소스 코드 실행) - 전체 Python 인터프리터 파이프라인 사용

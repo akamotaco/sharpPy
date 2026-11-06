@@ -549,7 +549,31 @@ namespace SharpPy
         }
 
         /// <summary>PyObject_GenericSetAttr with no value, object.__delattr__.</summary>
-        internal virtual void GenericDelAttr(string name) => TpDelattro(name);
+        internal virtual void GenericDelAttr(string name)
+        {
+            if (this is not PyType && GetPyType() is PyClass heap)
+            {
+                if (this is IDictBackedInstance owner)
+                {
+                    SubclassInstanceSupport.GenericSetAttribute(this, heap, owner.InstanceDict, name, null);
+                    return;
+                }
+                if (_customType is PyClass)
+                {
+                    SubclassInstanceSupport.GenericSetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, null);
+                    return;
+                }
+            }
+            TpDelattro(name);
+        }
+
+        /// <summary>The instance dict of a Python class over a builtin with no store of its own.</summary>
+        internal Dictionary<string, PyObject> HeapDict => this is IDictBackedInstance owner ? owner.InstanceDict : HeapAttributes.GetOrCreateValue(this);
+
+        // The __slots__ of a Python class over a builtin, beside its __dict__ (PyMemberDescriptor of
+        // type_new_descriptors); a PyClassInstance keeps its own.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PyObject, Dictionary<string, PyObject>> SlotValues = new();
+        internal Dictionary<string, PyObject> SlotStore => SlotValues.GetOrCreateValue(this);
 
         /// <summary>tp_setattro of the CLR type: PyObject_GenericSetAttr by default.</summary>
         protected internal virtual void TpSetattro(string name, PyObject value)

@@ -819,7 +819,7 @@ namespace SharpPy.Modules
         // deque_reduce: (type, () or ((), maxlen), state, iter(deque))
         internal PyObject Reduce()
         {
-            var state = GetAttribute("__getstate__").Call(Array.Empty<PyObject>(), null);
+            var state = PyType.GetState(this);
             var it = GetIterator();
             var args = MaxLen < 0
                 ? PyTuple.Empty

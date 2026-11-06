@@ -1621,8 +1621,7 @@ namespace SharpPy
         internal static PyObject BuildSetReduce(PyObject self, IEnumerable<PyObject> items)
         {
             var itemList = new PyList(items);
-            // _PyObject_GetState: slots included.
-            var state = self.GetAttribute("__getstate__").Call(Array.Empty<PyObject>(), null);
+            var state = GetState(self);
             return new PyTuple(new PyObject[]
             {
                 self.GetPyType(),
@@ -1750,6 +1749,19 @@ namespace SharpPy
         /// than its dict, weakref and slots cannot be rebuilt from it. The struct sizes are CPython's
         /// for the builtin types (TypeLayout.g.cs); a class is laid out by SharpPy and is not judged.
         /// </summary>
+        /// <summary>
+        /// object_getstate, _PyObject_GetState (Objects/typeobject.c): the object's __getstate__;
+        /// object's own also gets the required flag.
+        /// </summary>
+        internal static PyObject GetState(PyObject self, bool required = false)
+        {
+            var getState = self.GetAttribute("__getstate__");
+            return getState is PyBoundMethodDescriptor { MethodDescriptor: var defining } bound
+                && ReferenceEquals(bound.Instance, self) && ReferenceEquals(defining, ObjectType.TypeDict["__getstate__"])
+                ? ObjectGetState(self, required)
+                : getState.Call(Array.Empty<PyObject>(), null);
+        }
+
         private static PyObject ObjectGetState(PyObject self, bool required = false)
         {
             var type = self.GetPyType();
@@ -1825,14 +1837,9 @@ namespace SharpPy
                 arguments.AddRange(values.Items);
             }
 
-            // object_getstate: object.__getstate__ itself gets the required flag.
             bool required = newArgsEx == null && newArgs == null && !type.IsSubclassOf(ListType) && !type.IsSubclassOf(DictType)
                 && !ReferenceEquals(type, ListType) && !ReferenceEquals(type, DictType);
-            var getState = self.GetAttribute("__getstate__");
-            var state = getState is PyBoundMethodDescriptor { MethodDescriptor: var defining } bound
-                && ReferenceEquals(bound.Instance, self) && ReferenceEquals(defining, ObjectType.TypeDict["__getstate__"])
-                ? ObjectGetState(self, required)
-                : getState.Call(Array.Empty<PyObject>(), null);
+            var state = GetState(self, required);
             PyObject listItems = type.IsSubclassOf(ListType) ? self.GetIterator() : PyNone.Instance;
             PyObject dictItems = type.IsSubclassOf(DictType)
                 ? self.GetAttribute("items").Call(Array.Empty<PyObject>(), null).GetIterator() : PyNone.Instance;

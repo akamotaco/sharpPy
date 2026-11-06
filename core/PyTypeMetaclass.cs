@@ -616,7 +616,7 @@ namespace SharpPy
                         if (self.GetPyType().IsSubclassOf(PyType.BaseExceptionType))
                             throw PyTypeError.Create("cannot delete __dict__");
                         if (self is PyClassInstance instance) instance.DropDict();
-                        else ((IDictBackedInstance)self).InstanceDict.Clear();
+                        else self.HeapDict.Clear();
                     });
             if (parent.WeakOffset == 0 && own.WeakOffset != 0)
                 created.ClassDict["__weakref__"] = new PyGetSetDescriptor("__weakref__", created, self => PyNone.Instance);
@@ -627,19 +627,19 @@ namespace SharpPy
                     self =>
                     {
                         if (self is PyClassInstance instance ? instance.TryGetSlot(stored, out var value)
-                            : ((IInstanceDictAccessor)self).TryGetInstanceAttribute(stored, out value))
+                            : self.SlotStore.TryGetValue(stored, out value))
                             return value;
                         throw PyAttributeError.Create($"'{self.GetTypeName()}' object has no attribute '{stored}'");
                     },
                     (self, value) =>
                     {
                         if (self is PyClassInstance instance) instance.SetSlot(stored, value);
-                        else ((IDictBackedInstance)self).InstanceDict[stored] = value;
+                        else self.SlotStore[stored] = value;
                     },
                     deleter: self =>
                     {
                         bool removed = self is PyClassInstance instance ? instance.RemoveSlot(stored)
-                            : ((IDictBackedInstance)self).InstanceDict.Remove(stored);
+                            : self.SlotStore.Remove(stored);
                         if (!removed) throw PyAttributeError.Create($"'{self.GetTypeName()}' object has no attribute '{stored}'");
                     });
             }
