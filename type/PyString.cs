@@ -1660,8 +1660,8 @@ namespace SharpPy
 
         public PyString(string value) => Value = value ?? "";
 
-        public override PyType GetPyType() => PyType.StrType;
-        public override string GetTypeName() => "str";
+        public override PyType GetPyType() => _customType ?? PyType.StrType;
+        public override string GetTypeName() => _customType?.Name ?? "str";
 
         // CPython 3.12: Objects/unicodeobject.c - unicode_bool
         // Optimized: Direct length check, no MRO traversal
