@@ -6087,29 +6087,6 @@ namespace SharpPy
         }
 
         // Legacy method for backward compatibility
-        private PyObject BinaryOperation(PyObject left, PyObject right, string op)
-        {
-            var operation = op switch
-            {
-                "+" => BinaryOpType.ADD,
-                "-" => BinaryOpType.SUBTRACT,
-                "*" => BinaryOpType.MULTIPLY,
-                "/" => BinaryOpType.TRUE_DIVIDE,
-                "//" => BinaryOpType.FLOOR_DIVIDE,
-                "%" => BinaryOpType.MODULO,
-                "**" => BinaryOpType.POWER,
-                "<<" => BinaryOpType.LSHIFT,
-                ">>" => BinaryOpType.RSHIFT,
-                "&" => BinaryOpType.AND,
-                "|" => BinaryOpType.OR,
-                "^" => BinaryOpType.XOR,
-                "and" => BinaryOpType.AND,
-                "or" => BinaryOpType.OR,
-                _ => throw PyTypeError.Create($"unsupported operator: {op}")
-            };
-
-            return ExecuteBinaryOpType(left, right, operation);
-        }
 
         /// <summary>Py_TPFLAGS_MATCH_SELF: case int(x) binds the subject itself.</summary>
         private static bool MatchesSelf(PyType type) =>
@@ -6835,51 +6812,6 @@ namespace SharpPy
         /// CPython-style function argument binding with default parameters
         /// Used by MAKE_FUNCTION bytecode implementation
         /// </summary>
-
-        /// <summary>
-        /// 키워드 인수를 지원하는 함수 호출
-        /// </summary>
-        private PyObject CallFunctionWithKwargs(PyObject function, PyObject[] args, Dictionary<string, PyObject> kwargs)
-        {
-            // 간단한 구현: 키워드 인수를 위치 인수로 변환하여 기존 Call 메서드 사용
-            if (function is PyFunction pyFunc)
-            {
-                // 키워드 인수를 포함한 매개변수 바인딩 수행
-                var totalArgs = BindArgumentsWithKwargs(args, kwargs, pyFunc);
-                return pyFunc.Call(totalArgs, null);
-            }
-            else if (function is PyType pyType)
-            {
-                // PyType 객체의 경우 키워드 인수를 포함해서 전달
-                var totalArgs = new List<PyObject>();
-                totalArgs.AddRange(args);
-                foreach (var kv in kwargs)
-                {
-                    totalArgs.Add(new PyString(kv.Key));
-                    totalArgs.Add(kv.Value);
-                }
-
-                // 키워드 이름 튜플을 마지막에 추가
-                // Performance: Eliminated LINQ - manual conversion
-                var kwNamesArray = new PyObject[kwargs.Count];
-                int kwIndex = 0;
-                foreach (var key in kwargs.Keys)
-                {
-                    kwNamesArray[kwIndex++] = new PyString(key);
-                }
-                totalArgs.Add(new PyTuple(kwNamesArray));
-
-                // Performance: Eliminated LINQ - manual List to array conversion
-                var totalArgsArray = new PyObject[totalArgs.Count];
-                totalArgs.CopyTo(totalArgsArray, 0);
-                return pyType.Call(totalArgsArray, null);
-            }
-            else
-            {
-                // 다른 callable 객체의 경우 기본 Call 메서드 사용 (키워드 인수 무시)
-                return function.Call(args, null);
-            }
-        }
 
         /// <summary>
         /// 키워드 인수를 포함한 매개변수 바인딩 (간소화 버전)
@@ -7652,137 +7584,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12: Bind arguments to parameters with keyword arguments support
-        /// </summary>
-        private void BindArgumentsToParametersWithKeywords(PyFrame frame, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs, PyCodeObject code)
-        {
-#if DEBUG_LOG
-            Console.WriteLine($"🔗 키워드 인수 매개변수 바인딩: {positionalArgs.Length}개 위치 인수, {keywordArgs.Count}개 키워드 인수, {code.ArgCount}개 매개변수");
-            Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
-#endif
-
-            bool hasVarArgs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
-            bool hasVarKeywords = (code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0;
-
-            // Phase 1: Bind positional arguments to regular parameters
-            int posArgIndex = 0;
-            for (int paramIndex = 0; paramIndex < code.ArgCount; paramIndex++)
-            {
-                var paramName = code.VarNames[paramIndex];
-
-                if (posArgIndex < positionalArgs.Length)
-                {
-                    // Bind positional argument
-                    frame.LocalsPlus[paramIndex] = positionalArgs[posArgIndex];
-                    frame.RecordParameterInScope(paramName, positionalArgs[posArgIndex]);
-                    posArgIndex++;
-
-#if DEBUG_LOG
-                    Console.WriteLine($"  → {paramName} = {positionalArgs[posArgIndex - 1]} (위치 인수 {posArgIndex - 1})");
-#endif
-                }
-                else if (keywordArgs.ContainsKey(paramName))
-                {
-                    // Bind keyword argument to parameter
-                    var keywordValue = keywordArgs[paramName];
-                    frame.LocalsPlus[paramIndex] = keywordValue;
-                    frame.RecordParameterInScope(paramName, keywordValue);
-                    keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
-
-#if DEBUG_LOG
-                    Console.WriteLine($"  → {paramName} = {keywordValue} (키워드 인수)");
-#endif
-                }
-                else
-                {
-                    // Check for default value
-                    int numRequiredParams = code.ArgCount - code.DefaultValues.Count;
-                    if (paramIndex >= numRequiredParams && paramIndex - numRequiredParams < code.DefaultValues.Count)
-                    {
-                        var defaultValue = code.DefaultValues[paramIndex - numRequiredParams];
-                        frame.LocalsPlus[paramIndex] = defaultValue;
-                        frame.RecordParameterInScope(paramName, defaultValue);
-
-#if DEBUG_LOG
-                        Console.WriteLine($"  → {paramName} = {defaultValue} (기본값)");
-#endif
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create($"missing required argument: '{paramName}'");
-                    }
-                }
-            }
-
-            // Phase 2: Handle *args parameter
-            if (hasVarArgs)
-            {
-                int argsParamIndex = code.ArgCount;
-                string argsParamName = code.ArgCount < code.VarNames.Count ? code.VarNames[argsParamIndex] : "args";
-                var remainingPositionalArgs = new List<PyObject>();
-
-                // Collect remaining positional arguments
-                for (int i = posArgIndex; i < positionalArgs.Length; i++)
-                {
-                    remainingPositionalArgs.Add(positionalArgs[i]);
-                }
-
-                // Performance: Eliminated LINQ - manual List to array conversion
-                var argsArray = new PyObject[remainingPositionalArgs.Count];
-                remainingPositionalArgs.CopyTo(argsArray, 0);
-                var argsTuple = new PyTuple(argsArray);
-                frame.LocalsPlus[argsParamIndex] = argsTuple;
-                frame.RecordParameterInScope(argsParamName, argsTuple);
-
-#if DEBUG_LOG
-                Console.WriteLine($"  → *{argsParamName} = {argsTuple} ({remainingPositionalArgs.Count}개 인수)");
-#endif
-            }
-            else if (posArgIndex < positionalArgs.Length)
-            {
-                // Too many positional arguments and no *args parameter
-                throw PyTypeError.Create($"{code.Name}() takes {code.ArgCount} positional arguments but {positionalArgs.Length} were given");
-            }
-
-            // Phase 3: Handle **kwargs parameter
-            if (hasVarKeywords)
-            {
-                string kwargsParamName = "kwargs";
-                int kwargsIndex = code.ArgCount + (hasVarArgs ? 1 : 0);
-                if (kwargsIndex < code.VarNames.Count)
-                {
-                    kwargsParamName = code.VarNames[kwargsIndex];
-                }
-
-                // Create kwargs dictionary with remaining keyword arguments
-                var kwargsDict = new PyDict();
-                foreach (var kvp in keywordArgs)
-                {
-                    kwargsDict.SetItem(new PyString(kvp.Key), kvp.Value);
-                }
-
-                frame.LocalsPlus[kwargsIndex] = kwargsDict;
-                frame.RecordParameterInScope(kwargsParamName, kwargsDict);
-
-#if DEBUG_LOG
-                Console.WriteLine($"  → **{kwargsParamName} = {kwargsDict} ({keywordArgs.Count}개 키워드)");
-#endif
-            }
-            else if (keywordArgs.Count > 0)
-            {
-                // Unexpected keyword arguments and no **kwargs parameter
-                // Performance: Eliminated LINQ - get first key manually
-                string firstUnexpectedKwarg = null;
-                foreach (var key in keywordArgs.Keys)
-                {
-                    firstUnexpectedKwarg = key;
-                    break;
-                }
-                throw PyTypeError.Create($"{code.Name}() got an unexpected keyword argument '{firstUnexpectedKwarg}'");
-            }
-        }
-
-        /// <summary>
         /// Calculate cumulative byte offset for given instruction index (CPython 3.12 compatible)
         /// </summary>
         private int CalculateByteOffset(int instructionIndex, List<ByteCodeInstruction> instructions)
@@ -7891,18 +7692,6 @@ namespace SharpPy
         // A raised exception class matches an `except` clause when the expected class
         // is the raised class itself OR appears anywhere in its MRO. Reference identity
         // is authoritative; name is a fallback only for identical names across modules.
-        private static bool ExceptionClassMatches(PyType? raisedClass, PyType expected)
-        {
-            if (raisedClass == null || expected == null) return false;
-            var mro = raisedClass.MRO;
-            if (mro == null) return ReferenceEquals(raisedClass, expected);
-            for (int i = 0; i < mro.Count; i++)
-            {
-                var m = mro[i];
-                if (ReferenceEquals(m, expected) || m.Name == expected.Name) return true;
-            }
-            return false;
-        }
 
         // CPython 3.12: an exception class is any class whose MRO contains BaseException.
         // Used to decide whether `raise SomeClass` (bare) may instantiate and raise it,
@@ -7922,26 +7711,6 @@ namespace SharpPy
 
         // CPython 3.12: Python/errors.c:330-358 - PyErr_GivenExceptionMatches
         // Checks if exception instance is of expected type (using C# subtype checking)
-        private static bool IsExceptionInstanceOf(PyException exception, string expectedTypeName)
-        {
-            // CPython: Python/errors.c:350-351
-            // If err is an instance, get its class
-            var actualType = exception.GetType();
-
-            // CPython: Python/errors.c:353-354
-            // If both are exception classes, use PyType_IsSubtype
-            var expectedType = GetExceptionTypeByName(expectedTypeName);
-
-            if (expectedType == null)
-            {
-                // Unknown exception type, fall back to name match
-                return exception.GetTypeName() == expectedTypeName;
-            }
-
-            // CPython: PyType_IsSubtype - check if actualType is subtype of expectedType
-            // In C#: expectedType.IsAssignableFrom(actualType)
-            return expectedType.IsAssignableFrom(actualType);
-        }
 
         /// <summary>
         /// Check if an object can be treated as an exception-like object
@@ -8029,14 +7798,6 @@ namespace SharpPy
             value.__context__ = handled;
         }
 
-        private bool IsExceptionLike(PyObject obj)
-        {
-            // CPython 3.12: only instances of BaseException subclasses may be raised.
-            // "raise 5" -> TypeError, not a wrapped int. The object's type must derive
-            // from BaseException (transitively through the MRO).
-            if (obj is PyBaseException) return true;
-            return DerivesFromBaseException(obj.GetPyType());
-        }
     }
 
     #endregion

@@ -238,7 +238,6 @@ namespace SharpPy
         internal static long FromSecondsObject(PyObject obj, PyTimeRound round) => FromObject(obj, round, SecToNs);
 
         // _PyTime_FromMillisecondsObject
-        internal static long FromMillisecondsObject(PyObject obj, PyTimeRound round) => FromObject(obj, round, MsToNs);
 
         // _PyTime_AsSecondsDouble: whole seconds are divided as integers, 1e-9 being inexact.
         internal static double AsSecondsDouble(long t)

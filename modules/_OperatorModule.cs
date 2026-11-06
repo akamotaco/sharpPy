@@ -186,15 +186,6 @@ namespace SharpPy.Modules
             return Number(args, BinaryOpType.ADD);
         }
 
-        private static PyObject Require(PyObject result, string symbol, PyObject left, PyObject right)
-        {
-            if (ReferenceEquals(result, PyNotImplemented.Instance))
-            {
-                throw PyTypeError.Create($"unsupported operand type(s) for {symbol}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
-            }
-            return result;
-        }
-
         private static PyObject And(PyObject[] args)
         {
             if (args.Length != 2)
@@ -445,23 +436,6 @@ namespace SharpPy.Modules
 
         #region Attribute/Item/Method Getters
 
-        private static PyObject AttrGetter(PyObject[] args)
-        {
-            // Simplified implementation - returns a callable that gets attributes
-            throw PyNotImplementedError.Create("attrgetter() not yet implemented");
-        }
-
-        private static PyObject ItemGetter(PyObject[] args)
-        {
-            // CPython 3.12: operator.itemgetter implementation
-            // Returns a callable object that fetches items from its operand
-            // operator.py line 271-300
-            if (args.Length == 0)
-                throw PyTypeError.Create("itemgetter() requires at least 1 argument (0 given)");
-
-            return new PyItemGetter(args);
-        }
-
         /// <summary>
         /// CPython 3.12: itemgetter class
         /// operator.py line 271-300
@@ -514,12 +488,6 @@ namespace SharpPy.Modules
                 }
                 return new PyString($"operator.itemgetter({string.Join(", ", itemReprs)})");
             }
-        }
-
-        private static PyObject MethodCaller(PyObject[] args)
-        {
-            // Simplified implementation - returns a callable that calls methods
-            throw PyNotImplementedError.Create("methodcaller() not yet implemented");
         }
 
         #endregion

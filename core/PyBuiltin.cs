@@ -41,12 +41,6 @@ namespace SharpPy
             AcceptsKwArgs = acceptsKwArgs;
         }
 
-        public BuiltinSignature AddParameter(string name, PyObject defaultValue = null, bool isKeywordOnly = false, bool isPositionalOnly = false)
-        {
-            Parameters.Add(new BuiltinParameter(name, defaultValue, isKeywordOnly, isPositionalOnly));
-            return this;
-        }
-
         /// <summary>
         /// args와 kwargs를 처리하여 최종 인수 배열을 생성
         /// </summary>
@@ -922,30 +916,6 @@ namespace SharpPy
         // === 타입 및 리플렉션 함수들 ===
 
         
-        /// <summary>
-        /// 제네릭 타입을 지원하는 확장된 isinstance 검사
-        /// </summary>
-        private static bool IsInstanceExtended(PyObject obj, PyType type)
-        {
-            // 기본 isinstance 검사
-            bool result = obj.IsInstance(type);
-            if (result)
-                return true;
-
-            // 제네릭 타입 검사
-            if (type is PyGenericType genericType)
-            {
-                // 객체가 원본 타입의 인스턴스인지 확인
-                if (obj.IsInstance(genericType.OriginType))
-                {
-                    // 런타임에서는 타입 인자는 체크하지 않고 구조만 확인
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
 
         // CPython 3.12: Python/bltinmodule.c builtin_getattr / builtin_hasattr / builtin_setattr /
         // builtin_delattr. Two separate defects lived here. The duplicates in modules/BuiltinsModule.cs
@@ -1879,86 +1849,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// C# 타입 시스템을 활용한 정확한 메타클래스 검출
-        /// </summary>
-        private static bool IsMetaclass(PyClass pyClass)
-        {
-            // 1. PyType 계층 구조를 사용한 정확한 메타클래스 검출 - 직접 'type'을 상속하는 경우만
-            if (pyClass.BaseTypes != null)
-            {
-                // 메타클래스는 직접 type을 상속받거나, 다른 메타클래스를 상속받아야 함
-                // Performance: Eliminated LINQ - manual loop instead of Any()
-                bool directlyInheritsFromType = false;
-                for (int i = 0; i < pyClass.BaseTypes.Length; i++)
-                {
-                    var t = pyClass.BaseTypes[i];
-                    if (t == PyType.TypeType || t.Name == "type")
-                    {
-                        directlyInheritsFromType = true;
-                        break;
-                    }
-                }
-                if (directlyInheritsFromType)
-                {
-                    #if DEBUG_LOG
-                    // Performance: Eliminated LINQ - manual loop instead of Select()
-                    var baseTypeNames = new string[pyClass.BaseTypes.Length];
-                    for (int i = 0; i < pyClass.BaseTypes.Length; i++)
-                    {
-                        baseTypeNames[i] = pyClass.BaseTypes[i].Name;
-                    }
-                    Console.WriteLine($"   ✅ BaseTypes에서 직접 'type' 상속 확인: [{string.Join(", ", baseTypeNames)}]");
-                    #endif
-                    return true;
-                }
-
-                // 다른 메타클래스를 상속하는 경우 (재귀 검사)
-                // Performance: Eliminated LINQ - manual loop instead of Any()
-                bool inheritsFromMetaclass = false;
-                for (int i = 0; i < pyClass.BaseTypes.Length; i++)
-                {
-                    var t = pyClass.BaseTypes[i];
-                    if (t is PyClass baseClass && IsMetaclassRecursive(baseClass))
-                    {
-                        inheritsFromMetaclass = true;
-                        break;
-                    }
-                }
-                if (inheritsFromMetaclass)
-                {
-                    #if DEBUG_LOG
-                    // Performance: Eliminated LINQ - manual loop instead of Select()
-                    var baseTypeNames = new string[pyClass.BaseTypes.Length];
-                    for (int i = 0; i < pyClass.BaseTypes.Length; i++)
-                    {
-                        baseTypeNames[i] = pyClass.BaseTypes[i].Name;
-                    }
-                    Console.WriteLine($"   ✅ BaseTypes에서 메타클래스 상속 확인: [{string.Join(", ", baseTypeNames)}]");
-                    #endif
-                    return true;
-                }
-            }
-
-            #if DEBUG_LOG
-            // Performance: Eliminated LINQ - manual loop instead of Select()
-            if (pyClass.BaseTypes != null)
-            {
-                var baseTypeNames = new string[pyClass.BaseTypes.Length];
-                for (int i = 0; i < pyClass.BaseTypes.Length; i++)
-                {
-                    baseTypeNames[i] = pyClass.BaseTypes[i].Name;
-                }
-                Console.WriteLine($"   ❌ 메타클래스가 아님: Name={pyClass.Name}, BaseTypes=[{string.Join(", ", baseTypeNames)}]");
-            }
-            else
-            {
-                Console.WriteLine($"   ❌ 메타클래스가 아님: Name={pyClass.Name}, BaseTypes=[]");
-            }
-            #endif
-            return false;
-        }
-
-        /// <summary>
         /// update_bases (Python/bltinmodule.c): a base that is not a type may replace itself through
         /// __mro_entries__. This is what makes class C(Generic[T]) and class N(NamedTuple) work. The
         /// originals are kept for __orig_bases__.
@@ -2468,14 +2358,6 @@ namespace SharpPy
         /// explicit encoding; other sources are ints or iterables of ints.
         /// </summary>
         public static PyObject CallBytes(PyObject[] args, PyDict kwargs = null) => BytesMethods.BytesNew(args, kwargs);
-
-        private static PyObject[] AppendOne(PyObject[] arr, PyObject extra)
-        {
-            var result = new PyObject[arr.Length + 1];
-            arr.CopyTo(result, 0);
-            result[arr.Length] = extra;
-            return result;
-        }
 
         /// <summary>
         /// bytearray() constructor - creates mutable byte sequences

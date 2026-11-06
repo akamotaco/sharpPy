@@ -405,29 +405,6 @@ namespace SharpPy
             );
         }
 
-        private static bool ShouldStrip(byte b, byte[] stripChars)
-        {
-            if (stripChars == null)
-            {
-                // Default whitespace
-                return b == ' ' || b == '\t' || b == '\n' || b == '\r' || b == '\f' || b == '\v';
-            }
-            else
-            {
-                // Check if b is in stripChars
-                foreach (byte c in stripChars)
-                {
-                    if (b == c) return true;
-                }
-                return false;
-            }
-        }
-
-        private static bool IsWhitespace(byte b)
-        {
-            return b == (byte)' ' || b == (byte)'\t' || b == (byte)'\n' || b == (byte)'\r';
-        }
-
         public byte[] Value { get; }
 
         public PyBytes(byte[] value)
@@ -881,17 +858,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// hex() is the one bytes method whose separator is parsed as "s#", which accepts str as well
-        /// as a buffer: b"\x01\xab".hex(":") works while split(",") does not.
-        /// </summary>
-        internal static byte[] StringOrBufferOrNull(PyObject value)
-        {
-            if (value is PyString strValue)
-                return System.Text.Encoding.Latin1.GetBytes(strValue.Value);
-            return BufferOrNull(value);
-        }
-
-        /// <summary>
         /// CPython's Py_xdigit: the nibble value of a hex digit, or -1.
         /// </summary>
         internal static int HexDigitOf(char c)
@@ -928,46 +894,6 @@ namespace SharpPy
         }
 
         // find/rfind and index/rindex share one scan.
-        internal static PyObject FindCore(System.Collections.Generic.IReadOnlyList<byte> data, PyObject[] args, bool backward, bool raiseWhenMissing)
-        {
-            byte[] sub = SubArg(args[0], allowInt: true);
-            ParseRange(args, data.Count, out int start, out int end);
-            if (sub.Length == 0)
-            {
-                // CPython matches the empty subsection at the range boundary.
-                return new PyInt(backward ? end : start);
-            }
-            if (start <= end)
-            {
-                var range = Bytes(data).Slice(start, end - start);
-                int found = backward ? LastIndexOfBytes(range, sub) : IndexOfBytes(range, sub);
-                if (found >= 0)
-                    return new PyInt(found + start);
-            }
-            if (raiseWhenMissing) throw PyValueError.Create("subsection not found");
-            return new PyInt(-1);
-        }
-
-        internal static PyObject CountCore(System.Collections.Generic.IReadOnlyList<byte> data, PyObject[] args)
-        {
-            byte[] sub = SubArg(args[0], allowInt: true);
-            ParseRange(args, data.Count, out int start, out int end);
-            if (sub.Length == 0) return new PyInt(Math.Max(0, end - start + 1));
-            int count = 0;
-            if (start <= end)
-            {
-                var range = Bytes(data).Slice(start, end - start);
-                while (true)
-                {
-                    int found = IndexOfBytes(range, sub);
-                    if (found < 0)
-                        break;
-                    count++;
-                    range = range.Slice(found + sub.Length);
-                }
-            }
-            return new PyInt(count);
-        }
 
         private static ReadOnlySpan<byte> Bytes(System.Collections.Generic.IReadOnlyList<byte> data) => data switch
         {
@@ -978,38 +904,6 @@ namespace SharpPy
 
         // Linear in the worst case, as fastsearch's two-way is: a periodic needle must not cost n*m.
         // stringlib/transmogrify.h: replace, with an empty needle between the bytes
-        internal static byte[] ReplaceBytes(byte[] data, byte[] old, byte[] replacement, int maxCount)
-        {
-            var result = new List<byte>(data.Length);
-            int replaced = 0;
-            if (old.Length == 0)
-            {
-                for (int i = 0; i <= data.Length; i++)
-                {
-                    if (maxCount < 0 || replaced < maxCount)
-                    {
-                        result.AddRange(replacement);
-                        replaced++;
-                    }
-                    if (i < data.Length)
-                        result.Add(data[i]);
-                }
-                return result.ToArray();
-            }
-            int position = 0;
-            while (maxCount < 0 || replaced < maxCount)
-            {
-                int found = IndexOfBytes(data.AsSpan(position), old);
-                if (found < 0)
-                    break;
-                result.AddRange(data.AsSpan(position, found).ToArray());
-                result.AddRange(replacement);
-                position += found + old.Length;
-                replaced++;
-            }
-            result.AddRange(data.AsSpan(position).ToArray());
-            return result.ToArray();
-        }
 
         private static int[] FailureTable(ReadOnlySpan<byte> needle)
         {
@@ -1058,55 +952,8 @@ namespace SharpPy
         }
 
         // CPython startswith_impl: bytes-like or a tuple of bytes-like.
-        internal static PyObject StartEndCore(System.Collections.Generic.IReadOnlyList<byte> data, PyObject[] args, bool prefix)
-        {
-            string name = prefix ? "startswith" : "endswith";
-            var candidates = new List<byte[]>();
-            if (args[0] is PyTuple tpl)
-            {
-                foreach (var item in tpl.Items)
-                {
-                    if (item is PyBytes or PyByteArray or PyMemoryView) candidates.Add(SubArg(item, allowInt: false));
-                    else throw PyTypeError.Create($"a bytes-like object is required, not '{item.GetTypeName()}'");
-                }
-            }
-            else if (args[0] is PyBytes or PyByteArray or PyMemoryView)
-            {
-                candidates.Add(SubArg(args[0], allowInt: false));
-            }
-            else
-            {
-                throw PyTypeError.Create($"{name} first arg must be bytes or a tuple of bytes, not {args[0].GetTypeName()}");
-            }
-
-            ParseRange(args, data.Count, out int start, out int end);
-            foreach (var sub in candidates)
-            {
-                if (sub.Length > end - start) continue;
-                if (prefix ? SameAt(data, start, sub) : SameAt(data, end - sub.Length, sub))
-                    return PyBool.True;
-            }
-            return PyBool.False;
-        }
 
         // removeprefix/removesuffix: METH_O, bytes-like only, returns a copy.
-        internal static byte[] TrimEdgeBytes(System.Collections.Generic.IReadOnlyList<byte> data, PyObject[] args, bool prefix)
-        {
-            byte[] edge = SubArg(args[0], allowInt: false);
-            var rest = new List<byte>(data);
-            if (edge.Length > 0 && rest.Count >= edge.Length)
-            {
-                bool match = prefix
-                    ? SameAt(rest, 0, edge)
-                    : SameAt(rest, rest.Count - edge.Length, edge);
-                if (match)
-                {
-                    if (prefix) rest.RemoveRange(0, edge.Length);
-                    else rest.RemoveRange(rest.Count - edge.Length, edge.Length);
-                }
-            }
-            return rest.ToArray();
-        }
 
         internal static int BytesIndex(PyObject arg)
         {
@@ -1114,27 +961,6 @@ namespace SharpPy
             if (idx == null)
                 throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
             return (int)idx.Value;
-        }
-
-        private static string NormalizeExp(string text, bool lower)
-        {
-            // .NET may emit E+005; CPython uses e+05 (two-digit minimum).
-            int eIdx = text.IndexOfAny(new[] { 'e', 'E' });
-            if (eIdx < 0) return lower ? text : text.ToUpperInvariant();
-            string mantissa = text.Substring(0, eIdx);
-            string exp = text.Substring(eIdx + 1);
-            char sign = '+';
-            int start = 0;
-            if (exp.Length > 0 && (exp[0] == '+' || exp[0] == '-'))
-            {
-                sign = exp[0];
-                start = 1;
-            }
-            string digitsExp = exp.Substring(start).TrimStart('0');
-            if (digitsExp.Length == 0) digitsExp = "0";
-            if (digitsExp.Length < 2) digitsExp = digitsExp.PadLeft(2, '0');
-            string result = mantissa + (lower ? "e" : "E") + sign + digitsExp;
-            return lower ? result : result.ToUpperInvariant();
         }
 
         /// <summary>

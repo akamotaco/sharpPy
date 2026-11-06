@@ -121,18 +121,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// The gate used by paths that keep their own decoder (bytes.decode keeps DecodeBytes, which
-        /// understands error handlers and byte-order marks that the _codecs.*_decode entry points
-        /// ignore). It refuses a non-text codec exactly as CPython does and stays out of the way
-        /// otherwise, so a name with no registry entry at all is still reported by the caller.
-        /// </summary>
-        internal static void RefuseNonTextEncoding(string encoding, string command)
-        {
-            PyObject entry = LookupOrNull(encoding);
-            if (entry != null) RequireText(entry, encoding, command);
-        }
-
-        /// <summary>
         /// str.encode()/bytes(str, enc)/_codecs.encode refuse a codec that is not a text encoding,
         /// and the refusal names the caller's spelling and the function to use instead. Measured:
         ///   'ab'.encode('rot13') -> LookupError: 'rot13' is not a text encoding;
@@ -268,35 +256,6 @@ namespace SharpPy
             return TextCodecFunctions.ContainsKey(canonical) || EngineOnlyText.Contains(canonical);
         }
 
-        /// <summary>A codec half for an EngineOnlyText name, of the (result, consumed) shape.</summary>
-        private static PyObject EngineFunction(string canonical, string direction)
-        {
-            if (direction == "encode")
-                return new PyBuiltinFunction("encode", (args, kwargs) =>
-                {
-                    if (args.Length < 1 || !(args[0] is PyString text))
-                        throw PyTypeError.Create($"{canonical}_encode() argument 1 must be str, not " +
-                            (args.Length == 0 ? "None" : args[0].GetTypeName()));
-                    string errors = args.Length > 1 && args[1] is PyString enc ? enc.Value : null;
-                    return new PyTuple(new PyObject[]
-                    {
-                        text.Encode(canonical, errors), new PyInt(text.Length()),
-                    });
-                });
-            return new PyBuiltinFunction("decode", (args, kwargs) =>
-            {
-                if (args.Length < 1 || !(args[0] is PyBytes data))
-                    throw PyTypeError.Create($"{canonical}_decode() argument 1 must be bytes, not " +
-                        (args.Length == 0 ? "None" : args[0].GetTypeName()));
-                string errors = args.Length > 1 && args[1] is PyString err ? err.Value : null;
-                return new PyTuple(new PyObject[]
-                {
-                    new PyString(PyStringNewArguments.DecodeBytes(data.Value, canonical, errors)),
-                    new PyInt(data.Value.Length),
-                });
-            });
-        }
-
         /// <summary>
         /// alias -> canonical name, generated from CPython 3.12.15's own Lib/encodings/aliases.py,
         /// filtered to the codecs SharpPy implements (.artifacts/tmp/gen_aliases.py). Generating it
@@ -369,40 +328,6 @@ namespace SharpPy
         ["utf_32le"] = "utf-32-le",
         ["utf_8"] = "utf-8",
             };
-
-        private static PyObject BuiltinSearch(string normalizedKey)
-        {
-            if (!Aliases.TryGetValue(normalizedKey, out string canonical)) return null;
-
-            PyObject encode;
-            PyObject decode;
-            if (NonTextCodecs.Contains(canonical))
-            {
-                encode = NonTextFunction(canonical, "encode");
-                decode = NonTextFunction(canonical, "decode");
-            }
-            else if (EngineOnlyText.Contains(canonical))
-            {
-                // Lib/encodings/<name>.py is CPython's and builds on the primitive codecs.
-                return null;
-            }
-            else if (TextCodecFunctions.TryGetValue(canonical, out string[] names))
-            {
-                if (!PyImportSystem.TryGetModule("_codecs", out var codecsModule)) return null;
-                if (!codecsModule.ModuleDict.TryGetValue(names[0], out encode)) return null;
-                if (!codecsModule.ModuleDict.TryGetValue(names[1], out decode)) return null;
-            }
-            else
-            {
-                // The alias is known but SharpPy has no implementation for that codec. CPython
-                // would import Lib/encodings/<name>.py; reporting "unknown encoding" for the
-                // caller's name is the closest observable, and the missing codec families are
-                // recorded in docs/known_gaps.md.
-                return null;
-            }
-
-            return BuildCodecInfo(canonical, encode, decode, isText: !NonTextCodecs.Contains(canonical));
-        }
 
         /// <summary>
         /// Lib/codecs.py:83 defines CodecInfo as a tuple subclass, so a registry entry IS a

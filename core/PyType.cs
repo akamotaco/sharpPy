@@ -3945,31 +3945,6 @@ namespace SharpPy
         // object type(obj) is the metaclass, so a metaclass __repr__/__str__ wins over
         // type_repr. Slots at or above `type` are the default behaviour that TypeRepr()
         // already implements, so the walk stops there instead of re-entering them.
-        private PyObject MetaSpecial(string name)
-        {
-            var meta = GetPyType();
-            if (meta == null || meta.MRO == null)
-                return null;
-            foreach (var owner in meta.MRO)
-            {
-                if (owner.Name == "type" || owner.Name == "object")
-                    break;
-                PyObject value = null;
-                if (owner is PyClass heap)
-                    heap.ClassDict.TryGetValue(name, out value);
-                else
-                    owner.TypeDict.TryGetValue(name, out value);
-                if (value == null)
-                    continue;
-                // CPython passes the class object as the single argument. A descriptor in
-                // the metaclass binds it through the descriptor protocol; a plain function
-                // (the usual `def __str__(cls)` body) takes it explicitly.
-                if (value is IDescriptor desc)
-                    return desc.Get(this, meta)?.Call(Array.Empty<PyObject>(), null);
-                return value.Call(new PyObject[] { this }, null);
-            }
-            return null;
-        }
 
         // type_repr: a metaclass's __repr__ is its tp_repr, which PyObject_Repr reaches first.
         protected internal override PyString Repr() => TypeRepr();

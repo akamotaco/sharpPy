@@ -140,10 +140,6 @@ public static class PyIOBaseSlots
     // iobase.c reports the closed error with a trailing period.
     private const string ClosedMessage = "I/O operation on closed file.";
 
-    public static bool IsIOBase(PyObject self)
-        => self is PyIOBaseInstance ||
-           (self?.GetPyType() != null && self.GetPyType().DerivesFromType(IOBaseType));
-
     // iobase_is_closed: iobase_close leaves __IOBase_closed in the instance dict.
     private static bool IsClosed(PyObject self) => self.LookupAttribute("__IOBase_closed") != null;
 
@@ -159,16 +155,9 @@ public static class PyIOBaseSlots
 
     private static void MarkClosed(PyObject self) => self.SetAttribute("__IOBase_closed", PyBool.True);
 
-    /// <summary>Exposes the closed flag to stringio/bytesio and file streams.</summary>
-    public static bool ClosedOf(PyObject self) => IsClosed(self);
-
-    /// <summary>The iobase.c wording, with the trailing period.</summary>
-    public static System.Exception ClosedError() => PyValueError.Create(ClosedMessage);
-
 
     // PyObject_CallMethod: the attribute as getattr finds it (an instance attribute included),
     // called; a python subclass overriding readline/write/flush is honoured that way.
-    private static void CallVoid(PyObject self, string name) => self.GetAttribute(name).Call(Array.Empty<PyObject>(), null);
 
     private static PyObject CallWith(PyObject self, string name, PyObject[] args) => self.GetAttribute(name).Call(args, null);
 

@@ -43,19 +43,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Get MRO names as string array (for debugging/display).
-        /// </summary>
-        public static string[] GetNames(IReadOnlyList<PyType> mro)
-        {
-            var names = new string[mro.Count];
-            for (int i = 0; i < mro.Count; i++)
-            {
-                names[i] = mro[i].Name;
-            }
-            return names;
-        }
-
-        /// <summary>
         /// Lookup attribute in MRO chain.
         /// CPython 3.12: Objects/typeobject.c:4725 (_PyType_Lookup)
         /// </summary>

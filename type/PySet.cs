@@ -684,15 +684,6 @@ namespace SharpPy
         private static IEnumerable<PyObject> ConvertStringToCharArray(string str) =>
             PyString.Characters(str);
 
-        private PyObject GetFirstItem()
-        {
-            foreach (var item in _items)
-            {
-                return item;
-            }
-            throw new InvalidOperationException("Set is empty");
-        }
-
         #endregion
 
         #region Copy

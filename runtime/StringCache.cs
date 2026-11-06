@@ -61,12 +61,5 @@ namespace SharpPy
             return new PyString(value);
         }
 
-        /// <summary>
-        /// 캐시 통계 정보 (디버깅용)
-        /// </summary>
-        public static int GetCachedStringCount()
-        {
-            return _asciiCache.Length + 4; // ASCII + (Empty, Space, Newline, Tab)
-        }
     }
 }

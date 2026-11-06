@@ -23,12 +23,6 @@ namespace SharpPy
     /// </summary>
     internal static class PyUnicodeCase
     {
-        private static bool IsPlainAscii(string s)
-        {
-            for (int i = 0; i < s.Length; i++)
-                if (s[i] >= 0x80) return false;
-            return true;
-        }
 
         /// <summary>
         /// Decode into the caller's span and report how many code points were written. An unpaired

@@ -95,15 +95,6 @@ internal static class PyResourceBus
     }
 
     /// <summary>
-    /// Called by close(): the owner already released the resource, so the entry becomes a tombstone
-    /// that the next sweep drops without work.
-    /// </summary>
-    internal static void MarkReleased(Token? token)
-    {
-        if (token != null) token.Release = null;
-    }
-
-    /// <summary>
     /// Releases every registered resource whose Python owner is unreachable. With forceCollection,
     /// makes one collection pass first if the cheap pass found nothing, so that a caller about to
     /// fail an OS operation gets the same answer CPython would give. Returns the number released.

@@ -344,19 +344,6 @@ namespace SharpPy.Core
         }
 
         /// <summary>
-        /// CPython 3.12: _PyAsyncGen_ClearFreeLists (Objects/genobject.c:1665)
-        /// Clear the freelist (useful for testing or shutdown)
-        /// </summary>
-        public static void ClearFreelist()
-        {
-            lock (_freelistLock)
-            {
-                Array.Clear(_freelist, 0, _numFree);
-                _numFree = 0;
-            }
-        }
-
-        /// <summary>
         /// Get current freelist statistics (for debugging/profiling)
         /// </summary>
         public static (int numFree, int maxSize) GetFreelistStats()

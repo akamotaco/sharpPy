@@ -92,15 +92,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// 3개 원소 튜플 생성 (자주 사용되는 패턴)
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static PyTuple CreateTriple(PyObject first, PyObject second, PyObject third)
-        {
-            return new PyTuple(new[] { first, second, third });
-        }
-
-        /// <summary>
         /// 캐시 통계 정보 (디버깅용)
         /// </summary>
         public static (int SingleElementCacheSize, int TotalCachedTuples) GetCacheInfo()

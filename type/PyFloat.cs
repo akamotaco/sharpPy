@@ -891,17 +891,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12: float.__trunc__ - math.trunc()가 호출하는 메서드
-        /// CPython: Objects/floatobject.c:float_trunc (lines 1269-1280)
-        /// Truncates towards zero, returns int
-        /// </summary>
-        public PyObject Trunc()
-        {
-            // CPython: Objects/floatobject.c:1277 - Return int(self)
-            return new PyInt((long)Math.Truncate(Value));
-        }
-
-        /// <summary>
         /// CPython 3.12: float.__floor__ - math.floor()가 호출하는 메서드
         /// CPython: Objects/floatobject.c:float_floor (lines 1282-1293)
         /// Returns the floor as int
@@ -920,17 +909,6 @@ namespace SharpPy
         {
             // CPython: Objects/floatobject.c:1290 - Returns floor as int
             return FromDouble(Math.Floor(Value));
-        }
-
-        /// <summary>
-        /// CPython 3.12: float.__ceil__ - math.ceil()가 호출하는 메서드
-        /// CPython: Objects/floatobject.c:float_ceil (lines 1295-1306)
-        /// Returns the ceiling as int
-        /// </summary>
-        public PyObject Ceil()
-        {
-            // CPython: Objects/floatobject.c:1303 - Returns ceiling as int
-            return FromDouble(Math.Ceiling(Value));
         }
 
         private static bool IsOddInteger(double value) => Math.Abs(value) % 2.0 == 1.0;
@@ -1088,27 +1066,11 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// float.is_infinite() - 무한대인지 검사
-        /// </summary>
-        public PyBool IsInfinite()
-        {
-            return PyBool.FromBool(double.IsInfinity(Value));
-        }
-
-        /// <summary>
         /// float.is_nan() - NaN인지 검사
         /// </summary>
         public PyBool IsNaN()
         {
             return PyBool.FromBool(double.IsNaN(Value));
-        }
-
-        /// <summary>
-        /// float.is_integer() - 정수값인지 검사
-        /// </summary>
-        public PyBool IsInteger()
-        {
-            return PyBool.FromBool(IsIntegral(Value));
         }
 
         /// <summary>
@@ -1327,10 +1289,6 @@ namespace SharpPy
         #region Helper Methods for fromhex
 
         // CPython 3.12: Objects/floatobject.c - hex_from_char helper
-        private static bool IsHexDigit(char c)
-        {
-            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-        }
 
 
         /// <summary>

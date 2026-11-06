@@ -28,16 +28,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12: Build CFG from InstructionSequence (label-based IR)
-        /// This is the NEW path: InstructionSequence → CFG
-        /// Uses CFGBuilder to convert label-based IR to CFG
-        /// </summary>
-        public static ControlFlowGraph FromInstructionSequence(InstructionSequence instrSeq)
-        {
-            return PyFlowGraph.Build(instrSeq);
-        }
-
-        /// <summary>
         /// CPython 3.12: compile.c:7590-7632 fix_cell_offsets()
         /// Remap cell/free variable indices to localsplus offsets
         /// CRITICAL: Must be called AFTER CFG is built but BEFORE final assembly

@@ -333,57 +333,6 @@ public class PyModule : PyObject
         return new PyScopeChain(ModuleDict, Name, this);
     }
 
-    private void ExecuteLine(string line)
-    {
-        if (line.StartsWith("def ", StringComparison.Ordinal))
-        {
-            var funcName = line.Substring(4).Split('(')[0].Trim();
-            var func = new PyFunction(funcName, null, this);
-            SetAttribute(funcName, func);
-#if DEBUG_MODULE_LOG
-            Console.WriteLine($"  정의됨: 함수 {funcName}");
-#endif
-        }
-        else if (line.Contains(" = "))
-        {
-            var parts = line.Split('=', 2);
-            var varName = parts[0].Trim();
-            var valueStr = parts[1].Trim().TrimQuotes();
-
-            PyObject value;
-            if (int.TryParse(valueStr, out int intVal))
-                value = new PyInt(intVal);
-            else
-                value = new PyString(valueStr);
-
-            SetAttribute(varName, value);
-#if DEBUG_MODULE_LOG
-            Console.WriteLine($"  정의됨: 변수 {varName} = {value}");
-#endif
-        }
-        else if (line.StartsWith("__all__ = ", StringComparison.Ordinal))
-        {
-            var allStr = line.Substring(10).Trim();
-            if (allStr.StartsWith("[", StringComparison.Ordinal) && allStr.EndsWith("]", StringComparison.Ordinal))
-            {
-                // Performance: Eliminated LINQ - manual parsing instead of Select + Where
-                var parts = allStr.Substring(1, allStr.Length - 2).Split(',');
-                All.Clear();
-                for (int i = 0; i < parts.Length; i++)
-                {
-                    var trimmed = parts[i].Trim().TrimQuotes();
-                    if (!string.IsNullOrEmpty(trimmed))
-                    {
-                        All.Add(trimmed);
-                    }
-                }
-#if DEBUG_MODULE_LOG
-                Console.WriteLine($"  정의됨: __all__ = [{string.Join(", ", All)}]");
-#endif
-            }
-        }
-    }
-    
     // CPython 3.12: Objects/moduleobject.c module_repr - file-backed modules show
     // "from '<file>'"; builtin/native modules (no source file) show "(built-in)".
     public override string ToString()
@@ -399,21 +348,6 @@ public class PyModule : PyObject
     // module_repr; a module subclass's __repr__ is its tp_repr, which PyObject_Repr reaches first.
     protected internal override PyString Repr() => new PyString(ToString());
     
-    /// <summary>
-    /// 모듈에 함수 추가 (표준 라이브러리 모듈용)
-    /// </summary>
-    protected void AddFunction(string name, Func<PyObject[], PyObject> implementation)
-    {
-        ModuleDict[name] = new PyBuiltinFunction(name, implementation);
-    }
-    
-    /// <summary>
-    /// 모듈에 클래스 추가 (표준 라이브러리 모듈용)
-    /// </summary>
-    protected void AddClass(string name, Func<PyType> typeFactory)
-    {
-        ModuleDict[name] = typeFactory();
-    }
 }
 
     // Python import 시스템
@@ -448,12 +382,6 @@ public class PyModule : PyObject
             // CPython 3.12: Python/import.c - PyDict_DelItemString
             var key = new PyString(name);
             if (SysModules.ContainsKey(key)) SysModules.DelItem(key);
-        }
-
-        public static bool ContainsModule(string name)
-        {
-            var key = new PyString(name);
-            return SysModules.InternalDict.ContainsKey(key);
         }
 
         // C# 구현 모듈들 (CPython 3.12 C 확장 모듈만)
@@ -1116,65 +1044,9 @@ public class PyModule : PyObject
             }
         }
 
-        private static Dictionary<string, PyObject> ImportAll(PyModule module)
-        {
-            var result = new Dictionary<string, PyObject>();
-
-            if (module.All.Count > 0)
-            {
-                foreach (var itemName in module.All)
-                {
-                    if (module.ModuleDict.TryGetValue(itemName, out PyObject item))
-                    {
-                        result[itemName] = item;
-                    }
-                }
-            }
-            else
-            {
-                foreach (var kvp in module.ModuleDict)
-                {
-                    if (!kvp.Key.StartsWith("_", StringComparison.Ordinal))
-                    {
-                        result[kvp.Key] = kvp.Value;
-                    }
-                }
-            }
-
-            return result;
-        }
-
         // abc and contextlib modules are now loaded as .py files from Lib/ directory
 
         // asyncio 모듈 생성
-        private static PyModule CreateAsyncioModule()
-        {
-            var module = new PyModule("asyncio", "<asyncio module>");
-
-            // Core asyncio functions - for now without kwargs support
-            // TODO: Add proper kwargs support later
-            module.ModuleDict["run"] = new PyBuiltinFunction("run", (args) =>
-            {
-                return SharpPy.Modules.AsyncioModule.Run(PyVM.Instance, args, null);
-            });
-
-            module.ModuleDict["sleep"] = new PyBuiltinFunction("sleep", (args) =>
-            {
-                return SharpPy.Modules.AsyncioModule.Sleep(PyVM.Instance, args, null);
-            });
-
-            module.ModuleDict["create_task"] = new PyBuiltinFunction("create_task", (args) =>
-            {
-                return SharpPy.Modules.AsyncioModule.CreateTask(PyVM.Instance, args, null);
-            });
-
-            module.ModuleDict["get_event_loop"] = new PyBuiltinFunction("get_event_loop", (args) =>
-            {
-                return SharpPy.Modules.AsyncioModule.GetEventLoop(PyVM.Instance, args, null);
-            });
-
-            return module;
-        }
     }
 #endregion
 }

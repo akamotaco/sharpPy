@@ -187,22 +187,6 @@ namespace SharpPy
             return text;
         }
 
-        /// <summary>
-        /// CPython 3.12: Objects/complexobject.c:100-130 (complex_format)
-        /// </summary>
-        private string FormatImaginary(double value)
-        {
-            if (double.IsPositiveInfinity(value)) return "inf";
-            if (double.IsNegativeInfinity(value)) return "-inf";
-            if (double.IsNaN(value)) return "nan";
-
-            // CPython: 1j outputs as "1j", not "j"; same shortest-repr rule as real parts.
-            string text = PyFloat.FormatFloat(value, "");
-            if (text.EndsWith(".0", StringComparison.Ordinal))
-                text = text.Substring(0, text.Length - 2);
-            return text;
-        }
-
         #endregion
 
         #region Hash and Equality
@@ -412,11 +396,6 @@ namespace SharpPy
         // hypot
         private static double Abs(double real, double imag) => System.Numerics.Complex.Abs(new System.Numerics.Complex(real, imag));
 
-        public PyObject Negate()
-        {
-            return new PyComplex(-Real, -Imag);
-        }
-
         protected internal override PyObject NbPositive()
         {
             return new PyComplex(Real, Imag);
@@ -441,14 +420,6 @@ namespace SharpPy
         #region Complex-specific Methods
 
         /// <summary>
-        /// 켤레복소수 반환 complex.conjugate()
-        /// </summary>
-        public PyComplex Conjugate()
-        {
-            return new PyComplex(Real, -Imag);
-        }
-
-        /// <summary>
         /// 복소수의 크기(절댓값) 반환
         /// </summary>
         public PyFloat Magnitude()
@@ -462,14 +433,6 @@ namespace SharpPy
         public PyFloat Phase()
         {
             return new PyFloat(Math.Atan2(Imag, Real));
-        }
-
-        /// <summary>
-        /// 극좌표 형태로 변환 (magnitude, phase)
-        /// </summary>
-        public PyTuple ToPolar()
-        {
-            return new PyTuple(new PyObject[] { Magnitude(), Phase() });
         }
 
         #endregion
@@ -509,26 +472,6 @@ namespace SharpPy
         #endregion
 
         #region Static Factory Methods
-
-        /// <summary>
-        /// 실수부만으로 복소수 생성
-        /// </summary>
-        public static PyComplex FromReal(double real) => new PyComplex(real, 0.0);
-
-        /// <summary>
-        /// 허수부만으로 복소수 생성
-        /// </summary>
-        public static PyComplex FromImaginary(double imag) => new PyComplex(0.0, imag);
-
-        /// <summary>
-        /// 극좌표에서 복소수 생성
-        /// </summary>
-        public static PyComplex FromPolar(double magnitude, double phase)
-        {
-            return new PyComplex(
-                magnitude * Math.Cos(phase),
-                magnitude * Math.Sin(phase));
-        }
 
         /// <summary>
         /// 문자열에서 복소수 파싱

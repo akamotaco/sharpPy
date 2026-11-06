@@ -242,14 +242,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Check if a label has been used (position marked)
-        /// </summary>
-        public bool IsLabelUsed(Label label)
-        {
-            return label.IsValid && _labelTargets.ContainsKey(label.Id);
-        }
-
-        /// <summary>
         /// Get all instructions (read-only)
         /// </summary>
         public IReadOnlyList<Instruction> Instructions => _instructions.AsReadOnly();
@@ -283,52 +275,6 @@ namespace SharpPy
             }
         }
 
-
-        /// <summary>
-        /// Debug: Print all instructions with labels
-        /// </summary>
-        public void DebugPrint()
-        {
-            Console.WriteLine($"=== InstructionSequence ({_instructions.Count} instructions) ===");
-
-            for (int i = 0; i < _instructions.Count; i++)
-            {
-                // Check if any label points to this instruction
-                // Performance: Eliminated LINQ - replaced Where().Select().ToList() with manual filtering
-                var labelsHere = new List<Label>();
-                foreach (var kvp in _labelTargets)
-                {
-                    if (kvp.Value == i)
-                    {
-                        labelsHere.Add(new Label(kvp.Key));
-                    }
-                }
-
-                // Performance: Eliminated LINQ - replaced Any() with Count check
-                if (labelsHere.Count > 0)
-                {
-                    foreach (var label in labelsHere)
-                    {
-                        Console.WriteLine($"  {label}:");
-                    }
-                }
-
-                Console.WriteLine($"    {i,4}: {_instructions[i]}");
-            }
-        }
-
-        /// <summary>
-        /// CPython 3.12: Python/flowgraph.c - Check if last instruction is unconditional terminator
-        /// Used to avoid emitting unreachable JUMP after RETURN/RAISE/etc
-        /// </summary>
-        public bool EndsWithTerminator()
-        {
-            if (_instructions.Count == 0)
-                return false;
-
-            var lastInstr = _instructions[_instructions.Count - 1];
-            return IsUnconditionalTerminator(lastInstr.OpCode);
-        }
 
         /// <summary>
         /// CPython 3.12: Python/flowgraph.c - Check if opcode never returns

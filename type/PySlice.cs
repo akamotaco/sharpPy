@@ -253,21 +253,6 @@ namespace SharpPy
             ? (start < stop ? 1 + (stop - 1 - start) / step : 0)
             : (stop < start ? (int)(1 + ((long)start - 1 - stop) / -(long)step) : 0);
 
-        /// <summary>
-        /// 특정 인덱스에 해당하는 실제 인덱스 계산
-        /// </summary>
-        public int GetIndexAt(int i, int sequenceLength)
-        {
-            var (start, stop, step) = Indices(sequenceLength);
-            var length = GetLength(start, stop, step);
-            
-            if (i < 0) i += length;
-            if (i < 0 || i >= length)
-                throw PyIndexError.Create("slice index out of range");
-            
-            return start + i * step;
-        }
-
         #endregion
 
         #region Slice Utilities
@@ -317,31 +302,6 @@ namespace SharpPy
                 result[n] = position;
 
             return result;
-        }
-
-        /// <summary>
-        /// 다른 슬라이스와 비교하여 동일한 결과를 생성하는지 확인
-        /// </summary>
-        public bool IsEquivalent(PySlice other, int sequenceLength)
-        {
-            try
-            {
-                var indices1 = GetIndices(sequenceLength);
-                var indices2 = other.GetIndices(sequenceLength);
-                // Performance: Eliminated LINQ (.SequenceEqual) - manual comparison
-                if (indices1.Length != indices2.Length)
-                    return false;
-                for (int i = 0; i < indices1.Length; i++)
-                {
-                    if (indices1[i] != indices2[i])
-                        return false;
-                }
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
         }
 
         #endregion

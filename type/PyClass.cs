@@ -609,36 +609,6 @@ namespace SharpPy
             return instance;
         }
 
-        public bool HasMethod(string name)
-        {
-            return MRO.OfType<PyClass>().Any(t => t.ClassDict.ContainsKey(name));
-        }
-
-        /// <summary>
-        /// CPython's _PyType_Lookup equivalent: Look up a name in the type's MRO
-        /// This bypasses __getattribute__ and goes directly to tp_dict/__dict__
-        /// Used for special method lookup (PEP 252: "Special method lookup bypasses __getattribute__()")
-        /// Reference: Objects/typeobject.c:4725 (_PyType_Lookup)
-        /// </summary>
-        /// <summary>
-        /// Whether this class - not its metaclass - declares the dunder in one of its own user frames.
-        /// PyObject.LookupUserSpecial walks GetPyType().MRO, and for a class object GetPyType() is the
-        /// metaclass, so asking it about __new__ answers "does type declare __new__" instead. Measured
-        /// while wiring bytes subclasses: the gate reported a user __new__ for class B(bytes) and every
-        /// subclass construction fell back to object's path.
-        /// </summary>
-        internal bool DeclaresUserSpecial(string name)
-        {
-            foreach (var mroType in MRO)
-            {
-                if (mroType is PyClass userClass && userClass.ClassDict.ContainsKey(name))
-                    return true;
-                if (!(mroType is PyClass))
-                    break;
-            }
-            return false;
-        }
-
         // _PyType_Lookup
         public PyObject LookupInMRO(string name) => FindNameInMro(name);
 
@@ -1300,8 +1270,6 @@ namespace SharpPy
         // because inherit_special propagates the bit to every subtype
         // (Objects/typeobject.c:6726) - TracedOrderedDict -> OrderedDict -> dict carries it.
         public bool IsDictSubclass() => InstanceType.HasFeature(PyTypeFlags.DictSubclass);
-
-        public bool IsListSubclass() => InstanceType.HasFeature(PyTypeFlags.ListSubclass);
 
         public bool IsStrSubclass() => InstanceType.HasFeature(PyTypeFlags.UnicodeSubclass);
 

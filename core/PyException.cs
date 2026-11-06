@@ -785,8 +785,6 @@ namespace SharpPy
         /// PyMember_GetOne reads a NULL T_OBJECT as None (Objects/structmember.c).</summary>
         internal void SetCode(PyObject value) => _code = value is PyNone ? null : value;
 
-        internal void ClearCode() => _code = null;
-
         /// <summary>
         /// PyErr_GivenExceptionMatches(exc, PyExc_SystemExit), which is the test
         /// _Py_HandleSystemExit makes (Python/pythonrun.c:717) and the reason a subclass of

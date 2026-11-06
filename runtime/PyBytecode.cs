@@ -1135,25 +1135,6 @@ namespace SharpPy
             return this;
         }
         
-        public ByteCodeBuilder LoadConst(PyObject value)
-        {
-            var index = constants.Count;
-            constants.Add(value);
-            return AddInstruction(ByteCodeOp.LOAD_CONST, index);
-        }
-        
-        public ByteCodeBuilder LoadName(string name)
-        {
-            var index = GetOrAddName(name);
-            return AddInstruction(ByteCodeOp.LOAD_NAME, index);
-        }
-        
-        public ByteCodeBuilder StoreName(string name)
-        {
-            var index = GetOrAddName(name);
-            return AddInstruction(ByteCodeOp.STORE_NAME, index);
-        }
-        
         private int GetOrAddName(string name)
         {
             var index = names.IndexOf(name);
@@ -1504,28 +1485,6 @@ namespace SharpPy
         }
 
         // 명령어 시퀀스의 스택 효과 분석
-        public static int AnalyzeStackSequence(List<ByteCodeInstruction> instructions, int startIndex, int count)
-        {
-            int netEffect = 0;
-            int minStackRequired = 0;
-            int currentStack = 0;
-
-            for (int i = 0; i < count && startIndex + i < instructions.Count; i++)
-            {
-                var instruction = instructions[startIndex + i];
-                var (pop, push) = GetStackEffect(instruction.OpCode, instruction.Argument);
-                
-                // 이 명령어 실행 전에 필요한 스택 크기 확인
-                if (currentStack < pop)
-                    minStackRequired = Math.Max(minStackRequired, pop - currentStack);
-                
-                currentStack -= pop;
-                currentStack += push;
-                netEffect = currentStack;
-            }
-
-            return netEffect;
-        }
 
 
         // CPython 3.12 호환: MAKE_FUNCTION 플래그 상수

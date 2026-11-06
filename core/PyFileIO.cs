@@ -23,8 +23,6 @@ public sealed class PyFileIO : PyIOBaseInstance
 
     internal PyFileIO(PyType type) : base(type) { }
 
-    private static PythonException ErrClosed() => PyValueError.Create("I/O operation on closed file") as PythonException;
-
     private static PythonException ErrMode(string action) => PyUnsupportedOperation.Create($"File not open for {action}");
 
     private void CheckOpen()

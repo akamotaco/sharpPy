@@ -20,12 +20,6 @@ namespace SharpPy
 
         public byte[] ToByteArrayCopy() => _bytes.ToArray();
 
-        /// <summary>Overwrites bytes in place, as a writer through the buffer protocol does.</summary>
-        internal void WriteAt(int offset, byte[] source, int count)
-        {
-            for (int i = 0; i < count; i++) _bytes[offset + i] = source[i];
-        }
-
         #endregion
 
         #region Static Constructor & Descriptors
@@ -854,9 +848,6 @@ namespace SharpPy
                 (self, args, kwargs) => self.Iter(), minArgs: 0, maxArgs: 0);
         }
 
-        private static byte[] AsBytes(PyObject self)
-            => self is PyByteArray ba ? ba.ToByteArrayCopy() : System.Array.Empty<byte>();
-
         private static int GetByteValue(PyObject obj)
         {
             var pyInt = obj as PyInt ?? PyObject.TryGetIndex(obj);
@@ -880,48 +871,6 @@ namespace SharpPy
         }
 
         private static List<byte> ConvertToBytes(PyObject obj) => new List<byte>(BytesMethods.FromObject(obj, "bytearray"));
-
-        /// <summary>
-        /// Check if subsequence exists in bytearray
-        /// </summary>
-        private bool ContainsSubsequence(byte[] sub)
-        {
-            if (sub.Length == 0)
-                return true;
-            if (sub.Length > _bytes.Count)
-                return false;
-
-            for (int i = 0; i <= _bytes.Count - sub.Length; i++)
-            {
-                bool found = true;
-                for (int j = 0; j < sub.Length; j++)
-                {
-                    if (_bytes[i + j] != sub[j])
-                    {
-                        found = false;
-                        break;
-                    }
-                }
-                if (found)
-                    return true;
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Compare two byte arrays lexicographically
-        /// </summary>
-        private static int CompareBytes(byte[] a, byte[] b)
-        {
-            int minLen = Math.Min(a.Length, b.Length);
-            for (int i = 0; i < minLen; i++)
-            {
-                if (a[i] != b[i])
-                    return a[i].CompareTo(b[i]);
-            }
-            return a.Length.CompareTo(b.Length);
-        }
 
         // Performance: Eliminated LINQ - Helper methods for List<byte> operations
 
@@ -977,34 +926,6 @@ namespace SharpPy
                     return list[i].CompareTo(array[i]);
             }
             return list.Count.CompareTo(array.Length);
-        }
-
-        /// <summary>
-        /// Check if subsequence exists in bytearray using List
-        /// </summary>
-        private bool ContainsSubsequenceList(List<byte> sub)
-        {
-            if (sub.Count == 0)
-                return true;
-            if (sub.Count > _bytes.Count)
-                return false;
-
-            for (int i = 0; i <= _bytes.Count - sub.Count; i++)
-            {
-                bool found = true;
-                for (int j = 0; j < sub.Count; j++)
-                {
-                    if (_bytes[i + j] != sub[j])
-                    {
-                        found = false;
-                        break;
-                    }
-                }
-                if (found)
-                    return true;
-            }
-
-            return false;
         }
 
         #endregion

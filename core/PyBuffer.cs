@@ -48,14 +48,6 @@ namespace SharpPy
             throw PyTypeError.Create("Buffer is an abstract base class and cannot be instantiated directly");
         }
 
-        /// <summary>
-        /// Check if a type implements the buffer protocol
-        /// </summary>
-        public static bool IsBuffer(PyObject obj)
-        {
-            return obj is PyBuffer || 
-                   obj.GetAttribute("__buffer__") != null;
-        }
     }
 
     /// <summary>
@@ -880,13 +872,6 @@ namespace SharpPy
             ? exporter.BufferSpan : (byte[])_data;
 
         // Synchronous native IO only: no Python callbacks while this span is used.
-        internal ReadOnlySpan<byte> ContiguousSpan()
-        {
-            CheckReleased();
-            if (_length > 1 && _stride != 1)
-                throw PyBufferError.Create("memoryview: underlying buffer is not C-contiguous");
-            return _length == 0 ? ReadOnlySpan<byte>.Empty : StorageSpan().Slice(_offset, _length);
-        }
 
         // PyBuffer_IsContiguous(view, 'C')
         internal bool IsCContiguous

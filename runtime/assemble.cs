@@ -48,35 +48,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Find instruction offset (accounting for EXTENDED_ARG) for a given instruction index
-        /// CPython 3.12: Instructions may expand to multiple words if args > 255
-        /// </summary>
-        private static int FindInstructionOffset(ControlFlowGraph cfg, int targetIndex)
-        {
-            int offset = 0;
-            int currentIndex = 0;
-
-            // CRITICAL: Must iterate using b_next (execution order)
-            for (BasicBlock? block = cfg.EntryBlock; block != null; block = block.Next)
-            {
-                foreach (var instr in block.Instructions)
-                {
-                    if (currentIndex == targetIndex)
-                    {
-                        return offset;
-                    }
-
-                    // Each instruction may take multiple words
-                    offset += CountInstructionWords(instr);
-                    currentIndex++;
-                }
-            }
-
-            // Target not found, return target index as fallback
-            return targetIndex;
-        }
-
-        /// <summary>
         /// Calculate byte offsets for each basic block
         /// CPython: assemble_compute_code_flags_and_offsets()
         /// </summary>
@@ -174,26 +145,6 @@ namespace SharpPy
             int cacheSize = GetInlineCacheSize(instr.OpCode);
 
             return baseWords + cacheSize;
-        }
-
-        /// <summary>
-        /// Flatten CFG blocks to linear instruction list
-        /// Resolve jump targets and insert EXTENDED_ARG where needed
-        /// CPython: assemble_emit_instr_sequence() + flowgraph.c:resolve_jump_offsets()
-        ///
-        /// Strategy: Iterative refinement (CPython pattern)
-        /// 1. Calculate jump deltas based on current instruction sizes
-        /// 2. If any jump arg changes size (needs/loses EXTENDED_ARG), recompile
-        /// 3. Repeat until stable
-        /// </summary>
-        private static List<ByteCodeInstruction> FlattenBlocks(ControlFlowGraph cfg)
-        {
-            // Phase 1: Resolve jump offsets with iterative refinement
-            // CPython: Python/flowgraph.c:481-536 (resolve_jump_offsets)
-            ResolveJumpOffsets(cfg);
-
-            // Phase 2: Emit final bytecode with EXTENDED_ARG
-            return EmitInstructions(cfg);
         }
 
         /// <summary>

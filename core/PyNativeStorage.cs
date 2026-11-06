@@ -95,11 +95,5 @@ namespace SharpPy
         internal static PyObject Unwrap(PyObject value) =>
             value is PyClassInstance instance ? instance.NativeStorage() ?? value : value;
 
-        internal static PyObject ForAny(PyObject self)
-        {
-            if (self is PyClassInstance instance)
-                return instance.NativeStorage();
-            return self is PyList or PyDict or PySet or PyFrozenSet or PyTuple or PyString ? self : null;
-        }
     }
 }

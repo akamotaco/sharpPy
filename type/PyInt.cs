@@ -731,23 +731,6 @@ namespace SharpPy
         }
 
 
-        /// <summary>
-        /// Convert BigInteger to decimal
-        /// Used for precise arithmetic operations
-        /// </summary>
-        public decimal ToDecimal()
-        {
-            // BigInteger to decimal can throw if too large
-            try
-            {
-                return (decimal)Value;
-            }
-            catch (OverflowException)
-            {
-                throw PyOverflowError.Create("int too large to convert to decimal");
-            }
-        }
-
         #endregion
 
         #region String Representation
@@ -1251,83 +1234,6 @@ namespace SharpPy
             if (!high.IsOne)
                 throw PyValueError.Create("base is not invertible for the given modulus");
             return other.Sign < 0 ? other + modulus : other;
-        }
-
-        /// <summary>
-        /// CPython 3.12: Modular exponentiation using binary method
-        /// CPython: Objects/longobject.c:l_mod (inlined in long_pow)
-        /// Computes (base^exp) % mod efficiently
-        /// </summary>
-        private long ModularPow(long baseVal, long exp, long mod)
-        {
-            if (mod == 1)
-                return 0;
-
-            // Normalize base to [0, mod)
-            baseVal = baseVal % mod;
-            if (baseVal < 0)
-                baseVal += mod;
-
-            long result = 1;
-
-            // Binary exponentiation: O(log exp) instead of O(exp)
-            while (exp > 0)
-            {
-                if ((exp & 1) == 1)
-                {
-                    result = (result * baseVal) % mod;
-                }
-                baseVal = (baseVal * baseVal) % mod;
-                exp >>= 1;
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// CPython 3.12: Extended Euclidean algorithm for modular inverse
-        /// CPython: Objects/longobject.c:l_invmod (lines 4344-4393)
-        /// Computes x such that (a * x) % m = 1, or returns -1 if not invertible
-        /// </summary>
-        private long ModularInverse(long a, long m)
-        {
-            // Normalize to positive values
-            long origM = m;
-            m = Math.Abs(m);
-            a = a % m;
-            if (a < 0)
-                a += m;
-
-            // Extended Euclidean algorithm
-            long m0 = m;
-            long x0 = 0, x1 = 1;
-
-            if (m == 1)
-                return -1; // Not invertible
-
-            while (a > 1)
-            {
-                if (m == 0)
-                    return -1; // Not invertible (gcd(a, m) != 1)
-
-                long q = a / m;
-                long t = m;
-
-                m = a % m;
-                a = t;
-                t = x0;
-
-                x0 = x1 - q * x0;
-                x1 = t;
-            }
-
-            if (a != 1)
-                return -1; // Not invertible (gcd != 1)
-
-            if (x1 < 0)
-                x1 += m0;
-
-            return x1;
         }
 
         #endregion

@@ -167,13 +167,6 @@ namespace SharpPy.Modules
             throw PyTypeError.Create($"decode() argument must be bytes, not {obj.GetTypeName()}");
         }
 
-        private static int Consumed(PyObject obj)
-        {
-            if (obj is PyBytes b) return b.Value.Length;
-            if (obj is PyByteArray ba) return ba.ToByteArrayCopy().Length;
-            return 0;
-        }
-
         // CPython 3.12: Python/codecs.c:381-398 (PyCodec_RegisterError)
         private static PyObject PyRegisterError(PyObject[] args, PyDict kwargs = null)
         {
@@ -532,15 +525,6 @@ namespace SharpPy.Modules
             obj is PyString text ? text.Value
                 : obj is PyStrSubclass derived ? derived.GetStrValue().Value
                 : throw PyTypeError.Create($"{name}() argument 1 must be str, not {obj.GetTypeName()}");
-
-        private static int CodePointLength(string text)
-        {
-            int count = 0;
-            for (int i = 0; i < text.Length; i++)
-                if (!char.IsLowSurrogate(text[i]) || i == 0 || !char.IsHighSurrogate(text[i - 1]))
-                    count++;
-            return count;
-        }
 
         private static PyObject Result(PyObject value, int consumed) => new PyTuple(new[] { value, new PyInt(consumed) });
 

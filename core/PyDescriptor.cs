@@ -156,26 +156,6 @@ namespace SharpPy
             return ReferenceEquals(kind, owner) || kind.MRO.Contains(owner);
         }
 
-        /// <summary>
-        /// VM slot calls already know the receiver. Pass it separately from the
-        /// read-only argument array, as the existing bound descriptor path does.
-        /// CPython v3.12.15, Objects/abstract.c: PyObject_GetItem / PyObject_SetItem.
-        /// </summary>
-        internal PyObject CallWithReceiver(PyObject receiver, PyObject[] args, PyDict kwargs)
-        {
-            if (GetType() == typeof(PyMethodDescriptor))
-            {
-                RejectUnwantedKeywords(kwargs);
-                return _implementation(receiver, args, kwargs);
-            }
-
-            // Preserve Call overrides on C# descriptor subclasses.
-            var fullArgs = new PyObject[args.Length + 1];
-            fullArgs[0] = receiver;
-            Array.Copy(args, 0, fullArgs, 1, args.Length);
-            return Call(fullArgs, kwargs);
-        }
-
         public override string ToString() => $"<method '{Name}' of '{OwnerType.FullName}' objects>";
     }
 

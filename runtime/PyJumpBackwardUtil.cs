@@ -139,63 +139,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12 호환 JUMP_BACKWARD oparg 계산 (컴파일 시 사용)
-        ///
-        /// 🎯 **목적**: 컴파일 시점에서 JUMP_BACKWARD 명령어의 oparg 값 계산
-        ///
-        /// 🧮 **CPython 3.12 공식**: oparg = (next_instr_position - target_position) / 2
-        /// - next_instr_position: JUMP_BACKWARD 다음 명령어의 바이트 오프셋
-        /// - target_position: 점프할 대상의 바이트 오프셋
-        /// - 나누기 2: 바이트 단위를 instruction 단위로 변환
-        ///
-        /// 📋 **실행 흐름 예시**:
-        /// ```
-        /// 0: FOR_ITER 10        # target (targetInstrPos=0)
-        /// 2: LOAD_FAST 0
-        /// 4: STORE_FAST 1
-        /// 6: JUMP_BACKWARD ?    # current (currentInstrPos=3)
-        /// 8: END_FOR            # next_instr
-        ///
-        /// 계산:
-        /// - currentByteOffset = 6 (JUMP_BACKWARD 위치)
-        /// - nextInstrByteOffset = 6 + 2 = 8
-        /// - targetByteOffset = 0 (FOR_ITER 위치)
-        /// - oparg = (8 - 0) / 2 = 4
-        /// ```
-        ///
-        /// 🔧 **중요 사항**:
-        /// - 항상 바이트 오프셋 기반 계산 (instruction 단위 X)
-        /// - 인라인 캐시 엔트리 정확히 반영
-        /// - QuickenedCodeObject와 일반 CodeObject 모두 동일한 방식
-        ///
-        /// 🎯 **사용 케이스**:
-        /// - List/Dict/Set comprehensions의 JUMP_BACKWARD
-        /// - While/For 루프의 JUMP_BACKWARD
-        /// - 중첩 comprehensions의 정확한 오프셋 계산
-        /// </summary>
-        /// <param name="currentInstrPos">JUMP_BACKWARD instruction의 위치 (instruction index)</param>
-        /// <param name="targetInstrPos">점프할 대상의 위치 (instruction index)</param>
-        /// <param name="instructions">전체 instruction 리스트</param>
-        /// <returns>JUMP_BACKWARD의 oparg 값</returns>
-        public static int CalculateJumpBackwardOpArg(int currentInstrPos, int targetInstrPos, List<ByteCodeInstruction> instructions)
-        {
-            // CPython 3.12: JUMP_BACKWARD oparg는 instruction word 단위 (2바이트)
-            //
-            // 🎯 핵심: CACHE instruction도 하나의 instruction word로 계산
-            // - Index 13: FOR_ITER (1 word)
-            // - Index 14: CACHE (1 word) ← 이것도 카운트됨!
-            // - Index 15-17: 다른 instructions (3 words)
-            // - Index 18: JUMP_BACKWARD (현재 위치)
-            //
-            // oparg = 18 - 13 = 5 instruction words
-            //
-            // ⚠️ 주의: GetCPythonInstructionSize는 CACHE의 size를 0으로 반환하지만,
-            // JUMP_BACKWARD의 oparg 계산에서는 CACHE도 1 instruction word로 카운트해야 함
-
-            return currentInstrPos - targetInstrPos;
-        }
-
-        /// <summary>
         /// CPython 3.12 호환 FOR_ITER 타겟 위치 계산 (VM 실행 시 사용)
         /// QuickenedCodeObject 지원을 위한 통합 메서드
         /// </summary>

@@ -292,36 +292,5 @@ namespace SharpPy
             }
         }
 
-        /// <summary>
-        /// Format NameError with suggestion
-        /// CPython 3.12: Python/suggestions.c:306-350
-        /// </summary>
-        public static string FormatNameErrorWithSuggestion(string name, string? suggestion, bool isStdlibModule = false)
-        {
-            string baseMessage = $"name '{name}' is not defined";
-
-            if (isStdlibModule)
-            {
-                if (suggestion == null)
-                {
-                    return baseMessage + $". Did you forget to import '{name}'?";
-                }
-                else
-                {
-                    return baseMessage + $". Did you mean: '{suggestion}'? Or did you forget to import '{name}'?";
-                }
-            }
-            else
-            {
-                if (suggestion == null)
-                {
-                    return baseMessage;
-                }
-                else
-                {
-                    return baseMessage + $". Did you mean: '{suggestion}'?";
-                }
-            }
-        }
     }
 }

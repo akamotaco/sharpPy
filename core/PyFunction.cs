@@ -762,22 +762,6 @@ public partial class PyFunction : PyObject, IDescriptor
         => new PyString($"<function {ReprName} at 0x{GetHashCode():x}>");
     public override string ToString() => $"<function {ReprName}>";
     
-    /// <summary>
-    /// CPython-style closure function creation helper
-    /// </summary>
-    public static PyFunction CreateClosureFunction(string name, PyCodeObject codeObject, PyCell[] closure, PyScopeChain parentScope = null)
-    {
-        // Create implementation that executes code object with closure support
-        Func<PyObject[], PyObject> implementation = args =>
-        {
-            var frame = new PyFrame(codeObject, args, parentScope, closure);
-            return PyVM.Instance.ExecuteFrame(frame);
-        };
-        
-        var function = new PyFunction(name, implementation, null, null, closure, codeObject);
-        function.ParentScope = parentScope;
-        return function;
-    }
 }
 
     // Python의 method 타입 (바인드된 메서드)
@@ -990,14 +974,6 @@ public class PyFunctionSignature
     {
         Parameters = new List<string>();
         ParameterTypes = new Dictionary<string, PyObject>();
-    }
-    
-    /// <summary>
-    /// **kwargs 타입을 설정 (PEP 692)
-    /// </summary>
-    public void SetKwargsType(PyUnpackWrapper unpackType)
-    {
-        KwargsType = unpackType;
     }
     
     /// <summary>
@@ -1351,18 +1327,6 @@ public class PyTypedDict : PyObject
     public PyTypedDict(string name)
     {
         Name = name;
-    }
-
-    public void AddRequired(string key, PyObject type)
-    {
-        RequiredKeys.Add(key);
-        KeyTypes[key] = type;
-    }
-
-    public void AddOptional(string key, PyObject type)
-    {
-        OptionalKeys.Add(key);
-        KeyTypes[key] = type;
     }
 
     public override string GetTypeName() => "TypedDict";

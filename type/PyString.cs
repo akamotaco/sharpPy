@@ -3734,24 +3734,6 @@ namespace SharpPy
             return new PyInt(count);
         }
 
-        private PyObject EncodeMethod(PyObject[] args)
-        {
-            if (args.Length > 2)
-                throw PyTypeError.Create($"encode() takes at most 2 arguments ({args.Length} given)");
-
-            string encoding = "utf-8";
-            if (args.Length >= 1)
-            {
-                if (args[0] is PyString encodingStr)
-                    encoding = encodingStr.Value;
-                else
-                    throw PyTypeError.Create("encode() encoding must be str");
-            }
-
-            // Second argument (errors) is ignored for now
-            return Encode(encoding);
-        }
-
         internal PyObject IsIdentifier(PyObject[] args)
         {
             if (args.Length != 0)
