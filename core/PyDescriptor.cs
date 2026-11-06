@@ -207,10 +207,18 @@ namespace SharpPy
         public override string ToString() => ToRepr().Value;
     }
 
+    /// <summary>
+    /// A PyCFunctionObject with m_self (Objects/methodobject.c): a method_descriptor bound to its
+    /// instance by method_get, or a METH_CLASS function bound to a class by classmethod_get, which
+    /// gets the class in front of its arguments. Equality, hash, repr and type are the same for both.
+    /// </summary>
     public class PyBoundMethodDescriptor : PyObject, ICFunction
     {
         public PyObject Instance { get; }
         public PyMethodDescriptor MethodDescriptor { get; }
+
+        // METH_CLASS: what classmethod_get bound, called with the class first.
+        internal PyObject Callable { get; }
 
         public PyBoundMethodDescriptor(PyObject instance, PyMethodDescriptor methodDescriptor)
         {
@@ -218,61 +226,60 @@ namespace SharpPy
             MethodDescriptor = methodDescriptor;
         }
 
+        internal PyBoundMethodDescriptor(PyType cls, PyObject callable)
+        {
+            Instance = cls;
+            Callable = callable;
+        }
+
+        // m_ml: the function both kinds compare and hash by.
+        private PyObject Function => (PyObject)MethodDescriptor ?? Callable;
+
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
         public override string GetTypeName() => "builtin_function_or_method";
 
-        // meth_get__qualname__: the receiver's type (or the receiver, when it is a type), not
-        // the type that defines the method. A module receiver leaves the bare name.
-        internal string QualifiedName => Instance is PyModule ? MethodDescriptor.Name :
-            $"{PyBuiltinFunction.QualifiedClassLabel(Instance as PyType ?? Instance.GetPyType())}.{MethodDescriptor.Name}";
-
         /// <summary>
-        /// The same CPython object as PyBuiltinBoundMethod above, so the same slot: two bound
-        /// builtins are equal when the receiver is the same object and they wrap the same function
-        /// (Objects/methodobject.c:306-:308), and only == / != compare (:298-:303).
+        /// meth_richcompare (Objects/methodobject.c:292): equal when m_self is the same object and
+        /// they wrap the same function (:306-:308); only == and != compare (:298-:303).
         /// </summary>
         protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
             if ((op != CompareOp.EQ && op != CompareOp.NE) || !(other is PyBoundMethodDescriptor bound))
                 return PyNotImplemented.Instance;
-            bool equal = ReferenceEquals(Instance, bound.Instance) &&
-                ReferenceEquals(MethodDescriptor, bound.MethodDescriptor);
+            bool equal = ReferenceEquals(Instance, bound.Instance) && ReferenceEquals(Function, bound.Function);
             return op == CompareOp.EQ ? PyBool.FromBool(equal) : PyBool.FromBool(!equal);
         }
 
-        /// <summary>meth_hash (Objects/methodobject.c:316): function part xored with the receiver.</summary>
+        /// <summary>meth_hash (Objects/methodobject.c:316): function part xored with m_self.</summary>
         public override int ToHash()
         {
             var self = PyObjectId.Of(Instance);
-            return (int)(self ^ (self >> 32)) ^ MethodDescriptor.ToHash();
+            return (int)(self ^ (self >> 32)) ^ (MethodDescriptor != null ? MethodDescriptor.ToHash() : (int)Callable.GetPythonHash());
         }
 
         public override bool IsCallable() => true;
 
         public override PyObject Call(PyObject[] args, PyDict kwargs)
         {
-#if DEBUG_DESCRIPTORS_LOG
-            Console.WriteLine($"🎯 PyBoundMethodDescriptor.Call: Method={MethodDescriptor.Name}, Instance={Instance?.GetType().Name}");
-            Console.WriteLine($"   Instance details: {Instance}");
-            Console.WriteLine($"   Instance GetTypeName: {Instance?.GetTypeName()}");
-#endif
-            // Bound method: self는 이미 바인딩되어 있음
+            if (MethodDescriptor == null)
+            {
+                var withClass = new PyObject[args.Length + 1];
+                withClass[0] = Instance;
+                Array.Copy(args, 0, withClass, 1, args.Length);
+                return Callable.Call(withClass, kwargs);
+            }
             MethodDescriptor.CheckCall(args, kwargs, bound: true);
-            var result = MethodDescriptor._implementation(Instance, args, kwargs);
-#if DEBUG_DESCRIPTORS_LOG
-            Console.WriteLine($"   Result: {result?.GetType().Name}");
-#endif
-            return result;
+            return MethodDescriptor._implementation(Instance, args, kwargs);
         }
 
-        string ICFunction.MethodName => MethodDescriptor.Name;
+        string ICFunction.MethodName => MethodDescriptor?.Name
+            ?? (Callable is ICFunction function ? function.MethodName : Callable.GetAttribute("__name__").AsString().Value);
         PyObject ICFunction.MethodSelf => Instance;
         PyObject ICFunction.MethodModule => null;
 
-        // CPython builtin_method_repr for a bound method_descriptor:
-        // <built-in method NAME of TYPE object at 0xID> (address is the bound self).
-        protected internal override PyString Repr()
-            => new PyString($"<built-in method {MethodDescriptor.Name} of {Instance.GetTypeName()} object at 0x{Instance.GetHashCode():x}>");
+        // meth_repr: "<built-in method %s of %s object at %p>", the type of m_self and m_self.
+        protected internal override PyString Repr() => new PyString(
+            $"<built-in method {((ICFunction)this).MethodName} of {Instance.GetPyType().FullName} object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(Instance):x}>");
         public override string ToString() => ToRepr().Value;
     }
 

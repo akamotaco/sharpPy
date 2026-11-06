@@ -103,7 +103,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"descriptor '{_name}' for type '{_ownerType.FullName}' needs a type, not a '{type.GetTypeName()}' as arg 2");
             if (!ReferenceEquals(given, _ownerType) && !given.IsSubclassOf(_ownerType))
                 throw PyTypeError.Create($"descriptor '{_name}' requires a subtype of '{_ownerType.FullName}' but received '{given.FullName}'");
-            return new PyCMethod(_callable, given);
+            return new PyBoundMethodDescriptor(given, _callable);
         }
 
         // classmethoddescr_call: classmethod_get(descr, NULL, args[0]), then the rest to what it bound.

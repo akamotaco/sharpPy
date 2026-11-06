@@ -85,7 +85,7 @@ namespace SharpPy
                 case PyMethodDescriptor method:
                     return (method.Name, Member(method.OwnerType, method.Name));
                 case PyBoundMethodDescriptor bound:
-                    return Of(bound.MethodDescriptor);
+                    return Of((PyObject)bound.MethodDescriptor ?? bound.Callable);
                 case PyWrapperDescriptor wrapper:
                     return (wrapper.Name, Member(wrapper.OwnerType, wrapper.Name));
                 case PyBoundWrapperDescriptor bound:
@@ -96,8 +96,6 @@ namespace SharpPy
                     return (getset.Name, Member(getset.OwnerType, getset.Name));
                 case PyMemberDescriptor member:
                     return (member.Name, Member(member.OwnerType, member.Name));
-                case PyCMethod bound:
-                    return Of(bound.Callable);
                 case PyBuiltinFunction function when function.OwnerType != null:
                     return (function.Name, Member(function.OwnerType, function.Name));
                 case PyBuiltinFunction function:
