@@ -69,8 +69,6 @@ namespace SharpPy
             
             var classDict = new Dictionary<string, PyObject>();
 
-            // type_new behind tp_new: type.__new__(metacls, name, bases, namespace, **kwargs)
-            classDict["__new__"] = new PyStaticBuiltinMethod("__new__", TypeNew);
 
 
 
@@ -183,11 +181,6 @@ namespace SharpPy
             #if DEBUG_LOG
             Console.WriteLine("✅ Global 'type' metaclass created successfully");
             #endif
-            // Expose the same native descriptors used by attribute lookup in
-            // type.__dict__, without constructing a snapshot on each access.
-            foreach (var entry in typeClass.TypeDict)
-                typeClass.ClassDict.TryAdd(entry.Key, entry.Value);
-            typeClass.ClassDict["__repr__"] = typeClass.TypeDict["__repr__"];
             return typeClass;
         }
 
