@@ -112,10 +112,6 @@ namespace SharpPy
         private PyDict _attributes;
         internal PyDict Attributes => _attributes ??= new PyDict();
 
-        // PyObject_GenericSetDict
-        internal void SetDict(PyObject value) =>
-            _attributes = value as PyDict ?? throw PyTypeError.Create(
-                $"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
 
         /// <summary>
         /// The struct slots a builtin exception type adds (Objects/exceptions.c, the *_members
@@ -132,6 +128,7 @@ namespace SharpPy
         internal virtual bool TrySetMember(string name, PyObject value) => false;
 
         PyDict IObjectDict.ObjectDict(bool create) => create ? Attributes : _attributes;
+        void IObjectDict.SetObjectDict(PyDict dict) => _attributes = dict;
 
         // BaseException_get_tb / BaseException_set_tb
         internal PyObject TracebackGet() => (PyObject?)__traceback__ ?? PyNone.Instance;

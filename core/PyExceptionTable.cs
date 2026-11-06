@@ -21,14 +21,7 @@ namespace SharpPy
             baseType.TypeDict["__str__"] = new PyWrapperDescriptor("__str__", baseType, StrOf("BaseException"));
             // BaseException_getset: {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict}. A
             // subclass instance keeps its own dict, which its generic getattr already answers.
-            baseType.TypeDict["__dict__"] = new PyGetSetDescriptor("__dict__", baseType,
-                self => self is PyClassInstance instance ? instance.GetAttributeGeneric("__dict__") : ((PyBaseException)self).Attributes,
-                (self, value) =>
-                {
-                    if (self is PyClassInstance instance) instance.SetDict(value);
-                    else ((PyBaseException)self).SetDict(value);
-                },
-                deleter: self => throw PyTypeError.Create("cannot delete __dict__"));
+            baseType.TypeDict["__dict__"] = SubclassInstanceSupport.GenericDictGetSet(baseType);
 
             foreach (var (name, init, @new, str) in Types)
             {

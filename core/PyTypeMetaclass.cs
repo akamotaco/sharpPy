@@ -516,12 +516,12 @@ namespace SharpPy
             // type_add_getset: PyDict_SetDefault, what the class defined stays.
             if (parent.DictOffset == 0 && own.DictOffset != 0 && !created.ClassDict.ContainsKey("__dict__"))
                 created.ClassDict["__dict__"] = new PyGetSetDescriptor("__dict__", created,
-                    self => self is PyType type ? ((IDescriptor)PyType.TypeType.TypeDict["__dict__"]).Get(type, Instance) : self.GetAttribute("__dict__"),
+                    // subtype_dict and subtype_setdict: the generic get and set, deletion below.
+                    self => self is PyType type ? ((IDescriptor)PyType.TypeType.TypeDict["__dict__"]).Get(type, Instance) : SubclassInstanceSupport.GenericGetDict(self),
                     (self, value) =>
                     {
                         RefuseBuiltinDict(self);
-                        if (self is PyClassInstance instance) instance.SetDict(value);
-                        else self.SetAttribute("__dict__", value);
+                        SubclassInstanceSupport.GenericSetDict(self, value);
                     },
                     deleter: self =>
                     {
@@ -529,7 +529,7 @@ namespace SharpPy
                         if (self.GetPyType().IsSubclassOf(PyType.BaseExceptionType))
                             throw PyTypeError.Create("cannot delete __dict__");
                         if (self is PyClassInstance instance) instance.DropDict();
-                        else self.HeapDict.Clear();
+                        else PyGlobalsDict.Clear(self.HeapDict);
                     });
             if (parent.WeakOffset == 0 && own.WeakOffset != 0)
                 created.ClassDict["__weakref__"] = new PyGetSetDescriptor("__weakref__", created, self => PyNone.Instance);

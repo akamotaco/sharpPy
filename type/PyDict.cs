@@ -1422,6 +1422,13 @@ namespace SharpPy
             if (Views.TryGetValue(variables, out var view)) view.SetItem(StringCache.GetOrCreate(name), value);
             else variables[name] = value;
         }
+        /// <summary>Empties a store and the __dict__ view made over it, as Store and Delete keep both.</summary>
+        internal static void Clear(IDictionary<string, PyObject> variables)
+        {
+            if (variables is not PyNamespace && Views.TryGetValue(variables, out var view)) view.Clear();
+            else variables.Clear();
+        }
+
         internal static bool Delete(IDictionary<string, PyObject> variables, string name)
         {
             if (variables is PyNamespace) return variables.Remove(name);

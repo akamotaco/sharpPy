@@ -27,6 +27,9 @@ namespace SharpPy
     public interface IObjectDict
     {
         PyDict ObjectDict(bool create);
+
+        /// <summary>PyObject_GenericSetDict: the dict replaces the one the object had.</summary>
+        void SetObjectDict(PyDict dict);
     }
 
     /// <summary>

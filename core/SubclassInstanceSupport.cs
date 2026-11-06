@@ -156,17 +156,46 @@ namespace SharpPy
             var replacement = PyNativeStorage.ForDict(value)
                 ?? throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
             var copy = new List<KeyValuePair<PyObject, PyObject>>(replacement.InternalDict);
-            instanceDict.Clear();
+            PyGlobalsDict.Clear(instanceDict);
             foreach (var entry in copy) PyGlobalsDict.Store(instanceDict, ((PyString)entry.Key).Value, entry.Value);
         }
 
         /// <summary>
-        /// {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict} of a builtin whose
-        /// tp_dictoffset dict is the IDictBackedInstance store.
+        /// PyObject_GenericGetDict: the instance dict, wherever this runtime keeps it - a Python
+        /// instance's own store, the dict a builtin holds (IObjectDict, IDictBackedInstance), or the
+        /// one kept beside a builtin's value for a class written in Python.
         /// </summary>
+        internal static PyObject GenericGetDict(PyObject self) => self switch
+        {
+            PyClassInstance instance => instance.GetAttributeGeneric("__dict__"),
+            IObjectDict holder => holder.ObjectDict(true),
+            IDictBackedInstance owner => PyGlobalsDict.OfInstance(owner.InstanceDict),
+            _ => PyGlobalsDict.For(self.HeapDict),
+        };
+
+        /// <summary>PyObject_GenericSetDict: a dict, which becomes the object's.</summary>
+        internal static void GenericSetDict(PyObject self, PyObject value)
+        {
+            switch (self)
+            {
+                case PyClassInstance instance:
+                    instance.SetDict(value);
+                    break;
+                case IObjectDict holder:
+                    holder.SetObjectDict(value as PyDict ?? throw PyTypeError.Create(
+                        $"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'"));
+                    break;
+                case IDictBackedInstance owner:
+                    ReplaceDict(owner.InstanceDict, value);
+                    break;
+                default:
+                    ReplaceDict(self.HeapDict, value);
+                    break;
+            }
+        }
+
+        /// <summary>{"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict}, which refuses deletion.</summary>
         internal static PyGetSetDescriptor GenericDictGetSet(PyType type) => new("__dict__", type,
-            self => PyGlobalsDict.OfInstance(((IDictBackedInstance)self).InstanceDict),
-            (self, value) => ReplaceDict(((IDictBackedInstance)self).InstanceDict, value),
-            deleter: self => throw PyTypeError.Create("cannot delete __dict__"));
+            GenericGetDict, GenericSetDict, deleter: self => throw PyTypeError.Create("cannot delete __dict__"));
     }
 }

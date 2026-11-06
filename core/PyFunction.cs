@@ -36,6 +36,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     // func_dict: the function's one __dict__, made when it is first needed (PyObject_GenericGetDict).
     private PyDict? _dict;
     public PyDict ObjectDict(bool create) => create ? _dict ??= new PyDict() : _dict;
+    public void SetObjectDict(PyDict dict) => _dict = dict;
     private PyDict? _globalsCache = null;
     private PyObject? _inheritedBuiltins;
     private PyObject? _module;
@@ -364,22 +365,8 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             deleter: self => throw PyTypeError.Create("__type_params__ must be set to a tuple")
         );
 
-        // PyObject_GenericGetDict and PyObject_GenericSetDict
-        funcType.TypeDict["__dict__"] = new PyGetSetDescriptor(
-            "__dict__",
-            funcType,
-            getter: self => {
-                if (self is not PyFunction func)
-                    throw PyTypeError.Create("descriptor '__dict__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                return func.ObjectDict(true);
-            },
-            setter: (self, value) => {
-                if (value is not PyDict dict)
-                    throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
-                ((PyFunction)self)._dict = dict;
-            },
-            deleter: self => throw PyTypeError.Create("cannot delete __dict__")
-        );
+        // func_getsetlist: {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict}.
+        funcType.TypeDict["__dict__"] = SubclassInstanceSupport.GenericDictGetSet(funcType);
 
         // add_operators: tp_call and tp_descr_get
         funcType.TypeDict["__call__"] = new PyWrapperDescriptor("__call__", funcType, (self, args, kwargs) => self.Call(args, kwargs));
