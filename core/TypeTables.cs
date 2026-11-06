@@ -201,8 +201,10 @@ namespace SharpPy
                 PyType.SetType, PyType.ComplexType, PyType.ZipType, PyType.MapType, PyType.FilterType);
         }
 
-        internal static void InstallSre(PyType pattern, PyType match)
+        internal static void InstallSre(PyType pattern, PyType match, PyType scanner)
         {
+            Members<PySreScanner>(scanner, (self, name) => self.Read(name), "pattern");
+            Methods<PySreScanner>(scanner, (self, name) => self.Read(name), "match", "search");
             GetSets<PySrePattern>(pattern, (self, name) => self.Read(name), "groupindex");
             Members<PySrePattern>(pattern, (self, name) => self.Read(name), "pattern", "flags", "groups");
             Methods<PySrePattern>(pattern, (self, name) => self.Read(name), "match", "fullmatch", "search",

@@ -123,8 +123,8 @@ namespace SharpPy.Modules
             type.TypeDict["__ne__"] = new PyMethodDescriptor("__ne__", type,
                 (self, args, kwargs) => ((PyWeakRef)self).SlotCompare(args[0], PyObject.CompareOp.NE), 1, 1);
 
-            // Objects/weakrefobject.c:663 weakref_getsets: the only attribute of a reference.
-            type.TypeDict["__callback__"] = new PyGetSetDescriptor("__callback__", type,
+            // weakref_members (Objects/weakrefobject.c:356): {"__callback__", T_OBJECT, wr_callback, READONLY}.
+            type.TypeDict["__callback__"] = new PyMemberDescriptor("__callback__", type,
                 self =>
                 {
                     var r = (PyWeakRef)self;

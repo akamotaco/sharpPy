@@ -880,7 +880,8 @@ namespace SharpPy
             var type = self.GetPyType();
             string modulePrefix = type is PyClass cls && cls.ClassDict.TryGetValue("__module__", out var module) &&
                 module is PyString { Value: { Length: > 0 } and not "builtins" } text ? text.Value + "." : "";
-            string name = type is PyClass named ? named.QualNameText : type.Name;
+            // object_repr: a static type's __module__ and __qualname__ are its tp_name's parts.
+            string name = type is PyClass named ? named.QualNameText : type.FullName;
             return new PyString($"<{modulePrefix}{name} object at 0x{self.GetHashCode():x}>");
         }
 

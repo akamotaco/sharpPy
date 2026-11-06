@@ -112,12 +112,6 @@ namespace SharpPy
             return _hash.Value;
         }
 
-        protected internal override void TpSetattro(string name, PyObject value)
-        {
-            throw PyAttributeError.Create(
-                $"'weakref.ReferenceType' object has no attribute '{name}'");
-        }
-
         /// <summary>
         /// ref() - the object, or None. tp_call of PyWeakReference_Type
         /// (Objects/weakrefobject.c weakref_call).

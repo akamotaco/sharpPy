@@ -12,6 +12,7 @@ namespace SharpPy.Modules
     {
         public static PyType PyPatternType { get; private set; }
         public static PyType PyMatchType { get; private set; }
+        internal static PyType ScannerType { get; private set; }
 
         public static PyModule CreateSreModule()
         {
@@ -19,9 +20,10 @@ namespace SharpPy.Modules
             {
                 PyPatternType = new PyType("Pattern", new[] { PyType.ObjectType }, "re");
                 PyMatchType = new PyType("Match", new[] { PyType.ObjectType }, "re");
+                ScannerType = new PyType("SRE_Scanner", new[] { PyType.ObjectType }, "_sre");
                 foreach (var type in new[] { PyPatternType, PyMatchType })
                     type.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(type);
-                TypeTables.InstallSre(PyPatternType, PyMatchType);
+                TypeTables.InstallSre(PyPatternType, PyMatchType, ScannerType);
             }
 
             var module = new PyModule("_sre", "<_sre C module>");

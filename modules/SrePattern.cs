@@ -610,6 +610,7 @@ namespace SharpPy.Modules
             _state = pattern.NewState(text, pos, endpos);
         }
 
+        public override PyType GetPyType() => _SreModule.ScannerType;
         public override string GetTypeName() => "_sre.SRE_Scanner";
 
         internal PyObject Step(bool search)
@@ -631,12 +632,16 @@ namespace SharpPy.Modules
             return result;
         }
 
-        protected internal override PyObject TpGetattro(string name) => name switch
+        // scanner_methods (match, search: no arguments) and scanner_members (pattern, READONLY).
+        internal PyObject Read(string name) => name switch
         {
-            "match" => new PyBuiltinFunction("match", _ => Step(false)),
-            "search" => new PyBuiltinFunction("search", _ => Step(true)),
-            "pattern" => _pattern,
-            _ => base.TpGetattro(name),
+            "match" or "search" => new PyBuiltinFunction(name, (args, kwargs) =>
+            {
+                if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
+                    throw PyTypeError.Create($"{name}() takes no arguments");
+                return Step(name == "search");
+            }),
+            _ => _pattern,
         };
     }
 
