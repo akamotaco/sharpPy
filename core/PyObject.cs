@@ -784,7 +784,7 @@ namespace SharpPy
             }
             Dictionary<string, PyObject> dict = HasInstanceDict(out var owner) ? owner.InstanceDict : null;
             IInstanceDictStore store = dict != null ? null
-                : this as IInstanceDictStore ?? (this is IObjectDict holder ? new SubclassInstanceSupport.ObjectDictStore(holder) : null);
+                : this as IInstanceDictStore;
             SubclassInstanceSupport.GenericSetAttrWithDict(this, GetPyType(), name, value, dict, store);
         }
 

@@ -70,9 +70,7 @@ namespace SharpPy
             if (descriptor != null && descriptor.IsDataDescriptor())
                 return descriptor.Get(self, type);
             if (dict != null ? dict.TryGetValue(name, out PyObject instanceValue)
-                : accessor != null ? accessor.TryGetInstanceAttribute(name, out instanceValue)
-                : self is IObjectDict holder && holder.ObjectDict(false) is { } ownDict
-                    && ownDict.TryGetStoredValue(new PyString(name), out instanceValue))
+                : accessor != null && accessor.TryGetInstanceAttribute(name, out instanceValue))
                 return instanceValue;
             if (attribute == null)
                 return null;
@@ -133,28 +131,6 @@ namespace SharpPy
             !hasDict && type.FindNameInMro(name) != null
                 ? PyAttributeError.Create($"'{self.GetTypeName()}' object attribute '{name}' is read-only")
                 : self.NoSuchAttribute(name);
-
-        /// <summary>A builtin's own PyDict as the store _PyObject_GenericSetAttrWithDict writes.</summary>
-        internal sealed class ObjectDictStore : IInstanceDictStore
-        {
-            private readonly IObjectDict _holder;
-            internal ObjectDictStore(IObjectDict holder) => _holder = holder;
-            public void SetInstanceAttribute(string name, PyObject value) => _holder.ObjectDict(true).SetItem(new PyString(name), value);
-            public bool RemoveInstanceAttribute(string name)
-            {
-                var dict = _holder.ObjectDict(false);
-                var key = new PyString(name);
-                if (dict == null || !dict.ContainsKey(key)) return false;
-                dict.DelItem(key);
-                return true;
-            }
-            public bool TryGetInstanceAttribute(string name, out PyObject value)
-            {
-                value = null;
-                return _holder.ObjectDict(false) is { } dict && dict.TryGetStoredValue(new PyString(name), out value);
-            }
-            public IEnumerable<KeyValuePair<string, PyObject>> InstanceAttributes => Array.Empty<KeyValuePair<string, PyObject>>();
-        }
 
         /// <summary>The generic set over the dict kept beside a builtin's value; value null to delete.</summary>
         internal static void GenericSetAttribute(PyObject self, PyClass instanceType,
