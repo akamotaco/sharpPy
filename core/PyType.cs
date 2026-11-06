@@ -2347,7 +2347,8 @@ namespace SharpPy
                     PyTypeMetaclass.CheckBases(heap, newBases);
                     heap.SetBases(newBases);
                     heap.InvalidateTypeCache();
-                }
+                },
+                deleter: self => throw PyTypeError.Create($"cannot delete '__bases__' attribute of immutable type '{((PyType)self).Name}'")
             );
 
             // type.__mro__ - CPython type_mro (read-only)
@@ -2375,62 +2376,40 @@ namespace SharpPy
                 }
             );
 
-            // type.__dict__ - CPython type_dict (read-only, returns mappingproxy)
-            TypeDict["__dict__"] = new PyGetSetDescriptor(
-                "__dict__",
-                typeType,
-                getter: self => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__dict__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            // type_getsets: __dict__ is type_dict, a mappingproxy of tp_dict alone.
+            TypeDict["__dict__"] = new PyGetSetDescriptor("__dict__", typeType, self =>
+            {
+                if (self is not PyType type)
+                    throw PyTypeError.Create("descriptor '__dict__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                if (type is PyClass heap)
+                    return new PyMappingProxy(heap.ClassDict);
+                var typeDict = new Dictionary<string, PyObject>(type.TypeDict);
+                foreach (var slot in type.SlotDict)
+                    typeDict.TryAdd(slot.Key, slot.Value);
+                return new PyMappingProxy(typeDict);
+            });
 
-                    // CPython 3.12: Objects/typeobject.c:1397-1404 (type_dict)
-                    // Simply return mappingproxy of tp_dict, DO NOT traverse MRO
-                    // Line 1399: PyObject *dict = lookup_tp_dict(type);
-                    // Line 1403: return PyDictProxy_New(dict);
+            // type_members: {"__base__", T_OBJECT, offsetof(PyTypeObject, tp_base), READONLY}.
+            TypeDict["__base__"] = new PyMemberDescriptor("__base__", typeType,
+                self => (PyObject)((PyType)self).TpBase ?? PyNone.Instance, readOnly: true);
 
-                    // For PyClass: return mappingproxy of ClassDict
-                    if (type is PyClass customType)
-                    {
-                        return new PyMappingProxy(customType.ClassDict);
-                    }
-
-                    // For built-in types: return mappingproxy of TypeDict
-                    // Add required special attributes
-                    var typeDict = new Dictionary<string, PyObject>(type.TypeDict);
-                    foreach (var slot in type.SlotDict)
-                        typeDict.TryAdd(slot.Key, slot.Value);
-
-                    // Add __name__
-                    typeDict["__name__"] = StringCache.GetOrCreate(type.Name);
-
-                    // CPython 3.12 requirement: Cache tuples for identity consistency
-                    // type.__bases__ is type.__bases__ must be True
-                    var basesArray = new PyObject[type.BaseTypes.Length];
-                    for (int i = 0; i < type.BaseTypes.Length; i++)
-                    {
-                        basesArray[i] = type.BaseTypes[i];
-                    }
-                    if (type._cachedBasesTuple == null)
-                    {
-                        type._cachedBasesTuple = new PyTuple(basesArray);
-                    }
-                    typeDict["__bases__"] = type._cachedBasesTuple;
-
-                    var mroArray = new PyObject[type.MRO.Count];
-                    for (int i = 0; i < type.MRO.Count; i++)
-                    {
-                        mroArray[i] = type.MRO[i];
-                    }
-                    if (type._cachedMroTuple == null)
-                    {
-                        type._cachedMroTuple = new PyTuple(mroArray);
-                    }
-                    typeDict["__mro__"] = type._cachedMroTuple;
-
-                    // Return as read-only mappingproxy
-                    return new PyMappingProxy(typeDict);
-                }
-            );
+            // type_get_doc / type_set_doc: a static type cuts its tp_doc; a heap type's dict entry is
+            // asked as a descriptor with no instance; check_set_special_type_attr guards the writes.
+            TypeDict["__doc__"] = new PyGetSetDescriptor("__doc__", typeType, self =>
+            {
+                if (self is PyType withDoc && PyDocs.Of(withDoc) is { Doc: not null } internalDoc)
+                    return PyDocs.DocFromInternal(internalDoc.Name, internalDoc.Doc);
+                var dict = self is PyClass heap ? heap.ClassDict : ((PyType)self).TypeDict;
+                return dict.TryGetValue("__doc__", out var doc) ? PyClassInstance.CallDescriptorGet(doc, null, self) : PyNone.Instance;
+            },
+            (self, value) =>
+            {
+                if (self is not PyClass heap)
+                    throw PyTypeError.Create($"cannot set '__doc__' attribute of immutable type '{((PyType)self).Name}'");
+                heap.ClassDict["__doc__"] = value;
+                heap.InvalidateTypeCache();
+            },
+            deleter: self => throw PyTypeError.Create($"cannot delete '__doc__' attribute of immutable type '{((PyType)self).Name}'"));
 
             // CPython 3.12: Objects/typeobject.c:1063-1091 (type_module / type_set_module)
             // type.__module__ - returns module name for the type
