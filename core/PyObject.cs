@@ -208,12 +208,12 @@ namespace SharpPy
             var method = obj.LookupSpecialMethodUncached("__index__");
             if (method == null) return null;
             var result = obj.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-            if (result is PyInt intResult) return intResult;
+            if (result.GetType() == typeof(PyInt) && !result.HasCustomType) return (PyInt)result;
             // _PyNumber_Index: a strict subclass of int still answers, with a warning.
             if (result is PyBool or PyIntSubclass)
             {
                 PyWarnings.Deprecated($"__index__ returned non-int (type {result.GetTypeName()}).  The ability to return an instance of a strict subclass of int is deprecated, and may be removed in a future version of Python.");
-                return result is PyBool truth ? new PyInt(truth.Value ? 1 : 0) : ((PyIntSubclass)result).GetIntValue();
+                return PyInt.LongValue(result);
             }
             throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
         }
@@ -304,19 +304,8 @@ namespace SharpPy
         public static PyObject Compare(PyObject left, PyObject right, CompareOp op)
         {
             // Exact builtin numbers always handle each other without Python callbacks.
-            if (left._customType == null && right._customType == null && IsExactNumber(right))
-            {
-                if (IsExactNumber(left)) return left.RichCompare(right, op);
-                if (left.GetType() == typeof(PyIntSubclass))
-                {
-                    // The builtin right operand cannot be a strict subtype of
-                    // left. Its numeric slot also accepts the integer payload
-                    // if the Python override declines, so no MRO pass is needed.
-                    var result = left.RichCompare(right, op);
-                    return result == PyNotImplemented.Instance
-                        ? right.RichCompare(left, ReverseComparison(op)) : result;
-                }
-            }
+            if (left._customType == null && right._customType == null && IsExactNumber(right) && IsExactNumber(left))
+                return left.RichCompare(right, op);
             // PyObject_RichCompare: _Py_EnterRecursiveCallTstate(" in comparison") around do_richcompare.
             PyCRecursion.Enter(" in comparison");
             try
@@ -331,16 +320,9 @@ namespace SharpPy
 
         private static PyObject ResolveComparison(PyObject left, PyObject right, CompareOp op)
         {
-            bool reverseFirst = false;
-            // A builtin number cannot be a strict subtype of a Python int subclass.
-            // Still call both slots below: the left callback may return NotImplemented.
-            if (!(left.GetType() == typeof(PyIntSubclass) && left._customType == null &&
-                  right._customType == null && IsExactNumber(right)))
-            {
-                var leftType = left.GetPyType();
-                var rightType = right.GetPyType();
-                reverseFirst = !ReferenceEquals(leftType, rightType) && rightType.MRO.Contains(leftType);
-            }
+            var leftType = left.GetPyType();
+            var rightType = right.GetPyType();
+            bool reverseFirst = !ReferenceEquals(leftType, rightType) && rightType.MRO.Contains(leftType);
             PyObject result;
             if (reverseFirst)
             {

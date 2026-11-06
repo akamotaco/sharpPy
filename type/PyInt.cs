@@ -17,9 +17,9 @@ namespace SharpPy
         /// <summary>The int value of what PyLong_Check accepts (a subclass instance's long_value), else null.</summary>
         internal static PyInt LongValue(PyObject value) => value switch
         {
+            PyIntSubclass subclass => subclass.GetIntValue(),
             PyInt exact => exact,
             PyBool flag => flag.Value ? SmallIntCache.One : SmallIntCache.Zero,
-            PyIntSubclass subclass => subclass.GetIntValue(),
             _ => null,
         };
 
@@ -95,28 +95,10 @@ namespace SharpPy
 
         internal static bool TryLongSelf(PyObject self, out PyInt value)
         {
-            // CPython gates these slots on PyLong_Check, and bool IS an int subclass there:
-            // (True).real is 1, (True).numerator is 1, and a TypeError would be wrong. The CLR does not
-            // model bool as a PyInt, so the bool case has to appear in every CPython check site.
-            if (self is PyInt exact)
-            {
-                value = exact;
-                return true;
-            }
-            if (self is PyIntSubclass subclass)
-            {
-                value = subclass.GetIntValue();
-                return true;
-            }
-            if (self is PyBool flag)
-            {
-                value = new PyInt(flag.Value
-                    ? System.Numerics.BigInteger.One
-                    : System.Numerics.BigInteger.Zero);
-                return true;
-            }
-            value = null;
-            return false;
+            // PyLong_Check gates these slots (bool and subclasses pass), and long_long gives the
+            // exact int: a subclass instance becomes a plain int.
+            value = LongValue(self);
+            return value != null;
         }
 
         // The measured unbound text for every method/getset of a builtin type is the descr_check form
@@ -160,11 +142,8 @@ namespace SharpPy
             // (Objects/typeobject.c NBINOP/NBUNARYOP slotdefs). Error strings measured
             // against CPython 3.12.15; NotImplemented propagates for unsupported right
             // operands exactly like the C slots.
-            static bool IntLike(PyObject o) => o is PyInt or PyIntSubclass or PyBool;
-            static PyInt AsIntObj(PyObject o) =>
-                (o as PyInt) ??
-                (o as PyIntSubclass)?.GetIntValue() ??
-                (o is PyBool pb ? new PyInt(pb.Value ? BigInteger.One : BigInteger.Zero) : null);
+            static bool IntLike(PyObject o) => LongCheck(o);
+            static PyInt AsIntObj(PyObject o) => LongValue(o);
             // Extended Euclidean inverse for pow(base, -exp, mod) (CPython 3.8+).
             static BigInteger ModInverse(BigInteger value, BigInteger modulus)
             {
@@ -793,7 +772,6 @@ namespace SharpPy
                 PyInt otherInt => PyBool.FromBool(Value == otherInt.Value),
                 PyFloat otherFloat => PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) == 0),
                 PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1 : 0)),
-                PyIntSubclass otherSubclass => PyBool.FromBool(Value == otherSubclass.GetIntValue().Value),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -1262,9 +1240,6 @@ namespace SharpPy
                     return true;
                 case PyInt number:
                     value = number.Value;
-                    return true;
-                case PyIntSubclass subclass:
-                    value = subclass.GetIntValue().Value;
                     return true;
                 default:
                     value = default;

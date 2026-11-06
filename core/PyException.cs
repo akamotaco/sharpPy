@@ -1445,7 +1445,8 @@ namespace SharpPy
             if (args.Length >= 4)
                 args = NormalizeWindowsArguments(args);
             {
-                if (args[0] is PyInt number)
+                // errnomap is a dict: an int subclass is looked up through its own hash and eq.
+                if (args[0] is PyInt number && args[0] is not PyIntSubclass)
                 {
                     if (number.Value == 2) return new PyFileNotFoundError(args, null, true);
                     if (number.Value == 1 || number.Value == 13) return new PyPermissionError(args, null, true);
