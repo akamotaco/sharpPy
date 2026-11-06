@@ -809,7 +809,7 @@ namespace SharpPy
         {
             try
             {
-                if (function.Attributes.TryGetValue("__override__", out PyObject overrideAttr))
+                if (function.ObjectDict(false) is { } attributes && attributes.TryGetStoredValue(new PyString("__override__"), out PyObject overrideAttr))
                 {
                     return overrideAttr.IsTrue();
                 }

@@ -7,7 +7,7 @@ namespace SharpPy
     #region Function and Method System
 
 // Python의 function 타입
-public partial class PyFunction : PyObject, IDescriptor
+public partial class PyFunction : PyObject, IDescriptor, IObjectDict
 {
     public string Name { get; private set; }
     // func_qualname (Objects/funcobject.c:705). It starts as co_qualname and moves independently of
@@ -21,7 +21,6 @@ public partial class PyFunction : PyObject, IDescriptor
     // func_annotations (Objects/funcobject.c): reading creates the dict, so it is never an AttributeError.
     private PyObject _annotations;
     public Func<PyObject[], PyObject> Implementation { get; }
-    public Dictionary<string, PyObject> Attributes { get; }
     public PyModule DefiningModule { get; }
     public List<PyObject>? TypeParams { get; set; } // PEP 695 __type_params__
     public PyFunctionSignature? Signature { get; set; } // PEP 692 **kwargs 타입 정보
@@ -34,9 +33,9 @@ public partial class PyFunction : PyObject, IDescriptor
     // CPython 3.12: __globals__ attribute - function's global namespace
     public IDictionary<string, PyObject>? GlobalsDict { get; set; }  // func.__globals__
 
-    // CPython 3.12 호환: __dict__ 및 __globals__ 캐시 (매번 새 객체 생성 방지)
-    // Python에서 func.__dict__ is func.__dict__는 True여야 함
-    private PyDict? _dictCache = null;
+    // func_dict: the function's one __dict__, made when it is first needed (PyObject_GenericGetDict).
+    private PyDict? _dict;
+    public PyDict ObjectDict(bool create) => create ? _dict ??= new PyDict() : _dict;
     private PyDict? _globalsCache = null;
     private PyObject? _inheritedBuiltins;
     private PyObject? _module;
@@ -47,13 +46,11 @@ public partial class PyFunction : PyObject, IDescriptor
     private PyObject? _typeParams;
     private PyObject? _doc;
     private bool _docWasSet;
-    private PyDict? _assignedDict;
 
     public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null, PyCell[] closure = null, PyCodeObject codeObject = null)
     {
         Name = name;
         Implementation = implementation ?? DefaultImplementation;
-        Attributes = new Dictionary<string, PyObject>();
         DefiningModule = definingModule;
         TypeParams = typeParams;
         Closure = closure ?? new PyCell[0];
@@ -374,12 +371,12 @@ public partial class PyFunction : PyObject, IDescriptor
             getter: self => {
                 if (self is not PyFunction func)
                     throw PyTypeError.Create("descriptor '__dict__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                return func._assignedDict ?? (func._dictCache ??= new PyFunctionAttrDict(func.Attributes));
+                return func.ObjectDict(true);
             },
             setter: (self, value) => {
                 if (value is not PyDict dict)
                     throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
-                ((PyFunction)self)._assignedDict = dict;
+                ((PyFunction)self)._dict = dict;
             },
             deleter: self => throw PyTypeError.Create("cannot delete __dict__")
         );
@@ -480,14 +477,6 @@ public partial class PyFunction : PyObject, IDescriptor
                 {
                     Console.WriteLine($"  defaults[{i}]: {defaults.Items[i]}");
                 }
-            }
-            Console.WriteLine($"  Attributes.Count: {Attributes.Count}");
-            Console.WriteLine($"  Attributes.ContainsKey(\"__defaults__\"): {Attributes.ContainsKey("__defaults__")}");
-            if (Attributes.ContainsKey("__defaults__"))
-            {
-                var attr = Attributes["__defaults__"];
-                Console.WriteLine($"  Attributes[\"__defaults__\"] type: {attr?.GetType().Name}");
-                Console.WriteLine($"  Attributes[\"__defaults__\"] value: {attr}");
             }
             #endif
 
@@ -707,51 +696,6 @@ public partial class PyFunction : PyObject, IDescriptor
     
     public bool IsDataDescriptor() => false; // function은 non-data descriptor
     
-    // Function attributes 접근 - CPython 호환: descriptor 테이블 사용
-    protected internal override PyObject TpGetattro(string name)
-    {
-        // PyObject_GenericGetAttr: a getset of the type comes before the instance's dict.
-        if (PyType.FunctionType.TypeDict.TryGetValue(name, out var slot) && slot is IDescriptor { } getset && getset.IsDataDescriptor())
-            return getset.Get(this, PyType.FunctionType);
-        if (_assignedDict != null)
-        {
-            if (_assignedDict.TryGetStoredValue(new PyString(name), out var stored))
-                return stored;
-        }
-        else if (Attributes.TryGetValue(name, out PyObject value))
-            return value;
-
-        return GenericGetAttribute(name);
-    }
-    
-    // PyObject_GenericSetAttr: a data descriptor takes the assignment and may refuse it.
-    protected internal override void TpSetattro(string name, PyObject value)
-    {
-        if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is IDescriptor { } getset && getset.IsDataDescriptor())
-            getset.Set(this, value);
-        else if (_assignedDict != null)
-            _assignedDict.SetItem(new PyString(name), value);
-        else
-            Attributes[name] = value;
-    }
-
-    protected internal override void TpDelattro(string name)
-    {
-        // descr_delete on a getset is the same slot as descr_set with NULL (Objects/descrobject.c)
-        if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is IDescriptor { } getset && getset.IsDataDescriptor())
-        {
-            getset.Delete(this);
-            return;
-        }
-        if (_assignedDict != null)
-        {
-            _assignedDict.DelItem(new PyString(name));
-            return;
-        }
-        if (!Attributes.Remove(name))
-            throw PyAttributeError.Create($"'function' object has no attribute '{name}'");
-    }
-
     // CPython repr(func)/method uses __qualname__, not the bare code name: repr is
     // "<function C.m at 0x..>" (funcobject.c func_repr), bound method is
     // "<bound method C.m of ...>". QualName starts from co_qualname and is what an assignment
