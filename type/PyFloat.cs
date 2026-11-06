@@ -1103,11 +1103,6 @@ namespace SharpPy
 
         #region Helper Methods
 
-        private static bool IsIntegral(double value)
-        {
-            return !double.IsInfinity(value) && !double.IsNaN(value) && value == Math.Floor(value);
-        }
-
         #endregion
 
         #region Static Factory Methods

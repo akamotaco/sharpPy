@@ -276,15 +276,5 @@ namespace SharpPy
         }
 
 
-        /// <summary>
-        /// CPython 3.12: Python/flowgraph.c - Check if opcode never returns
-        /// </summary>
-        private static bool IsUnconditionalTerminator(ByteCodeOp op)
-        {
-            return op == ByteCodeOp.RETURN_VALUE ||
-                   op == ByteCodeOp.RETURN_CONST ||
-                   op == ByteCodeOp.RAISE_VARARGS ||
-                   op == ByteCodeOp.RERAISE;
-        }
     }
 }

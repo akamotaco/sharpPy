@@ -420,14 +420,6 @@ namespace SharpPy
         #region Complex-specific Methods
 
         /// <summary>
-        /// 복소수의 크기(절댓값) 반환
-        /// </summary>
-        public PyFloat Magnitude()
-        {
-            return new PyFloat(Math.Sqrt(Real * Real + Imag * Imag));
-        }
-
-        /// <summary>
         /// 복소수의 위상(각도) 반환 (라디안)
         /// </summary>
         public PyFloat Phase()

@@ -1831,24 +1831,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// C# 타입 시스템을 활용한 정확한 메타클래스 검출 (재귀 방지 헬퍼)
-        /// </summary>
-        private static bool IsMetaclassRecursive(PyClass pyClass)
-        {
-            if (pyClass.BaseTypes == null) return false;
-
-            // 직접 type을 상속하면 메타클래스
-            // Performance: Eliminated LINQ - manual loop instead of Any()
-            for (int i = 0; i < pyClass.BaseTypes.Length; i++)
-            {
-                var t = pyClass.BaseTypes[i];
-                if (t == PyType.TypeType || t.Name == "type")
-                    return true;
-            }
-            return false;
-        }
-
-        /// <summary>
         /// update_bases (Python/bltinmodule.c): a base that is not a type may replace itself through
         /// __mro_entries__. This is what makes class C(Generic[T]) and class N(NamedTuple) work. The
         /// originals are kept for __orig_bases__.

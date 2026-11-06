@@ -1129,23 +1129,6 @@ namespace SharpPy
         private List<string> names = new List<string>();
         private List<string> varNames = new List<string>();
         
-        public ByteCodeBuilder AddInstruction(ByteCodeOp opCode, int arg = 0)
-        {
-            instructions.Add(new ByteCodeInstruction(opCode, arg));
-            return this;
-        }
-        
-        private int GetOrAddName(string name)
-        {
-            var index = names.IndexOf(name);
-            if (index == -1)
-            {
-                index = names.Count;
-                names.Add(name);
-            }
-            return index;
-        }
-        
         public PyCodeObject Build(string name = "<module>", int argCount = 0)
         {
             return new PyCodeObject(name, instructions, constants, names, varNames, argCount, 0);

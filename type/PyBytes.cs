@@ -822,18 +822,6 @@ namespace SharpPy
         // Objects/bytesobject.c owns find_impl / counting_impl / startswith_impl
         // and bytearray delegates to them, so the core lives on PyBytes.
 
-        internal static void ParseRange(PyObject[] args, int length, out int start, out int end)
-        {
-            start = 0;
-            end = length;
-            if (args.Length >= 2 && args[1] is not PyNone) start = PyBytes.BytesIndex(args[1]);
-            if (args.Length >= 3 && args[2] is not PyNone) end = PyBytes.BytesIndex(args[2]);
-            if (start < 0) start += length;
-            if (end < 0) end += length;
-            start = Math.Max(0, Math.Min(start, length));
-            end = Math.Max(0, Math.Min(end, length));
-        }
-
         // find/count take int(0..255) or bytes-like; the prefix/suffix family takes
         // bytes-like only, and the two cases have different CPython messages.
         /// <summary>
@@ -866,31 +854,6 @@ namespace SharpPy
             if (c >= 'a' && c <= 'f') return c - 'a' + 10;
             if (c >= 'A' && c <= 'F') return c - 'A' + 10;
             return -1;
-        }
-
-        internal static byte[] SubArg(PyObject arg, bool allowInt)
-        {
-            if (arg is PyBytes pb) return pb.Value;
-            if (arg is PyByteArray pba) return pba.ToByteArrayCopy();
-            // Any object exposing a bytes-like buffer counts (CPythonPyObject_GetBuffer).
-            if (arg is PyMemoryView mv) return mv.Data;
-            if (allowInt && arg is PyInt pi)
-            {
-                long v = (long)pi.Value;
-                if (v < 0 || v > 255) throw PyValueError.Create("byte must be in range(0, 256)");
-                return new byte[] { (byte)v };
-            }
-            if (!allowInt)
-                throw PyTypeError.Create($"a bytes-like object is required, not '{arg.GetTypeName()}'");
-            throw PyTypeError.Create($"argument should be integer or bytes-like object, not '{arg.GetTypeName()}'");
-        }
-
-        internal static bool SameAt(System.Collections.Generic.IReadOnlyList<byte> data, int at, byte[] sub)
-        {
-            if (at < 0 || at + sub.Length > data.Count) return false;
-            for (int i = 0; i < sub.Length; i++)
-                if (data[at + i] != sub[i]) return false;
-            return true;
         }
 
         // find/rfind and index/rindex share one scan.
@@ -954,14 +917,6 @@ namespace SharpPy
         // CPython startswith_impl: bytes-like or a tuple of bytes-like.
 
         // removeprefix/removesuffix: METH_O, bytes-like only, returns a copy.
-
-        internal static int BytesIndex(PyObject arg)
-        {
-            var idx = PyObject.TryGetIndex(arg);
-            if (idx == null)
-                throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
-            return (int)idx.Value;
-        }
 
         /// <summary>
         /// bytes * int repetition

@@ -364,32 +364,6 @@ namespace SharpPy.Core
             }
         }
 
-        private bool IsAssignmentOrStatement(string code)
-        {
-            string trimmed = code.Trim();
-            
-            // Check for assignments
-            if (trimmed.Contains("=") && !trimmed.Contains("==") && !trimmed.Contains("!=") &&
-                !trimmed.Contains("<=") && !trimmed.Contains(">="))
-            {
-                return true;
-            }
-
-            // Check for statements (keywords that don't return values)
-            return trimmed.StartsWith("def ", StringComparison.Ordinal) || trimmed.StartsWith("class ", StringComparison.Ordinal) ||
-                   trimmed.StartsWith("import ", StringComparison.Ordinal) || trimmed.StartsWith("from ", StringComparison.Ordinal) ||
-                   trimmed.StartsWith("print(", StringComparison.Ordinal) || trimmed.StartsWith("del ", StringComparison.Ordinal) ||
-                   trimmed.StartsWith("global ", StringComparison.Ordinal) || trimmed.StartsWith("nonlocal ", StringComparison.Ordinal);
-        }
-
-        private string FormatResult(PyObject result)
-        {
-            if (result == null)
-                return "None";
-                
-            return result.ToString();
-        }
-
         private void ResetMultiLineMode()
         {
             _inMultiLineMode = false;

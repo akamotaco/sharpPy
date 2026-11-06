@@ -661,37 +661,6 @@ namespace SharpPy
             Console.Error.WriteLine($"{pythonExceptionType}: {exceptionMessage}");
         }
         
-        /// <summary>
-        /// Extract the problematic word/token from exception message for better ^^^ marker positioning
-        /// </summary>
-        private string GetErrorWordFromException(Exception e)
-        {
-            var message = e.Message;
-
-            // Extract variable name from NameError: "name 'variable_name' is not defined"
-            if (message.Contains("not defined"))
-            {
-                var match = System.Text.RegularExpressions.Regex.Match(message, @"name '([^']+)' is not defined");
-                if (match.Success) return match.Groups[1].Value;
-            }
-
-            // Extract attribute name from AttributeError: "object has no attribute 'attribute_name'"
-            if (message.Contains("has no attribute"))
-            {
-                var match = System.Text.RegularExpressions.Regex.Match(message, @"has no attribute '([^']+)'");
-                if (match.Success) return match.Groups[1].Value;
-            }
-
-            // Extract argument name from TypeError: "missing required argument: 'argument_name'"
-            if (message.Contains("required argument"))
-            {
-                var match = System.Text.RegularExpressions.Regex.Match(message, @"required argument: '([^']+)'");
-                if (match.Success) return match.Groups[1].Value;
-            }
-
-            return "";
-        }
-
         // 대화형 실행 (REPL 스타일)
         public void Interactive()
         {
