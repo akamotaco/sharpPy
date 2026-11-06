@@ -976,9 +976,6 @@ namespace SharpPy
         // CPython 3.12: Adaptive Specialization System (PEP 659)
         private readonly AdaptiveSpecializer _specializer;
 
-        // Performance: Cache for HasCustomGetAttribute check to avoid repeated Reflection calls
-        private static readonly Dictionary<Type, bool> _hasCustomGetAttributeCache = new();
-
         // Current frame for zero-argument super() calls
         public static PyFrame? CurrentFrame => Instance._frameStack.Count > 0 ? Instance._frameStack.Peek() : null;
 
@@ -3203,13 +3200,6 @@ namespace SharpPy
                         }
                         #endif
 
-                        // CPython 3.12: Check for descriptor BEFORE calling GetAttribute
-                        // This allows us to distinguish staticmethod from regular methods
-                        // _PyObject_GetMethod: what the type's MRO holds under the name decides, for a
-                        // native type as for a class; a staticmethod is no method descriptor.
-                        bool isStaticMethod = pushNullForMethod && obj is not PyType
-                            && obj.GetPyType().FindNameInMro(attrName) is PyStaticmethod;
-
                         // Get attribute using existing system
                         PyObject attr;
                         try
@@ -3225,109 +3215,18 @@ namespace SharpPy
 
                         if (pushNullForMethod)
                         {
-                            // CPython 3.12: Objects/object.c:1310-1410 (_PyObject_GetMethod)
-                            // Method call optimization logic
-
-                            // CPython 3.12: Objects/object.c:1322-1326
-                            // If object has custom tp_getattro (overrides GetAttribute), use simple GetAttr
-                            // This returns 0 → push [NULL, attr]
-                            // Performance: Cache Reflection result per type to avoid repeated GetMethod calls
-                            var objType = obj.GetType();
-                            if (!_hasCustomGetAttributeCache.TryGetValue(objType, out bool hasCustomGetAttribute))
-                            {
-                                var getAttrMethod = objType.GetMethod("TpGetattro",
-                                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                                hasCustomGetAttribute = getAttrMethod != null && getAttrMethod.DeclaringType != typeof(PyObject);
-                                _hasCustomGetAttributeCache[objType] = hasCustomGetAttribute;
-                            }
-                            // A class written in Python has its own slot, which binds what it finds.
-                            hasCustomGetAttribute |= obj is not PyType && obj.GetPyType() is PyClass;
-                            #if DEBUG_LOG
-                            if (hasCustomGetAttribute)
-                                Console.WriteLine($"   → Object has custom GetAttribute override: {objType.Name}");
-                            #endif
-
-                            // _PyObject_GetMethod: a method descriptor of the type is not bound;
-                            // the stack gets [descriptor, self], and CALL runs method_vectorcall_*.
+                            // _PyObject_GetMethod (Objects/object.c): tp_getattro has bound what it
+                            // found; a method descriptor bound to this very object is the unbound
+                            // descriptor and self, which CALL joins again (meth_found).
                             if (attr is PyBoundMethodDescriptor boundDescriptor && ReferenceEquals(boundDescriptor.Instance, obj))
                             {
                                 frame.ValueStack.Push(boundDescriptor.MethodDescriptor);
                                 frame.ValueStack.Push(obj);
                             }
-                            else if (hasCustomGetAttribute)
-                            {
-                                // CPython: Custom tp_getattro → push [NULL, attr]
-                                frame.ValueStack.Push(PyNull.Instance); // NULL marker
-                                frame.ValueStack.Push(attr);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   → Custom GetAttribute: pushed [NULL, attr]");
-                                #endif
-                            }
-                            else if (attr is PyMethod)
-                            {
-                                // It's already a bound method: push [NULL, bound_method]
-                                // The method already has self bound, so we don't add it again
-                                frame.ValueStack.Push(PyNull.Instance); // NULL marker
-                                frame.ValueStack.Push(attr); // bound method
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   → Bound method: pushed [NULL, bound_method]");
-                                #endif
-                            }
-                            else if (attr is PyFunction || attr is PyBuiltinFunction)
-                            {
-                                // CPython 3.12: Objects/descrobject.c:271-286 (func_descr_get)
-                                // Function descriptor protocol:
-                                // - Access from TYPE/CLASS → return unbound function
-                                // - Access from INSTANCE → return bound method (push [self, function])
-                                // - staticmethod → always return unbound function
-                                // - instance.__dict__ function → return unbound function (not a method!)
-
-                                // Check if obj is a type/class object
-                                // CPython: PyType_Check(obj) - checks if obj is type or class
-                                // CPython 3.12: Objects/funcobject.c:1228-1238 (sm_descr_get), 1058-1064 (cm_descr_get)
-                                // staticmethod/classmethod: __func__/__wrapped__ returns unbound callable
-                                bool isTypeOrClass = (obj is PyType) || (obj is PyClass) || (obj is PyStaticmethod) || (obj is PyClassmethod);
-
-                                // Check if obj is module or super (also return unbound)
-                                bool isModuleOrSuper = (obj is PyModule) || (obj is PySuper);
-
-                                // CPython: Check if attribute is from instance __dict__ (not a method!)
-                                // Instance attributes that are functions are NOT bound as methods
-                                bool isInstanceAttribute = false;
-                                if (obj is PyClassInstance classInstance)
-                                {
-                                    isInstanceAttribute = classInstance.HasInstanceAttribute(attrName);
-                                }
-
-                                if (isTypeOrClass || isModuleOrSuper || isStaticMethod || isInstanceAttribute)
-                                {
-                                    // Class/type access, staticmethod, or instance attribute: push [NULL, function]
-                                    // CPython 3.12: No method binding - return function as-is
-                                    frame.ValueStack.Push(PyNull.Instance); // NULL marker
-                                    frame.ValueStack.Push(attr); // unbound function
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"   → Type/class/staticmethod/instance-attr access: pushed [NULL, function]");
-                                    #endif
-                                }
-                                else
-                                {
-                                    // Instance method (from class): push [self, unbound_method]
-                                    // CPython 3.12: Method binding - CALL will pass self as first argument
-                                    frame.ValueStack.Push(obj);  // self
-                                    frame.ValueStack.Push(attr); // unbound method
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"   → Instance method access: pushed [self, unbound_method]");
-                                    #endif
-                                }
-                            }
                             else
                             {
-                                // It's a regular attribute or callable descriptor: push [NULL, attr]
-                                frame.ValueStack.Push(PyNull.Instance); // NULL marker
+                                frame.ValueStack.Push(PyNull.Instance);
                                 frame.ValueStack.Push(attr);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   → Regular attribute: pushed [NULL, attr]");
-                                #endif
                             }
                         }
                         else

@@ -1323,13 +1323,6 @@ namespace SharpPy
             return _materialized;
         }
 
-        public bool HasInstanceAttribute(string name)
-        {
-            if (_materialized != null)
-                return _materialized.ContainsKey(new PyString(name));
-            return _attrs.ContainsKey(name);
-        }
-
         public IEnumerable<KeyValuePair<string, PyObject>> InstanceAttributes
         {
             get
