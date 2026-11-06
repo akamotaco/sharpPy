@@ -1098,8 +1098,8 @@ namespace SharpPy
                 case "int":
                     return PyInt.FromArguments(args, kwargs);
                 case "object":
-                    // object() creates a new basic object instance
-                    if (args.Length > 0)
+                    // object_new: excess_args counts keywords too, and object's tp_init is object_init.
+                    if (args.Length > 0 || (kwargs != null && kwargs.Length() != 0))
                     {
                         throw PyTypeError.Create("object() takes no arguments");
                     }
@@ -1705,10 +1705,8 @@ namespace SharpPy
         // leaves the inherited slot when a class's __new__ is a builtin's tp_new_wrapper.
         internal static bool TypeNewIsObjectNew(PyType type)
         {
-            if (type is not PyClass cls)
-                return false;
             var objectNew = ObjectNewDescriptor();
-            foreach (var level in cls.MRO)
+            foreach (var level in type.MRO)
             {
                 if (ReferenceEquals(level, ObjectType))
                     break;

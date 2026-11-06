@@ -1929,7 +1929,7 @@ namespace SharpPy
                     // 키워드 인수가 있는 경우 - CallWithKeywords 사용
                     if (actualCallable is PyFunction keywordTarget
                         && TryInlineKeywordCall(keywordTarget, finalArgs, kwNames)) return;
-                    newCallResult = CallWithKeywords(actualCallable, finalArgs, kwNames, frame.ScopeChain);
+                    newCallResult = CallWithKeywords(actualCallable, finalArgs, kwNames);
                 }
                 else
                 {
@@ -1947,7 +1947,7 @@ namespace SharpPy
                             withSelf[0] = method.Instance;
                             Array.Copy(finalArgs, 0, withSelf, 1, finalArgs.Length);
                             if (TryInlineCall(boundFunction, withSelf)) return;
-                            newCallResult = ExecuteFunctionCall(boundFunction, withSelf, frame.ScopeChain);
+                            newCallResult = boundFunction.Call(withSelf, null);
                         }
                         else
                         {
@@ -1957,7 +1957,7 @@ namespace SharpPy
                     else if (actualCallable is PyFunction func)
                     {
                         if (TryInlineCall(func, finalArgs)) return;
-                        newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
+                        newCallResult = func.Call(finalArgs, null);
                     }
                     else
                     {
@@ -2998,89 +2998,19 @@ namespace SharpPy
                         }
                     }
 
-                    // Convert kwargs dict to keyword arguments
-                    var keywordArgs = new List<(string name, PyObject value)>();
-                    if (hasKwargs && kwargsDict is PyDict kwargsPyDict)
+                    // PyObject_Call(func, callargs, kwargs): the keywords as one dict of str keys.
+                    PyDict callKeywords = null;
+                    if (hasKwargs && kwargsDict is PyDict kwargsPyDict && kwargsPyDict.Length() != 0)
                     {
+                        callKeywords = new PyDict();
                         foreach (var kvp in kwargsPyDict.InternalDict)
                         {
-                            if (kvp.Key is PyString keyStr)
-                            {
-                                keywordArgs.Add((keyStr.Value, kvp.Value));
-                            }
-                            else
-                            {
+                            if (kvp.Key is not PyString)
                                 throw PyTypeError.Create("keywords must be strings");
-                            }
+                            callKeywords.SetItem(kvp.Key, kvp.Value);
                         }
                     }
-
-                    // Call function with unpacked arguments
-                    PyObject unpackedResult;
-
-                    if (functionToCall is PyFunction function)
-                    {
-                        var kwDict = new Dictionary<string, PyObject>();
-                        foreach (var kw in keywordArgs)
-                        {
-                            kwDict[kw.name] = kw.value;
-                        }
-                        // Performance: Eliminated LINQ - manual List to array conversion
-                        var argsArray = new PyObject[argsList.Count];
-                        argsList.CopyTo(argsArray, 0);
-                        unpackedResult = ExecuteFunctionCallWithKeywords(function, argsArray, kwDict, frame.ScopeChain);
-                    }
-                    else if (functionToCall is PyBuiltinFunction builtinFunc)
-                    {
-                        // Convert keyword arguments to PyDict
-                        PyDict? kwDict = null;
-                        if (keywordArgs.Count > 0)
-                        {
-                            kwDict = new PyDict();
-                            foreach (var kw in keywordArgs)
-                            {
-                                kwDict.SetItem(new PyString(kw.name), kw.value);
-                            }
-                        }
-                        // Performance: Eliminated LINQ - manual List to array conversion
-                        var argsArray = new PyObject[argsList.Count];
-                        argsList.CopyTo(argsArray, 0);
-                        unpackedResult = builtinFunc.Call(argsArray, kwDict);
-                    }
-                    else if (functionToCall is PyMethod method)
-                    {
-                        // Convert keyword arguments to PyDict
-                        PyDict? kwDict = null;
-                        if (keywordArgs.Count > 0)
-                        {
-                            kwDict = new PyDict();
-                            foreach (var kw in keywordArgs)
-                            {
-                                kwDict.SetItem(new PyString(kw.name), kw.value);
-                            }
-                        }
-                        // Performance: Eliminated LINQ - manual List to array conversion
-                        var argsArray = new PyObject[argsList.Count];
-                        argsList.CopyTo(argsArray, 0);
-                        unpackedResult = method.Call(argsArray, kwDict);
-                    }
-                    else
-                    {
-                        // Generic callable with kwargs
-                        PyDict? kwDict = null;
-                        if (keywordArgs.Count > 0)
-                        {
-                            kwDict = new PyDict();
-                            foreach (var kw in keywordArgs)
-                            {
-                                kwDict.SetItem(new PyString(kw.name), kw.value);
-                            }
-                        }
-                        // Performance: Eliminated LINQ - manual List to array conversion
-                        var argsArray = new PyObject[argsList.Count];
-                        argsList.CopyTo(argsArray, 0);
-                        unpackedResult = functionToCall.Call(argsArray, kwDict);
-                    }
+                    PyObject unpackedResult = functionToCall.Call(argsList.ToArray(), callKeywords);
 
                     frame.ValueStack.Push(unpackedResult);
                     break;
@@ -6912,157 +6842,6 @@ namespace SharpPy
         };
 
         /// <summary>
-        /// CPython 3.12 style: Optimized function call execution
-        /// Fast path for Python function calls without full frame creation overhead
-        /// </summary>
-        // Bound method 호출을 위한 오버로드
-        private PyObject ExecuteFunctionCall(PyFunction pyFunc, PyObject[] args, PyScopeChain parentScope, PyObject self)
-        {
-            // Bound method이므로 self를 첫 번째 인수로 추가
-            var argsWithSelf = new PyObject[args.Length + 1];
-            argsWithSelf[0] = self;
-            Array.Copy(args, 0, argsWithSelf, 1, args.Length);
-
-            // Only optimize if function has code object
-            if (pyFunc.CodeObject == null)
-            {
-                return pyFunc.Call(argsWithSelf, null);
-            }
-
-            var code = pyFunc.CodeObject;
-
-            // For simple functions with no complex features, use direct execution
-            if (code.CellVars?.Count == 0 && code.FreeVars?.Count == 0 &&
-                !code.IsGenerator() && !code.IsCoroutine() && !code.IsAsyncGenerator())
-            {
-                try
-                {
-                    // CPython 3.12: Use function's captured globals, not caller's scope
-                    PyScopeChain functionScope;
-                    if (pyFunc.GlobalsDict != null)
-                    {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"[FUNCTION SCOPE] Creating ScopeChain for {pyFunc.Name} from globalsDict:");
-                        Console.WriteLine($"  globalsDict count: {pyFunc.GlobalsDict.Count}");
-                        // Performance: Eliminated LINQ - manual key preview
-                        var keyCount = Math.Min(10, pyFunc.GlobalsDict.Keys.Count);
-                        var keys = new string[keyCount];
-                        int keyIdx = 0;
-                        foreach (var key in pyFunc.GlobalsDict.Keys)
-                        {
-                            if (keyIdx >= keyCount) break;
-                            keys[keyIdx++] = key;
-                        }
-                        Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
-                        #endif
-
-                        // Use the function's captured globals (CPython 3.12 compatible)
-                        functionScope = new PyScopeChain(pyFunc.GlobalsDict, "<function>");
-                    }
-                    else
-                    {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"[FUNCTION SCOPE] Using ParentScope for {pyFunc.Name} (GlobalsDict is null)");
-                        #endif
-                        // Fallback to ParentScope for backward compatibility
-                        functionScope = pyFunc.ParentScope ?? parentScope;
-                    }
-
-                    // Create minimal frame for simple function - CPython 3.12: include parent frame
-                    // CPython 3.12: Get defaults from func.__defaults__ attribute
-                    PyTuple defaults = null;
-                    if (pyFunc.GetDefaults() is PyTuple defaultsTuple)
-                    {
-                        defaults = defaultsTuple;
-                    }
-                    // CPython 3.12: Get kwdefaults from func.__kwdefaults__ attribute
-                    PyDict kwdefaults = pyFunc.GetKeywordDefaults();
-                    var frame = new PyFrame(code, argsWithSelf, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
-                    return ExecuteFrame(frame);
-                }
-                catch (PyReturnException retEx)
-                {
-                    return retEx.Value;
-                }
-            }
-
-            // Fallback to full call for complex functions
-            return pyFunc.Call(argsWithSelf, null);
-        }
-
-        private PyObject ExecuteFunctionCall(PyFunction pyFunc, PyObject[] args, PyScopeChain parentScope)
-        {
-            // Only optimize if function has code object
-            if (pyFunc.CodeObject == null)
-            {
-                return pyFunc.Call(args, null);
-            }
-
-            var code = pyFunc.CodeObject;
-
-            // For simple functions with no complex features, use direct execution
-            if (code.CellVars?.Count == 0 && code.FreeVars?.Count == 0 &&
-                !code.IsGenerator() && !code.IsCoroutine() && !code.IsAsyncGenerator())
-            {
-                try
-                {
-                    // CPython 3.12: Use function's captured globals, not caller's scope
-                    // func->f_globals is set at function definition time, not call time
-                    PyScopeChain functionScope;
-                    if (pyFunc.GlobalsDict != null)
-                    {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"[FUNCTION SCOPE] Creating ScopeChain for {pyFunc.Name} from globalsDict:");
-                        Console.WriteLine($"  globalsDict count: {pyFunc.GlobalsDict.Count}");
-                        // Performance: Eliminated LINQ - manual key preview
-                        var keyCount = Math.Min(10, pyFunc.GlobalsDict.Keys.Count);
-                        var keys = new string[keyCount];
-                        int keyIdx = 0;
-                        foreach (var key in pyFunc.GlobalsDict.Keys)
-                        {
-                            if (keyIdx >= keyCount) break;
-                            keys[keyIdx++] = key;
-                        }
-                        Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
-                        #endif
-
-                        // Use the function's captured globals (CPython 3.12 compatible)
-                        functionScope = new PyScopeChain(pyFunc.GlobalsDict, "<function>");
-                    }
-                    else
-                    {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"[FUNCTION SCOPE] Using ParentScope for {pyFunc.Name} (GlobalsDict is null)");
-                        #endif
-                        // Fallback to ParentScope for backward compatibility
-                        functionScope = pyFunc.ParentScope ?? parentScope;
-                    }
-
-                    // Create minimal frame for simple function - CPython 3.12: include parent frame
-                    // CPython 3.12: Get defaults from func.__defaults__ attribute
-                    PyTuple defaults = null;
-                    if (pyFunc.GetDefaults() is PyTuple defaultsTuple)
-                    {
-                        defaults = defaultsTuple;
-                    }
-                    // CPython 3.12: Get kwdefaults from func.__kwdefaults__ attribute
-                    PyDict kwdefaults = pyFunc.GetKeywordDefaults();
-                    var frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
-                    return ExecuteFrame(frame);
-                }
-                catch (PyReturnException retEx)
-                {
-                    return retEx.Value;
-                }
-            }
-            else
-            {
-                // Complex functions fall back to standard path
-                return pyFunc.Call(args, null);
-            }
-        }
-
-        /// <summary>
         /// CPython 3.12: PyTraceBack_Here - Add current frame to exception's traceback
         /// This is called each time an exception propagates through a frame without being handled.
         /// Corresponds to PyTraceBack_Here() in CPython traceback.c:266
@@ -7239,191 +7018,16 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12: Handle function calls with keyword arguments using KW_NAMES
+        /// CALL with keyword names (Python/bytecodes.c CALL, PyObject_Vectorcall with kwnames): the
+        /// last len(kwnames) arguments are the keywords, which a dict hands to the callable's tp_call.
         /// </summary>
-        private PyObject CallWithKeywords(PyObject callable, PyObject[] args, PyTuple kwNames, PyScopeChain scopeChain)
+        private static PyObject CallWithKeywords(PyObject callable, PyObject[] args, PyTuple kwNames)
         {
-            // KW_NAMES contains the names of keyword arguments
-            // args array: [positional_args...] [keyword_values...]
-            // Performance: Eliminated LINQ - manual array conversion
-            var kwNamesList = new string[kwNames.Items.Length];
-            for (int i = 0; i < kwNames.Items.Length; i++)
-            {
-                kwNamesList[i] = ((PyString)kwNames.Items[i]).Value;
-            }
-            var numKwArgs = kwNamesList.Length;
-            var numPosArgs = args.Length - numKwArgs;
-
-            // Split positional and keyword arguments
-            var positionalArgs = new PyObject[numPosArgs];
-            var keywordArgs = new Dictionary<string, PyObject>();
-
-            Array.Copy(args, 0, positionalArgs, 0, numPosArgs);
-
-            for (int i = 0; i < numKwArgs; i++)
-            {
-                keywordArgs[kwNamesList[i]] = args[numPosArgs + i];
-            }
-
-            // Special handling for different callable types
-            if (callable is PyType pyType)
-            {
-                return CallTypeWithKeywords(pyType, positionalArgs, keywordArgs);
-            }
-            else if (callable is PyBuiltinFunction builtin)
-            {
-                return CallBuiltinWithKeywords(builtin, positionalArgs, keywordArgs);
-            }
-            else if (callable is PyFunction func)
-            {
-                return CallPyFunctionWithKeywords(func, positionalArgs, keywordArgs, scopeChain);
-            }
-            else
-            {
-                // Fallback: convert keyword arguments to PyDict and call
-                PyDict? kwargs = null;
-                if (keywordArgs != null && keywordArgs.Count > 0)
-                {
-                    kwargs = new PyDict();
-                    foreach (var kv in keywordArgs)
-                    {
-                        kwargs.SetItem(new PyString(kv.Key), kv.Value);
-                    }
-                }
-                return callable.Call(positionalArgs, kwargs);
-            }
-        }
-
-        /// <summary>
-        /// Call PyType (constructor) with keyword arguments
-        /// </summary>
-        private PyObject CallTypeWithKeywords(PyType pyType, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs)
-        {
-            // CPython 3.12: Convert keyword arguments to PyDict
-            PyDict? kwargs = null;
-            if (keywordArgs != null && keywordArgs.Count > 0)
-            {
-                kwargs = new PyDict();
-                foreach (var kv in keywordArgs)
-                {
-                    kwargs.SetItem(new PyString(kv.Key), kv.Value);
-                }
-            }
-
-            // Call with both positional and keyword arguments
-            return pyType.Call(positionalArgs, kwargs);
-        }
-
-        /// <summary>
-        /// Call builtin function with keyword arguments
-        /// </summary>
-        private PyObject CallBuiltinWithKeywords(PyBuiltinFunction builtin, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs)
-        {
-            // CPython 3.12: Convert keyword arguments to PyDict and call builtin function
-            PyDict? kwargs = null;
-            if (keywordArgs != null && keywordArgs.Count > 0)
-            {
-                kwargs = new PyDict();
-                foreach (var kv in keywordArgs)
-                {
-                    kwargs.SetItem(new PyString(kv.Key), kv.Value);
-                }
-            }
-            return builtin.Call(positionalArgs, kwargs);
-        }
-
-        /// <summary>
-        /// Call PyFunction with keyword arguments
-        /// </summary>
-        private PyObject CallPyFunctionWithKeywords(PyFunction func, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs, PyScopeChain scopeChain)
-        {
-            // CPython 3.12 방식: ExecuteFunctionCall에 키워드 인수를 전달하여 매개변수 바인딩 처리
-            return ExecuteFunctionCallWithKeywords(func, positionalArgs, keywordArgs, scopeChain);
-        }
-
-        /// <summary>
-        /// CPython 3.12: Execute function call with keyword arguments support
-        /// </summary>
-        private PyObject ExecuteFunctionCallWithKeywords(PyFunction pyFunc, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs, PyScopeChain parentScope)
-        {
-            if (pyFunc.CodeObject == null)
-            {
-                return pyFunc.Call(positionalArgs, null);
-            }
-
-            var code = pyFunc.CodeObject;
-
-            // CPython 3.12: Python/bytecodes.c:3306-3327 (RETURN_GENERATOR)
-            // Generator functions must create and return a generator object, not execute the frame
-            // Check if this is a generator/coroutine/async generator function
-            if (code.IsGenerator() || code.IsCoroutine() || code.IsAsyncGenerator())
-            {
-                // Convert keyword dict to PyDict for PyFunction.Call
-                PyDict kwDict = null;
-                if (keywordArgs.Count > 0)
-                {
-                    kwDict = new PyDict();
-                    foreach (var kvp in keywordArgs)
-                    {
-                        kwDict.SetItem(new PyString(kvp.Key), kvp.Value);
-                    }
-                }
-
-                // Let PyFunction.Call handle generator/coroutine creation
-                return pyFunc.Call(positionalArgs, kwDict);
-            }
-
-            try
-            {
-                // CPython 3.12: Use function's captured globals
-                PyScopeChain functionScope;
-                if (pyFunc.GlobalsDict != null)
-                {
-                    functionScope = new PyScopeChain(pyFunc.GlobalsDict, "<function>");
-                }
-                else
-                {
-                    functionScope = pyFunc.ParentScope ?? parentScope;
-                }
-
-                // CPython 3.12: Get defaults and kwdefaults from function attributes
-                PyTuple defaults = null;
-                if (pyFunc.GetDefaults() is PyTuple defaultsTuple)
-                {
-                    defaults = defaultsTuple;
-                }
-
-                PyDict kwdefaults = pyFunc.GetKeywordDefaults();
-
-                // CPython 3.12: Combine positional and keyword arguments into single array for frame
-                var allArgs = new PyObject[positionalArgs.Length + keywordArgs.Count];
-                Array.Copy(positionalArgs, 0, allArgs, 0, positionalArgs.Length);
-
-                int keywordIndex = positionalArgs.Length;
-                PyObject[] kwNameTupleArr = null;
-                if (keywordArgs.Count > 0)
-                    kwNameTupleArr = new PyObject[keywordArgs.Count];
-                int kwNameIndex = 0;
-                foreach (var kvp in keywordArgs)
-                {
-                    allArgs[keywordIndex++] = kvp.Value;
-                    // The frame binder splits the tail by keyword names; without these
-                    // names **kwargs values would bind as positional arguments.
-                    kwNameTupleArr[kwNameIndex++] = new PyString(kvp.Key);
-                }
-                if (kwNameTupleArr != null && CurrentFrame != null)
-                    CurrentFrame.KeywordNamesForNextCall = new PyTuple(kwNameTupleArr);
-
-                // Create frame with all arguments, defaults, and kwdefaults (CPython 3.12 compatible)
-                // Note: PyFrame constructor calls BindArgumentsToParametersCPython312, which handles kwdefaults
-                var frame = new PyFrame(code, allArgs, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
-
-                return ExecuteFrame(frame);
-            }
-            catch (PyReturnException retEx)
-            {
-                return retEx.Value;
-            }
+            int keywords = kwNames.Items.Length, positional = args.Length - keywords;
+            var kwargs = new PyDict();
+            for (int i = 0; i < keywords; i++)
+                kwargs.SetItem(kwNames.Items[i], args[positional + i]);
+            return callable.Call(args[..positional], kwargs);
         }
 
         /// <summary>
