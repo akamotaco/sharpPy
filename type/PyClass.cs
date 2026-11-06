@@ -481,125 +481,6 @@ namespace SharpPy
 
         }
 
-        public new PyObject CreateInstance(params PyObject[] args)
-        {
-            return CreateInstance(args, null);
-        }
-
-        public new PyObject CreateInstance(PyObject[] args, PyDict kwargs)
-        {
-            var created = CreateInstanceCore(args, kwargs);
-            // Filed on the object that came out of __new__, not on the class that was called: a
-            // __new__ can return a foreign object, and that object has no hook of the called class
-            // to run (probe P).
-            PyFinalizer.RegisterIfDeclared(created);
-            return created;
-        }
-
-        private PyObject CreateInstanceCore(PyObject[] args, PyDict kwargs)
-        {
-            // CPython 3.12: Objects/typeobject.c:1627-1689 (type_call)
-            // The correct pattern is:
-            // 1. Call type->tp_new(type, args, kwds) to create the object
-            // 2. If returned object is not instance of type, return it (no __init__)
-            // 3. Otherwise, call type->tp_init(obj, args, kwds)
-
-            // Step 1: Call __new__ to create the object
-            // CPython 3.12: Objects/typeobject.c:1667
-            var newMethod = FindNameInMro("__new__", out bool newWritten);
-
-            // No builtin family is special-cased here any more. Each base type builds its own
-            // subtype instance in its own tp_new, the way CPython does (float_subtype_new
-            // Objects/floatobject.c:1677, unicode_subtype_new, long_subtype_new, bytes_new,
-            // tuple_new), and the lookup above already resolved that __new__ through the MRO. A
-            // branch here can only duplicate what the base knows - and did: float's branch gave
-            // "float.__new__() takes exactly one argument (the type to instantiate)" for keywords
-            // where CPython says "float() takes no keyword arguments", and because float had no
-            // __new__ slot at all, super().__new__(cls, v) in a user subclass fell through to
-            // object.__new__ and refused the value.
-
-            // CPython bytes_new for a subclass builds the byte value first and then allocates the
-            // subclass around that payload. SharpPy instead returned a plain bytes object, so
-            // type(B(b"xy")).__name__ reported 'bytes' and a declared __len__/__add__/__contains__/
-            // __iter__/__getitem__/__eq__/__hash__/__repr__ could never be reached.
-
-            // CPython runs tp_new first, and for a class with neither its own __new__ nor an
-            // __init__ that consumes arguments, object_new refuses them. SharpPy passed the extras
-            // to object.__new__ and built the instance silently, so A(1) and A(x=1) returned an
-            // object where CPython raises TypeError: A() takes no arguments. When the class does
-            // have an __init__, object_new falls through and the user __init__ reports its own
-            // arity error; when __new__ comes from a builtin base (dict, int, tuple), that base's
-            // tp_new handles the arguments and object_new is never reached.
-            if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
-            {
-                if (PyType.TypeNewIsObjectNew(this) && PyType.TypeInitIsObjectInit(this))
-                    throw PyTypeError.Create($"{Name}() takes no arguments");
-            }
-
-            if (newMethod == null)
-                throw PyTypeError.Create($"cannot create '{Name}' instances");
-
-            // slot_tp_new: __new__ is read from the type, so a descriptor there binds.
-            var newArgs = new PyObject[args.Length + 1];
-            newArgs[0] = this;
-            Array.Copy(args, 0, newArgs, 1, args.Length);
-            PyObject instance;
-            // A builtin __new__ written into a class body leaves the inherited tp_new in place.
-            if (newWritten && PyType.IsBuiltinNew(newMethod) && PyType.InheritedBuiltinNew(this) is { } inheritedNew)
-                instance = PyType.CallTpNew(inheritedNew, newArgs, kwargs);
-            else
-            {
-                if (newMethod is not (PyFunction or PyStaticBuiltinMethod or PyMethodDescriptor))
-                {
-                    if (newMethod is IDescriptor newDescriptor)
-                    {
-                        newMethod = newDescriptor.Get(null, this);
-                    }
-                    else
-                    {
-                        var newGet = newMethod.LookupSpecialMethodUncached("__get__");
-                        if (newGet != null)
-                            newMethod = newMethod.BindSpecialMethod(newGet).Call(new PyObject[] { PyNone.Instance, this }, null);
-                    }
-                }
-                instance = newMethod.Call(newArgs, kwargs);
-            }
-
-            // Step 2: Check if returned object is an instance of this type
-            // CPython 3.12: Objects/typeobject.c:1672-1675
-            // If __new__ returned a different type, return it immediately (no __init__)
-            var instanceType = instance.GetPyType();
-            if (instanceType != this && !instanceType.IsSubclassOf(this))
-            {
-                return instance;
-            }
-
-            // Only a str or frozenset subclass builds its value from the arguments, later. CPython
-            // keeps no arguments on an instance, and a plain class holding them would keep every
-            // object passed to a constructor alive for the instance's whole life.
-            if (instance is PyClassInstance classInstance)
-            {
-                if (classInstance.BuildsValueFromArguments) classInstance.ConstructorArgs = args;
-                // frozenset_new iterates now: its errors come out of the constructor.
-                if (classInstance.IsFrozenSetSubclass()) classInstance.GetFrozenStorage();
-            }
-
-            // Step 3: Call __init__ on the instance
-            // CPython 3.12: Objects/typeobject.c:1677-1687
-            // __init__ lookup bypasses __getattribute__ (uses _PyType_Lookup)
-            // Reference: Objects/typeobject.c:9028 (slot_tp_init -> lookup_method -> _PyType_Lookup)
-            var init = instance.LookupSpecialMethodUncached("__init__");
-            if (init != null)
-            {
-                // slot_tp_init
-                var result = instance.BindSpecialMethod(init).Call(args, kwargs);
-                if (result != null && result is not PyNone)
-                    throw PyTypeError.Create($"__init__() should return None, not '{result.GetTypeName()}'");
-            }
-
-            return instance;
-        }
-
         // _PyType_Lookup
         public PyObject LookupInMRO(string name) => FindNameInMro(name);
 
@@ -616,12 +497,7 @@ namespace SharpPy
             return TypeCall(args, kwargs);
         }
 
-        internal virtual PyObject TypeCall(PyObject[] args, PyDict kwargs)
-        {
-            // Check for abstract methods before allowing instantiation
-            CheckAbstractMethods();
-            return CreateInstance(args, kwargs);
-        }
+        internal virtual PyObject TypeCall(PyObject[] args, PyDict kwargs) => base.Call(args, kwargs);
 
         // 클래스는 항상 호출 가능 (인스턴스 생성)
         public override bool IsCallable() => true;
@@ -887,80 +763,23 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Check if this class has any unimplemented abstract methods
-        /// Throws TypeError if abstract methods are found (CPython 3.12 compatible)
-        /// Reference: Objects/typeobject.c:5459-5505 (object_new)
+        /// object_new's Py_TPFLAGS_IS_ABSTRACT refusal (Objects/typeobject.c:5459). The flag follows
+        /// the truth of the type's own __abstractmethods__ (type_set_abstractmethods), and the message
+        /// lists those names sorted (type_abstractmethods reads the type's own dict only).
         /// </summary>
-        private void CheckAbstractMethods()
+        internal void CheckAbstractMethods()
         {
-            // CPython 3.12: Check __abstractmethods__ attribute directly
-            // Reference: Objects/typeobject.c:5468 (type_abstractmethods)
-            PyObject abstractMethodsAttr = null;
-            try
-            {
-                // Get __abstractmethods__ from class (NOT instance)
-                // This is set by AbcModule._abc_init or manually
-                abstractMethodsAttr = TypeGetAttribute("__abstractmethods__");
-            }
-            catch
-            {
-                // No __abstractmethods__ attribute - class is not abstract
+            if (!ClassDict.TryGetValue("__abstractmethods__", out var abstracts) || !abstracts.IsTrue())
                 return;
-            }
-
-            // Check if __abstractmethods__ is None or empty
-            if (abstractMethodsAttr == null || abstractMethodsAttr == PyNone.Instance)
-            {
-                return;
-            }
-
-            // __abstractmethods__ should be a frozenset or set
-            // If it's non-empty, prevent instantiation
-            if (abstractMethodsAttr is PyFrozenSet frozenSet)
-            {
-                if (frozenSet.Items.Count == 0)
-                {
-                    return; // Empty frozenset - all methods implemented
-                }
-
-                // CPython 3.12: Sort method names and format error message
-                // Reference: Objects/typeobject.c:5471-5502
-                var methodNames = frozenSet.Items
-                    .Select(item => ((PyString)item).Value)
-                    .OrderBy(name => name)
-                    .ToList();
-
-                // Format: "Can't instantiate abstract class X without an implementation for abstract method 'foo'"
-                // or: "Can't instantiate abstract class X without an implementation for abstract methods 'bar', 'foo'"
-                string joinedMethods = string.Join("', '", methodNames);
-                string methodWord = methodNames.Count == 1 ? "method" : "methods";
-
-                throw PyTypeError.Create(
-                    $"Can't instantiate abstract class {Name} " +
-                    $"without an implementation for abstract {methodWord} '{joinedMethods}'"
-                );
-            }
-            else if (abstractMethodsAttr is PySet set)
-            {
-                if (set.Items.Count == 0)
-                {
-                    return; // Empty set - all methods implemented
-                }
-
-                // Same logic for PySet
-                var methodNames = set.Items
-                    .Select(item => ((PyString)item).Value)
-                    .OrderBy(name => name)
-                    .ToList();
-
-                string joinedMethods = string.Join("', '", methodNames);
-                string methodWord = methodNames.Count == 1 ? "method" : "methods";
-
-                throw PyTypeError.Create(
-                    $"Can't instantiate abstract class {Name} " +
-                    $"without an implementation for abstract {methodWord} '{joinedMethods}'"
-                );
-            }
+            var sorted = new PyList(PySet.SourceItems(abstracts));
+            sorted.Sort();
+            var names = new List<string>();
+            foreach (var item in sorted.Items)
+                names.Add(item is PyString text ? text.Value : throw PyTypeError.Create(
+                    $"sequence item {names.Count}: expected str instance, {item.GetTypeName()} found"));
+            throw PyTypeError.Create(
+                $"Can't instantiate abstract class {Name} without an implementation for abstract " +
+                $"method{(names.Count > 1 ? "s" : "")} '{string.Join("', '", names)}'");
         }
 
     }
@@ -975,7 +794,6 @@ namespace SharpPy
     public class PyClassInstance : PyObject, IInstanceDictStore
     {
         public PyClass InstanceType { get; private set; }
-        public PyObject[] ConstructorArgs { get; set; } // Store constructor arguments
 
         // --- Attribute-store API (CPython 3.12: _PyObject_MaterializeManagedDict pattern) ---
 
@@ -1084,26 +902,20 @@ namespace SharpPy
         private PySet _setStorage;
 
         // CPython 3.12: frozenset has **no** tp_init (Objects/setobject.c:2262 "0, /* tp_init */"),
-        // so the value exists only because frozenset_new (setobject.c:1003) built it out of the
-        // construction arguments. SharpPy materializes it lazily from those arguments, the same way
-        // _strStorage below does for str, and never re-reads them.
-        private PyFrozenSet _frozenStorage;
-
-        // CPython 3.12: str subclasses carry their immutable value in the object itself
-        // (PyUnicode_Subclass). SharpPy materializes it lazily from the construction
-        // arguments: str() semantics (no arg -> "", one arg -> str(x), more -> TypeError).
-        // Contents come from the constructor call, never from a user __str__.
-        private PyString _strStorage;
+        // so the value exists only because frozenset_new (setobject.c:1003) built it.
+        private readonly PyFrozenSet _frozenStorage;
 
         // CPython 3.12: _PyObject_MaterializeManagedDict — exactly one of _attrs / _materialized is live.
         private Dictionary<string, PyObject> _attrs;
         private PyDict _materialized;
 
+        /// <summary>frozenset_new for a subclass: the layout with its value.</summary>
+        internal PyClassInstance(PyClass instanceType, PyFrozenSet value) : this(instanceType) => _frozenStorage = value;
+
         public PyClassInstance(PyClass instanceType)
         {
             InstanceType = instanceType;
             _attrs = new Dictionary<string, PyObject>();
-            ConstructorArgs = Array.Empty<PyObject>();
 
             // CPython 3.12: If this is a dict subclass, create internal dict storage
             if (IsDictSubclass())
@@ -1126,8 +938,6 @@ namespace SharpPy
         // (Objects/typeobject.c:6726) - TracedOrderedDict -> OrderedDict -> dict carries it.
         public bool IsDictSubclass() => InstanceType.HasFeature(PyTypeFlags.DictSubclass);
 
-        public bool IsStrSubclass() => InstanceType.HasFeature(PyTypeFlags.UnicodeSubclass);
-
         // set and frozenset have no family bit in CPython: PySet_Check (Include/setobject.h:36)
         // and PyAnySet_Check (:30) are PyType_IsSubtype tests, so the MRO walk is the faithful
         // answer for these two and is kept.
@@ -1140,28 +950,8 @@ namespace SharpPy
         /// </summary>
         public PySet GetSetStorage() => _setStorage;
 
-        /// <summary>
-        /// The value a frozenset subclass instance carries, built the way CPython's frozenset_new
-        /// builds it: at most one positional iterable, taken from the construction arguments.
-        /// </summary>
-        internal bool BuildsValueFromArguments => IsFrozenSetSubclass() || IsStrSubclass();
-
-        public PyFrozenSet GetFrozenStorage()
-        {
-            if (_frozenStorage != null)
-                return _frozenStorage;
-            if (!IsFrozenSetSubclass())
-                return null;
-
-            var a = ConstructorArgs ?? new PyObject[0];
-            // Objects/setobject.c:1013 PyArg_UnpackTuple(args, type->tp_name, 0, 1, &iterable)
-            if (a.Length > 1)
-                throw PyTypeError.Create($"{InstanceType.Name} expected at most 1 argument, got {a.Length}");
-            _frozenStorage = a.Length == 0
-                ? new PyFrozenSet()
-                : new PyFrozenSet(PySet.SourceItems(a[0]));
-            return _frozenStorage;
-        }
+        /// <summary>The value frozenset_new gave a frozenset subclass instance, or null.</summary>
+        public PyFrozenSet GetFrozenStorage() => _frozenStorage;
 
         /// <summary>
         /// The builtin container value this instance carries, or null for a plain class. CPython
@@ -1175,26 +965,7 @@ namespace SharpPy
         {
             if (_dictStorage != null) return _dictStorage;
             if (_setStorage != null) return _setStorage;
-            if (IsFrozenSetSubclass()) return GetFrozenStorage();
-            return GetStringStorage();
-        }
-
-        // Value storage for str subclasses; null when this is not a str subclass.
-        public PyString GetStringStorage()
-        {
-            if (_strStorage != null)
-                return _strStorage;
-            if (!IsStrSubclass())
-                return null;
-
-            var a = ConstructorArgs ?? new PyObject[0];
-            if (a.Length == 0)
-                _strStorage = new PyString("");
-            else if (a.Length == 1)
-                _strStorage = a[0] as PyString ?? a[0].ToStr();
-            else
-                throw PyTypeError.Create($"str() takes at most 1 argument ({a.Length} given)");
-            return _strStorage;
+            return _frozenStorage;
         }
 
         // CPython 3.12: Provide access to internal dict storage for dict subclasses

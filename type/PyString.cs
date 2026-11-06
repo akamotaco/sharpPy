@@ -662,12 +662,7 @@ namespace SharpPy
                     // Measured CPython 3.12.15: str.__str__(CS("w")) == "w" (raw content,
                     // exact str), NOT the user __str__ result; str(CS("w")) dispatches
                     // type(x).__str__ separately.
-                    if (self is PyStrSubclass sub)
-                        return sub.GetStrValue();
-                    var content = (self as PyClassInstance)?.GetStringStorage();
-                    if (content == null)
-                        throw PyTypeError.Create($"descriptor '__str__' requires a 'str' object but received a '{self.GetTypeName()}'");
-                    return content;
+                    throw PyTypeError.Create($"descriptor '__str__' requires a 'str' object but received a '{self.GetTypeName()}'");
                 });
             strType.TypeDict["__repr__"] = new PyWrapperDescriptor(
                 "__repr__", strType,
@@ -689,7 +684,7 @@ namespace SharpPy
                 "__getnewargs__", strType,
                 (self, args, kwargs) => new PyTuple(new PyObject[]
                 {
-                    (self as PyClassInstance)?.GetStringStorage() ?? self
+                    self is PyStrSubclass sub ? sub.GetStrValue() : self
                 }),
                 minArgs: 0, maxArgs: 0);
 
@@ -2359,8 +2354,7 @@ namespace SharpPy
                 // CPython 3.12: PyUnicode_Concat gates on PyUnicode_Check, which is true
                 // for str subclass instances; they concatenate by content
                 // (Objects/unicodeobject.c:11060-11067).
-                otherStr = (other as PyStrSubclass)?.GetStrValue()
-                    ?? (other as PyClassInstance)?.GetStringStorage();
+                otherStr = (other as PyStrSubclass)?.GetStrValue();
                 if (otherStr == null)
                     return PyNotImplemented.Instance;
             }
@@ -2465,9 +2459,7 @@ namespace SharpPy
 
         internal static PyString AsStrReceiver(PyObject self)
         {
-            return self as PyString
-                ?? (self as PyStrSubclass)?.GetStrValue()
-                ?? (self as PyClassInstance)?.GetStringStorage();
+            return self as PyString;
         }
 
         /// <summary>

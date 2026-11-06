@@ -1002,21 +1002,10 @@ namespace SharpPy
         {
             if (Layout.NoInstances)
                 throw PyTypeError.Create($"cannot create '{FullName}' instances");
-            // type_call: tp_new, then tp_init when what came back is an instance of the type.
-            var newSlot = FindNameInMro("__new__");
-            if (ConstructedByNewSlot || (newSlot != null && (!ReferenceEquals(newSlot, ObjectNewDescriptor()) || ReferenceEquals(this, ObjectType))))
-            {
-                var slotArgs = new PyObject[args.Length + 1];
-                slotArgs[0] = this;
-                Array.Copy(args, 0, slotArgs, 1, args.Length);
-                var created = newSlot.Call(slotArgs, kwargs);
-                if (created.GetPyType().IsSubclassOf(this) && FindNameInMro("__init__") is { } slotInit && !ReferenceEquals(slotInit, ObjectInitDescriptor()))
-                {
-                    slotArgs[0] = created;
-                    slotInit.Call(slotArgs, kwargs);
-                }
-                return created;
-            }
+            var newSlot = FindNameInMro("__new__", out bool newWritten);
+            if (ConstructedByNewSlot || this is PyClass ||
+                (newSlot != null && (!ReferenceEquals(newSlot, ObjectNewDescriptor()) || ReferenceEquals(this, ObjectType))))
+                return TypeCall(newSlot, newWritten, args, kwargs);
 
             // CPython 3.12: Objects/classobject.c:216 method_new_impl. Lib/weakref.py:73 (WeakMethod)
             // rebuilds a method through type(method)(func, obj), so this type has to be callable.
@@ -1036,6 +1025,61 @@ namespace SharpPy
 
             // 일반 타입 호출 - 인스턴스 생성
             return CreateInstance(args, kwargs);
+        }
+
+        /// <summary>
+        /// type_call (Objects/typeobject.c:1627): tp_new, then, when what came back is an instance of
+        /// the type, the tp_init of Py_TYPE(obj). One path for builtin and heap types.
+        /// </summary>
+        private PyObject TypeCall(PyObject newSlot, bool newWritten, PyObject[] args, PyDict kwargs)
+        {
+            if (newSlot == null)
+                throw PyTypeError.Create($"cannot create '{Name}' instances");
+            var slotArgs = new PyObject[args.Length + 1];
+            slotArgs[0] = this;
+            Array.Copy(args, 0, slotArgs, 1, args.Length);
+            PyObject obj;
+            // update_one_slot: a builtin __new__ written into a class body leaves the inherited
+            // tp_new in place.
+            if (newWritten && this is PyClass heap && IsBuiltinNew(newSlot) && InheritedBuiltinNew(heap) is { } inheritedNew)
+                obj = CallTpNew(inheritedNew, slotArgs, kwargs);
+            else
+                obj = SlotNew(newSlot).Call(slotArgs, kwargs);
+            // Filed on the object that came out of __new__, not on the class that was called: a
+            // __new__ can return a foreign object, and that object has no hook of the called class.
+            PyFinalizer.RegisterIfDeclared(obj);
+
+            var objType = obj.GetPyType();
+            if (!ReferenceEquals(objType, this) && !objType.IsSubclassOf(this))
+                return obj;
+            var init = objType.FindNameInMro("__init__");
+            if (init == null || ReferenceEquals(init, ObjectInitDescriptor()))
+                return obj;
+            PyObject result;
+            if (init is PyFunction or PyWrapperDescriptor or PyMethodDescriptor)
+            {
+                slotArgs[0] = obj;
+                result = init.Call(slotArgs, kwargs);
+            }
+            else
+                result = obj.BindSpecialMethod(init).Call(args, kwargs);
+            // slot_tp_init
+            if (result != null && result is not PyNone)
+                throw PyTypeError.Create($"__init__() should return None, not '{result.GetTypeName()}'");
+            return obj;
+        }
+
+        /// <summary>slot_tp_new reads __new__ off the type, so a descriptor there binds.</summary>
+        private PyObject SlotNew(PyObject newMethod)
+        {
+            if (newMethod is PyFunction or PyStaticBuiltinMethod or PyMethodDescriptor)
+                return newMethod;
+            if (newMethod is IDescriptor newDescriptor)
+                return newDescriptor.Get(null, this);
+            var newGet = newMethod.LookupSpecialMethodUncached("__get__");
+            return newGet != null
+                ? newMethod.BindSpecialMethod(newGet).Call(new PyObject[] { PyNone.Instance, this }, null)
+                : newMethod;
         }
 
         internal bool DerivesFromType(PyType wanted)
@@ -1846,6 +1890,8 @@ namespace SharpPy
                                 "object.__new__() takes exactly one argument (the type to instantiate)");
                         }
                     }
+                    if (self is PyClass abstractCandidate)
+                        abstractCandidate.CheckAbstractMethods();
 
                     PyClass cls;
                     if (self is PyClass clsArg)
@@ -2455,9 +2501,7 @@ namespace SharpPy
                         throw PyTypeError.Create(
                             "set.__new__(" + foreign + "): " + foreign + " is not a subtype of set");
                     }
-                    var created = new PyClassInstance(setClass);
-                    created.ConstructorArgs = args;
-                    return created;
+                    return new PyClassInstance(setClass);
                 },
                 minArgs: 0,
                 maxArgs: int.MaxValue
@@ -2836,11 +2880,10 @@ namespace SharpPy
                             : args[0] is PyFrozenSet same && same.GetPyType() == PyType.FrozenSetType ? same
                             : new PyFrozenSet(PySet.SourceItems(args[0]));
                     if (cls is PyClass frozenClass) {
-                        var created = new PyClassInstance(frozenClass);
-                        // The value is read from these arguments later, in GetFrozenStorage(),
-                        // which is SharpPy's stand-in for make_new_frozenset.
-                        created.ConstructorArgs = args;
-                        return created;
+                        // make_new_frozenset builds the value here, so its errors come out of tp_new.
+                        return new PyClassInstance(frozenClass, args.Length == 0
+                            ? new PyFrozenSet()
+                            : new PyFrozenSet(PySet.SourceItems(args[0])));
                     }
                     string foreign = TpName(cls);
                     throw PyTypeError.Create(
@@ -3077,9 +3120,7 @@ namespace SharpPy
                         throw PyTypeError.Create(
                             "dict.__new__(" + foreign + "): " + foreign + " is not a subtype of dict");
                     }
-                    var created = new PyClassInstance(dictClass);
-                    created.ConstructorArgs = args;
-                    return created;
+                    return new PyClassInstance(dictClass);
                 },
                 minArgs: 0,
                 maxArgs: int.MaxValue
