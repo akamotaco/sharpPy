@@ -239,7 +239,6 @@ namespace SharpPy
                     Imag == 0.0 && Real == (double)otherInt.Value),
                 PyBool otherBool => PyBool.FromBool(
                     Imag == 0.0 && Real == (otherBool.Value ? 1.0 : 0.0)),
-                PyFloatSubclass otherFloat => PyEquals(new PyFloat(otherFloat.Value)),
                 _ => PyBool.False
             };
         }
@@ -260,9 +259,6 @@ namespace SharpPy
                     return true;
                 case PyFloat exact:
                     real = exact.Value;
-                    return true;
-                case PyFloatSubclass subclass:
-                    real = subclass.Value;
                     return true;
                 case PyInt or PyBool or PyIntSubclass:
                     real = value.AsFloat().Value;

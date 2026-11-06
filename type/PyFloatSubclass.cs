@@ -14,113 +14,37 @@ namespace SharpPy
     /// so a float subclass instance *is* a float object whose type slot points at the subclass;
     /// repr, arithmetic, comparison, hashing and text formatting all keep float semantics while
     /// type(x), isinstance() and the subclass's own methods report the subclass. int and str
-    /// already had this shape (PyIntSubclass, PyStrSubclass); without it a "float subclass" was
-    /// an ordinary object with no value at all.
+    /// already had this shape (PyIntSubclass, PyStrSubclass): a float whose _customType is the class.
     /// </summary>
-    public class PyFloatSubclass : PyObject, IDictBackedInstance, IHeapInstance
+    public class PyFloatSubclass : PyFloat, IDictBackedInstance, IHeapInstance
     {
-        // CPython float_subtype_new: ob_fval copied from the converted temporary.
+        // float_subtype_new: ob_fval copied from the converted temporary, which stays as the exact
+        // float float_float answers with.
         private readonly PyFloat _floatValue;
 
-        // ob_type - the subclass itself.
-        private PyClass _class;
-
-        public void ChangeClass(PyClass target) => _class = target;
+        public void ChangeClass(PyClass target) => SetCustomType(target);
 
         // float subclasses get an instance __dict__ (tp_alloc with the subclass's basicsize).
         public Dictionary<string, PyObject> InstanceDict { get; }
 
-        public PyFloatSubclass(PyClass cls, double value)
-        {
-            _class = cls;
-            _floatValue = new PyFloat(value);
-            InstanceDict = new Dictionary<string, PyObject>();
-        }
+        public PyFloatSubclass(PyClass cls, double value) : this(cls, new PyFloat(value)) { }
 
-        public PyFloatSubclass(PyClass cls, PyFloat floatValue)
+        public PyFloatSubclass(PyClass cls, PyFloat floatValue) : base(floatValue.Value)
         {
-            _class = cls;
+            SetCustomType(cls);
             _floatValue = floatValue;
             InstanceDict = new Dictionary<string, PyObject>();
         }
 
         public PyFloat GetFloatValue() => _floatValue;
-        public double Value => _floatValue.Value;
 
-        public override PyType GetPyType() => _class;
-        public override string GetTypeName() => _class.Name;
+        // Every slot is float's, inherited; float_pos is float_float, an exact float.
+        protected internal override PyObject NbPositive() => _floatValue;
 
-        #region Arithmetic - float semantics, result reported as plain float (CPython)
-
-        // The unary slots dispatch on the CLR virtual, so a written __neg__ is read here.
-        // The binary slots are the base type's on the value. A dunder the class writes is
-        // slot_nb_* on the type, which binary_op1 and SLOT1BINFULL (PyVM.BinaryOp1) call first.
-        public override PyObject Add(PyObject other) => _floatValue.Add(other);
-        public override PyObject Subtract(PyObject other) => _floatValue.Subtract(other);
-        public override PyObject Multiply(PyObject other) => _floatValue.Multiply(other);
-        public override PyObject Divide(PyObject other) => _floatValue.Divide(other);
-        public override PyObject FloorDivide(PyObject other) => _floatValue.FloorDivide(other);
-        public override PyObject Modulo(PyObject other) => _floatValue.Modulo(other);
-        public override PyObject Power(PyObject other) => _floatValue.Power(other);
-        protected internal override PyObject NbNegative() => _floatValue.NbNegative();
-        protected internal override PyObject NbPositive() => _floatValue.NbPositive();
-
-        #endregion
-
-        #region Comparison and hashing
-
-        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op) =>
-            _floatValue.TpRichCompare(other, op);
-
-        // CPython: tp_hash is float's, so FSub(2.0) and 2.0 collide in a dict.
-        // _Py_HashDouble: a NaN hashes by the identity of the object asked.
-        public override int ToHash() => double.IsNaN(Value)
-            ? System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this) : _floatValue.ToHash();
-
-        #endregion
-
-        #region Conversion
-
-        public override double ToFloat() => _floatValue.ToFloat();
-        public override int ToInt() => _floatValue.ToInt();
-
-
-        // float(FSub(2.5)) must return an exact float, not the subclass
-        // (Objects/abstract.c PyNumber_Float: nb_float then PyFloat_Check).
-        /// <summary>
-        /// Measured: float(FO) answers through a user __float__ (9.5), and keeps the payload when
-        /// the class declares none (2.7). Validation text is CPython's, which names the type.
-        /// </summary>
-        // The inherited float_float and float___trunc__, on the value.
-        protected internal override PyObject NbFloat() => new PyFloat(_floatValue.Value);
-        protected internal override PyObject NbInt() => _floatValue.NbInt();
-
-        /// <summary>
-        /// CPython reads nb_divmod through the subclass, so a user __divmod__ wins and anything
-        /// else falls back to float's arithmetic on the payload. This virtual was not overridden at
-        /// all before, so divmod() never reached a dunder for a float subclass.
-        /// </summary>
-        public override PyObject DivMod(PyObject other) => PyFloat.DivModValues(_floatValue, other);
-
-        protected internal override bool Bool() => _floatValue.IsTrue();
-
-        protected internal override PyString Repr() => (PyString)_floatValue.Repr();
-
-        #endregion
-
-        #region Attribute access
-
-        // Do NOT delegate to _floatValue.GetAttribute(): that instance has the plain
-        // [float, object] MRO. base.TpGetattro() walks GetPyType(), i.e. the subclass MRO, and
-        // the IInstanceDictAccessor seam above supplies the instance __dict__ layer.
-        // The class's tp_getattro (SubclassInstanceSupport.GetAttribute); the payload type's own
-        // attributes come last. An enum member reads _value_ before the class sets it.
+        // An enum member reads _value_ before the class sets it.
         internal override PyObject GenericGetAttr(string name) =>
             name == "_value_" && !InstanceDict.ContainsKey("_value_")
                 ? _floatValue
                 : base.GenericGetAttr(name);
-
-
-        #endregion
     }
 }

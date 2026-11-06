@@ -26,19 +26,17 @@ namespace SharpPy
         /// </summary>
         internal static bool TryFloatSelf(PyObject self, out PyFloat value)
         {
-            if (self is PyFloat exact)
-            {
-                value = exact;
-                return true;
-            }
-            if (self is PyFloatSubclass subclass)
-            {
-                value = subclass.GetFloatValue();
-                return true;
-            }
-            value = null;
-            return false;
+            value = FloatValue(self);
+            return value != null;
         }
+
+        /// <summary>PyFloat_Check, and the exact float of the value (a subclass instance's ob_fval).</summary>
+        internal static PyFloat FloatValue(PyObject value) => value switch
+        {
+            PyFloatSubclass subclass => subclass.GetFloatValue(),
+            PyFloat exact => exact,
+            _ => null,
+        };
 
         // Objects/descrobject.c descr_check wording, shared by float's methods and getsets.
         internal static System.Exception WrongFloatSelf(string name, PyObject self) =>
@@ -73,7 +71,7 @@ namespace SharpPy
         // The check PyNumber_Float makes on what nb_float gave.
         internal static PyFloat CheckFloatResult(PyObject source, PyObject result)
         {
-            if (result is PyFloat exact)
+            if (result is PyFloat exact && !exact.HasCustomType)
                 return exact;
             if (result is not PyFloatSubclass subclass)
                 throw PyTypeError.Create($"{source.GetPyType().Name}.__float__ returned non-float (type {result.GetPyType().Name})");
@@ -219,7 +217,8 @@ namespace SharpPy
                         throw PyTypeError.Create("wrapper __float__() takes no keyword arguments");
                     if (args.Length != 0)
                         throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
-                    return self;
+                    // float_float: an exact float is itself, a subclass instance its exact value.
+                    return FloatValue(self);
                 });
 
             regFloatBin("__add__", (s, o) => s.Add(o));
@@ -472,8 +471,8 @@ namespace SharpPy
             OriginalString = originalString;
         }
 
-        public override PyType GetPyType() => PyType.FloatType;
-        public override string GetTypeName() => "float";
+        public override PyType GetPyType() => _customType ?? PyType.FloatType;
+        public override string GetTypeName() => _customType?.Name ?? "float";
 
         // CPython 3.12: Objects/floatobject.c - float_bool
         // Optimized: Direct value check, no MRO traversal
@@ -957,7 +956,6 @@ namespace SharpPy
             switch (operand)
             {
                 case PyFloat exact: value = exact.Value; return true;
-                case PyFloatSubclass subclass: value = subclass.Value; return true;
                 case PyInt or PyBool or PyIntSubclass: value = ((PyFloat)PyObject.TryGetIndex(operand).NbFloat()).Value; return true;
                 default: return false;
             }
