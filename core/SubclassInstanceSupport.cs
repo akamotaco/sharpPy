@@ -66,22 +66,32 @@ namespace SharpPy
             // A heap class adds a __dict__ after the base's layout; the live view over the same store.
             if (name == "__dict__" && instanceType.InstancesHaveDict())
                 return PyGlobalsDict.For(instanceDict);
+            return GenericGetAttrWithDict(self, instanceType, name, instanceDict, null) ?? nativeGetAttribute(name);
+        }
 
+        /// <summary>
+        /// _PyObject_GenericGetAttrWithDict (Objects/object.c) for an instance of a class written in
+        /// Python: a data descriptor of the type, then the instance dict (dict, else accessor), then
+        /// a non-data descriptor or plain value that a class body holds. Null when the name is
+        /// neither in the instance dict nor written in a class body: what a builtin base holds, and
+        /// the AttributeError, are the base's own tp_getattro.
+        /// </summary>
+        internal static PyObject GenericGetAttrWithDict(PyObject self, PyClass instanceType, string name,
+            Dictionary<string, PyObject> dict, IInstanceDictAccessor accessor)
+        {
             var attribute = instanceType.FindNameInMro(name, out bool inClass);
             IDescriptor descriptor = attribute as IDescriptor
-                ?? (attribute != null && attribute is not PyFunction && attribute.LookupSpecialMethodUncached("__get__") != null
+                ?? (attribute != null && attribute.LookupSpecialMethodUncached("__get__") != null
                     ? new PyDescriptorWrapper(attribute) : null);
             if (descriptor != null && descriptor.IsDataDescriptor())
                 return descriptor.Get(self, instanceType);
-            if (instanceDict.TryGetValue(name, out PyObject instanceValue))
+            if (dict != null ? dict.TryGetValue(name, out PyObject instanceValue) : accessor.TryGetInstanceAttribute(name, out instanceValue))
                 return instanceValue;
-            if (inClass)
-            {
-                if (attribute is PyFunction function)
-                    return new PyMethod(self, function);
-                return descriptor != null ? descriptor.Get(self, instanceType) : attribute;
-            }
-            return nativeGetAttribute(name);
+            if (!inClass)
+                return null;
+            if (attribute.GetType() == typeof(PyFunction))
+                return new PyMethod(self, attribute);
+            return descriptor != null ? descriptor.Get(self, instanceType) : attribute;
         }
 
         /// <summary>
