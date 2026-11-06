@@ -33,7 +33,7 @@ namespace SharpPy.Modules
 
         static PyDequeModule()
         {
-            var type = new PyType("deque", new[] { PyType.ObjectType }, "collections") { ConstructedByNewSlot = true };
+            var type = new PyType("deque", new[] { PyType.ObjectType }, "collections");
             DequeType = type;
             type.TypeDict["__module__"] = new PyString("collections");
 
@@ -112,7 +112,7 @@ namespace SharpPy.Modules
         // dequeiter_spec and dequereviter_spec
         private static PyType IteratorType(string name, bool reverse)
         {
-            var type = new PyType(name, new[] { PyType.ObjectType }, "collections") { ConstructedByNewSlot = true };
+            var type = new PyType(name, new[] { PyType.ObjectType }, "collections");
             type.TypeDict["__module__"] = new PyString("collections");
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
             type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.IterNext());

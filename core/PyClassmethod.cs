@@ -95,7 +95,6 @@ namespace SharpPy
                     throw PyTypeError.Create("__get__(None, None) is invalid");
                 return ((PyCallableWrapper)self).Get(instance, owner as PyType);
             }, 1, 2);
-            type.ConstructedByNewSlot = true;
         }
     }
 

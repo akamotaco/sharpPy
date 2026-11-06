@@ -379,7 +379,6 @@ public sealed class PyFileIO : PyIOBaseInstance
     private static PyIOBaseType MakeType()
     {
         var type = new PyIOBaseType("FileIO", new PyType[] { PyIOBaseSlots.RawIOBaseType });
-        type.ConstructedByNewSlot = true;
         type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) => new PyFileIO((PyType)cls),
             acceptsKwargs: true);
         type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>

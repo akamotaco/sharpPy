@@ -19,7 +19,6 @@ namespace SharpPy.Modules
             _empty = new PyClass("Empty", new[] { PyType.ExceptionType },
                 new Dictionary<string, PyObject> { ["__module__"] = new PyString("queue") });
             var type = new PyType("SimpleQueue", new[] { PyType.ObjectType }, "_queue");
-            type.ConstructedByNewSlot = true;
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
             {
                 if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))

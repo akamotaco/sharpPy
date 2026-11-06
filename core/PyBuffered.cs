@@ -988,7 +988,6 @@ public sealed class PyBuffered : PyIOBaseInstance
     private static PyIOBaseType MakeType(string name, Kind kind)
     {
         var type = new PyIOBaseType(name, new PyType[] { PyIOBaseSlots.BufferedIOBaseType });
-        type.ConstructedByNewSlot = true;
         type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) => new PyBuffered((PyType)cls),
             acceptsKwargs: true);
         type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
@@ -1098,7 +1097,6 @@ public sealed class PyBufferedRWPair : PyIOBaseInstance
     private static PyIOBaseType MakeType()
     {
         var type = new PyIOBaseType("BufferedRWPair", new PyType[] { PyIOBaseSlots.BufferedIOBaseType });
-        type.ConstructedByNewSlot = true;
         type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) => new PyBufferedRWPair((PyType)cls),
             acceptsKwargs: true);
         type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>

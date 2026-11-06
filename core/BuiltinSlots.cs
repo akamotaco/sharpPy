@@ -48,7 +48,6 @@ namespace SharpPy
             foreach (var singleton in new PyObject[] { PyNone.Instance, PyEllipsis.Instance, PyNotImplemented.Instance })
             {
                 var type = singleton.GetPyType();
-                type.ConstructedByNewSlot = true;
                 type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
                 {
                     if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
@@ -58,7 +57,6 @@ namespace SharpPy
             }
             PyCell.InstallNew();
             PyUnicodeError.InstallNew();
-            PyType.MappingProxyType.ConstructedByNewSlot = true;
             // ellipsis_reduce, notimplemented_reduce
             Method(PyType.EllipsisType, "__reduce__", (self, args) => new PyString("Ellipsis"));
             Method(PyNotImplemented.Instance.GetPyType(), "__reduce__", (self, args) => new PyString("NotImplemented"));
@@ -100,7 +98,6 @@ namespace SharpPy
             InstallViews();
             InstallIterators();
             TypeTables.Finish();
-            PyType.ModuleType.ConstructedByNewSlot = true;
             PyType.ModuleType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", PyType.ModuleType,
                 (cls, args, kwargs) => PyModule.Allocate((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
             // module_dir: a module may answer for itself with a __dir__ of its own.

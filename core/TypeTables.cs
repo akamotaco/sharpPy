@@ -143,6 +143,22 @@ namespace SharpPy
                     : new PySlice(args[0], args[1], args.Length == 3 ? args[2] : PyNone.Instance);
             }, 0, int.MaxValue, acceptsKwargs: true);
 
+            // method_new_impl (Objects/classobject.c:216). Lib/weakref.py:73 (WeakMethod) rebuilds a
+            // method through type(method)(func, obj).
+            PyType.MethodType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", PyType.MethodType, (cls, args, kwargs) =>
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("method() takes no keyword arguments");
+                // _PyArg_CheckPositional wording for method.__new__(function, instance, /).
+                if (args.Length != 2)
+                    throw PyTypeError.Create($"method expected 2 arguments, got {args.Length}");
+                if (!args[0].IsCallable())
+                    throw PyTypeError.Create("first argument must be callable");
+                if (args[1] is PyNone)
+                    throw PyTypeError.Create("instance must not be None");
+                return new PyMethod(args[1], args[0]);
+            }, 0, int.MaxValue, acceptsKwargs: true);
+
             GetSets<PyMemoryView>(PyType.MemoryViewType, (self, name) => self.Read(name), "obj", "nbytes", "readonly", "itemsize",
                 "format", "ndim", "shape", "strides", "suboffsets", "c_contiguous", "f_contiguous", "contiguous");
 

@@ -120,7 +120,6 @@ public interface IDescriptor
             if (_installed) return;
             _installed = true;
             var type = PyType.PropertyType;
-            type.ConstructedByNewSlot = true;
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
             {
                 var created = new PyProperty();

@@ -931,7 +931,7 @@ namespace SharpPy.Modules
 
         private static PyType BuildStructType()
         {
-            var type = new PyType("Struct", new[] { PyType.ObjectType }, "_struct") { ConstructedByNewSlot = true };
+            var type = new PyType("Struct", new[] { PyType.ObjectType }, "_struct");
             type.SetSpecLayout(new TypeLayout(56, 0, 0, 48, true));
             type.TypeDict["__module__"] = new PyString("_struct");
             // s_new: an object with no format yet, which __init__ prepares.

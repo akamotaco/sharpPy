@@ -861,10 +861,7 @@ namespace SharpPy.Modules
         {
             var module = new PyModule("array");
 
-            var type = new PyType("array", new[] { PyType.ObjectType }, "array")
-            {
-                ConstructedByNewSlot = true
-            };
+            var type = new PyType("array", new[] { PyType.ObjectType }, "array");
 
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
             {

@@ -131,7 +131,6 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         var funcType = PyType.FunctionType;
 
         // func_get_name and func_set_name
-        funcType.ConstructedByNewSlot = true;
         funcType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", funcType, FunctionNew, 0, int.MaxValue, acceptsKwargs: true);
 
         funcType.TypeDict["__name__"] = new PyGetSetDescriptor(

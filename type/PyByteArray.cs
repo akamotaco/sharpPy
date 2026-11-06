@@ -294,7 +294,6 @@ namespace SharpPy
         internal static void InstallNew()
         {
             var type = PyType.BytearrayType;
-            type.ConstructedByNewSlot = true;
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
                 ReferenceEquals(cls, type) ? new PyByteArray() : new PyByteArraySubclass((PyType)cls), acceptsKwargs: true);
             type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>

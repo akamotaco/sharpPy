@@ -13,7 +13,6 @@ namespace SharpPy.Modules
 
         private PySimpleNamespaceType() : base("SimpleNamespace", new PyType[] { PyType.ObjectType }, "types")
         {
-            ConstructedByNewSlot = true;
             TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", this,
                 (cls, args, kwargs) => new PySimpleNamespace((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
             TypeDict["__init__"] = new PyWrapperDescriptor("__init__", this, (self, args, kwargs) =>

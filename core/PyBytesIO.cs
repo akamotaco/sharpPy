@@ -379,7 +379,6 @@ public class PyBytesIO : PyIOBaseInstance
     private static PyIOBaseType MakeType()
     {
         var type = new PyIOBaseType("BytesIO", new PyType[] { PyIOBaseSlots.BufferedIOBaseType });
-        type.ConstructedByNewSlot = true;
         // bytesio_new: an empty buffer even before __init__.
         type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) => new PyBytesIO(null, (PyType)cls),
             acceptsKwargs: true);

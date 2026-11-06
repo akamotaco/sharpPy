@@ -182,7 +182,6 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
     private static PyIOBaseType MakeType()
     {
         var type = new PyIOBaseType("IncrementalNewlineDecoder", new[] { PyType.ObjectType });
-        type.ConstructedByNewSlot = true;
         type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) => new PyNewlineDecoder((PyType)cls),
             acceptsKwargs: true);
         type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
@@ -1157,7 +1156,6 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     private static PyIOBaseType MakeType()
     {
         var type = new PyIOBaseType("TextIOWrapper", new PyType[] { PyIOBaseSlots.TextIOBaseType });
-        type.ConstructedByNewSlot = true;
         type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) => new PyTextIOWrapper((PyType)cls),
             acceptsKwargs: true);
         type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>

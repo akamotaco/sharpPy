@@ -373,7 +373,6 @@ public class PyStringIO : PyIOBaseInstance
     private static PyIOBaseType MakeType()
     {
         var type = new PyIOBaseType("StringIO", new PyType[] { PyIOBaseSlots.TextIOBaseType });
-        type.ConstructedByNewSlot = true;
         // stringio_new: not initialized until __init__ runs.
         type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) => new PyStringIO((PyType)cls),
             acceptsKwargs: true);

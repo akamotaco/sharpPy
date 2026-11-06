@@ -595,7 +595,6 @@ namespace SharpPy
         private static PyType MakeCodeType()
         {
             var type = new PyType("code", new[] { PyType.ObjectType });
-            type.ConstructedByNewSlot = true;
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, CodeNew, 0, int.MaxValue, acceptsKwargs: true);
             return type;
         }

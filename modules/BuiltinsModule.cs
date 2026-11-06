@@ -270,7 +270,6 @@ namespace SharpPy.Modules
         private static PyType ReversedType()
         {
             var type = PyType.ReversedType;
-            type.ConstructedByNewSlot = true;
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type,
                 (cls, args, kwargs) => PyBuiltinFunction.ReversedNew((PyType)cls, args, kwargs), 0, int.MaxValue, acceptsKwargs: true);
             return type;
@@ -283,7 +282,6 @@ namespace SharpPy.Modules
         /// function refuses them only for the type itself or a subclass with object's __init__.</summary>
         private static PyType BuiltinCallableType(PyType type, PyBuiltinFunction implementation, bool keywordsForInit = false)
         {
-            type.ConstructedByNewSlot = true;
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
             {
                 if (keywordsForInit && !ReferenceEquals(cls, type) && !PyType.TypeInitIsObjectInit((PyType)cls))

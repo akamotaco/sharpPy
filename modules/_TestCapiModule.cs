@@ -237,7 +237,7 @@ namespace SharpPy.Modules
         // A static type with PyType_GenericNew and one method of each convention.
         private static PyType MethType(string name, string doc, Func<PyType, string, PyObject> method)
         {
-            var type = new PyType(name, new[] { PyType.ObjectType }) { ConstructedByNewSlot = true };
+            var type = new PyType(name, new[] { PyType.ObjectType });
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type,
                 (cls, args, kwargs) => new MethObject((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
             foreach (var kind in MethNames)

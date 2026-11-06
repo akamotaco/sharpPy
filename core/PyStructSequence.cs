@@ -44,7 +44,6 @@ namespace SharpPy
             TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", this, (self, args, kwargs) => ((PyStructSequence)self).Reduce());
             if (Layout.NoInstances)
                 return;
-            ConstructedByNewSlot = true;
             TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", this, (cls, args, kwargs) => New((PyStructSequenceType)cls, args, kwargs),
                 acceptsKwargs: true);
         }

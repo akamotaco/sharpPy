@@ -43,7 +43,6 @@ namespace SharpPy
         internal static void InstallNew()
         {
             var type = PyType.CellType;
-            type.ConstructedByNewSlot = true;
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
             {
                 if (args.Length > 1)

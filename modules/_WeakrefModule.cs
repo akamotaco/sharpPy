@@ -73,7 +73,6 @@ namespace SharpPy.Modules
         internal static void RegisterWeakRefType()
         {
             var type = PyType.WeakRefType;
-            type.ConstructedByNewSlot = true;
 
             type.TypeDict["__new__"] = new PyNewMethodDescriptor(
                 "__new__", type,

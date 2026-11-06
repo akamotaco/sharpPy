@@ -49,7 +49,7 @@ namespace SharpPy.Modules
         private static PyType Spec(string name, Func<PyType, PyObject[], PyDict, PyObject> tpNew,
             bool iterator = true, bool genericGetAttr = true)
         {
-            var type = new PyType(name, new[] { PyType.ObjectType }, "itertools") { ConstructedByNewSlot = true };
+            var type = new PyType(name, new[] { PyType.ObjectType }, "itertools");
             type.TypeDict["__module__"] = new PyString("itertools");
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type,
                 (cls, args, kwargs) => tpNew((PyType)cls, args, kwargs), 0, int.MaxValue, acceptsKwargs: true);

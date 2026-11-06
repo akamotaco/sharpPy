@@ -41,7 +41,7 @@ namespace SharpPy.Modules
 
         private static PyType CreateDialectType()
         {
-            var t = new PyType("Dialect", new[] { PyType.ObjectType }, "_csv") { ConstructedByNewSlot = true };
+            var t = new PyType("Dialect", new[] { PyType.ObjectType }, "_csv");
             t.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", t, (cls, args, kwargs) => DialectNew(cls, args, kwargs), 0, int.MaxValue, acceptsKwargs: true);
             t.TypeDict["delimiter"] = new PyGetSetDescriptor("delimiter", t, self => ((PyDialect)self).Delimiter);
             t.TypeDict["doublequote"] = new PyGetSetDescriptor("doublequote", t, self => ((PyDialect)self).DoubleQuote);

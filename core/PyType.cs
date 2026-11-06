@@ -994,10 +994,6 @@ namespace SharpPy
         public override bool IsCallable() => true;
 
         // type 호출 - 인스턴스 생성 또는 타입 조회
-        /// <summary>type_call reaches tp_new. A type that registers its own __new__ in TypeDict sets
-        /// this instead of adding another name to the CreateInstance switch.</summary>
-        internal bool ConstructedByNewSlot;
-
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (Layout.NoInstances)
@@ -1013,25 +1009,9 @@ namespace SharpPy
                     throw PyTypeError.Create("type() takes 1 or 3 arguments");
             }
             var newSlot = FindNameInMro("__new__", out bool newWritten);
-            if (ConstructedByNewSlot || this is PyClass ||
+            if (this is PyClass ||
                 (newSlot != null && (!ReferenceEquals(newSlot, ObjectNewDescriptor()) || ReferenceEquals(this, ObjectType))))
                 return TypeCall(newSlot, newWritten, args, kwargs);
-
-            // CPython 3.12: Objects/classobject.c:216 method_new_impl. Lib/weakref.py:73 (WeakMethod)
-            // rebuilds a method through type(method)(func, obj), so this type has to be callable.
-            if (this == MethodType)
-            {
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create("method() takes no keyword arguments");
-                // _PyArg_CheckPositional wording for method.__new__(function, instance, /).
-                if (args.Length != 2)
-                    throw PyTypeError.Create($"method expected 2 arguments, got {args.Length}");
-                if (!args[0].IsCallable())
-                    throw PyTypeError.Create("first argument must be callable");
-                if (args[1] is PyNone)
-                    throw PyTypeError.Create("instance must not be None");
-                return new PyMethod(args[1], args[0]);
-            }
 
             // 일반 타입 호출 - 인스턴스 생성
             return CreateInstance(args, kwargs);

@@ -32,7 +32,6 @@ namespace SharpPy.Modules
             module.ModuleDict["Token"] = TokenType;
             module.ModuleDict["copy_context"] = new PyBuiltinFunction("copy_context", _ => new PyContext(Current.Vars));
 
-            ContextType.ConstructedByNewSlot = true;
             Method(ContextType, "__new__", (cls, args, kwargs) => new PyContext(Empty));
             Method(ContextType, "run", ContextRun, 1, int.MaxValue, acceptsKwargs: true);
             Method(ContextType, "copy", (self, args, kwargs) => new PyContext(((PyContext)self).Vars), 0, 0);
@@ -61,7 +60,6 @@ namespace SharpPy.Modules
                 return IterOf(items);
             }, 0, 0);
 
-            ContextVarType.ConstructedByNewSlot = true;
             Method(ContextVarType, "__new__", ContextVarNew, 1, 1, acceptsKwargs: true);
             Method(ContextVarType, "get", ContextVarGet, 0, 1);
             Method(ContextVarType, "set", ContextVarSet, 1, 1);
