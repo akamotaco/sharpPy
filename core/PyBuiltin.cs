@@ -203,7 +203,6 @@ namespace SharpPy
             _builtinImplementations["map"] = (args, kwargs) => CallMap(args, kwargs);
             _builtinImplementations["filter"] = (args, kwargs) => CallFilter(args, kwargs);
             _builtinImplementations["sorted"] = (args, kwargs) => CallSorted(args, kwargs);
-            _builtinImplementations["reversed"] = (args, kwargs) => ReversedNew(PyType.ReversedType, args, kwargs);
             _builtinImplementations["sum"] = (args, kwargs) => CallSum(args, kwargs);
             _builtinImplementations["min"] = (args, kwargs) => CallMin(args, kwargs);
             _builtinImplementations["max"] = (args, kwargs) => CallMax(args, kwargs);
@@ -215,28 +214,14 @@ namespace SharpPy
             _builtinImplementations["delattr"] = (args, kwargs) => CallDelAttr(args, kwargs);
             _builtinImplementations["dir"] = (args, kwargs) => CallDir(args, kwargs);
             _builtinImplementations["__import__"] = (args, kwargs) => CallImport(args, kwargs);
-            _builtinImplementations["type"] = (args, kwargs) => CallType(args, kwargs);
             _builtinImplementations["id"] = (args, kwargs) => CallId(args, kwargs);
             _builtinImplementations["hash"] = (args, kwargs) => CallHash(args, kwargs);
             _builtinImplementations["super"] = (args, kwargs) => CallSuper(args, kwargs);
-            _builtinImplementations["property"] = (args, kwargs) => CallProperty(args, kwargs);
-            _builtinImplementations["classmethod"] = (args, kwargs) => CallClassmethod(args, kwargs);
-            _builtinImplementations["staticmethod"] = (args, kwargs) => CallStaticmethod(args, kwargs);
             _builtinImplementations["type.__new__"] = (args, kwargs) => PyTypeMetaclass.TypeNew(args, kwargs);
-            _builtinImplementations["str"] = (args, kwargs) => CallStr(args, kwargs);
             _builtinImplementations["repr"] = (args, kwargs) => CallRepr(args, kwargs);
-            _builtinImplementations["int"] = (args, kwargs) => CallInt(args, kwargs);
-            _builtinImplementations["float"] = (args, kwargs) => CallFloat(args, kwargs);
-            _builtinImplementations["complex"] = (args, kwargs) => CallComplex(args, kwargs);
-            _builtinImplementations["bool"] = (args, kwargs) => CallBool(args, kwargs);
             _builtinImplementations["eval"] = (args, kwargs) => CallEval(args, kwargs);
             _builtinImplementations["compile"] = (args, kwargs) => CallCompile(args, kwargs);
             _builtinImplementations["exec"] = (args, kwargs) => CallExec(args, kwargs);
-            _builtinImplementations["list"] = (args, kwargs) => CallList(args, kwargs);
-            _builtinImplementations["tuple"] = (args, kwargs) => CallTuple(args, kwargs);
-            _builtinImplementations["dict"] = (args, kwargs) => CallDict(args, kwargs);
-            _builtinImplementations["set"] = (args, kwargs) => CallSet(args, kwargs);
-            _builtinImplementations["frozenset"] = (args, kwargs) => CallFrozenSet(args, kwargs);
             _builtinImplementations["iter"] = (args, kwargs) => CallIter(args, kwargs);
             _builtinImplementations["next"] = (args, kwargs) => CallNext(args, kwargs);
             _builtinImplementations["round"] = (args, kwargs) => CallRound(args, kwargs);
@@ -248,10 +233,6 @@ namespace SharpPy
             _builtinImplementations["__build_class__"] = (args, kwargs) => CallBuildClass(args, kwargs);
             _builtinImplementations["globals"] = (args, kwargs) => CallGlobals(args, kwargs);
             _builtinImplementations["locals"] = (args, kwargs) => CallLocals(args, kwargs);
-            _builtinImplementations["bytes"] = (args, kwargs) => CallBytes(args, kwargs);
-            _builtinImplementations["bytearray"] = (args, kwargs) => CallBytearray(args, kwargs);
-            _builtinImplementations["slice"] = (args, kwargs) => CallSlice(args, kwargs);
-            _builtinImplementations["object"] = (args, kwargs) => CallObject(args, kwargs);
             _builtinImplementations["help"] = (args, kwargs) => CallHelp(args, kwargs);
             _builtinImplementations["breakpoint"] = (args, kwargs) => CallBreakpoint(args, kwargs);
         }
@@ -990,14 +971,6 @@ namespace SharpPy
             return PyNone.Instance;
         }
 
-        private static PyObject CallType(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"type expected exactly 1 arguments ({args.Length} given)");
-
-            return args[0].GetPyType();
-        }
-
 
         private static PyObject CallId(PyObject[] args, PyDict kwargs = null)
         {
@@ -1023,60 +996,8 @@ namespace SharpPy
         // === 타입 변환 함수들 ===
 
         // CPython 3.12: Objects/unicodeobject.c:14702-14730 (unicode_new_impl)
-        private static PyObject CallStr(PyObject[] args, PyDict kwargs = null)
-        {
-            // CPython 3.12: str(object='', encoding=None, errors='strict')
-            // x == NULL: return empty string
-            if (args.Length == 0)
-                return new PyString("");
-
-            if (args.Length > 3)
-                throw PyTypeError.Create($"str() takes at most 3 arguments ({args.Length} given)");
-
-            var x = args[0];
-
-            // CPython 3.12: encoding == NULL and errors == NULL → PyObject_Str(x)
-            if (args.Length == 1)
-                return new PyString(x.ToClrString());
-
-            // CPython 3.12: str(bytes, encoding, errors='strict') → PyUnicode_FromEncodedObject
-            var encoding = args.Length > 1 ? args[1] : PyNone.Instance;
-            var errors = args.Length > 2 ? args[2] : new PyString("strict");
-
-            if (encoding == PyNone.Instance && errors is PyString errStr && errStr.Value == "strict")
-            {
-                // No encoding specified, just convert to string
-                return new PyString(x.ToClrString());
-            }
-
-            // Decode bytes with specified encoding
-            if (!(x is PyBytes pyBytes))
-            {
-                throw PyTypeError.Create($"decoding to str: need a bytes-like object, {x.GetTypeName()} found");
-            }
-
-            if (!(encoding is PyString encStr))
-            {
-                throw PyTypeError.Create($"str() argument 2 must be str, not {encoding.GetTypeName()}");
-            }
-
-            if (!(errors is PyString))
-            {
-                throw PyTypeError.Create($"str() argument 3 must be str, not {errors.GetTypeName()}");
-            }
-
-            // One decoder. str() kept a three-name table of its own while PyStringNewArguments
-            // already had the decoder the str(bytes, enc, errors) constructor path uses, so
-            // str(b'ab', 'utf-16-le') reported an unknown encoding that str() itself accepts.
-            return new PyString(PyStringNewArguments.DecodeBytes(
-                pyBytes.Value, encStr.Value, ((PyString)errors).Value));
-        }
 
         // CPython 3.12: Objects/longobject.c:5598-5641 (long_new_impl)
-        private static PyObject CallInt(PyObject[] args, PyDict kwargs = null) => PyInt.FromArguments(args, kwargs);
-
-        private static PyObject CallFloat(PyObject[] args, PyDict kwargs = null) =>
-            PyFloat.FloatNew(PyType.FloatType, args, kwargs);
 
         // try_complex_special_method
         private static PyComplex ComplexSpecial(PyObject value)
@@ -1552,79 +1473,6 @@ namespace SharpPy
             PyVM.StoreLocals(localScope, locals);
 
             return PyNone.Instance;
-        }
-
-        private static PyObject CallBool(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length > 1)
-                throw PyTypeError.Create($"bool expected at most 1 argument, got {args.Length}");
-
-            if (args.Length == 0)
-                return PyBool.False;
-
-            // CPython 3.12: bool(x) is PyObject_IsTrue - it must honour __bool__
-            // and then __len__ (Objects/object.c PyObject_IsTrue), not the CLR
-            // fast-path ToBool/PyBoolValue.
-            return PyBool.FromBool(args[0].IsTrue());
-        }
-
-        private static PyObject CallList(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length > 1)
-                throw PyTypeError.Create($"list expected at most 1 argument, got {args.Length}");
-
-            if (args.Length == 0)
-                return new PyList(new PyObject[0]);
-
-            return args[0].AsList();
-        }
-
-        private static PyObject CallTuple(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length > 1)
-                throw PyTypeError.Create($"tuple expected at most 1 argument, got {args.Length}");
-
-            if (args.Length == 0)
-                return new PyTuple();
-
-            // tuple_new_impl: an exact tuple is its own answer.
-            if (args[0].GetType() == typeof(PyTuple) && ReferenceEquals(args[0].GetPyType(), PyType.TupleType))
-                return args[0];
-            return args[0].AsTuple();
-        }
-
-        private static PyObject CallDict(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length > 1)
-                throw PyTypeError.Create($"dict expected at most 1 argument, got {args.Length}");
-
-            if (args.Length == 0)
-                return new PyDict();
-
-            return args[0].AsDict();
-        }
-
-        private static PyObject CallSet(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length > 1)
-                throw PyTypeError.Create($"set expected at most 1 argument, got {args.Length}");
-
-            if (args.Length == 0)
-                return PySet.Empty;
-
-            return new PySet(PySet.SourceItems(args[0]));
-        }
-
-        private static PyObject CallFrozenSet(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length > 1)
-                throw PyTypeError.Create($"frozenset expected at most 1 argument, got {args.Length}");
-
-            if (args.Length == 0)
-                return new PyFrozenSet();
-
-            if (args[0] is PyFrozenSet frozen) return frozen;
-            return new PyFrozenSet(PySet.IterableItems(args[0]));
         }
 
         // === 이터레이터 함수들 ===
@@ -2206,43 +2054,7 @@ namespace SharpPy
             }
         }
 
-        /// <summary>
-        /// property builtin function implementation
-        /// Creates a property descriptor
-        /// </summary>
-        private static PyObject CallProperty(PyObject[] args, PyDict kwargs = null)
-        {
-            // property([fget[, fset[, fdel[, doc]]]])
-            if (args.Length > 4)
-            {
-                throw PyTypeError.Create($"property expected at most 4 arguments ({args.Length} given)");
-            }
-
-            return PyType.PropertyType.Call(args, kwargs);
-        }
-
         // CPython 3.12: Objects/funcobject.c:1055-1068 (cm_init)
-        private static PyObject CallClassmethod(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length != 1)
-            {
-                throw PyTypeError.Create($"classmethod expected 1 argument ({args.Length} given)");
-            }
-
-            var func = args[0];
-            return new PyClassmethod(func);
-        }
-
-        private static PyObject CallStaticmethod(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length != 1)
-            {
-                throw PyTypeError.Create($"staticmethod expected 1 argument ({args.Length} given)");
-            }
-
-            var func = args[0];
-            return new PyStaticmethod(func);
-        }
 
         /// <summary>
         /// globals() builtin function - returns a dictionary of the current global symbol table
@@ -2341,11 +2153,6 @@ namespace SharpPy
         /// </summary>
         public static PyObject CallBytes(PyObject[] args, PyDict kwargs = null) => BytesMethods.BytesNew(args, kwargs);
 
-        /// <summary>
-        /// bytearray() constructor - creates mutable byte sequences
-        /// </summary>
-        private static PyObject CallBytearray(PyObject[] args, PyDict kwargs = null) => new PyByteArray(BytesMethods.ByteArrayInit(args, kwargs));
-
 
         /// <summary>
         /// repr() built-in function - returns a printable representation of an object
@@ -2365,55 +2172,6 @@ namespace SharpPy
 
 
 
-
-        /// <summary>
-        /// slice(stop) or slice(start, stop[, step]) - CPython 3.12: Python/bltinmodule.c:2379
-        /// Return a slice object representing the set of indices
-        /// </summary>
-        private static PyObject CallSlice(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length == 0 || args.Length > 3)
-                throw PyTypeError.Create($"slice expected at most 3 arguments, got {args.Length}");
-
-            PyObject start, stop, step;
-
-            if (args.Length == 1)
-            {
-                // slice(stop)
-                start = PyNone.Instance;
-                stop = args[0];
-                step = PyNone.Instance;
-            }
-            else if (args.Length == 2)
-            {
-                // slice(start, stop)
-                start = args[0];
-                stop = args[1];
-                step = PyNone.Instance;
-            }
-            else
-            {
-                // slice(start, stop, step)
-                start = args[0];
-                stop = args[1];
-                step = args[2];
-            }
-
-            return new PySlice(start, stop, step);
-        }
-
-        /// <summary>
-        /// object() - CPython 3.12: Objects/typeobject.c (object_new)
-        /// Return a featureless object that is a base for all classes
-        /// </summary>
-        private static PyObject CallObject(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length > 0)
-                throw PyTypeError.Create("object() takes no arguments");
-
-            // Return a new base object instance
-            return new PyBaseObject();
-        }
 
 
 

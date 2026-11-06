@@ -130,6 +130,18 @@ namespace SharpPy
 
             Members<PyRange>(PyType.RangeType, (self, name) => self.Read(name), "start", "stop", "step");
             Members<PySlice>(PyType.SliceType, (self, name) => self.Read(name), "start", "stop", "step");
+            // slice_new: no keywords, PyArg_UnpackTuple(args, "slice", 1, 3, ...).
+            PyType.SliceType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", PyType.SliceType, (cls, args, kwargs) =>
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("slice() takes no keyword arguments");
+                if (args.Length == 0)
+                    throw PyTypeError.Create("slice expected at least 1 argument, got 0");
+                if (args.Length > 3)
+                    throw PyTypeError.Create($"slice expected at most 3 arguments, got {args.Length}");
+                return args.Length == 1 ? new PySlice(PyNone.Instance, args[0], PyNone.Instance)
+                    : new PySlice(args[0], args[1], args.Length == 3 ? args[2] : PyNone.Instance);
+            }, 0, int.MaxValue, acceptsKwargs: true);
 
             GetSets<PyMemoryView>(PyType.MemoryViewType, (self, name) => self.Read(name), "obj", "nbytes", "readonly", "itemsize",
                 "format", "ndim", "shape", "strides", "suboffsets", "c_contiguous", "f_contiguous", "contiguous");
