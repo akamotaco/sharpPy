@@ -3714,165 +3714,27 @@ namespace SharpPy
         protected override System.Exception AttributeNotFound(string name)
             => PyAttributeError.Create($"type object '{Name}' has no attribute '{name}'");
 
-        private static readonly PyObject ObjectStr = new PyWrapperDescriptor("__str__", ObjectType,
-            (self, args, kwargs) => self.ToRepr());
+        protected internal override PyObject TpGetattro(string name) => TypeGetattro(name);
 
-        private static bool AnsweredByTheType(string name) => name is "__class__" or "__doc__" or "__name__"
-            or "__qualname__" or "__module__" or "__dict__" or "__mro__" or "__bases__" or "__base__"
-            or "__weakref__" or "__annotations__" or "__subclasses__" or "__call__";
-
-        protected internal override PyObject TpGetattro(string name)
+        /// <summary>
+        /// _Py_type_getattro_impl (Objects/typeobject.c): a data descriptor of the metatype; then
+        /// _PyType_Lookup of the type itself, through tp_descr_get(attribute, NULL, type); then what
+        /// the metatype holds, a non-data descriptor bound to the type or a plain value.
+        /// </summary>
+        internal PyObject TypeGetattro(string name)
         {
-            // CPython 3.12 호환: type_getattro() 구현
-            // Equivalent to _Py_type_getattro_impl in Objects/typeobject.c:4800
-
-            // Step 1: Look for attribute in metatype (Py_TYPE(type))
-            var metatype = GetPyType(); // For PyType, this is PyTypeMetaclass.Instance
-            PyObject metaAttribute = null;
-            IDescriptor metaGet = null;
-
-            // CPython: meta_attribute = _PyType_Lookup(metatype, name)
-            if (metatype is PyClass metaclass)
-            {
-                // Check ClassDict first
-                bool foundInClassDict = metaclass.ClassDict.TryGetValue(name, out metaAttribute);
-                if (foundInClassDict)
-                {
-                    // Check if it's a descriptor
-                    if (metaAttribute is IDescriptor descriptor)
-                    {
-                        metaGet = descriptor;
-
-                        // CPython: if (meta_get != NULL && PyDescr_IsData(meta_attribute))
-                        if (metaGet.IsDataDescriptor())
-                        {
-                            // Data descriptors on metatype have highest priority
-                            // Call descriptor.__get__(self, type(self))
-                            return metaGet.Get(this, metatype);
-                        }
-                    }
-                }
-
-                // CPython 3.12: Objects/typeobject.c:4747 - find_name_in_mro(type, name, &error)
-                // If not found in ClassDict, search through MRO (including base types' TypeDict)
-                // This is needed for __dict__, __format__ and other type descriptors
-                if (!foundInClassDict)
-                {
-                    // Search through metaclass MRO
-                    foreach (var mroType in metaclass.MRO)
-                    {
-                        if (mroType is PyType mroTypeDict && mroTypeDict.TypeDict != null)
-                        {
-                            if (mroTypeDict.TypeDict.TryGetValue(name, out metaAttribute))
-                            {
-                                // Found in MRO - check if it's a descriptor
-                                if (metaAttribute is IDescriptor descriptor)
-                                {
-                                    metaGet = descriptor;
-
-                                    // CPython: if (meta_get != NULL && PyDescr_IsData(meta_attribute))
-                                    if (metaGet.IsDataDescriptor())
-                                    {
-                                        // Data descriptors on metatype have highest priority
-                                        // Call descriptor.__get__(self, type(self))
-                                        return metaGet.Get(this, metatype);
-                                    }
-                                }
-                                break; // Found attribute, stop searching
-                            }
-                        }
-                    }
-                }
-            }
-            else if (metatype is PyType metatypeType)
-            {
-                // CPython: For PyType instances, check TypeDict
-                if (metatypeType.TypeDict != null && metatypeType.TypeDict.TryGetValue(name, out metaAttribute))
-                {
-                    // Check if it's a descriptor
-                    if (metaAttribute is IDescriptor descriptor)
-                    {
-                        metaGet = descriptor;
-
-                        // CPython: if (meta_get != NULL && PyDescr_IsData(meta_attribute))
-                        if (metaGet.IsDataDescriptor())
-                        {
-                            // Data descriptors on metatype have highest priority
-                            // Call descriptor.__get__(self, type(self))
-                            return metaGet.Get(this, metatype);
-                        }
-                    }
-                }
-            }
-
-            // Step 2: Look in tp_dict of this type (and its bases via MRO)
-            // CPython: attribute = _PyType_Lookup(type, name)
-            //
-            // CPython 3.12: Objects/typeobject.c:4844 - attribute = _PyType_Lookup(type, name)
-            // Phase 3: Check TypeDict (unified storage)
-            if (TypeDict != null && TypeDict.TryGetValue(name, out var typeDictAttr))
-            {
-                // Found in TypeDict - check if it's a descriptor
-                if (typeDictAttr is IDescriptor localDescriptor)
-                {
-                    // CPython 3.12: NULL 2nd argument indicates the descriptor was
-                    // found on the target object itself (or a base)
-                    return localDescriptor.Get(null, this);
-                }
-                return typeDictAttr;
-            }
-
-            // _PyType_Lookup walks the type's own MRO, so int.__str__ is object.__str__ and is found before the
-            // metatype's bound method (Objects/typeobject.c:4844). The names object's dict keeps for its
-            // instances are the type's own business, answered below.
-            if (MRO != null && MRO.Count > 0 && ReferenceEquals(MRO[0], this))
-            {
-                foreach (var m in MRO)
-                {
-                    if (ReferenceEquals(m, this) || (ReferenceEquals(m, ObjectType) && AnsweredByTheType(name)))
-                        continue;
-                    if (m.TypeDict != null && m.TypeDict.TryGetValue(name, out var inherited))
-                    {
-                        if (inherited is IDescriptor inheritedDescriptor)
-                            return inheritedDescriptor.Get(null, this);
-                        return inherited;
-                    }
-                }
-                // object_str. It is not in object's dict here because the C# paths for str() test that dict,
-                // but it is one object, as enum compares member_type.__str__ with object.__str__.
-                if (name == "__str__" && !ReferenceEquals(this, TypeType)) return ObjectStr;
-            }
-
-            // Check PyClass.GetTypeAttribute() for wrapper descriptors
-            {
-                var typeAttr = SharpPy.PyClass.GetTypeAttribute(this, name);
-                if (typeAttr != null)
-                {
-                    if (typeAttr is IDescriptor localDescriptor)
-                    {
-                        return localDescriptor.Get(null, this);
-                    }
-                    return typeAttr;
-                }
-            }
-
-            // Step 3: Use non-data descriptor from metatype (if found in step 1)
-            // CPython: if (meta_get != NULL) { res = meta_get(...); }
-            if (metaGet != null)
-            {
-                return metaGet.Get(this, metatype);
-            }
-
-            // Step 4: Return ordinary attribute from metatype
-            // CPython: if (meta_attribute != NULL) { return meta_attribute; }
+            var metatype = GetPyType();
+            var metaAttribute = metatype.FindNameInMro(name);
+            bool metaDescriptor = metaAttribute != null && SharpPy.PyClassInstance.IsDescriptor(metaAttribute);
+            if (metaDescriptor && SharpPy.PyClassInstance.IsDataDescriptor(metaAttribute))
+                return SharpPy.PyClassInstance.CallDescriptorGet(metaAttribute, this, metatype);
+            var attribute = FindNameInMro(name);
+            if (attribute != null)
+                return SharpPy.PyClassInstance.IsDescriptor(attribute)
+                    ? SharpPy.PyClassInstance.CallDescriptorGet(attribute, null, this) : attribute;
             if (metaAttribute != null)
-            {
-                return metaAttribute;
-            }
-
-            // Step 5: Give up - attribute not found
-            // CPython: PyErr_Format(PyExc_AttributeError, ...)
-            return GenericGetAttribute(name);
+                return metaDescriptor ? SharpPy.PyClassInstance.CallDescriptorGet(metaAttribute, this, metatype) : metaAttribute;
+            throw AttributeNotFound(name);
         }
 
         /// <summary>

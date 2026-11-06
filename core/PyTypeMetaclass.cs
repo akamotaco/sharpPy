@@ -54,41 +54,6 @@ namespace SharpPy
             base.InitializeDescriptors();
         }
 
-        // CPython 3.12: Objects/typeobject.c:5339 - PyType_Type.tp_getattro = _Py_type_getattro
-        // Override GetAttribute to use type_getattro logic (not PyClass custom logic)
-        // This ensures type object attributes invoke descriptors correctly
-        protected internal override PyObject TpGetattro(string name)
-        {
-            // CPython 3.12: Objects/typeobject.c:4800-4880 (type_getattro_impl)
-            // For PyType_Type, metatype = &PyType_Type (type is its own metaclass)
-            // Search in metatype's MRO for descriptors and invoke them with type as instance
-
-            var metatype = GetPyType(); // Returns this (type is its own metaclass)
-
-            // Search in MRO for descriptor
-            foreach (var mroType in MRO)
-            {
-                if (mroType is PyType pyType && pyType.TypeDict != null)
-                {
-                    PyObject attr = null;
-                    if ((pyType is PyClass cls && cls.ClassDict.TryGetValue(name, out attr)) || pyType.TypeDict.TryGetValue(name, out attr))
-                    {
-                        // Found attribute - check if it's a descriptor
-                        if (attr is IDescriptor descriptor)
-                        {
-                            // Data descriptors bind through the metatype; other
-                            // descriptors are found on type itself and stay unbound.
-                            return descriptor.Get(descriptor.IsDataDescriptor() ? this : null, metatype);
-                        }
-                        return attr;
-                    }
-                }
-            }
-
-            // Not found in MRO, fall back to base implementation
-            return base.TpGetattro(name);
-        }
-
         /// <summary>
         /// Creates the global type metaclass instance
         /// </summary>
