@@ -38,6 +38,10 @@ namespace SharpPy
         {
             // type is its own metaclass
             this.Metaclass = this;
+            // type is a static type with one tp_dict: what its table and its body hold, one dict.
+            foreach (var entry in TypeDict)
+                ClassDict.TryAdd(entry.Key, entry.Value);
+            TypeDict = ClassDict;
         }
 
         // CPython 3.12: Objects/typeobject.c:7163-7182 (type_ready_fill_dict)
@@ -175,49 +179,6 @@ namespace SharpPy
             typeClass.ClassDict["__text_signature__"] = new PyGetSetDescriptor("__text_signature__", typeClass,
                 self => self is PyClass ? PyNone.Instance : PyDocs.TextSignature(self));
 
-            // Add type.__format__ - CPython 3.12 (defaults to __str__)
-            // This descriptor is for type objects themselves
-            // Must be added AFTER typeClass is created so we can set OwnerType
-            typeClass.ClassDict["__format__"] = new PyMethodDescriptor(
-                "__format__",
-                typeClass, // OwnerType is the type metaclass itself
-                (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"__format__() takes exactly 1 argument ({args.Length} given)");
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__format__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    // CPython has no type.__format__; it resolves to object.__format__, so
-                    // an empty spec is str(self) (metaclass __str__ included) and a
-                    // non-empty spec raises naming type(obj), i.e. the metaclass.
-                    if (args[0] is not PyString spec)
-                        throw PyTypeError.Create($"__format__() argument must be str, not {args[0].GetTypeName()}");
-                    if (spec.Value.Length == 0)
-                        return type.AsString();
-                    throw PyTypeError.Create(
-                        $"unsupported format string passed to {type.GetPyType()?.Name ?? type.Name}.__format__");
-                },
-                minArgs: 1,
-                maxArgs: 1
-            );
-
-            // Add type.__reduce_ex__ - CPython 3.12 (pickle support)
-            typeClass.ClassDict["__reduce_ex__"] = new PyMethodDescriptor(
-                "__reduce_ex__",
-                typeClass,
-                (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"__reduce_ex__() takes exactly 1 argument ({args.Length} given)");
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__reduce_ex__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    // Return (type, (type.__name__,))
-                    return new PyTuple(new PyObject[] {
-                        typeClass,
-                        new PyTuple(new PyObject[] { new PyString(type.Name) })
-                    });
-                },
-                minArgs: 1,
-                maxArgs: 1
-            );
 
             #if DEBUG_LOG
             Console.WriteLine("✅ Global 'type' metaclass created successfully");

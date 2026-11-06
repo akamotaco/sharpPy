@@ -2530,47 +2530,9 @@ namespace SharpPy
             // CPython has no type.__str__ of its own: type.__str__ resolves to object.__str__,
             // object_str, the metaclass's tp_repr (measured: type.__str__(C) == 'META-repr:C').
 
-            // type.__format__ - CPython 3.12 (defaults to __str__)
-            TypeDict["__format__"] = new PyMethodDescriptor(
-                "__format__",
-                typeType,
-                (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"__format__() takes exactly 1 argument ({args.Length} given)");
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__format__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    // CPython has no type.__format__: this resolves to object.__format__,
-                    // so an empty spec yields str(self) (metaclass __str__ included) and a
-                    // non-empty spec raises, naming type(obj) - the metaclass.
-                    if (args[0] is not PyString spec)
-                        throw PyTypeError.Create($"__format__() argument must be str, not {args[0].GetTypeName()}");
-                    if (spec.Value.Length == 0)
-                        return type.AsString();
-                    throw PyTypeError.Create(
-                        $"unsupported format string passed to {type.GetPyType()?.Name ?? type.Name}.__format__");
-                },
-                minArgs: 1,
-                maxArgs: 1
-            );
-
-            // type.__reduce_ex__ - CPython 3.12 (pickle support)
-            TypeDict["__reduce_ex__"] = new PyMethodDescriptor(
-                "__reduce_ex__",
-                typeType,
-                (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"__reduce_ex__() takes exactly 1 argument ({args.Length} given)");
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__reduce_ex__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    // Return (type, (type.__name__,))
-                    return new PyTuple(new PyObject[] {
-                        TypeType,
-                        new PyTuple(new PyObject[] { new PyString(type.Name) })
-                    });
-                },
-                minArgs: 1,
-                maxArgs: 1
-            );
+            // type___dir___impl: METH_NOARGS, the names of the class and its bases.
+            TypeDict["__dir__"] = new PyMethodDescriptor("__dir__", typeType,
+                (self, args, kwargs) => new PyList(DefaultDirNames(self).ConvertAll(n => (PyObject)new PyString(n))), minArgs: 0, maxArgs: 0);
         }
 
         /// <summary>
