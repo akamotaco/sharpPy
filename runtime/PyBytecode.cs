@@ -602,7 +602,7 @@ namespace SharpPy
         public override PyType GetPyType() => CodePyType;
 
         // CPython: code object attributes are read-only (Objects/codeobject.c).
-        public override void SetAttribute(string name, PyObject value)
+        protected internal override void TpSetattro(string name, PyObject value)
             => throw PyAttributeError.Create("readonly attribute");
 
         // CPython 3.12 호환: co_* 속성들 지원

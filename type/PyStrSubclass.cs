@@ -153,12 +153,8 @@ namespace SharpPy
         internal override PyObject GenericGetAttr(string name) =>
             name == "_value_" && !InstanceDict.ContainsKey("_value_")
                 ? _strValue
-                : SubclassInstanceSupport.GenericGetAttribute(this, _class, InstanceDict, name, base.TpGetattro);
+                : base.GenericGetAttr(name);
 
-        public override void SetAttribute(string name, PyObject value)
-        {
-            SubclassInstanceSupport.SetAttribute(this, (PyClass)GetPyType(), InstanceDict, name, value);
-        }
 
         #endregion
 

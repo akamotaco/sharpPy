@@ -52,18 +52,18 @@ namespace SharpPy
             return base.TpGetattro(name);
         }
 
-        public override void SetAttribute(string name, PyObject value)
+        protected internal override void TpSetattro(string name, PyObject value)
         {
             if (name == "__dict__" || TypeHasDataDescriptor(name))
-                base.SetAttribute(name, value);
+                base.TpSetattro(name, value);
             else
                 InstanceDict[name] = value;
         }
 
-        public override void DelAttribute(string name)
+        protected internal override void TpDelattro(string name)
         {
             if (name == "__dict__" || TypeHasDataDescriptor(name))
-                base.DelAttribute(name);
+                base.TpDelattro(name);
             else if (!InstanceDict.Remove(name))
                 throw PyAttributeError.Create(name);
         }

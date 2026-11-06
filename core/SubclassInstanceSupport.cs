@@ -55,21 +55,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// _PyObject_GenericGetAttrWithDict (Objects/object.c): a data descriptor of the type, then the
-        /// instance dict, then a non-data descriptor or plain attribute of the type. Only what a
-        /// Python class body holds is answered here; a builtin's attribute goes to nativeGetAttribute,
-        /// the builtin's own tp_getattro.
-        /// </summary>
-        internal static PyObject GenericGetAttribute(PyObject self, PyClass instanceType,
-            Dictionary<string, PyObject> instanceDict, string name, Func<string, PyObject> nativeGetAttribute)
-        {
-            // A heap class adds a __dict__ after the base's layout; the live view over the same store.
-            if (name == "__dict__" && instanceType.InstancesHaveDict())
-                return PyGlobalsDict.For(instanceDict);
-            return GenericGetAttrWithDict(self, instanceType, name, instanceDict, null) ?? nativeGetAttribute(name);
-        }
-
-        /// <summary>
         /// _PyObject_GenericGetAttrWithDict (Objects/object.c) for an instance of a class written in
         /// Python: a data descriptor of the type, then the instance dict (dict, else accessor), then
         /// a non-data descriptor or plain value that a class body holds. Null when the name is
@@ -109,13 +94,6 @@ namespace SharpPy
             return true;
         }
 
-        /// <summary>tp_setattro of a Python class over a builtin: the hook, else the generic set.</summary>
-        internal static void SetAttribute(PyObject self, PyClass instanceType,
-            Dictionary<string, PyObject> instanceDict, string name, PyObject value)
-        {
-            if (!SetattroHook(self, instanceType, name, value))
-                GenericSetAttribute(self, instanceType, instanceDict, name, value);
-        }
 
         /// <summary>_PyObject_GenericSetAttrWithDict over the dict kept beside the value.</summary>
         internal static void GenericSetAttribute(PyObject self, PyClass instanceType,

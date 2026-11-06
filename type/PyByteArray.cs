@@ -1064,11 +1064,6 @@ namespace SharpPy
 
         public override PyType GetPyType() => _type;
 
-        internal override PyObject GenericGetAttr(string name) =>
-            SubclassInstanceSupport.GenericGetAttribute(this, (PyClass)_type, InstanceDict, name, n => base.TpGetattro(n));
-
-        public override void SetAttribute(string name, PyObject value) =>
-            SubclassInstanceSupport.SetAttribute(this, (PyClass)_type, InstanceDict, name, value);
     }
 
 }

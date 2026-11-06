@@ -725,7 +725,7 @@ public partial class PyFunction : PyObject, IDescriptor
     }
     
     // PyObject_GenericSetAttr: a data descriptor takes the assignment and may refuse it.
-    public override void SetAttribute(string name, PyObject value)
+    protected internal override void TpSetattro(string name, PyObject value)
     {
         if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is IDescriptor { } getset && getset.IsDataDescriptor())
             getset.Set(this, value);
@@ -735,7 +735,7 @@ public partial class PyFunction : PyObject, IDescriptor
             Attributes[name] = value;
     }
 
-    public override void DelAttribute(string name)
+    protected internal override void TpDelattro(string name)
     {
         // descr_delete on a getset is the same slot as descr_set with NULL (Objects/descrobject.c)
         if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is IDescriptor { } getset && getset.IsDataDescriptor())

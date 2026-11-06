@@ -112,7 +112,7 @@ namespace SharpPy
             return _hash.Value;
         }
 
-        public override void SetAttribute(string name, PyObject value)
+        protected internal override void TpSetattro(string name, PyObject value)
         {
             throw PyAttributeError.Create(
                 $"'weakref.ReferenceType' object has no attribute '{name}'");
@@ -159,11 +159,6 @@ namespace SharpPy
         public override PyType GetPyType() => InstanceType;
         public override string GetTypeName() => InstanceType.Name;
 
-        internal override PyObject GenericGetAttr(string name) =>
-            SubclassInstanceSupport.GenericGetAttribute(this, InstanceType, InstanceDict, name, n => base.TpGetattro(n));
-
-        public override void SetAttribute(string name, PyObject value) =>
-            SubclassInstanceSupport.SetAttribute(this, InstanceType, InstanceDict, name, value);
 
         // update_one_slot: a class that declares the method replaces the slot, otherwise the ref's own
         // slot stays. The type's method table calls the Slot* methods, so super().__call__() ends there.

@@ -57,9 +57,9 @@ namespace SharpPy
             int index = Array.IndexOf(Fields, name);
             return index >= 0 ? Items[index] : base.TpGetattro(name);
         }
-        public override void SetAttribute(string name, PyObject value)
+        protected internal override void TpSetattro(string name, PyObject value)
             => throw PyAttributeError.Create(Array.IndexOf(Fields, name) >= 0 ? "readonly attribute" : $"'UnraisableHookArgs' object has no attribute '{name}'");
-        public override void DelAttribute(string name) => SetAttribute(name, PyNone.Instance);
+        protected internal override void TpDelattro(string name) => SetAttribute(name, PyNone.Instance);
         protected internal override PyString Repr()
         {
             var parts = new string[5];

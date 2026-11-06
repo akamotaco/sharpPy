@@ -223,13 +223,8 @@ public class PyModule : PyObject
             : $"module has no attribute '{name}'");
     }
     
-    public override void SetAttribute(string name, PyObject value)
-    {
-        // slot_tp_setattro of a module subclass, else module_setattro.
-        if (_type is PyClass heap && SubclassInstanceSupport.SetattroHook(this, heap, name, value))
-            return;
-        ModuleSetAttro(name, value);
-    }
+    // module_setattro; a module subclass's __setattr__ is its type's slot.
+    protected internal override void TpSetattro(string name, PyObject value) => ModuleSetAttro(name, value);
 
     internal void ModuleSetAttro(string name, PyObject value)
     {
@@ -268,19 +263,14 @@ public class PyModule : PyObject
 
     
     // module_setattro with NULL: the name goes from the module's dict.
-    public override void DelAttribute(string name)
-    {
-        if (_type is PyClass heap && SubclassInstanceSupport.SetattroHook(this, heap, name, null))
-            return;
-        ModuleDelAttro(name);
-    }
+    protected internal override void TpDelattro(string name) => ModuleDelAttro(name);
 
     internal void ModuleDelAttro(string name)
     {
         if (name == "__dict__")
             throw PyAttributeError.Create("readonly attribute");
         if (!ModuleDict.Remove(name))
-            base.DelAttribute(name);
+            base.TpDelattro(name);
     }
 
     // 모듈 실행 (소스 코드 실행) - 전체 Python 인터프리터 파이프라인 사용

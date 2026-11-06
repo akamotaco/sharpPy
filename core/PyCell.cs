@@ -71,10 +71,10 @@ namespace SharpPy
             });
         }
 
-        public override void DelAttribute(string name)
+        protected internal override void TpDelattro(string name)
         {
             if (name == "cell_contents") _value = null;
-            else base.DelAttribute(name);
+            else base.TpDelattro(name);
         }
 
         // cell_getsetlist (Objects/cellobject.c): cell_contents.
@@ -84,10 +84,10 @@ namespace SharpPy
             return HasValue ? _value : throw PyValueError.Create("Cell is empty");
         }
 
-        public override void SetAttribute(string name, PyObject value)
+        protected internal override void TpSetattro(string name, PyObject value)
         {
             if (name == "cell_contents") _value = value;
-            else base.SetAttribute(name, value);
+            else base.TpSetattro(name, value);
         }
         
         public override string GetTypeName() => "cell";

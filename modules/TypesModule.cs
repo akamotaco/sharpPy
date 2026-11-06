@@ -79,24 +79,16 @@ namespace SharpPy.Modules
         public override PyType GetPyType() => _type;
         public override string GetTypeName() => _type.FullName;
 
-        internal override PyObject GenericGetAttr(string name) => _type is PyClass heap
-            ? SubclassInstanceSupport.GenericGetAttribute(this, heap, InstanceDict, name, base.TpGetattro)
-            : TpGetattro(name);
-
-        public override void SetAttribute(string name, PyObject value)
+        protected internal override void TpSetattro(string name, PyObject value)
         {
-            if (_type is PyClass heap)
-                SubclassInstanceSupport.SetAttribute(this, heap, InstanceDict, name, value);
-            else if (name == "__dict__")
+            if (name == "__dict__")
                 throw PyAttributeError.Create("readonly attribute");
             else
                 InstanceDict[name] = value;
         }
 
-        public override void DelAttribute(string name)
+        protected internal override void TpDelattro(string name)
         {
-            if (_type is PyClass heap && SubclassInstanceSupport.SetattroHook(this, heap, name, null))
-                return;
             if (!InstanceDict.Remove(name))
                 throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
         }

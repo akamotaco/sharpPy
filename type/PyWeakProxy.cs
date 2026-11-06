@@ -44,9 +44,9 @@ namespace SharpPy
 
         protected internal override PyObject TpGetattro(string name) => Target.GetAttribute(name);
 
-        public override void SetAttribute(string name, PyObject value) => Target.SetAttribute(name, value);
+        protected internal override void TpSetattro(string name, PyObject value) => Target.SetAttribute(name, value);
 
-        public override void DelAttribute(string name) => Target.DelAttribute(name);
+        protected internal override void TpDelattro(string name) => Target.DelAttribute(name);
 
         public override bool IsInstance(PyType type) => base.IsInstance(type) || Target.IsInstance(type);
 

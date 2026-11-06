@@ -2040,18 +2040,8 @@ namespace SharpPy
 
                     // CPython 3.12: object.__setattr__ uses _PyObject_GenericSetAttrWithDict
                     // which is the "default" behavior without __setattr__ lookup
-                    if (self is SharpPy.PyClassInstance instance)
-                    {
-                        instance.SetAttributeDefault(nameStr.Value, args[1]);
-                    }
-                    else if (self is PyModule module)
-                        module.ModuleSetAttro(nameStr.Value, args[1]);
                     // A heap instance's tp_setattro may be slot_tp_setattro; this is the generic set.
-                    else if (self.GetPyType() is SharpPy.PyClass heap)
-                        self.GenericSetAttr(heap, nameStr.Value, args[1]);
-                    // A builtin's tp_setattro is the generic one.
-                    else
-                        self.SetAttribute(nameStr.Value, args[1]);
+                    self.GenericSetAttr(nameStr.Value, args[1]);
                     return PyNone.Instance;
                 },
                 minArgs: 2,
@@ -2074,16 +2064,7 @@ namespace SharpPy
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
 
                     // CPython 3.12: object.__delattr__ uses _PyObject_GenericSetAttrWithDict with value=NULL
-                    if (self is SharpPy.PyClassInstance instance)
-                    {
-                        instance.DelAttributeDefault(nameStr.Value);
-                    }
-                    else if (self is PyModule module)
-                        module.ModuleDelAttro(nameStr.Value);
-                    else if (self.GetPyType() is SharpPy.PyClass)
-                        self.GenericDelAttr(nameStr.Value);
-                    else
-                        self.DelAttribute(nameStr.Value);
+                    self.GenericDelAttr(nameStr.Value);
                     return PyNone.Instance;
                 },
                 minArgs: 1,

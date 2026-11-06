@@ -23,7 +23,7 @@ namespace SharpPy
         internal int TraceLine = -1;
         internal int TraceLastInstruction;
 
-        public override void SetAttribute(string name, PyObject value)
+        protected internal override void TpSetattro(string name, PyObject value)
         {
             switch (name)
             {
@@ -36,7 +36,7 @@ namespace SharpPy
                 case "f_trace_opcodes":
                     break;
                 default:
-                    base.SetAttribute(name, value);
+                    base.TpSetattro(name, value);
                     break;
             }
         }

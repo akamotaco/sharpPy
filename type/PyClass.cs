@@ -60,10 +60,10 @@ namespace SharpPy
             var hook = _getattr;
             var method = _getattribute;
             if (hook == null)
-                return method == null ? self.GenericGetAttr(name) : CallGetattrMethod(self, method, name);
+                return method == null ? self.InheritedGetattro(name) : CallGetattrMethod(self, method, name);
             try
             {
-                return method == null ? self.GenericGetAttr(name) : CallGetattrMethod(self, method, name);
+                return method == null ? self.InheritedGetattro(name) : CallGetattrMethod(self, method, name);
             }
             catch (PythonException error) when (error.PyException is PyAttributeError)
             {
@@ -910,7 +910,7 @@ namespace SharpPy
             }
         }
 
-        public override void SetAttribute(string name, PyObject value)
+        protected internal override void TpSetattro(string name, PyObject value)
         {
             // slot_tp_setattro on the metatype.
             var hook = MetaclassHook("__setattr__");
@@ -937,7 +937,7 @@ namespace SharpPy
             return null;
         }
 
-        public override void DelAttribute(string name)
+        protected internal override void TpDelattro(string name)
         {
             var hook = MetaclassHook("__delattr__");
             if (hook != null)
@@ -1819,25 +1819,13 @@ namespace SharpPy
             return SubclassInstanceSupport.GenericGetAttrWithDict(this, InstanceType, name, null, this) ?? base.TpGetattro(name);
         }
 
-        public override void SetAttribute(string name, PyObject value)
+        // PyObject_GenericSetAttr; object_set_class answers __class__.
+        internal override void GenericSetAttr(string name, PyObject value)
         {
-            // object_set_class
             if (name == "__class__")
-            {
                 InstanceType = SubclassInstanceSupport.ClassAssignment(InstanceType, value);
-                return;
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 PyClassInstance.SetAttribute: {InstanceType.Name} instance.{name} = {value}");
-            #endif
-
-            // slot_tp_setattro (Objects/typeobject.c)
-            if (SubclassInstanceSupport.SetattroHook(this, InstanceType, name, value))
-                return;
-
-            // No user __setattr__, use default behavior
-            SetAttributeDefault(name, value);
+            else
+                SetAttributeDefault(name, value);
         }
 
         /// <summary>
@@ -1882,19 +1870,7 @@ namespace SharpPy
         /// CPython 3.12: Objects/typeobject.c:8893-8910 (slot_tp_setattro)
         /// Override DelAttribute to check for user-defined __delattr__ method.
         /// </summary>
-        public override void DelAttribute(string name)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 PyClassInstance.DelAttribute: {InstanceType.Name} instance.{name}");
-            #endif
-
-            // slot_tp_setattro without a value
-            if (SubclassInstanceSupport.SetattroHook(this, InstanceType, name, null))
-                return;
-
-            // No user __delattr__, use default behavior
-            DelAttributeDefault(name);
-        }
+        internal override void GenericDelAttr(string name) => DelAttributeDefault(name);
 
         /// <summary>
         /// CPython 3.12: _PyObject_GenericSetAttrWithDict with value=NULL (Objects/object.c:1563-1572)
@@ -2046,11 +2022,6 @@ namespace SharpPy
 
         // User-defined descriptors, methods and the instance __dict__ live in the Python class dict,
         // which CLR inheritance cannot see. Shared with PyBytesSubclass.
-        internal override PyObject GenericGetAttr(string name) =>
-            SubclassInstanceSupport.GenericGetAttribute(this, InstanceType, InstanceDict, name, n => base.TpGetattro(n));
-
-        public override void SetAttribute(string name, PyObject value) =>
-            SubclassInstanceSupport.SetAttribute(this, InstanceType, InstanceDict, name, value);
     }
 
 #region Super Implementation

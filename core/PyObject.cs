@@ -471,7 +471,12 @@ namespace SharpPy
 
             // A Python subclass of a builtin with no storage of its own for attributes.
             if (_customType is PyClass heap && this is not IDictBackedInstance)
-                return SubclassInstanceSupport.GenericGetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, PyGetAttribute);
+            {
+                var attributes = HeapAttributes.GetOrCreateValue(this);
+                if (name == "__dict__" && heap.InstancesHaveDict())
+                    return PyGlobalsDict.For(attributes);
+                return SubclassInstanceSupport.GenericGetAttrWithDict(this, heap, name, attributes, null) ?? PyGetAttribute(name);
+            }
 
             // An instance dict kept beside a native value (IDictBackedInstance) is its __dict__.
             if (name == "__dict__" && this is IDictBackedInstance dictAccessor && (GetPyType() is not PyClass heapOwner || heapOwner.InstancesHaveDict()))
@@ -484,14 +489,71 @@ namespace SharpPy
         /// without the __getattribute__/__getattr__ hook of a Python class. A builtin's own
         /// GetAttribute is both.
         /// </summary>
-        internal virtual PyObject GenericGetAttr(string name) => TpGetattro(name);
+        /// <summary>
+        /// The tp_getattro a Python class inherits from its builtin base when it writes neither
+        /// __getattribute__ nor __getattr__: PyObject_GenericGetAttr unless the base has its own.
+        /// </summary>
+        internal virtual PyObject InheritedGetattro(string name) => GenericGetAttr(name);
 
-        public virtual void SetAttribute(string name, PyObject value)
+        internal virtual PyObject GenericGetAttr(string name)
         {
-            // slot_tp_setattro of a class written in Python, before the type's own set. A class
-            // object's is type_setattro, with its metaclass hooks of its own.
-            if (this is not PyType && GetPyType() is PyClass heapType && SubclassInstanceSupport.SetattroHook(this, heapType, name, value))
-                return;
+            // A Python class over a builtin keeps its instance dict beside the value: the generic
+            // lookup over it, then what the builtin base holds (its tp_getattro).
+            if (this is IDictBackedInstance owner && this is not PyType && GetPyType() is PyClass heap)
+            {
+                if (name == "__dict__" && heap.InstancesHaveDict())
+                    return PyGlobalsDict.For(owner.InstanceDict);
+                return SubclassInstanceSupport.GenericGetAttrWithDict(this, heap, name, owner.InstanceDict, null) ?? TpGetattro(name);
+            }
+            return TpGetattro(name);
+        }
+
+        /// <summary>
+        /// PyObject_SetAttr: the type's tp_setattro. A class written in Python has slot_tp_setattro,
+        /// its __setattr__, else PyObject_GenericSetAttr (GenericSetAttr); a class object's is
+        /// type_setattro, its own TpSetattro.
+        /// </summary>
+        public void SetAttribute(string name, PyObject value)
+        {
+            if (this is not PyType && GetPyType() is PyClass heap)
+            {
+                if (!SubclassInstanceSupport.SetattroHook(this, heap, name, value))
+                    GenericSetAttr(name, value);
+            }
+            else
+                TpSetattro(name, value);
+        }
+
+        /// <summary>PyObject_SetAttr with no value: tp_setattro asked to delete.</summary>
+        public void DelAttribute(string name)
+        {
+            if (this is not PyType && GetPyType() is PyClass heap)
+            {
+                if (!SubclassInstanceSupport.SetattroHook(this, heap, name, null))
+                    GenericDelAttr(name);
+            }
+            else
+                TpDelattro(name);
+        }
+
+        /// <summary>
+        /// PyObject_GenericSetAttr, object.__setattr__: for a Python class over a builtin, the
+        /// generic set over the instance dict kept beside the value; else the CLR type's own.
+        /// </summary>
+        internal virtual void GenericSetAttr(string name, PyObject value)
+        {
+            if (this is IDictBackedInstance owner && GetPyType() is PyClass heap)
+                SubclassInstanceSupport.GenericSetAttribute(this, heap, owner.InstanceDict, name, value);
+            else
+                TpSetattro(name, value);
+        }
+
+        /// <summary>PyObject_GenericSetAttr with no value, object.__delattr__.</summary>
+        internal virtual void GenericDelAttr(string name) => TpDelattro(name);
+
+        /// <summary>tp_setattro of the CLR type: PyObject_GenericSetAttr by default.</summary>
+        protected internal virtual void TpSetattro(string name, PyObject value)
+        {
             if (name == "__class__")
                 throw PyTypeError.Create(value is PyType ? "__class__ assignment only supported for mutable types or ModuleType subclasses" : $"__class__ must be set to a class, not '{value.GetTypeName()}' object");
 
@@ -503,14 +565,8 @@ namespace SharpPy
 
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PyObject, Dictionary<string, PyObject>> HeapAttributes = new();
 
-        public virtual void DelAttribute(string name)
-        {
-            if (this is not PyType && GetPyType() is SharpPy.PyClass heap && SubclassInstanceSupport.SetattroHook(this, heap, name, null)) return;
-            GenericDelAttr(name);
-        }
-
-        /// <summary>PyObject_GenericSetAttr with no value, object.__delattr__ of a heap instance.</summary>
-        internal void GenericDelAttr(string name)
+        /// <summary>tp_setattro of the CLR type asked to delete.</summary>
+        protected internal virtual void TpDelattro(string name)
         {
             if (this is IDictBackedInstance owner && PyGlobalsDict.Delete(owner.InstanceDict, name)) return;
             if (this is not IDictBackedInstance && _customType is SharpPy.PyClass &&
@@ -518,10 +574,6 @@ namespace SharpPy
             PyDelAttribute(name);
         }
 
-        /// <summary>PyObject_GenericSetAttr, object.__setattr__ of a heap instance other than PyClassInstance.</summary>
-        internal void GenericSetAttr(SharpPy.PyClass heap, string name, PyObject value) =>
-            SubclassInstanceSupport.GenericSetAttribute(this, heap,
-                this is IDictBackedInstance owner ? owner.InstanceDict : HeapAttributes.GetOrCreateValue(this), name, value);
 
         // 내부 attribute 처리 메서드들 (MRO 기반)
         protected virtual PyObject PyGetAttribute(string name)
