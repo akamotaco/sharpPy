@@ -240,7 +240,8 @@ internal static class PyExceptionSlots
         PyUnicodeError.AllocatingBlank = unicode;
         try
         {
-            instance.Layout = (PyBaseException)builtin.Call(new PyObject[0], null);
+            // tp_alloc of the nearest builtin: the struct, without its tp_new or tp_init.
+            instance.Layout = (PyBaseException)builtin.CreateInstance(new PyObject[0], null);
         }
         finally
         {

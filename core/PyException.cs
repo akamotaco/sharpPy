@@ -1847,7 +1847,7 @@ namespace SharpPy
                     PyObject created;
                     try
                     {
-                        created = ((PyType)cls).Call(new PyObject[0], null);
+                        created = ((PyType)cls).CreateInstance(new PyObject[0], null);
                     }
                     finally
                     {

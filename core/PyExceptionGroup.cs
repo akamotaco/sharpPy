@@ -233,6 +233,22 @@ namespace SharpPy
         /// <summary>BaseExceptionGroup_members and BaseExceptionGroup_methods (METH_VARARGS).</summary>
         internal static void InstallOn(PyType type)
         {
+            // BaseExceptionGroup_new, which ExceptionGroup inherits: the arguments make the group; a
+            // Python subclass allocates as every exception class does, and fills the struct there.
+            var inherited = (PyNewMethodDescriptor)PyType.BaseExceptionType.TypeDict["__new__"];
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
+            {
+                if (cls is PyClass)
+                {
+                    var forwarded = new PyObject[args.Length + 1];
+                    forwarded[0] = cls;
+                    System.Array.Copy(args, 0, forwarded, 1, args.Length);
+                    return inherited.CallTpNew(forwarded, kwargs);
+                }
+                var group = NewGroup(args, (PyType)cls);
+                PyExceptionSlots.StoreArgs(group, args);
+                return group;
+            }, 0, int.MaxValue, acceptsKwargs: true) { TpNew = inherited };
             type.TypeDict["message"] = new PyMemberDescriptor("message", type, self => Of(self).Msg, readOnly: true);
             type.TypeDict["exceptions"] = new PyMemberDescriptor("exceptions", type, self => Of(self).Excs, readOnly: true);
             type.TypeDict["derive"] = new PyMethodDescriptor("derive", type, (self, args, kwargs) => Of(self).DeriveImpl(args));

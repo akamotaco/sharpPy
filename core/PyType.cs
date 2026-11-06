@@ -1004,7 +1004,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"cannot create '{FullName}' instances");
             // type_call: tp_new, then tp_init when what came back is an instance of the type.
             var newSlot = FindNameInMro("__new__");
-            if (ConstructedByNewSlot || (newSlot != null && (!ReferenceEquals(newSlot, ObjectNewDescriptor()) || ReferenceEquals(this, ObjectType)) && !IsSubclassOf(BaseExceptionType)))
+            if (ConstructedByNewSlot || (newSlot != null && (!ReferenceEquals(newSlot, ObjectNewDescriptor()) || ReferenceEquals(this, ObjectType))))
             {
                 var slotArgs = new PyObject[args.Length + 1];
                 slotArgs[0] = this;
