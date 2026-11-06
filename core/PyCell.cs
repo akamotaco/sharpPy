@@ -71,24 +71,6 @@ namespace SharpPy
             });
         }
 
-        protected internal override void TpDelattro(string name)
-        {
-            if (name == "cell_contents") _value = null;
-            else base.TpDelattro(name);
-        }
-
-        // cell_getsetlist (Objects/cellobject.c): cell_contents.
-        protected internal override PyObject TpGetattro(string name)
-        {
-            if (name != "cell_contents") return base.TpGetattro(name);
-            return HasValue ? _value : throw PyValueError.Create("Cell is empty");
-        }
-
-        protected internal override void TpSetattro(string name, PyObject value)
-        {
-            if (name == "cell_contents") _value = value;
-            else base.TpSetattro(name, value);
-        }
         
         public override string GetTypeName() => "cell";
         

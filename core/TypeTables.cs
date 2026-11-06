@@ -103,9 +103,18 @@ namespace SharpPy
             Compared(code);
 
             var frame = PyFrame.FramePyType;
-            GetSets<PyFrame>(frame, (self, name) => self.Read(name), "f_back", "f_locals", "f_lineno", "f_trace", "f_lasti",
-                "f_globals", "f_builtins", "f_code", "f_trace_opcodes");
-            Members<PyFrame>(frame, (self, name) => self.Read(name), "f_trace_lines");
+            GetSets<PyFrame>(frame, (self, name) => self.Read(name), "f_back", "f_locals", "f_lineno", "f_lasti",
+                "f_globals", "f_builtins", "f_code");
+            // frame_settrace: None or a deletion clears it.
+            frame.TypeDict["f_trace"] = new PyGetSetDescriptor("f_trace", frame, self => ((PyFrame)self).Read("f_trace"),
+                (self, value) => ((PyFrame)self).Trace = value is PyNone ? null : value, deleter: self => ((PyFrame)self).Trace = null);
+            // frame_settrace_opcodes: a bool, which this interpreter does not act on.
+            frame.TypeDict["f_trace_opcodes"] = new PyGetSetDescriptor("f_trace_opcodes", frame, self => ((PyFrame)self).Read("f_trace_opcodes"),
+                (self, value) => { if (value is not PyBool) throw PyTypeError.Create("attribute value type must be bool"); });
+            // frame_memberlist: f_trace_lines is a T_BOOL member.
+            frame.TypeDict["f_trace_lines"] = new PyMemberDescriptor("f_trace_lines", frame, self => ((PyFrame)self).Read("f_trace_lines"),
+                (self, value) => ((PyFrame)self).TraceLines = value is PyBool flag ? flag.Value : throw PyTypeError.Create("attribute value type must be bool"),
+                deleter: self => throw PyTypeError.Create("can't delete numeric/char attribute"));
             Methods<PyFrame>(frame, (self, name) => self.Read(name), "clear");
             Repr(frame);
 

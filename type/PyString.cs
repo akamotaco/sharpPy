@@ -3527,17 +3527,6 @@ namespace SharpPy
 
         #region String Methods
 
-        protected internal override PyObject TpGetattro(string name)
-        {
-            // CPython resolves str methods through the type: str.__dict__ holds the real
-            // method_descriptor objects. Every name that used to be answered by an instance-level
-            // closure here (upper, lower, title, strip, lstrip, rstrip, replace, split, join, find,
-            // count, encode, isidentifier, startswith, endswith) is registered as a descriptor in
-            // strType.TypeDict, so the closures only shadowed them: keyword acceptance
-            // (METH_KEYWORDS), arity messages and descriptor identity were decided by a duplicate path
-            // instead of by the descriptor. Deleting the shadow makes the descriptor authoritative.
-            return base.TpGetattro(name);
-        }
 
         private PyObject Strip(PyObject[] args)
         {

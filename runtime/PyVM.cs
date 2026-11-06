@@ -23,24 +23,6 @@ namespace SharpPy
         internal int TraceLine = -1;
         internal int TraceLastInstruction;
 
-        protected internal override void TpSetattro(string name, PyObject value)
-        {
-            switch (name)
-            {
-                case "f_trace":
-                    Trace = value is PyNone ? null : value;
-                    break;
-                case "f_trace_lines":
-                    TraceLines = value.IsTrue();
-                    break;
-                case "f_trace_opcodes":
-                    break;
-                default:
-                    base.TpSetattro(name, value);
-                    break;
-            }
-        }
-
         public int InstructionPointer { get; set; }
 
         // CPython 3.12: Frame chain for proper call stack tracking

@@ -1209,15 +1209,6 @@ namespace SharpPy
 
         #region CPython Compatible Methods (Attribute Access)
 
-        /// <summary>
-        /// CPython 호환: 딕셔너리 메서드들을 속성으로 접근
-        /// CPython 3.12: GenericGetAttribute를 사용하여 descriptor protocol 따름
-        /// </summary>
-        protected override PyObject PyGetAttribute(string name)
-        {
-            // CPython 3.12: Use GenericGetAttribute to follow descriptor protocol
-            return GenericGetAttribute(name);
-        }
 
         #endregion
 

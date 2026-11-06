@@ -245,16 +245,6 @@ public interface IDescriptor
         public override PyObject LookupAttribute(string name) =>
             name == "__set_name__" ? GetAttribute(name) : base.LookupAttribute(name);
 
-        protected internal override void TpSetattro(string name, PyObject value)
-        {
-            if (name == "__doc__")
-                _doc = value;
-            else
-                base.TpSetattro(name, value);
-        }
-
-        protected internal override PyObject TpGetattro(string name) =>
-            name == "__doc__" ? _doc ?? PyNone.Instance : GenericGetAttribute(name);
 
         public override string GetTypeName() => GetPyType().Name;
         public override PyType GetPyType() => _customType ?? PyType.PropertyType;

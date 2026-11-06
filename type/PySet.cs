@@ -78,15 +78,6 @@ namespace SharpPy
 
         #region Python Method Access
 
-        /// <summary>
-        /// CPython 3.12: Use descriptor protocol for attribute access
-        /// </summary>
-        protected internal override PyObject TpGetattro(string name)
-        {
-            // CPython 3.12: Use GenericGetAttribute to follow descriptor protocol
-            // This will find methods from PyType.SetType.Descriptors
-            return GenericGetAttribute(name);
-        }
 
         #endregion
 

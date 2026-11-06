@@ -225,16 +225,6 @@ namespace SharpPy
 
         protected internal override bool Bool() => true;
 
-        /// <summary>
-        /// CPython 3.12: Use descriptor protocol for attribute access
-        /// </summary>
-        protected internal override PyObject TpGetattro(string name)
-        {
-            // A Python subclass keeps its attributes beside the object, which PyObject's route reads.
-            if (_customType is PyClass)
-                return base.TpGetattro(name);
-            return GenericGetAttribute(name);
-        }
 
         #region IDisposable Implementation
 

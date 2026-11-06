@@ -950,11 +950,6 @@ namespace SharpPy
             return CompareBool(a, b, CompareOp.EQ);
         }
 
-        // CPython 3.12: Use descriptor protocol for attribute access
-        protected internal override PyObject TpGetattro(string name)
-        {
-            return GenericGetAttribute(name);
-        }
 
         // 이터레이터 지원
         protected internal override PyObject Iter() => RawIterator();
