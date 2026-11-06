@@ -611,21 +611,6 @@ namespace SharpPy
             return this; // type.__class__ == type
         }
 
-        /// <summary>type_call for type itself (Objects/typeobject.c:1627).</summary>
-        internal override PyObject TypeCall(PyObject[] args, PyDict kwargs)
-        {
-            bool noKeywords = kwargs == null || kwargs.Length() == 0;
-            if (args.Length == 1 && noKeywords) return args[0].GetPyType();
-            if (args.Length != 3) throw PyTypeError.Create("type() takes 1 or 3 arguments");
-            var created = TypeNew(new[] { this, args[0], args[1], args[2] }, kwargs);
-            // tp_init of what came out, which a more derived metaclass may have made.
-            if (created is PyType)
-            {
-                var init = created.LookupSpecialMethodUncached("__init__");
-                if (init != null) created.BindSpecialMethod(init).Call(args, kwargs);
-            }
-            return created;
-        }
 
 
         // CPython 3.12: No need to override GetAttribute anymore

@@ -1002,6 +1002,16 @@ namespace SharpPy
         {
             if (Layout.NoInstances)
                 throw PyTypeError.Create($"cannot create '{FullName}' instances");
+            // type_vectorcall / type_call: type(x) is Py_TYPE(x); otherwise type() takes three arguments.
+            if (this is PyTypeMetaclass)
+            {
+                if (args.Length == 1)
+                    return kwargs == null || kwargs.Length() == 0
+                        ? args[0].GetPyType()
+                        : throw PyTypeError.Create("type() takes no keyword arguments");
+                if (args.Length != 3)
+                    throw PyTypeError.Create("type() takes 1 or 3 arguments");
+            }
             var newSlot = FindNameInMro("__new__", out bool newWritten);
             if (ConstructedByNewSlot || this is PyClass ||
                 (newSlot != null && (!ReferenceEquals(newSlot, ObjectNewDescriptor()) || ReferenceEquals(this, ObjectType))))
