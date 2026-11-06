@@ -68,8 +68,6 @@ namespace SharpPy
             // type_new behind tp_new: type.__new__(metacls, name, bases, namespace, **kwargs)
             classDict["__new__"] = new PyStaticBuiltinMethod("__new__", TypeNew);
 
-            // type___prepare__: a classmethod that makes the namespace.
-            classDict["__prepare__"] = new PyClassmethod(new PyBuiltinFunction("__prepare__", (args, kwargs) => new PyDict()));
 
             // CPython 3.12: Add all getset_descriptors (matches CPython's type_getsets[])
             // These descriptors provide attribute access for type objects
@@ -91,6 +89,10 @@ namespace SharpPy
             // 1. Calls InitializeTypeTypeDescriptors() to add type_getsets to TypeDict
             // 2. Calls base.InitializeDescriptors() for PyClass-specific descriptors
             var typeClass = new PyTypeMetaclass("type", baseTypes, classDict);
+
+            // type___prepare__: METH_FASTCALL|METH_KEYWORDS|METH_CLASS, an empty namespace whatever it is given.
+            typeClass.ClassDict["__prepare__"] = new PyClassMethodDescriptor("__prepare__", typeClass,
+                new PyBuiltinFunction("__prepare__", (args, kwargs) => new PyDict()));
 
             // type_mro_impl (TYPE_MRO_METHODDEF, METH_NOARGS): mro_implementation computed again from
             // the bases, not the __mro__ the type holds.

@@ -132,6 +132,13 @@ namespace SharpPy
 
         internal PyStaticmethod(PyType type, PyObject callable) : base(type, callable) { }
 
+        /// <summary>
+        /// A METH_STATIC entry of a builtin's methods: add_methods wraps the function, created with
+        /// the type as its self, in a staticmethod (Objects/typeobject.c).
+        /// </summary>
+        internal static PyStaticmethod ForBuiltin(PyType type, string name, System.Func<PyObject[], PyDict, PyObject> body) =>
+            new(new PyStaticBuiltinMethod(name, body, type));
+
         // sm_descr_get
         public override PyObject Get(PyObject instance, PyType owner) =>
             Callable ?? throw PyRuntimeError.Create("uninitialized staticmethod object");

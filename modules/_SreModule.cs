@@ -20,8 +20,7 @@ namespace SharpPy.Modules
                 PyPatternType = new PyType("Pattern", new[] { PyType.ObjectType }, "re");
                 PyMatchType = new PyType("Match", new[] { PyType.ObjectType }, "re");
                 foreach (var type in new[] { PyPatternType, PyMatchType })
-                    type.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
-                        (cls, key) => new SharpPy.PyGenericAlias((PyType)cls, key));
+                    type.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(type);
                 TypeTables.InstallSre(PyPatternType, PyMatchType);
             }
 

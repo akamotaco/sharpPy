@@ -2939,9 +2939,7 @@ namespace SharpPy
 
             // CPython 3.12: Objects/setobject.c:2343
             // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
-            setType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
-                (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
-            );
+            setType.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(setType);
         }
 
         /// <summary>
@@ -2980,9 +2978,7 @@ namespace SharpPy
 
             // CPython 3.12: Objects/setobject.c:2304
             // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
-            frozensetType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
-                (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
-            );
+            frozensetType.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(frozensetType);
 
             // frozenset.__new__(cls, iterable=(), /) - Objects/setobject.c:1003 frozenset_new:
             //   if ((type == &PyFrozenSet_Type || type->tp_init == PyFrozenSet_Type.tp_init)

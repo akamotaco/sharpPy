@@ -501,9 +501,7 @@ namespace SharpPy
             // CPython 3.12: Objects/listobject.c:2867 (list methods table)
             // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
             // METH_CLASS means it's a classmethod - first arg is the class itself
-            listType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
-                (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
-            );
+            listType.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(listType);
         }
 
         private List<PyObject> _items;

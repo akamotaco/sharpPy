@@ -1155,12 +1155,12 @@ namespace SharpPy
                 PyObject result = ReferenceEquals(type, PyType.BytesType) ? new PyBytes(value) : new PyByteArray(value);
                 return ReferenceEquals(cls, type) ? result : cls.Call(new[] { result }, null);
             }));
-            type.TypeDict["maketrans"] = new PyStaticBuiltinMethod("maketrans", (args, kwargs) =>
+            type.TypeDict["maketrans"] = PyStaticmethod.ForBuiltin(type, "maketrans", (args, kwargs) =>
             {
                 if (kwargs != null && kwargs.Length() != 0)
                     throw PyTypeError.Create($"{type.Name}.maketrans() takes no keyword arguments");
                 return MakeTrans(args);
-            }, type);
+            });
         }
     }
 }

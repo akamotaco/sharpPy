@@ -214,8 +214,7 @@ namespace SharpPy.Modules
                     return new ChainObject((PyType)args[0], rest[0].GetIterator());
                 }));
             Pickled<ChainObject>(ChainType, o => o.Reduce(), (o, s) => o.SetState(s));
-            ChainType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
-                (cls, arg) => new SharpPy.PyGenericAlias((PyType)cls, arg));
+            ChainType.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(ChainType);
             ProductType = Spec("product", ProductObject.New);
             Pickled<ProductObject>(ProductType, o => o.Reduce(), (o, s) => o.SetState(s));
             Method<ProductObject>(ProductType, "__sizeof__", PyCall.NoArgs, (o, args) => o.SizeOf());

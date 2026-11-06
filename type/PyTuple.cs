@@ -200,9 +200,7 @@ namespace SharpPy
 
             // CPython 3.12: Objects/tupleobject.c:576
             // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
-            tupleType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
-                (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
-            );
+            tupleType.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(tupleType);
         }
 
         #region Core Properties

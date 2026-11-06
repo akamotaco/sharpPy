@@ -1004,7 +1004,7 @@ namespace SharpPy.Modules
             type.TypeDict["__add__"] = new PyWrapperDescriptor("__add__", type, (self, args, kwargs) => self.Add(args[0]));
             type.TypeDict["__mul__"] = new PyWrapperDescriptor("__mul__", type, (self, args, kwargs) => self.Multiply(args[0]));
             type.TypeDict["__rmul__"] = new PyWrapperDescriptor("__rmul__", type, (self, args, kwargs) => self.Multiply(args[0]));
-            type.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__", (cls, arg) => new SharpPy.PyGenericAlias((PyType)cls, arg));
+            type.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(type);
             TypeTables.Repr(type);
             TypeTables.Compared(type);
             type.TypeDict["__iadd__"] = new PyMethodDescriptor("__iadd__", type, (self, args, kwargs) =>

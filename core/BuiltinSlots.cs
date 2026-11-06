@@ -334,7 +334,7 @@ namespace SharpPy
 
             foreach (var generic in new[] { PyType.BaseExceptionGroupType, PyType.GetIteratorType("enumerate"), PyType.MappingProxyType, PyType.WeakRefType })
                 if (!generic.TypeDict.ContainsKey("__class_getitem__"))
-                    generic.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__", (cls, arg) => new PyGenericAlias((PyType)cls, arg));
+                    generic.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(generic);
 
             PyBaseExceptionGroup.InstallOn(PyType.BaseExceptionGroupType);
 

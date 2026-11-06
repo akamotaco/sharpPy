@@ -61,7 +61,7 @@ namespace SharpPy.Core
             type.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", type, self => ((PyAsyncGenerator)self).Qualname,
                 (self, value) => ((PyAsyncGenerator)self).Qualname = NameArgument(value, "__qualname__"));
             type.TypeDict["ag_await"] = new PyGetSetDescriptor("ag_await", type, self => ((PyAsyncGenerator)self)._generator.GetYieldFromReceiver() ?? PyNone.Instance);
-            type.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__", (cls, arg) => new PyGenericAlias((PyType)cls, arg));
+            type.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(type);
         }
 
         // gen_set_name, gen_set_qualname

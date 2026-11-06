@@ -22,6 +22,20 @@ namespace SharpPy
         internal string Name => _name;
         internal PyType OwnerType => _ownerType;
 
+        /// <summary>
+        /// __class_getitem__ of a builtin generic: {"__class_getitem__", Py_GenericAlias,
+        /// METH_O|METH_CLASS} (PEP 585).
+        /// </summary>
+        internal static PyClassMethodDescriptor GenericAliasGetItem(PyType type) => new("__class_getitem__", type,
+            new PyBuiltinFunction("__class_getitem__", (args, kwargs) =>
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create($"{type.Name}.__class_getitem__() takes no keyword arguments");
+                if (args.Length != 2)
+                    throw PyTypeError.Create($"{type.Name}.__class_getitem__() takes exactly one argument ({args.Length - 1} given)");
+                return new PyGenericAlias((PyType)args[0], args[1]);
+            }));
+
         public PyClassMethodDescriptor(string name, PyType ownerType, PyObject callable)
         {
             _name = name;
@@ -96,7 +110,7 @@ namespace SharpPy
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1)
-                throw PyTypeError.Create($"descriptor '{_name}' of '{_ownerType.Name}' object needs an argument");
+                throw PyTypeError.Create($"descriptor '{_name}' of '{_ownerType.FullName}' object needs an argument");
             var bound = ClassMethodGet(null, args[0]);
             return bound.Call(args[1..], kwargs);
         }
@@ -104,7 +118,7 @@ namespace SharpPy
         public override bool IsCallable() => true;
 
         // method_repr
-        protected internal override PyString Repr() => new PyString($"<method '{_name}' of '{_ownerType.Name}' objects>");
+        protected internal override PyString Repr() => new PyString($"<method '{_name}' of '{_ownerType.FullName}' objects>");
 
         public override string GetTypeName() => "classmethod_descriptor";
         public override PyType GetPyType() => PyType.ClassMethodDescriptorType;

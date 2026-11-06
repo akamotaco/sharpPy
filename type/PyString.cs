@@ -1520,8 +1520,13 @@ namespace SharpPy
                 },
                 minArgs: 1, maxArgs: 3
             );
-            // Wrap in classmethod descriptor
-            strType.TypeDict["maketrans"] = new PyClassMethodDescriptor("maketrans", strType, maketransMethod);
+            // unicode_maketrans: METH_VARARGS|METH_STATIC.
+            strType.TypeDict["maketrans"] = PyStaticmethod.ForBuiltin(strType, "maketrans", (args, kwargs) =>
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("str.maketrans() takes no keyword arguments");
+                return maketransMethod._implementation(strType, args, kwargs);
+            });
 
             // CPython 3.12: Objects/unicodeobject.c:13010-13014 - unicode_translate
             // Translate string using translation table

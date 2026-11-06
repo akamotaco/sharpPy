@@ -69,7 +69,7 @@ namespace SharpPy.Modules
                 return PyNone.Instance;
             });
             Method(type, "__sizeof__", PyCall.NoArgs, (d, args) => new PyInt(d.SizeOf()));
-            type.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__", (cls, arg) => new SharpPy.PyGenericAlias((PyType)cls, arg));
+            type.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(type);
             type.TypeDict["maxlen"] = new PyGetSetDescriptor("maxlen", type,
                 self => Self(self).MaxLen < 0 ? PyNone.Instance : new PyInt(Self(self).MaxLen));
             type.TypeDict["__hash__"] = PyNone.Instance;
