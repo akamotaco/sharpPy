@@ -1581,21 +1581,9 @@ namespace SharpPy
 
         // _PyObject_GenericSetAttrWithDict's _PyType_Lookup: the first level of the MRO that names it,
         // which counts when it is a data descriptor.
-        internal static PyObject FindDataDescriptorInMro(SharpPy.PyClass type, string name)
-        {
-            foreach (var mroType in type.MRO)
-            {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
-                    return IsDataDescriptor(classValue) ? classValue : null;
-                else if (mroType is PyType builtinLevel && !(mroType is PyClass))
-                {
-                    var levelAttr = SharpPy.PyClass.GetTypeAttribute(builtinLevel, name);
-                    if (levelAttr != null)
-                        return IsDataDescriptor(levelAttr) ? levelAttr : null;
-                }
-            }
-            return null;
-        }
+        // _PyType_Lookup, and whether what it found has tp_descr_set.
+        internal static PyObject FindDataDescriptorInMro(PyType type, string name) =>
+            type.FindNameInMro(name) is { } found && IsDataDescriptor(found) ? found : null;
 
         /// <summary>
         /// CPython 3.12: Call descriptor's __delete__ method

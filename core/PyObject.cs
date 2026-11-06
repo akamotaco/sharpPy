@@ -763,167 +763,32 @@ namespace SharpPy
         protected virtual System.Exception AttributeNotFound(string name)
             => PyAttributeError.CreateFor(this, name, $"'{GetTypeName()}' object has no attribute '{name}'");
 
-        protected virtual void PySetAttribute(string name, PyObject value)
+        protected virtual void PySetAttribute(string name, PyObject value) => GenericSetOrDelete(name, value);
+
+        /// <summary>PyObject_GenericSetAttr with value=NULL.</summary>
+        protected virtual void PyDelAttribute(string name) => GenericSetOrDelete(name, null);
+
+        // type_setattro refuses every write on a static type before any lookup; anything else is
+        // _PyObject_GenericSetAttrWithDict over the instance dict the CLR type keeps, if any.
+        private void GenericSetOrDelete(string name, PyObject value)
         {
-            // CPython type_setattro rejects ALL writes on a static (non-heap) type
-            // BEFORE descriptor lookup: TypeError "cannot set '<n>' attribute of
-            // immutable type '<T>'". Native builtins are non-heap; PyClass is heap.
-            if (this is PyType nativeType && !(nativeType is PyClass))
+            if (this is PyType nativeType && nativeType is not SharpPy.PyClass)
             {
-                // One narrow exception, measured: CPython's io.UnsupportedOperation is built as a
-                // heap type, so Lib/io.py may end with UnsupportedOperation.__module__ = "io",
-                // while the same write on ValueError, OSError, _io._IOBase or _io.StringIO is
-                // rejected. type_set_module stores the value in the type dict, which is what this
-                // does for the opted-in types (core/PyType.AllowsModuleAssignment).
-                if (nativeType.AllowsModuleAssignment && name == "__module__")
+                // io.UnsupportedOperation is a heap type in CPython, so Lib/io.py may set its __module__.
+                if (value != null && nativeType.AllowsModuleAssignment && name == "__module__")
                 {
                     nativeType.TypeDict["__module__"] = value;
                     return;
                 }
                 throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{nativeType.Name}'");
             }
-
-            var type = GetPyType();
-
-            // 1. CPython resolves the name with _PyType_Lookup, i.e. the MERGED type dict: a user class
-            //    frame and a native type frame are the same tp_dict there. The loop used to look only at
-            //    PyClass frames, so a getset published in float's TypeDict was invisible to assignment
-            //    and setattr(2.5, "real", 1) answered "'float' object has no attribute 'real'" instead of
-            //    the getset's own "attribute 'real' of 'float' objects is not writable".
-            PyObject resolved = type.FindNameInMro(name);
-
-            if (resolved is IDescriptor descriptor && descriptor.IsDataDescriptor())
-            {
-                descriptor.Set(this, value);
-                return;
-            }
-
-            // 2. instance dictionary에 저장
-            if (HasInstanceDict(out var owner))
-            {
-                PyGlobalsDict.Store(owner.InstanceDict, name, value);
-            }
-            else if (this is PyClassInstance instance)
-            {
-                instance.SetInstanceAttribute(name, value);
-            }
-            else if (this is PyClass customType)
-            {
-                customType.ClassDict[name] = value;
-                customType.InvalidateTypeCache();
-            }
-            else if (this is IObjectDict holder)
-            {
-                holder.ObjectDict(true).SetItem(new PyString(name), value);
-            }
-            else
-            {
-                // No instance dict to write into. CPython splits this by whether the name resolved at all
-                // (Objects/object.c:1589-1599): something without a setter is read-only, nothing is
-                // "has no attribute".
-                if (resolved != null)
-                    throw PyAttributeError.Create(
-                        $"'{GetTypeName()}' object attribute '{name}' is read-only");
-                throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
-            }
+            Dictionary<string, PyObject> dict = HasInstanceDict(out var owner) ? owner.InstanceDict : null;
+            IInstanceDictStore store = dict != null ? null
+                : this as IInstanceDictStore ?? (this is IObjectDict holder ? new SubclassInstanceSupport.ObjectDictStore(holder) : null);
+            SubclassInstanceSupport.GenericSetAttrWithDict(this, GetPyType(), name, value, dict, store);
         }
 
-        /// <summary>
-        /// CPython PyObject_GenericSetAttr 호환: 속성 삭제 (value=NULL로 SetAttr 호출)
-        /// Descriptor 프로토콜 지원 (data descriptor의 Delete 메서드 호출)
-        /// </summary>
-        protected virtual void PyDelAttribute(string name)
-        {
-            // CPython 3.12 compatible: PyObject_GenericSetAttr with value=NULL
-            // References: Objects/object.c _PyObject_GenericSetAttrWithDict()
-            // Static (non-heap) types reject every deletion: TypeError immutable.
-            if (this is PyType nativeType && !(nativeType is PyClass))
-                throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{nativeType.Name}'");
-
-            // Objects/typeobject.c:5712-5719: __class__ is a getset whose setter rejects deletion with
-            // TypeError before any MRO search, so delattr(obj, "__class__") is
-            // "can't delete __class__ attribute" for every object whose type is writable.
-            if (name == "__class__")
-                throw PyTypeError.Create("can't delete __class__ attribute");
-
-            var type = GetPyType();
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 PyDelAttribute: deleting '{name}' from {GetTypeName()}");
-            Console.WriteLine($"   → searching class MRO for descriptors");
-            #endif
-
-            // 1. _PyType_Lookup
-            PyObject attr = type.FindNameInMro(name);
-            IDescriptor descriptor = attr as IDescriptor;
-
-            // 2. If data descriptor found with Delete capability, use it (CPython: tp_descr_set)
-            if (descriptor != null && descriptor.IsDataDescriptor())
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   → data descriptor found, calling Delete()");
-                #endif
-                try
-                {
-                    descriptor.Delete(this);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   ✅ descriptor.Delete() succeeded");
-                    #endif
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   ❌ descriptor.Delete() failed: {ex.Message}");
-                    #endif
-                    throw;
-                }
-            }
-
-            // 3. Try to delete from instance dictionary (CPython: instance __dict__ handling)
-            #if DEBUG_LOG
-            Console.WriteLine($"   → no data descriptor, trying instance dict");
-            #endif
-
-            if (HasInstanceDict(out var owner) && PyGlobalsDict.Delete(owner.InstanceDict, name))
-                return;
-            if (this is PyClassInstance instance)
-            {
-                if (instance.RemoveInstanceAttribute(name))
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   ✅ deleted from instance dict");
-                    #endif
-                    return;
-                }
-            }
-            if (this is IObjectDict holder && holder.ObjectDict(false) is { } ownDict)
-            {
-                var key = new PyString(name);
-                if (ownDict.ContainsKey(key))
-                {
-                    ownDict.DelItem(key);
-                    return;
-                }
-            }
-
-            // 4. CPython's _PyObject_GenericSetAttrWithDict(..., value=NULL) splits at
-            //    Objects/object.c:1589-1599.  When the object has no instance dict, a name that DID
-            //    resolve to something without tp_descr_set reports
-            //    "'int' object attribute '__add__' is read-only", while an unresolved name reports
-            //    "'str' object has no attribute 'real'".  When the object DOES have an instance dict the
-            //    delete falls into that dict, so even a class attribute that resolved answers
-            //    "'C' object has no attribute 'cls_attr'" - measured, and the reason the dict-carrying
-            //    cases are excluded from the read-only text.  (Writable-but-read-only descriptors such as
-            //    int.real never get here: their own Delete slot raises, see core/PyDescriptor.cs.)
-            #if DEBUG_LOG
-            Console.WriteLine($"   ❌ attribute not deletable, raising AttributeError");
-            #endif
-            if (attr != null && !(this is PyClassInstance) && !(this is IInstanceDictAccessor) && !(this is IObjectDict))
-                throw PyAttributeError.Create(
-                    $"'{GetTypeName()}' object attribute '{name}' is read-only");
-            throw AttributeNotFound(name);
-        }
+        internal System.Exception NoSuchAttribute(string name) => AttributeNotFound(name);
 
         #endregion
 

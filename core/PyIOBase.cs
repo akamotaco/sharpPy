@@ -52,8 +52,7 @@ public class PyIOBaseInstance : PyObject, IDictBackedInstance
     /// readlines(), next() and writelines() all surface that AttributeError.
     /// </summary>
     protected override System.Exception AttributeNotFound(string name)
-        => PyAttributeError.Create(
-            $"'{type.Module ?? "_io"}.{type.Name}' object has no attribute '{name}'");
+        => PyAttributeError.Create($"'{type.FullName}' object has no attribute '{name}'");
 
     /// <summary>
     /// CPython drives io iteration through tp_iter / tp_iternext (iobase_iter returns self and
@@ -68,36 +67,6 @@ public class PyIOBaseInstance : PyObject, IDictBackedInstance
     }
 
     protected internal override PyObject IterNext() => PyIOBaseSlots.IterNext(this);
-
-    /// <summary>
-    /// iobase carries __dict__ (iobase_members exposes __dictoffset__), so instance attributes
-    /// are writable: io.IOBase().x = 5 works in CPython. PyObject.PySetAttribute only writes
-    /// the dict of a PyClassInstance, so this CLR-side io object routes the write itself.
-    /// </summary>
-    protected override void PySetAttribute(string name, PyObject value)
-    {
-        // PyObject_GenericSetAttr: a data descriptor of the type comes before the dict.
-        foreach (var type in GetPyType().MRO)
-        {
-            var entries = type is PyClass cls ? cls.ClassDict : type.TypeDict;
-            if (entries != null && entries.TryGetValue(name, out var found))
-            {
-                if (found is IDescriptor descriptor && descriptor.IsDataDescriptor())
-                {
-                    descriptor.Set(this, value);
-                    return;
-                }
-                break;
-            }
-        }
-        dict[name] = value;
-    }
-
-    protected override void PyDelAttribute(string name)
-    {
-        if (!dict.Remove(name))
-            throw AttributeNotFound(name);
-    }
 }
 
 /// <summary>

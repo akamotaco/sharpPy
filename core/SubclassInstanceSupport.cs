@@ -98,41 +98,63 @@ namespace SharpPy
 
 
         /// <summary>
-        /// _PyObject_GenericSetAttrWithDict (Objects/object.c) for an instance of a class written in
-        /// Python, value null to delete: a data descriptor of the type sets or deletes; else the
-        /// instance dict (dict, else the instance's own store), which a class without __dict__
-        /// lacks. object's __class__ getset (object_set_class) refuses deletion.
+        /// _PyObject_GenericSetAttrWithDict (Objects/object.c), value null to delete: a data
+        /// descriptor of the type sets or deletes; else the instance dict - the dict given, else the
+        /// store given - which an object without __dict__ lacks. object's __class__ getset
+        /// (object_set_class) refuses deletion.
         /// </summary>
-        internal static void GenericSetAttrWithDict(PyObject self, PyClass instanceType, string name, PyObject value,
+        internal static void GenericSetAttrWithDict(PyObject self, PyType type, string name, PyObject value,
             Dictionary<string, PyObject> dict, IInstanceDictStore store)
         {
             if (name == "__class__" && value == null)
                 throw PyTypeError.Create("can't delete __class__ attribute");
-            var descriptor = PyClassInstance.FindDataDescriptorInMro(instanceType, name);
+            var descriptor = PyClassInstance.FindDataDescriptorInMro(type, name);
             if (descriptor != null)
             {
                 if (value == null) PyClassInstance.CallDescriptorDelete(descriptor, self);
                 else PyClassInstance.CallDescriptorSet(descriptor, self, value);
                 return;
             }
-            bool hasDict = instanceType.InstancesHaveDict();
+            bool hasDict = type is PyClass heap ? heap.InstancesHaveDict() : dict != null || store != null;
             if (value == null)
             {
-                if (dict != null ? PyGlobalsDict.Delete(dict, name) : store.RemoveInstanceAttribute(name))
+                if (dict != null ? PyGlobalsDict.Delete(dict, name) : store != null && store.RemoveInstanceAttribute(name))
                     return;
-                throw NoAttribute(self, instanceType, name, hasDict);
+                throw NoAttribute(self, type, name, hasDict);
             }
-            if (!hasDict && !instanceType.IsSlottedAttributeName(name))
-                throw NoAttribute(self, instanceType, name, hasDict);
+            if (!hasDict && !(type is PyClass slotted && slotted.IsSlottedAttributeName(name)))
+                throw NoAttribute(self, type, name, hasDict);
             if (dict != null) PyGlobalsDict.Store(dict, name, value);
             else store.SetInstanceAttribute(name, value);
         }
 
-        // A name the class holds but that is no data descriptor is read-only without an instance dict.
-        private static Exception NoAttribute(PyObject self, PyClass type, string name, bool hasDict) =>
-            PyAttributeError.Create(!hasDict && type.LookupInMRO(name) != null
-                ? $"'{self.GetTypeName()}' object attribute '{name}' is read-only"
-                : $"'{self.GetTypeName()}' object has no attribute '{name}'");
+        // A name the type holds but that is no data descriptor is read-only without an instance dict.
+        private static Exception NoAttribute(PyObject self, PyType type, string name, bool hasDict) =>
+            !hasDict && type.FindNameInMro(name) != null
+                ? PyAttributeError.Create($"'{self.GetTypeName()}' object attribute '{name}' is read-only")
+                : self.NoSuchAttribute(name);
+
+        /// <summary>A builtin's own PyDict as the store _PyObject_GenericSetAttrWithDict writes.</summary>
+        internal sealed class ObjectDictStore : IInstanceDictStore
+        {
+            private readonly IObjectDict _holder;
+            internal ObjectDictStore(IObjectDict holder) => _holder = holder;
+            public void SetInstanceAttribute(string name, PyObject value) => _holder.ObjectDict(true).SetItem(new PyString(name), value);
+            public bool RemoveInstanceAttribute(string name)
+            {
+                var dict = _holder.ObjectDict(false);
+                var key = new PyString(name);
+                if (dict == null || !dict.ContainsKey(key)) return false;
+                dict.DelItem(key);
+                return true;
+            }
+            public bool TryGetInstanceAttribute(string name, out PyObject value)
+            {
+                value = null;
+                return _holder.ObjectDict(false) is { } dict && dict.TryGetStoredValue(new PyString(name), out value);
+            }
+            public IEnumerable<KeyValuePair<string, PyObject>> InstanceAttributes => Array.Empty<KeyValuePair<string, PyObject>>();
+        }
 
         /// <summary>The generic set over the dict kept beside a builtin's value; value null to delete.</summary>
         internal static void GenericSetAttribute(PyObject self, PyClass instanceType,
