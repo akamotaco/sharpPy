@@ -1449,7 +1449,8 @@ namespace SharpPy
             written = false;
             if (this is SharpPy.PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out var classValue))
             {
-                written = true;
+                // type is a static type whose dict this runtime keeps in a class body.
+                written = this is not PyTypeMetaclass;
                 return classValue;
             }
             if (TypeDict != null && TypeDict.TryGetValue(name, out var typeValue))
@@ -2016,12 +2017,6 @@ namespace SharpPy
 
                     if (args[0] is not PyString nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
-
-                    // A metaclass's or a module subclass's own __getattribute__ may be what called this.
-                    if (self is PyClass cls)
-                        return cls.TypeGetAttribute(nameStr.Value);
-                    if (self is PyModule module)
-                        return module.ModuleGetAttro(nameStr.Value);
 
                     // PyObject_GenericGetAttr, without the hook of the instance's Python class.
                     return self.GenericGetAttr(nameStr.Value);

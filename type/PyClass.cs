@@ -484,9 +484,6 @@ namespace SharpPy
             // PEP 698: @override 데코레이터 - CPython compatible (no runtime validation at class creation)
             // ValidateOverrideDecorators(); // Disabled for CPython compatibility
 
-            // CPython 3.12: Objects/typeobject.c:6800-6996 (inherit_slots)
-            // 부모 타입의 슬롯 메서드 상속
-            InheritSlotMethods(baseTypes);
         }
 
         public new PyObject CreateInstance(params PyObject[] args)
@@ -612,50 +609,6 @@ namespace SharpPy
             return instance;
         }
 
-        /// <summary>
-        /// CPython 3.12: Objects/typeobject.c:6800-6996 (inherit_slots)
-        /// 부모 builtin 타입의 슬롯 메서드 상속
-        /// 슬롯 정의는 core/SlotDefs.cs에 테이블화됨
-        /// </summary>
-        private void InheritSlotMethods(PyType[] bases)
-        {
-            foreach (var baseType in bases)
-            {
-                // builtin 타입만 슬롯 메서드 상속 (Python 클래스는 일반 MRO 사용)
-                if (!SlotDefs.IsBuiltinType(baseType))
-                    continue;
-
-                // 특수 메서드 슬롯 상속
-                foreach (var slotMethod in SlotDefs.InheritableSlots)
-                {
-                    // Hash lookup must follow the MRO: copying int.__hash__ here
-                    // would hide an earlier Python mixin's hash (or hash=None).
-                    // Comparison descriptors also resolve through the MRO; do
-                    // not duplicate six native wrappers in every subclass dict.
-                    if (slotMethod is "__hash__" or "__lt__" or "__le__" or "__eq__" or "__ne__" or "__gt__" or "__ge__") continue;
-                    // 현재 클래스에 없고 부모에 있으면 상속
-                    if (!TypeDict.ContainsKey(slotMethod) &&
-                        baseType.TypeDict.TryGetValue(slotMethod, out var method))
-                    {
-                        TypeDict[slotMethod] = method;
-                    }
-                }
-
-                // dict 서브클래스인 경우 매핑 메서드도 상속
-                if (baseType == PyType.DictType)
-                {
-                    foreach (var mappingMethod in SlotDefs.MappingMethods)
-                    {
-                        if (!TypeDict.ContainsKey(mappingMethod) &&
-                            baseType.TypeDict.TryGetValue(mappingMethod, out var method))
-                        {
-                            TypeDict[mappingMethod] = method;
-                        }
-                    }
-                }
-            }
-        }
-
         public bool HasMethod(string name)
         {
             return MRO.OfType<PyClass>().Any(t => t.ClassDict.ContainsKey(name));
@@ -752,26 +705,8 @@ namespace SharpPy
 
         protected internal override PyObject IterNext() => InvokeNextMethod();
 
-        // tp_getattro of a class: a metaclass may replace it, or catch what is missing.
-        protected internal override PyObject TpGetattro(string name)
-        {
-            if (Metaclass == null || ReferenceEquals(Metaclass, PyTypeMetaclass.Instance))
-                return TypeGetAttribute(name);
-            var getAttribute = Metaclass.LookupInMRO("__getattribute__");
-            var missing = Metaclass.LookupInMRO("__getattr__");
-            bool replaced = !ReferenceEquals(getAttribute, PyTypeMetaclass.Instance.LookupInMRO("__getattribute__")) &&
-                !ReferenceEquals(getAttribute, PyType.ObjectType.TypeDict["__getattribute__"]);
-            try
-            {
-                return replaced
-                    ? BindSpecialMethod(getAttribute).Call(new PyObject[] { new PyString(name) }, null)
-                    : TypeGetAttribute(name);
-            }
-            catch (PythonException error) when (missing != null && error.PyException is PyAttributeError)
-            {
-                return BindSpecialMethod(missing).Call(new PyObject[] { new PyString(name) }, null);
-            }
-        }
+        // type_getattro; a metaclass written in Python has its slot in PyObject_GetAttr.
+        protected internal override PyObject TpGetattro(string name) => TypeGetAttribute(name);
 
         // _Py_type_getattro_impl
         internal PyObject TypeGetAttribute(string name)
@@ -910,41 +845,10 @@ namespace SharpPy
             }
         }
 
-        protected internal override void TpSetattro(string name, PyObject value)
-        {
-            // slot_tp_setattro on the metatype.
-            var hook = MetaclassHook("__setattr__");
-            if (hook != null)
-            {
-                CallSpecial(hook, new PyString(name), value);
-                return;
-            }
-            TypeSetAttribute(name, value);
-        }
+        // type_setattro; a metaclass's __setattr__/__delattr__ is its slot in PyObject_SetAttr.
+        protected internal override void TpSetattro(string name, PyObject value) => TypeSetAttribute(name, value);
 
-        // A Python class in the metaclass's MRO may replace type's slot; type and object cannot.
-        private PyObject MetaclassHook(string name)
-        {
-            if (GetPyType() is not PyClass metaclass || metaclass is PyTypeMetaclass)
-                return null;
-            foreach (var level in metaclass.MRO)
-            {
-                if (level is not PyClass python || level is PyTypeMetaclass)
-                    return null;
-                if (python.ClassDict.TryGetValue(name, out var found))
-                    return found;
-            }
-            return null;
-        }
-
-        protected internal override void TpDelattro(string name)
-        {
-            var hook = MetaclassHook("__delattr__");
-            if (hook != null)
-                CallSpecial(hook, new PyString(name));
-            else
-                PyDelAttribute(name);
-        }
+        protected internal override void TpDelattro(string name) => PyDelAttribute(name);
 
         internal void TypeDeleteAttribute(string name) => PyDelAttribute(name);
 

@@ -461,10 +461,14 @@ namespace SharpPy
         /// <summary>
         /// PyObject_GetAttr: the type's tp_getattro. A class written in Python has the slot
         /// update_one_slot gave it (slot_tp_getattr_hook when it writes __getattribute__ or has a
-        /// __getattr__); a class object's is type_getattro, its own TpGetattro.
+        /// __getattr__), a metaclass for its classes as any class for its instances; type's is
+        /// type_getattro, the class object's own TpGetattro.
         /// </summary>
         public PyObject GetAttribute(string name) =>
-            this is not PyType && GetPyType() is SharpPy.PyClass heap ? heap.GetattroSlot(this, name) : TpGetattro(name);
+            HeapType() is { } heap ? heap.GetattroSlot(this, name) : TpGetattro(name);
+
+        // Py_TYPE(o) when it is a heap type, a class written in Python; type itself is static.
+        private SharpPy.PyClass HeapType() => GetPyType() is SharpPy.PyClass heap && heap is not PyTypeMetaclass ? heap : null;
 
         /// <summary>tp_getattro of the CLR type: the builtin's own, PyObject_GenericGetAttr by default.</summary>
         protected internal virtual PyObject TpGetattro(string name)
@@ -518,7 +522,7 @@ namespace SharpPy
         /// </summary>
         public void SetAttribute(string name, PyObject value)
         {
-            if (this is not PyType && GetPyType() is PyClass heap)
+            if (HeapType() is { } heap)
             {
                 if (!SubclassInstanceSupport.SetattroHook(this, heap, name, value))
                     GenericSetAttr(name, value);
@@ -530,7 +534,7 @@ namespace SharpPy
         /// <summary>PyObject_SetAttr with no value: tp_setattro asked to delete.</summary>
         public void DelAttribute(string name)
         {
-            if (this is not PyType && GetPyType() is PyClass heap)
+            if (HeapType() is { } heap)
             {
                 if (!SubclassInstanceSupport.SetattroHook(this, heap, name, null))
                     GenericDelAttr(name);
