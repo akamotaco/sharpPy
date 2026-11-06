@@ -261,7 +261,7 @@ namespace SharpPy
                 "__init__", listType,
                 (self, args, kwargs) => {
                     if (args.Length > 1)
-                        throw PyTypeError.Create($"list.__init__() takes at most 1 argument ({args.Length} given)");
+                        throw PyTypeError.Create($"list expected at most 1 argument, got {args.Length}");
                     // list___init__: keywords are refused unless a subclass has its own __new__.
                     if (kwargs != null && kwargs.Length() != 0 &&
                         (self.GetPyType() is not PyClass heap || ReferenceEquals(heap.LookupInMRO("__new__"), PyType.ObjectType.TypeDict["__new__"]) ||

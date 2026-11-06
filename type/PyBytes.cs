@@ -210,7 +210,8 @@ namespace SharpPy
                     var rest = args.Length > 1 ? args[1..] : System.Array.Empty<PyObject>();
                     if (requested is PyClass requestedClass && !ReferenceEquals(requestedClass, bytesType))
                         return PyBytesSubclass.BytesSubtypeNew(requestedClass, rest, kwargs);
-                    return PyBuiltinFunction.CallBytes(rest, kwargs);
+                    // bytes_new for bytes itself: the argument checks and encodings CreateInstance holds.
+                    return bytesType.CreateInstance(rest, kwargs);
                 });
 
             bytesType.TypeDict["__add__"] = new PyWrapperDescriptor("__add__", bytesType,
