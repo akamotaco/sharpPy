@@ -67,6 +67,9 @@ namespace SharpPy.Modules
             Method(ContextVarType, "set", ContextVarSet, 1, 1);
             Method(ContextVarType, "reset", ContextVarReset, 1, 1);
 
+            ContextVarType.TypeDict["name"] = new PyMemberDescriptor("name", ContextVarType, self => ((PyContextVar)self).Name, readOnly: true);
+            TokenType.TypeDict["var"] = new PyGetSetDescriptor("var", TokenType, self => ((PyContextToken)self).Variable);
+            TokenType.TypeDict["old_value"] = new PyGetSetDescriptor("old_value", TokenType, self => ((PyContextToken)self).Old ?? Missing);
             TokenType.TypeDict["MISSING"] = Missing;
             return module;
         }
@@ -189,7 +192,7 @@ namespace SharpPy.Modules
             public override string GetTypeName() => "ContextVar";
             public override string ToString() => $"<ContextVar name='{_name.Value}'>";
 
-            protected internal override PyObject TpGetattro(string name) => name == "name" ? _name : base.TpGetattro(name);
+            internal PyString Name => _name;
         }
 
         private sealed class PyContextToken : PyObject
@@ -209,12 +212,6 @@ namespace SharpPy.Modules
             public override PyType GetPyType() => TokenType;
             public override string GetTypeName() => "Token";
 
-            protected internal override PyObject TpGetattro(string name) => name switch
-            {
-                "var" => Variable,
-                "old_value" => Old ?? Missing,
-                _ => base.TpGetattro(name),
-            };
         }
     }
 }

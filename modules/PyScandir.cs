@@ -25,7 +25,7 @@ namespace SharpPy.Modules
 
         private static PyType MakeType()
         {
-            var type = new PyType("DirEntry", new[] { PyType.ObjectType });
+            var type = new PyType("DirEntry", new[] { PyType.ObjectType }, "nt");
             void Method(string name, Func<PyDirEntry, PyObject> body) =>
                 type.TypeDict[name] = new PyMethodDescriptor(name, type,
                     (self, args, kwargs) => body((PyDirEntry)self), 0, 0, acceptsKwargs: true);
@@ -36,6 +36,8 @@ namespace SharpPy.Modules
             Method("stat", self => NtModule.StatPath(self._path));
             Method("inode", self => new PyInt(0));
             Method("__fspath__", self => new PyString(self._path));
+            type.TypeDict["name"] = new PyMemberDescriptor("name", type, self => new PyString(((PyDirEntry)self)._name), readOnly: true);
+            type.TypeDict["path"] = new PyMemberDescriptor("path", type, self => new PyString(((PyDirEntry)self)._path), readOnly: true);
             return type;
         }
 
@@ -51,13 +53,6 @@ namespace SharpPy.Modules
         public override PyType GetPyType() => Type;
         public override string GetTypeName() => "DirEntry";
         protected internal override PyString Repr() => new PyString($"<DirEntry {new PyString(_name).ToRepr().Value}>");
-
-        protected internal override PyObject TpGetattro(string name) => name switch
-        {
-            "name" => new PyString(_name),
-            "path" => new PyString(_path),
-            _ => base.TpGetattro(name),
-        };
     }
 
     /// <summary>What os.scandir returns: an iterator and a context manager.</summary>
@@ -72,7 +67,7 @@ namespace SharpPy.Modules
 
         private static PyType MakeType()
         {
-            var type = new PyType("ScandirIterator", new[] { PyType.ObjectType });
+            var type = new PyType("ScandirIterator", new[] { PyType.ObjectType }, "nt");
             type.TypeDict["__enter__"] = new PyMethodDescriptor("__enter__", type, (self, args, kwargs) => self, 0, 0);
             type.TypeDict["__exit__"] = new PyMethodDescriptor("__exit__", type, (self, args, kwargs) =>
             {

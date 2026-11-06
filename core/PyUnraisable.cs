@@ -15,6 +15,11 @@ namespace SharpPy
                 TypeDict["n_fields"] = new PyInt(5);
                 TypeDict["n_sequence_fields"] = new PyInt(5);
                 TypeDict["n_unnamed_fields"] = new PyInt(0);
+                for (int i = 0; i < Fields.Length; i++)
+                {
+                    int index = i;
+                    TypeDict[Fields[i]] = new PyMemberDescriptor(Fields[i], this, self => ((PyTuple)self).Items[index], readOnly: true);
+                }
             }
             public override PyObject Call(PyObject[] args, PyDict kwargs = null)
             {
@@ -52,14 +57,6 @@ namespace SharpPy
         internal PyUnraisableHookArgs(PyObject[] items) : base(items) { }
         public override PyType GetPyType() => ArgsType;
         public override string GetTypeName() => "UnraisableHookArgs";
-        protected internal override PyObject TpGetattro(string name)
-        {
-            int index = Array.IndexOf(Fields, name);
-            return index >= 0 ? Items[index] : base.TpGetattro(name);
-        }
-        protected internal override void TpSetattro(string name, PyObject value)
-            => throw PyAttributeError.Create(Array.IndexOf(Fields, name) >= 0 ? "readonly attribute" : $"'UnraisableHookArgs' object has no attribute '{name}'");
-        protected internal override void TpDelattro(string name) => SetAttribute(name, PyNone.Instance);
         protected internal override PyString Repr()
         {
             var parts = new string[5];
