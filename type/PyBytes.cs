@@ -672,12 +672,13 @@ namespace SharpPy
                     return seq[argIndex++];
                 }
 
-                int StarValue()
+                // _PyBytes_FormatEx: a "*" takes the next argument, which PyLong_Check must pass.
+                PyObject StarValue()
                 {
                     var given = NextArgument();
                     if (!PyInt.LongCheck(given))
                         throw PyTypeError.Create("* wants int");
-                    return given.ToInt();
+                    return given;
                 }
 
                 if (fmt[i] == (byte)'(')
@@ -718,23 +719,33 @@ namespace SharpPy
                     else if (f == ' ') { signSpace = true; i++; }
                     else break;
                 }
-                int width = 0;
+                // _PyBytes_FormatEx: the width is a Py_ssize_t (a negative "*" one left-adjusts), the
+                // precision a C int (a negative "*" one is 0); digits past those are "too big"; one
+                // "h", "l" or "L" before the conversion is skipped.
+                long widthValue = 0;
                 if (i < fmt.Length && fmt[i] == (byte)'*')
                 {
                     i++;
-                    width = StarValue();
-                    if (width < 0)
+                    widthValue = PyArgs.Ssize(StarValue());
+                    if (widthValue < 0)
                     {
                         leftAlign = true;
-                        width = -width;
+                        widthValue = widthValue == long.MinValue ? long.MaxValue : -widthValue;
                     }
                 }
                 else
                     while (i < fmt.Length && fmt[i] >= (byte)'0' && fmt[i] <= (byte)'9')
                     {
-                        width = width * 10 + (fmt[i] - (byte)'0');
+                        int d = fmt[i] - (byte)'0';
+                        if (widthValue > (long.MaxValue - d) / 10)
+                            throw PyValueError.Create("width too big");
+                        widthValue = widthValue * 10 + d;
                         i++;
                     }
+                // A result no CLR array can hold is the MemoryError of its allocation.
+                if (widthValue > int.MaxValue)
+                    throw PyMemoryError.Create();
+                int width = (int)widthValue;
                 int precision = -1;
                 if (i < fmt.Length && fmt[i] == (byte)'.')
                 {
@@ -743,15 +754,20 @@ namespace SharpPy
                     if (i < fmt.Length && fmt[i] == (byte)'*')
                     {
                         i++;
-                        precision = Math.Max(0, StarValue());
+                        precision = Math.Max(0, PyArgs.Int(StarValue()));
                     }
                     else
                         while (i < fmt.Length && fmt[i] >= (byte)'0' && fmt[i] <= (byte)'9')
                         {
-                            precision = precision * 10 + (fmt[i] - (byte)'0');
+                            int d = fmt[i] - (byte)'0';
+                            if (precision > (int.MaxValue - d) / 10)
+                                throw PyValueError.Create("prec too big");
+                            precision = precision * 10 + d;
                             i++;
                         }
                 }
+                if (i < fmt.Length && fmt[i] is (byte)'h' or (byte)'l' or (byte)'L')
+                    i++;
                 if (i >= fmt.Length)
                 {
                     throw PyValueError.Create("incomplete format");

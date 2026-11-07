@@ -1261,37 +1261,37 @@ namespace SharpPy
                         throw PyTypeError.Create($"expandtabs() takes at most 1 argument ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "expandtabs");
 
+                    // unicode_expandtabs_impl: tabsize is a C int; columns count code points, a
+                    // newline or carriage return starts a new one, and no tab is the text unchanged.
                     int tabsize = 8;
                     PyObject[] paTab = ProjectKeywordSlots(args, kwargs, "tabsize");
-                    if (paTab.Length >= 1 && paTab[0] is PyInt tabInt)
-                        tabsize = PyArgs.Int(tabInt);
-
-                    if (tabsize <= 0)
-                        return new PyString(str.Value.Replace("\t", ""));
-
-                    var result = new System.Text.StringBuilder();
-                    int column = 0;
-
-                    foreach (char c in str.Value)
+                    if (paTab.Length >= 1 && paTab[0] != null)
+                        tabsize = PyArgs.Int(paTab[0]);
+                    string text = str.Value;
+                    if (text.IndexOf('\t') < 0)
+                        return str.ResultUnchanged();
+                    var result = new System.Text.StringBuilder(text.Length);
+                    long column = 0;
+                    for (int u = 0; u < text.Length; u += PairWidth(text, u))
                     {
+                        char c = text[u];
                         if (c == '\t')
                         {
-                            int spaces = tabsize - (column % tabsize);
-                            result.Append(' ', spaces);
-                            column += spaces;
-                        }
-                        else if (c == '\n' || c == '\r')
-                        {
-                            result.Append(c);
-                            column = 0;
+                            if (tabsize > 0)
+                            {
+                                int spaces = (int)(tabsize - column % tabsize);
+                                if (result.Length > int.MaxValue - spaces)
+                                    throw PyOverflowError.Create("new string is too long");
+                                result.Append(' ', spaces);
+                                column += spaces;
+                            }
                         }
                         else
                         {
-                            result.Append(c);
-                            column++;
+                            result.Append(text, u, PairWidth(text, u));
+                            column = c == '\n' || c == '\r' ? 0 : column + 1;
                         }
                     }
-
                     return new PyString(result.ToString());
                 },
                 minArgs: 0, maxArgs: 1
@@ -2503,14 +2503,13 @@ namespace SharpPy
                 return args[ai++];
             }
 
-            int NextIntStar()
+            // unicode_format_arg_parse: a "*" takes the next argument, which PyLong_Check must pass.
+            PyObject NextStar()
             {
                 var v = NextPositional();
-                if (v is PyInt pi)
-                    return (int)pi.Value;
-                if (v is PyBool pb)
-                    return pb.Value ? 1 : 0;
-                throw PyTypeError.Create("* wants integer");
+                if (v is not PyInt && v is not PyBool)
+                    throw PyTypeError.Create("* wants int");
+                return v;
             }
 
             while (i < fmt.Length)
@@ -2593,20 +2592,35 @@ namespace SharpPy
                     else break;
                 }
 
-                int width = -1;
+                // unicode_format_arg_parse: the width is a Py_ssize_t (a negative "*" one left-adjusts),
+                // the precision a C int (a negative "*" one is 0); digits past those are "too big".
+                long widthValue = -1;
                 if (i < fmt.Length && fmt[i] == '*')
                 {
                     i++;
-                    width = NextIntStar();
+                    widthValue = PyArgs.Ssize(NextStar());
+                    if (widthValue < 0)
+                    {
+                        leftAdjust = true;
+                        widthValue = widthValue == long.MinValue ? long.MaxValue : -widthValue;
+                    }
                 }
-                else
+                else if (i < fmt.Length && char.IsAsciiDigit(fmt[i]))
                 {
-                    int ws = i;
-                    while (i < fmt.Length && char.IsDigit(fmt[i]))
+                    widthValue = 0;
+                    while (i < fmt.Length && char.IsAsciiDigit(fmt[i]))
+                    {
+                        int d = fmt[i] - '0';
+                        if (widthValue > (long.MaxValue - d) / 10)
+                            throw PyValueError.Create("width too big");
+                        widthValue = widthValue * 10 + d;
                         i++;
-                    if (i > ws)
-                        width = int.Parse(fmt.Substring(ws, i - ws), CultureInfo.InvariantCulture);
+                    }
                 }
+                // A result no CLR string can hold is the MemoryError of its allocation.
+                if (widthValue > int.MaxValue)
+                    throw PyMemoryError.Create();
+                int width = (int)widthValue;
 
                 int precision = 6;
                 bool hasPrecision = false;
@@ -2617,14 +2631,21 @@ namespace SharpPy
                     if (i < fmt.Length && fmt[i] == '*')
                     {
                         i++;
-                        precision = NextIntStar();
+                        precision = PyArgs.Int(NextStar());
+                        if (precision < 0)
+                            precision = 0;
                     }
                     else
                     {
-                        int ps = i;
-                        while (i < fmt.Length && char.IsDigit(fmt[i]))
+                        precision = 0;
+                        while (i < fmt.Length && char.IsAsciiDigit(fmt[i]))
+                        {
+                            int d = fmt[i] - '0';
+                            if (precision > (int.MaxValue - d) / 10)
+                                throw PyValueError.Create("precision too big");
+                            precision = precision * 10 + d;
                             i++;
-                        precision = i > ps ? int.Parse(fmt.Substring(ps, i - ps), CultureInfo.InvariantCulture) : 0;
+                        }
                     }
                 }
 
@@ -2906,6 +2927,25 @@ namespace SharpPy
         #endregion
 
         #region String Methods
+
+        private static (string, long) SplitArguments(PyObject[] arguments)
+        {
+            string separator = null;
+            if (arguments.Length >= 1 && arguments[0] != null && arguments[0] is not PyNone)
+            {
+                separator = arguments[0] switch
+                {
+                    PyString text => text.Value,
+                    var other => throw PyTypeError.Create($"must be str or None, not {other.GetTypeName()}"),
+                };
+                if (separator.Length == 0)
+                    throw PyValueError.Create("empty separator");
+            }
+            long limit = -1;
+            if (arguments.Length >= 2 && arguments[1] != null)
+                limit = PyArgs.Ssize(arguments[1]);
+            return (separator, limit);
+        }
 
         internal const int LeftStrip = 0, RightStrip = 1, BothStrip = 2;
 
@@ -3576,176 +3616,6 @@ namespace SharpPy
 
         #region String Methods
 
-
-        private PyObject Strip(PyObject[] args)
-        {
-            if (args.Length > 1)
-                throw PyTypeError.Create($"strip() takes at most 1 argument ({args.Length} given)");
-            
-            if (args.Length == 0)
-                return new PyString(Value.Trim());
-            
-            var chars = args[0] switch
-            {
-                PyString str => str.Value.ToCharArray(),
-                _ => throw PyTypeError.Create("strip arg must be None or str")
-            };
-            
-            return new PyString(Value.Trim(chars));
-        }
-
-        private PyObject LStrip(PyObject[] args)
-        {
-            if (args.Length > 1)
-                throw PyTypeError.Create($"lstrip() takes at most 1 argument ({args.Length} given)");
-            
-            if (args.Length == 0)
-                return new PyString(Value.TrimStart());
-            
-            var chars = args[0] switch
-            {
-                PyString str => str.Value.ToCharArray(),
-                _ => throw PyTypeError.Create("lstrip arg must be None or str")
-            };
-            
-            return new PyString(Value.TrimStart(chars));
-        }
-
-        private PyObject RStrip(PyObject[] args)
-        {
-            if (args.Length > 1)
-                throw PyTypeError.Create($"rstrip() takes at most 1 argument ({args.Length} given)");
-            
-            if (args.Length == 0)
-                return new PyString(Value.TrimEnd());
-            
-            var chars = args[0] switch
-            {
-                PyString str => str.Value.ToCharArray(),
-                _ => throw PyTypeError.Create("rstrip arg must be None or str")
-            };
-            
-            return new PyString(Value.TrimEnd(chars));
-        }
-
-        private PyObject Replace(PyObject[] args)
-        {
-            if (args.Length < 2 || args.Length > 3)
-                throw PyTypeError.Create($"replace() takes 2 or 3 arguments ({args.Length} given)");
-            return Replace(args[0].ToStr().Value, args[1].ToStr().Value, args.Length == 3 ? PyArgs.SsizeCount(args[2]) : -1);
-        }
-
-        // unicode_split_impl and unicode_rsplit_impl: argument clinic, then split's empty check.
-        private static (string, long) SplitArguments(PyObject[] arguments)
-        {
-            string separator = null;
-            if (arguments.Length >= 1 && arguments[0] != null && arguments[0] is not PyNone)
-            {
-                separator = arguments[0] switch
-                {
-                    PyString text => text.Value,
-                    var other => throw PyTypeError.Create($"must be str or None, not {other.GetTypeName()}"),
-                };
-                if (separator.Length == 0)
-                    throw PyValueError.Create("empty separator");
-            }
-            long limit = -1;
-            if (arguments.Length >= 2 && arguments[1] != null)
-                limit = PyArgs.Ssize(arguments[1]);
-            return (separator, limit);
-        }
-
-        private PyObject Join(PyObject[] args)
-        {
-            if (args.Length != 1) throw PyTypeError.Create($"join() takes exactly one argument ({args.Length} given)");
-            return Join(args[0]);
-        }
-
-        private PyObject StartsWith(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"startswith() takes exactly one argument ({args.Length} given)");
-            
-            foreach (var prefix in NormalizePrefixTuple(args[0], "startswith"))
-                if (Value.StartsWith(prefix, StringComparison.Ordinal))
-                    return PyBool.True;
-            return PyBool.False;
-        }
-
-        private PyObject EndsWith(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"endswith() takes exactly one argument ({args.Length} given)");
-            
-            foreach (var suffix in NormalizePrefixTuple(args[0], "endswith"))
-                if (Value.EndsWith(suffix, StringComparison.Ordinal))
-                    return PyBool.True;
-            return PyBool.False;
-        }
-
-        private PyObject Find(PyObject[] args)
-        {
-            if (args.Length < 1 || args.Length > 3)
-                throw PyTypeError.Create($"find() takes 1 to 3 arguments ({args.Length} given)");
-
-            var sub = args[0] switch
-            {
-                PyString str => str.Value,
-                _ => throw PyTypeError.Create("find() sub must be str")
-            };
-
-            int start = 0;
-            int end = Value.Length;
-
-            // Handle negative indices (Python convention: -1 means last character)
-            ParseStrStartStop(args, Value.Length, out start, out end);
-            if (start < 0) start += Value.Length;
-            start = Math.Max(0, Math.Min(Value.Length, start));
-            if (end < 0) end += Value.Length;
-            end = Math.Max(0, Math.Min(Value.Length, end));
-
-            if (start >= end) return new PyInt(-1);
-            
-            var substring = start == 0 && end == Value.Length 
-                ? Value 
-                : Value.Substring(start, end - start);
-                
-            var index = substring.IndexOf(sub, StringComparison.Ordinal);
-            return new PyInt(index == -1 ? -1 : index + start);
-        }
-
-        private PyObject Count(PyObject[] args)
-        {
-            if (args.Length < 1 || args.Length > 3)
-                throw PyTypeError.Create($"count() takes 1 to 3 arguments ({args.Length} given)");
-
-            var sub = args[0] switch
-            {
-                PyString str => str.Value,
-                _ => throw PyTypeError.Create("count() sub must be str")
-            };
-
-            int start = 0;
-            int end = Value.Length;
-
-            // Handle negative indices (Python convention: -1 means last character)
-            ParseStrStartStop(args, Value.Length, out start, out end);
-            if (start < 0) start += Value.Length;
-            start = Math.Max(0, Math.Min(Value.Length, start));
-            if (end < 0) end += Value.Length;
-            end = Math.Max(0, Math.Min(Value.Length, end));
-
-            // CPython unicode_count: the empty subsection counts *boundary positions*,
-            // i.e. end - start + 1, not 0.
-            if (sub.Length == 0) return new PyInt(Math.Max(0, end - start + 1));
-            if (start >= end) return new PyInt(0);
-            
-            var substring = start == 0 && end == Value.Length 
-                ? Value 
-                : Value.Substring(start, end - start);
-                
-            return CountOccurrences(substring, sub);
-        }
 
         private PyObject CountOccurrences(string text, string sub)
         {
