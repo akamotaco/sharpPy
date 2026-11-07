@@ -338,12 +338,12 @@ namespace SharpPy
                     if (args.Length > 1)
                         throw PyTypeError.Create($"strip() takes at most 1 argument ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "strip");
-
+                    // do_argstrip: None or nothing is whitespace, else the characters of a str.
                     if (args.Length == 0 || args[0] is PyNone)
-                        return new PyString(str.Value.Trim());
-
-                    var chars = args[0] is PyString charsStr ? charsStr.Value.ToCharArray() : throw PyTypeError.Create("strip arg must be None or str");
-                    return new PyString(str.Value.Trim(chars));
+                        return str.StripText(BothStrip, null);
+                    if (args[0] is not PyString chars)
+                        throw PyTypeError.Create("strip arg must be None or str");
+                    return str.StripText(BothStrip, chars.Value);
                 },
                 minArgs: 0, maxArgs: 1
             );
@@ -817,13 +817,8 @@ namespace SharpPy
                     // length and fails when start > end.
                     TextWindow win = str.AdjustedWindow(args);
                     foreach (var prefix in prefixes)
-                    {
-                        if (win.Start < win.End &&
-                            win.UnitStart + prefix.Length <= win.UnitEnd &&
-                            StartsCharacter(str.Value, prefix, win.UnitStart) &&
-                            str.Value.Substring(win.UnitStart, prefix.Length) == prefix)
+                        if (TailMatch(str.Value, prefix, win, fromEnd: false))
                             return PyBool.True;
-                    }
                     return PyBool.False;
                 },
                 minArgs: 1, maxArgs: 3
@@ -843,13 +838,8 @@ namespace SharpPy
 
                     TextWindow win = str.AdjustedWindow(args);
                     foreach (var suffix in suffixes)
-                    {
-                        if (win.Start < win.End &&
-                            suffix.Length <= win.UnitEnd - win.UnitStart &&
-                            StartsCharacter(str.Value, suffix, win.UnitEnd - suffix.Length) &&
-                            str.Value.Substring(win.UnitEnd - suffix.Length, suffix.Length) == suffix)
+                        if (TailMatch(str.Value, suffix, win, fromEnd: true))
                             return PyBool.True;
-                    }
                     return PyBool.False;
                 },
                 minArgs: 1, maxArgs: 3
@@ -863,14 +853,12 @@ namespace SharpPy
                     if (args.Length > 1)
                         throw PyTypeError.Create($"lstrip() takes at most 1 argument ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "lstrip");
-
+                    // do_argstrip: None or nothing is whitespace, else the characters of a str.
                     if (args.Length == 0 || args[0] is PyNone)
-                        return new PyString(str.Value.TrimStart());
-
+                        return str.StripText(LeftStrip, null);
                     if (args[0] is not PyString chars)
                         throw PyTypeError.Create("lstrip arg must be None or str");
-
-                    return new PyString(str.Value.TrimStart(chars.Value.ToCharArray()));
+                    return str.StripText(LeftStrip, chars.Value);
                 },
                 minArgs: 0, maxArgs: 1
             );
@@ -883,14 +871,12 @@ namespace SharpPy
                     if (args.Length > 1)
                         throw PyTypeError.Create($"rstrip() takes at most 1 argument ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "rstrip");
-
+                    // do_argstrip: None or nothing is whitespace, else the characters of a str.
                     if (args.Length == 0 || args[0] is PyNone)
-                        return new PyString(str.Value.TrimEnd());
-
+                        return str.StripText(RightStrip, null);
                     if (args[0] is not PyString chars)
                         throw PyTypeError.Create("rstrip arg must be None or str");
-
-                    return new PyString(str.Value.TrimEnd(chars.Value.ToCharArray()));
+                    return str.StripText(RightStrip, chars.Value);
                 },
                 minArgs: 0, maxArgs: 1
             );
@@ -1901,9 +1887,29 @@ namespace SharpPy
             internal bool IsEmpty => End <= Start;
         }
 
+        /// <summary>
+        /// tailmatch (Objects/unicodeobject.c): after ADJUST_INDICES, end -= len(sub); end &lt; start
+        /// fails, an empty sub then matches, else the code points at start (or ending at end) are
+        /// compared. The match has to begin and end on a character boundary of the text.
+        /// </summary>
+        private static bool TailMatch(string text, string sub, TextWindow win, bool fromEnd)
+        {
+            if (win.End - CodePointCount(sub) < win.Start)
+                return false;
+            if (sub.Length == 0)
+                return true;
+            int at = fromEnd ? win.UnitEnd - sub.Length : win.UnitStart;
+            if (at < win.UnitStart || at + sub.Length > win.UnitEnd)
+                return false;
+            return string.CompareOrdinal(text, at, sub, 0, sub.Length) == 0
+                && StartsCharacter(text, sub, at)
+                && (at + sub.Length == text.Length || !IsContinuation(text, at + sub.Length));
+        }
+
         internal TextWindow AdjustedWindow(PyObject[] args)
         {
-            int chars = Length();
+            // ADJUST_INDICES on PyUnicode_GET_LENGTH, not a subclass's __len__.
+            int chars = CodePointLength();
             ParseStrStartStop(args, chars, out int start, out int end);
             if (end > chars)
                 end = chars;
@@ -2823,7 +2829,7 @@ namespace SharpPy
         {
             // CPython: Objects/unicodeobject.c:11368 unicode_getitem bounds-checks against
             // PyUnicode_GET_LENGTH and returns unicode_char(PyUnicode_READ(kind, data, index)).
-            int chars = Length();
+            int chars = CodePointLength();
             if (index < 0) index += chars;
 
             if (index < 0 || index >= chars)
@@ -2847,7 +2853,7 @@ namespace SharpPy
             {
                 // CPython: unicode_subscript -> PySlice_GetIndicesEx on the character length,
                 // then a character at a time. StepCodePoints is the one implementation of that walk.
-                var (start, stop, step) = slice.StorageIndices(Length());
+                var (start, stop, step) = slice.StorageIndices(CodePointLength());
                 return new PyString(StepCodePoints(start, stop, step));
             }
             else
@@ -2876,7 +2882,7 @@ namespace SharpPy
                 throw PyValueError.Create("slice step cannot be zero");
             
             // Same coordinate system as GetItem: characters, not code units.
-            int len = Length();
+            int len = CodePointLength();
             int actualStart = start ?? (step > 0 ? 0 : len - 1);
             int actualEnd = end ?? (step > 0 ? len : -1);
 
@@ -2901,25 +2907,41 @@ namespace SharpPy
 
         #region String Methods
 
-        public PyString Strip(string chars = null)
+        internal const int LeftStrip = 0, RightStrip = 1, BothStrip = 2;
+
+        public PyString Strip(string chars = null) => StripText(BothStrip, chars);
+        public PyString LStrip(string chars = null) => StripText(LeftStrip, chars);
+        public PyString RStrip(string chars = null) => StripText(RightStrip, chars);
+
+        /// <summary>
+        /// do_strip and _PyUnicode_XStrip (Objects/unicodeobject.c): whole code points are stripped,
+        /// Py_UNICODE_ISSPACE ones when chars is null, else those of chars; the result is
+        /// PyUnicode_Substring, the text unchanged (unicode_result_unchanged) when nothing went.
+        /// </summary>
+        internal PyString StripText(int striptype, string chars)
         {
-            if (chars == null)
-                return new PyString(Value.Trim());
-            return new PyString(Value.Trim(chars.ToCharArray()));
-        }
-        
-        public PyString LStrip(string chars = null)
-        {
-            if (chars == null)
-                return new PyString(Value.TrimStart());
-            return new PyString(Value.TrimStart(chars.ToCharArray()));
-        }
-        
-        public PyString RStrip(string chars = null)
-        {
-            if (chars == null)
-                return new PyString(Value.TrimEnd());
-            return new PyString(Value.TrimEnd(chars.ToCharArray()));
+            string text = Value;
+            HashSet<int> set = null;
+            if (chars != null)
+            {
+                set = new HashSet<int>();
+                for (int u = 0; u < chars.Length; u += PairWidth(chars, u))
+                    set.Add(CodePointAtUnit(chars, u));
+            }
+            bool Stripped(int cp) => set == null ? IsWhiteSpaceCp(cp) : set.Contains(cp);
+            int i = 0, j = text.Length;
+            if (striptype != RightStrip)
+                while (i < j && Stripped(CodePointAtUnit(text, i)))
+                    i += PairWidth(text, i);
+            if (striptype != LeftStrip)
+                while (j > i)
+                {
+                    int k = j - 1;
+                    if (IsContinuation(text, k)) k--;
+                    if (!Stripped(CodePointAtUnit(text, k))) break;
+                    j = k;
+                }
+            return i == 0 && j == text.Length ? ResultUnchanged() : new PyString(text.Substring(i, j - i));
         }
 
         /// <summary>
