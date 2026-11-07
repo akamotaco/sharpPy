@@ -30,11 +30,7 @@ namespace SharpPy
         /// </summary>
         internal static PySet ForSet(PyObject self)
         {
-            if (self is PySet set)
-                return set;
-            if (self is PyClassInstance instance && instance.IsSetSubclass())
-                return instance.GetSetStorage();
-            return null;
+            return self as PySet;
         }
 
         /// <summary>

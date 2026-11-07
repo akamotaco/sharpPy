@@ -53,7 +53,6 @@ namespace SharpPy
             // set_update_internal: any set is merged from its table, __iter__ of a subclass or not.
             if (value is PySet set) return set.Items;
             if (value is PyFrozenSet frozen) return frozen.Items;
-            if (value is PyClassInstance instance && instance.GetSetStorage() is PySet storage) return storage.Items;
             return Iterate(value);
         }
         private static IEnumerable<PyObject> Iterate(PyObject value)
@@ -68,159 +67,11 @@ namespace SharpPy
             }
         }
 
-        public override PyType GetPyType() => PyType.SetType;
-        public override string GetTypeName() => "set";
+        public override PyType GetPyType() => _customType ?? PyType.SetType;
+        public override string GetTypeName() => _customType?.Name ?? "set";
 
         // 내부 HashSet 접근 (읽기 전용)
         public IReadOnlyCollection<PyObject> Items => _items;
-
-        #endregion
-
-        #region Python Method Access
-
-
-        #endregion
-
-        #region OLD_HARDCODED_METHODS_REMOVED
-        /* 아래 하드코딩된 메서드들은 모두 PyType.InitializeSetTypeDescriptors()로 이동됨
-        switch (name)
-        {
-            case "add":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("remove", (args, kwargs) =>
-                        {
-                            if (args.Length != 2)
-                                throw PyTypeError.Create($"remove() takes exactly one argument ({args.Length - 1} given)");
-                            return self.Remove(args[1]);
-                        });
-                    }
-                case "discard":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("discard", (args, kwargs) =>
-                        {
-                            if (args.Length != 2)
-                                throw PyTypeError.Create($"discard() takes exactly one argument ({args.Length - 1} given)");
-                            return self.Discard(args[1]);
-                        });
-                    }
-                case "pop":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("pop", (args, kwargs) =>
-                        {
-                            // args[0] = self (from VM), no other arguments
-                            if (args.Length != 1)
-                                throw PyTypeError.Create($"pop() takes no arguments ({args.Length - 1} given)");
-                            return self.Pop();
-                        });
-                    }
-                case "clear":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("clear", (args, kwargs) =>
-                        {
-                            if (args.Length != 1)
-                                throw PyTypeError.Create($"clear() takes no arguments ({args.Length - 1} given)");
-                            return self.Clear();
-                        });
-                    }
-                case "update":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("update", (args, kwargs) =>
-                        {
-                            if (args.Length != 2)
-                                throw PyTypeError.Create($"update() takes exactly one argument ({args.Length - 1} given)");
-                            return self.Update(args[1]);
-                        });
-                    }
-                case "union":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("union", (args, kwargs) =>
-                        {
-                            if (args.Length != 2)
-                                throw PyTypeError.Create($"union() takes exactly one argument ({args.Length - 1} given)");
-                            return self.Union(args[1]);
-                        });
-                    }
-                case "intersection":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("intersection", (args, kwargs) =>
-                        {
-                            if (args.Length != 2)
-                                throw PyTypeError.Create($"intersection() takes exactly one argument ({args.Length - 1} given)");
-                            return self.Intersection(args[1]);
-                        });
-                    }
-                case "difference":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("difference", (args, kwargs) =>
-                        {
-                            if (args.Length != 2)
-                                throw PyTypeError.Create($"difference() takes exactly one argument ({args.Length - 1} given)");
-                            return self.Difference(args[1]);
-                        });
-                    }
-                case "symmetric_difference":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("symmetric_difference", (args, kwargs) =>
-                        {
-                            if (args.Length != 2)
-                                throw PyTypeError.Create($"symmetric_difference() takes exactly one argument ({args.Length - 1} given)");
-                            return self.SymmetricDifference(args[1]);
-                        });
-                    }
-                case "issubset":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("issubset", (args, kwargs) =>
-                        {
-                            if (args.Length != 2)
-                                throw PyTypeError.Create($"issubset() takes exactly one argument ({args.Length - 1} given)");
-                            return self.IsSubset(args[1]);
-                        });
-                    }
-                case "issuperset":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("issuperset", (args, kwargs) =>
-                        {
-                            if (args.Length != 2)
-                                throw PyTypeError.Create($"issuperset() takes exactly one argument ({args.Length - 1} given)");
-                            return self.IsSuperset(args[1]);
-                        });
-                    }
-                case "isdisjoint":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("isdisjoint", (args, kwargs) =>
-                        {
-                            if (args.Length != 2)
-                                throw PyTypeError.Create($"isdisjoint() takes exactly one argument ({args.Length - 1} given)");
-                            return self.IsDisjoint(args[1]);
-                        });
-                    }
-                case "copy":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("copy", (args, kwargs) =>
-                        {
-                            if (args.Length != 1)
-                                throw PyTypeError.Create($"copy() takes no arguments ({args.Length - 1} given)");
-                            return self.Copy();
-                        });
-                    }
-                default:
-                    return base.TpGetattro(name);
-            }
-        }
-        */
 
         #endregion
 
@@ -228,7 +79,8 @@ namespace SharpPy
 
         protected internal override PyString Str() => ToRepr();
 
-        protected internal override PyString Repr() => Repr("set", exactType: true);
+        // set_repr: the bare {...} only for an exact set, otherwise Py_TYPE(so)->tp_name({...}).
+        protected internal override PyString Repr() => Repr(GetTypeName(), exactType: !HasCustomType);
 
         /// <summary>
         /// CPython Objects/setobject.c:507 set_repr formats with Py_TYPE(so)-&gt;tp_name, which is why
@@ -962,6 +814,19 @@ namespace SharpPy
     public sealed class PyFrozenSetSubclass : PyFrozenSet, IDictBackedInstance, IHeapInstance
     {
         public PyFrozenSetSubclass(PyClass cls, IEnumerable<PyObject> items) : base(items) => SetCustomType(cls);
+
+        public Dictionary<string, PyObject> InstanceDict { get; } = new();
+
+        public void ChangeClass(PyClass target) => SetCustomType(target);
+    }
+
+    /// <summary>
+    /// An instance of a Python class deriving from set: set_new (make_new_set) allocates the set
+    /// layout with ob_type set to the subclass, and set_init fills that table.
+    /// </summary>
+    public sealed class PySetSubclass : PySet, IDictBackedInstance, IHeapInstance
+    {
+        public PySetSubclass(PyClass cls) => SetCustomType(cls);
 
         public Dictionary<string, PyObject> InstanceDict { get; } = new();
 

@@ -1762,15 +1762,6 @@ namespace SharpPy
 
         /// <summary>tp_repr of the containers as a slot wrapper: dict.__repr__(self) is the base's text whatever
         /// a subclass declares, so it reads the stored contents and not the virtual ToRepr.</summary>
-        // set_repr: a subclass prints its name around the elements; an empty one prints Name().
-        private static PyObject SubclassSetRepr(PyObject self, string text, string builtin)
-        {
-            string name = self.GetPyType().Name;
-            if (name == builtin) return new PyString(text);
-            if (text.StartsWith(builtin + "(", StringComparison.Ordinal)) return new PyString(name + text.Substring(builtin.Length));
-            return new PyString($"{name}({text})");
-        }
-
         private void InstallBuiltinRepr()
         {
             Func<PyObject, PyObject> repr = Name switch
@@ -1779,7 +1770,7 @@ namespace SharpPy
                 "dict" => self => PyNativeStorage.ForDict(self).Repr(),
                 "list" => self => PyNativeStorage.ForList(self).Repr(),
                 "tuple" => self => ((PyTuple)self).Repr(),
-                "set" => self => SubclassSetRepr(self, ((PyString)PyNativeStorage.ForSet(self).Repr()).Value, "set"),
+                "set" => self => PyNativeStorage.ForSet(self).Repr(),
                 "frozenset" => self => PyNativeStorage.ForFrozenSet(self).Repr(),
                 "bool" => self => self.Repr(),
                 _ => null,
@@ -2491,7 +2482,7 @@ namespace SharpPy
                         throw PyTypeError.Create(
                             "set.__new__(" + foreign + "): " + foreign + " is not a subtype of set");
                     }
-                    return new PyClassInstance(setClass);
+                    return new PySetSubclass(setClass);
                 },
                 minArgs: 0,
                 maxArgs: int.MaxValue

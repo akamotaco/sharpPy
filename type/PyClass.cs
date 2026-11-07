@@ -896,10 +896,6 @@ namespace SharpPy
 
         // CPython 3.12: List subclasses have internal list storage
 
-        // CPython 3.12: set subclasses carry a mutable set value. tp_new (make_new_set,
-        // Objects/setobject.c:949) allocates it empty and tp_init (setobject.c:1977 set_init)
-        // clears and fills it from the one optional iterable argument.
-        private PySet _setStorage;
 
 
         // CPython 3.12: _PyObject_MaterializeManagedDict — exactly one of _attrs / _materialized is live.
@@ -916,12 +912,6 @@ namespace SharpPy
             {
                 _dictStorage = new PyDict();
             }
-
-            // CPython 3.12: make_new_set gives a set (sub)class an empty table before tp_init runs.
-            if (IsSetSubclass())
-            {
-                _setStorage = new PySet();
-            }
         }
 
         // "Is this instance a dict/list?" is a type question, so it is answered from the type
@@ -935,13 +925,8 @@ namespace SharpPy
         // set and frozenset have no family bit in CPython: PySet_Check (Include/setobject.h:36)
         // and PyAnySet_Check (:30) are PyType_IsSubtype tests, so the MRO walk is the faithful
         // answer for these two and is kept.
-        public bool IsSetSubclass() => InstanceType.IsSubclassOf(PyType.SetType);
 
 
-        /// <summary>
-        /// The value a set subclass instance carries, or null when this is not one.
-        /// </summary>
-        public PySet GetSetStorage() => _setStorage;
 
 
         /// <summary>
@@ -954,8 +939,7 @@ namespace SharpPy
         /// </summary>
         internal PyObject NativeStorage()
         {
-            if (_dictStorage != null) return _dictStorage;
-            return _setStorage;
+            return _dictStorage;
         }
 
         // CPython 3.12: Provide access to internal dict storage for dict subclasses
