@@ -65,6 +65,10 @@ namespace SharpPy
         internal static PyObject Reduce(PyObject self)
         {
             var alias = (PyGenericAlias)self;
+            // ga_reduce: a starred alias is next(iter(origin[args])), which is how it unpickles.
+            if (alias._starred)
+                return PyTuple.From(PyVM.CurrentFrame?.Builtin("next") ?? throw PyAttributeError.Create("next"),
+                    PyTuple.From(new PyGenericAlias(alias.Origin, alias.Args).GetIterator()));
             return PyTuple.From(new PyObject[] { alias.GetPyType(), PyTuple.From(new[] { alias.Origin, alias.Args }) });
         }
 
@@ -329,10 +333,36 @@ namespace SharpPy
             return Compare(Args, alias.Args, CompareOp.EQ);
         }
 
-        // ga_iternext: *tuple[int] is an alias that unpacks
-        protected internal override PyObject Iter() => new PyList(new PyObject[]
-            { new PyGenericAlias(Origin, Args, GetPyType(), starred: true) }).GetIterator();
+        // ga_iter: *tuple[int] is an alias that unpacks, through a generic_alias_iterator.
+        protected internal override PyObject Iter() => new PyGenericAliasIterator(this);
 
         public override PyObject BitwiseOr(PyObject other) => PyUnionType.Or(this, other);
+    }
+
+    /// <summary>
+    /// gaiterobject (Objects/genericaliasobject.c): one starred alias of the one it was made from
+    /// (ga_iternext, through Py_GenericAlias, so an exact GenericAlias), then nothing.
+    /// ga_iter_reduce: (iter, (obj,)) while it has it, (iter, ((),)) after.
+    /// </summary>
+    internal sealed class PyGenericAliasIterator : PyIterator
+    {
+        private PyGenericAlias _obj;
+
+        internal PyGenericAliasIterator(PyGenericAlias alias) => _obj = alias;
+
+        protected override string IteratorName => "generic_alias_iterator";
+
+        protected internal override PyObject IterNext()
+        {
+            if (_obj == null)
+                throw PyStopIteration.Create();
+            var alias = _obj;
+            _obj = null;
+            return new PyGenericAlias(alias.Origin, alias.Args, starred: true);
+        }
+
+        internal override PyObject Reduce() => _obj != null
+            ? PyTuple.From(Builtin("iter"), PyTuple.From(_obj))
+            : ReduceExhausted(PyTuple.Empty);
     }
 }

@@ -66,6 +66,9 @@ namespace SharpPy.Modules
             Method(ContextVarType, "reset", ContextVarReset, 1, 1);
 
             ContextVarType.TypeDict["name"] = new PyMemberDescriptor("name", ContextVarType, self => ((PyContextVar)self).Name, readOnly: true);
+            // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")}
+            ContextVarType.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(ContextVarType);
+            TokenType.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(TokenType);
             TokenType.TypeDict["var"] = new PyGetSetDescriptor("var", TokenType, self => ((PyContextToken)self).Variable);
             TokenType.TypeDict["old_value"] = new PyGetSetDescriptor("old_value", TokenType, self => ((PyContextToken)self).Old ?? Missing);
             TokenType.TypeDict["MISSING"] = Missing;

@@ -21,8 +21,8 @@ namespace SharpPy.Core
 
             // send method descriptor
             corType.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", corType,
-                self => PyString.From(((PyCoroutine)self).Name), (self, value) =>
-                    ((PyCoroutine)self).Name = value is PyString text ? text.Value
+                self => ((PyCoroutine)self).NameObject, (self, value) =>
+                    ((PyCoroutine)self).NameObject = value is PyString ? value
                         : throw PyTypeError.Create("__name__ must be set to a string object"));
             corType.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", corType,
                 self => ((PyCoroutine)self).Qualname, (self, value) =>
@@ -110,7 +110,18 @@ namespace SharpPy.Core
         private bool _finished = false;
         private PyGuard _guard;
 
-        public string Name { get; set; }
+        // gi_name / cr_name: the object it was given, the same one at every read.
+        private PyObject _name;
+        public string Name
+        {
+            get => ((PyString)NameObject).Value;
+            set => _name = PyString.From(value);
+        }
+        internal PyObject NameObject
+        {
+            get => _name ??= PyString.Empty;
+            set => _name = value;
+        }
         public PyObject Qualname { get; set; }
         public CoroutineState State { get; private set; } = CoroutineState.Created;
         public bool IsFinished => _finished;

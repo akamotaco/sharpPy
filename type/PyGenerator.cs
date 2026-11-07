@@ -65,8 +65,8 @@ namespace SharpPy
             // CPython 3.12: genobject.c getseters
             // (gi_code, gi_frame, gi_name, gi_running, gi_yieldfrom)
             genType.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", genType,
-                self => PyString.From(((PyGenerator)self).Name), (self, value) =>
-                    ((PyGenerator)self).Name = value is PyString text ? text.Value
+                self => ((PyGenerator)self).NameObject, (self, value) =>
+                    ((PyGenerator)self).NameObject = value is PyString ? value
                         : throw PyTypeError.Create("__name__ must be set to a string object"),
                 deleter: self => throw PyTypeError.Create("__name__ must be set to a string object"));
             genType.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", genType,
@@ -99,7 +99,18 @@ namespace SharpPy
         private PyObject _sentValue = PyNone.Instance;
         private Exception? _thrownException = null;
 
-        public string Name { get; set; }
+        // gi_name / cr_name: the object it was given, the same one at every read.
+        private PyObject _name;
+        public string Name
+        {
+            get => ((PyString)NameObject).Value;
+            set => _name = PyString.From(value);
+        }
+        internal PyObject NameObject
+        {
+            get => _name ??= PyString.Empty;
+            set => _name = value;
+        }
         public PyObject Qualname { get; set; }
         internal PyFrame Frame => _frame;
         internal bool Finished => _finished;

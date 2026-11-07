@@ -62,7 +62,13 @@ try:
             import types
             for module_name in ("importlib._bootstrap", "importlib._bootstrap_external"):
                 sys.modules[module_name] = types.ModuleType(module_name)
-                sys.modules[module_name].__getattr__ = lambda name: (lambda *args, **kwargs: None)
+                # Every function is a no-op; a dunder such as __file__ is absent, as in a module that
+                # never set it (inspect.getsourcefile walks sys.modules and reads __file__).
+                def stub_attribute(name):
+                    if name.startswith("__") and name.endswith("__"):
+                        raise AttributeError(name)
+                    return lambda *args, **kwargs: None
+                sys.modules[module_name].__getattr__ = stub_attribute
                 setattr(importlib, module_name.rpartition(".")[2], sys.modules[module_name])
     import test
     test.__path__.insert(0, os.path.join(CPYTHON_LIB, "test"))

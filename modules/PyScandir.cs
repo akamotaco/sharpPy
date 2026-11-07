@@ -26,6 +26,8 @@ namespace SharpPy.Modules
         private static PyType MakeType()
         {
             var type = new PyType("DirEntry", new[] { PyType.ObjectType }, "nt");
+            // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")}
+            type.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(type);
             void Method(string name, Func<PyDirEntry, PyObject> body) =>
                 type.TypeDict[name] = new PyMethodDescriptor(name, type,
                     (self, args, kwargs) => body((PyDirEntry)self), 0, 0, acceptsKwargs: true);
