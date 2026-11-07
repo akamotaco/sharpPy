@@ -15,9 +15,12 @@ namespace SharpPy
         internal readonly int Visible;
         internal override string FullName => Module == null ? Name : Module + "." + Name;
 
-        internal PyStructSequenceType(string module, string name, string[] fields, int visible = -1)
+        // heap: made by PyStructSequence_NewType (time, os), not _PyStructSequence_InitBuiltin (sys).
+        internal PyStructSequenceType(string module, string name, string[] fields, int visible = -1, bool heap = false)
             : base(name, new[] { TupleType }, module)
         {
+            if (heap)
+                MarkHeapType();
             Fields = fields;
             Visible = visible < 0 ? fields.Length : visible;
             var members = new List<string>();

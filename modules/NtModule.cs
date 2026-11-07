@@ -47,7 +47,8 @@ namespace SharpPy.Modules
                 PyString.From("HAVE_FTRUNCATE"), PyString.From("HAVE_LSTAT"), PyString.From("MS_WINDOWS"),
             });
             module.ModuleDict["stat_result"] = PyStatResult.Type;
-            var terminalSize = new PyStructSequenceType("os", "terminal_size", new[] { "columns", "lines" });
+            // PyStructSequence_NewType (posixmodule.c), as stat_result and times_result
+            var terminalSize = new PyStructSequenceType("os", "terminal_size", new[] { "columns", "lines" }, heap: true);
             module.ModuleDict["terminal_size"] = terminalSize;
             module.ModuleDict["get_terminal_size"] = new PyBuiltinFunction("get_terminal_size", args =>
             {
@@ -55,7 +56,7 @@ namespace SharpPy.Modules
                     throw PyOSError.Create("[Errno 25] Inappropriate ioctl for device");
                 return new PyStructSequence(terminalSize, new PyObject[] { PyInt.From(Console.WindowWidth), PyInt.From(Console.WindowHeight) });
             });
-            var timesResult = new PyStructSequenceType("nt", "times_result", new[] { "user", "system", "children_user", "children_system", "elapsed" });
+            var timesResult = new PyStructSequenceType("nt", "times_result", new[] { "user", "system", "children_user", "children_system", "elapsed" }, heap: true);
             module.ModuleDict["times_result"] = timesResult;
             module.ModuleDict["times"] = new PyBuiltinFunction("times", args =>
             {
@@ -861,7 +862,7 @@ namespace SharpPy.Modules
         private static readonly string[] Extra = OperatingSystem.IsWindows()
             ? new[] { "st_file_attributes", "st_reparse_tag" } : new[] { "st_blksize", "st_blocks", "st_rdev" };
 
-        internal static readonly PyStructSequenceType Type = new("os", "stat_result", Fields(), 10);
+        internal static readonly PyStructSequenceType Type = new("os", "stat_result", Fields(), 10, heap: true);
 
         private static string[] Fields()
         {

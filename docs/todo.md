@@ -76,7 +76,7 @@
 - 3-5. 비교와 동등성: slot wrapper와 바인드 메서드 비교 (P0-56, P0-67, P0-69).
 - 3-6. `raise`한 객체와 `except`에서 받은 객체의 동일성 (P0-70).
 - 3-7. 내장 이터레이터를 상속한 클래스, `set` 하위 클래스의 `repr` 경로, `__bases__` 대입 검사 (P0-83).
-- 3-8. `type_setattro`가 둘이다: `PyClass.TypeSetAttribute`/`PyDelAttribute`(메타타입 데이터 디스크립터, 클래스 사전)와 `PyObject.GenericSetOrDelete`(정적 타입 거절, 그 밖은 인스턴스 사전). CPython은 하나다(불변 검사, `_PyObject_GenericSetAttrWithDict(type, ..., NULL)`, `PyType_Modified`). 이것을 `PyType` 하나로 합쳐야 `PyStructSequence_NewType`으로 만드는 힙 타입(`time.struct_time`, `os.stat_result`, `os.terminal_size`, `nt.times_result`)을 `Py_TPFLAGS_HEAPTYPE`으로 표시할 수 있다. 지금은 정적 타입으로 남아 속성 쓰기를 거절한다(test_structseq `test_reference_cycle`). `IsHeapType`은 이미 플래그 하나로 답한다.
+- 3-8. `type_setattro`는 `PyType.TypeSetAttribute` 하나다(불변 검사, 메타타입 데이터 디스크립터, `tp_dict`, `PyType_Modified`). `PyStructSequence_NewType`으로 만드는 타입(`time.struct_time`, `os.stat_result`, `os.terminal_size`, `nt.times_result`)은 힙 타입이다. 남은 것: `os.stat_result`에 `st_birthtime`, `st_birthtime_ns`가 없다(n_fields 18, CPython 20).
 
 ## 4. 이터레이터와 제너레이터
 

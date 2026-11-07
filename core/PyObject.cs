@@ -735,20 +735,10 @@ namespace SharpPy
         /// <summary>PyObject_GenericSetAttr with value=NULL.</summary>
         protected virtual void PyDelAttribute(string name) => GenericSetOrDelete(name, null);
 
-        // type_setattro refuses every write on a static type before any lookup; anything else is
-        // _PyObject_GenericSetAttrWithDict over the instance dict the CLR type keeps, if any.
+        // _PyObject_GenericSetAttrWithDict over the instance dict the CLR type keeps, if any (a type
+        // has its own slot, PyType.TypeSetAttribute).
         private void GenericSetOrDelete(string name, PyObject value)
         {
-            if (this is PyType nativeType && !nativeType.IsHeapType)
-            {
-                // io.UnsupportedOperation is a heap type in CPython, so Lib/io.py may set its __module__.
-                if (value != null && nativeType.AllowsModuleAssignment && name == "__module__")
-                {
-                    nativeType.TypeDict["__module__"] = value;
-                    return;
-                }
-                throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{nativeType.FullName}'");
-            }
             SubclassInstanceSupport.GenericSetAttrWithDict(this, GetPyType(), name, value, null, this as IInstanceDictStore);
         }
 

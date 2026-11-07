@@ -17,7 +17,7 @@ namespace SharpPy
         {
             "tm_year", "tm_mon", "tm_mday", "tm_hour", "tm_min", "tm_sec", "tm_wday", "tm_yday", "tm_isdst",
             "tm_zone", "tm_gmtoff",
-        }, 9);
+        }, 9, heap: true);
 
         static TimeModule()
         {

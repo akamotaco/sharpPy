@@ -585,9 +585,12 @@ namespace SharpPy
 
         /// <summary>
         /// Py_TPFLAGS_HEAPTYPE, the one answer to "is this a heap type": a class statement or type()
-        /// call (type itself is not one).
+        /// call, or PyStructSequence_NewType (type itself is not one).
         /// </summary>
         internal bool IsHeapType => HasFeature(PyTypeFlags.HeapType);
+
+        // PyType_FromSpec of PyStructSequence_NewType: a heap type made from a spec.
+        private protected void MarkHeapType() => _flags |= PyTypeFlags.HeapType;
 
         // type_new made it: a class statement or a type() call, whose tp_base is best_base.
         private bool MadeByTypeNew => this is PyClass && this is not PyTypeMetaclass;
@@ -951,6 +954,67 @@ namespace SharpPy
         /// assignment on ValueError, OSError, _io._IOBase and _io.StringIO.
         /// </summary>
         public bool AllowsModuleAssignment;
+
+        // type_setattro is the slot of every type; a metaclass's __setattr__/__delattr__ is its
+        // own slot in PyObject_SetAttr.
+        protected internal override void TpSetattro(string name, PyObject value) => TypeSetAttribute(name, value);
+
+        protected internal override void TpDelattro(string name) => TypeSetAttribute(name, null);
+
+        protected override void PySetAttribute(string name, PyObject value) => TypeSetAttribute(name, value);
+
+        protected override void PyDelAttribute(string name) => TypeSetAttribute(name, null);
+
+        internal void TypeDeleteAttribute(string name) => TypeSetAttribute(name, null);
+
+        /// <summary>
+        /// type_setattro (Objects/typeobject.c): Py_TPFLAGS_IMMUTABLETYPE refuses writes and
+        /// deletions alike; then _PyObject_GenericSetAttrWithDict(type, name, value, NULL), a data
+        /// descriptor of the metatype before tp_dict; then PyType_Modified. value null deletes.
+        /// </summary>
+        internal void TypeSetAttribute(string name, PyObject value)
+        {
+            if (!IsHeapType)
+            {
+                // io.UnsupportedOperation is a heap type in CPython, so Lib/io.py may set its __module__.
+                if (value != null && AllowsModuleAssignment && name == "__module__")
+                {
+                    TypeDict["__module__"] = value;
+                    return;
+                }
+                throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{FullName}'");
+            }
+            // object_set_class refuses deleting __class__ (Objects/typeobject.c:5712-5719).
+            if (value == null && name == "__class__")
+                throw PyTypeError.Create("can't delete __class__ attribute");
+            var metatype = GetPyType();
+            var descriptor = (metatype as SharpPy.PyClass)?.LookupInMRO(name) ?? SharpPy.PyClass.GetTypeAttribute(metatype, name);
+            if (descriptor != null && PyClassInstance.IsDataDescriptor(descriptor))
+            {
+                if (value == null)
+                    PyClassInstance.CallDescriptorDelete(descriptor, this);
+                else
+                    PyClassInstance.CallDescriptorSet(descriptor, this, value);
+                return;
+            }
+            if (value == null)
+            {
+                if (!TypeDict.ContainsKey(name))
+                    throw PyAttributeError.Create($"type object '{FullName}' has no attribute '{name}'");
+                TypeDict.Remove(name);
+            }
+            else
+            {
+                TypeDict[name] = value;
+            }
+            // __del__ may be assigned to a class after instances of it already exist. C decides
+            // tp_finalize at type creation (Objects/typeobject.c:9499); SharpPy's cached answer is
+            // versioned by the global epoch so subclasses pick it up as well.
+            if (name == "__del__")
+                SharpPy.PyClass.FinalizerEpoch++;
+            // PyType_Modified
+            InvalidateTypeCache();
+        }
 
         /// <summary>
         /// Whether instances of this type can be the target of a weak reference.
@@ -2132,7 +2196,7 @@ namespace SharpPy
                 setter: (self, value) => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__name__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (type is PyClass pyClass)
+                    if (type.IsHeapType)
                     {
                         // type_set_name
                         if (value is PyString { } newName && newName.Value.Contains('\0'))
@@ -2140,9 +2204,9 @@ namespace SharpPy
                         if (value is PyString)
                             value.GetAttribute("encode").Call(Array.Empty<PyObject>(), null);
                         if (value is not PyString)
-                            throw PyTypeError.Create($"can only assign string to {pyClass.Name}.__name__, not '{value.GetTypeName()}'");
-                        pyClass.SetName((PyString)value);
-                        pyClass.InvalidateTypeCache();
+                            throw PyTypeError.Create($"can only assign string to {type.Name}.__name__, not '{value.GetTypeName()}'");
+                        type.SetName((PyString)value);
+                        type.InvalidateTypeCache();
                     }
                     else
                     {
@@ -2174,11 +2238,11 @@ namespace SharpPy
                 setter: (self, value) => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__qualname__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (type is PyClass pyClass)
+                    if (type.IsHeapType)
                     {
                         if (value is not PyString)
-                            throw PyTypeError.Create($"can only assign string to {pyClass.Name}.__qualname__, not '{value.GetTypeName()}'");
-                        pyClass.SetQualName(((PyString)value).Value);
+                            throw PyTypeError.Create($"can only assign string to {type.Name}.__qualname__, not '{value.GetTypeName()}'");
+                        type.SetQualName(((PyString)value).Value);
                     }
                     else
                     {
@@ -2262,8 +2326,6 @@ namespace SharpPy
             {
                 if (self is not PyType type)
                     throw PyTypeError.Create("descriptor '__dict__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                if (type is PyClass heap)
-                    return new PyMappingProxy(heap.ClassDict);
                 return new PyMappingProxy(type.TypeDict);
             });
 
@@ -2282,10 +2344,11 @@ namespace SharpPy
             },
             (self, value) =>
             {
-                if (self is not PyClass heap)
-                    throw PyTypeError.Create($"cannot set '__doc__' attribute of immutable type '{((PyType)self).FullName}'");
-                heap.ClassDict["__doc__"] = value;
-                heap.InvalidateTypeCache();
+                var type = (PyType)self;
+                if (!type.IsHeapType)
+                    throw PyTypeError.Create($"cannot set '__doc__' attribute of immutable type '{type.FullName}'");
+                type.TypeDict["__doc__"] = value;
+                type.InvalidateTypeCache();
             },
             deleter: self => throw PyTypeError.Create($"cannot delete '__doc__' attribute of immutable type '{((PyType)self).FullName}'"));
 
@@ -2332,10 +2395,10 @@ namespace SharpPy
                 setter: (self, value) => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__module__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (type is PyClass pyClass)
+                    if (type.IsHeapType)
                     {
-                        pyClass.ClassDict["__module__"] = value;
-                        pyClass.InvalidateTypeCache();
+                        type.TypeDict["__module__"] = value;
+                        type.InvalidateTypeCache();
                     }
                     else
                     {
@@ -2363,9 +2426,7 @@ namespace SharpPy
                     if (args[0] is not PyString nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
 
-                    if (self is not PyClass cls)
-                        throw PyTypeError.Create($"cannot set '{nameStr.Value}' attribute of immutable type '{((PyType)self).FullName}'");
-                    cls.TypeSetAttribute(nameStr.Value, args[1]);
+                    ((PyType)self).TypeSetAttribute(nameStr.Value, args[1]);
                     return PyNone.Instance;
                 },
                 minArgs: 2,
@@ -2381,9 +2442,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     if (args[0] is not PyString nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
-                    if (self is not PyClass cls)
-                        throw PyTypeError.Create($"cannot set '{nameStr.Value}' attribute of immutable type '{((PyType)self).FullName}'");
-                    cls.TypeDeleteAttribute(nameStr.Value);
+                    ((PyType)self).TypeDeleteAttribute(nameStr.Value);
                     return PyNone.Instance;
                 },
                 minArgs: 1,
