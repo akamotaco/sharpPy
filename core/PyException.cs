@@ -1740,8 +1740,6 @@ namespace SharpPy
         private protected readonly PyObject[] Fields = new PyObject[5];
         private static readonly string[] FieldNames = { "encoding", "object", "start", "end", "reason" };
 
-        [ThreadStatic] internal static bool AllocatingBlank;
-
         // BaseException_new: tp_new only allocates, tp_init reads the arguments.
         internal static void InstallNew()
         {
@@ -1759,16 +1757,7 @@ namespace SharpPy
                         Array.Copy(args, 0, forwarded, 1, args.Length);
                         return inherited.CallTpNew(forwarded, kwargs);
                     }
-                    AllocatingBlank = true;
-                    PyObject created;
-                    try
-                    {
-                        created = ((PyType)cls).CreateInstance(new PyObject[0], null);
-                    }
-                    finally
-                    {
-                        AllocatingBlank = false;
-                    }
+                    var created = ((PyType)cls).CreateInstance(new PyObject[0], null);
                     // BaseException_new keeps the arguments; the fields wait for __init__.
                     PyExceptionSlots.StoreArgs(created, args);
                     return created;
@@ -1881,10 +1870,8 @@ namespace SharpPy
     public class PyUnicodeDecodeError : PyUnicodeError
     {
         // UnicodeDecodeError_init: the object is kept as bytes, whatever buffer it came as.
-        internal PyUnicodeDecodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs)
-        {
-            if (!AllocatingBlank) UnicodeDecodeErrorInit(this, args, kwargs);
-        }
+        // tp_alloc: the fields stay NULL until UnicodeDecodeError_init reads the arguments.
+        internal PyUnicodeDecodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         internal void UnicodeDecodeErrorInit(PyObject self, PyObject[] args, PyDict kwargs)
         {
@@ -1914,7 +1901,8 @@ namespace SharpPy
 
         /// <summary>What a codec raises: the fields, from which the message follows.</summary>
         internal static PythonException Failure(string encoding, byte[] data, int start, int end, string reason)
-            => new PythonException(new PyUnicodeDecodeError(new PyObject[]
+            // PyUnicodeDecodeError_Create: PyObject_CallFunction(PyExc_UnicodeDecodeError, ...).
+            => new PythonException((PyBaseException)PyType.UnicodeDecodeErrorType.Call(new PyObject[]
             {
                 new PyString(encoding), new PyBytes(data), new PyInt(start), new PyInt(end), new PyString(reason),
             }, null));
@@ -1926,10 +1914,8 @@ namespace SharpPy
     /// </summary>
     public class PyUnicodeEncodeError : PyUnicodeError
     {
-        internal PyUnicodeEncodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs)
-        {
-            if (!AllocatingBlank) UnicodeEncodeErrorInit(this, args, kwargs);
-        }
+        // tp_alloc: the fields stay NULL until UnicodeEncodeError_init reads the arguments.
+        internal PyUnicodeEncodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         internal void UnicodeEncodeErrorInit(PyObject self, PyObject[] args, PyDict kwargs) =>
             UnicodeErrorInit(self, args, kwargs, "UUnnU");
@@ -1946,7 +1932,8 @@ namespace SharpPy
 
         /// <summary>What a codec raises: the fields, from which the message follows.</summary>
         internal static PythonException Failure(string encoding, string text, int start, int end, string reason)
-            => new PythonException(new PyUnicodeEncodeError(new PyObject[]
+            // PyUnicodeEncodeError_Create: PyObject_CallFunction(PyExc_UnicodeEncodeError, ...).
+            => new PythonException((PyBaseException)PyType.UnicodeEncodeErrorType.Call(new PyObject[]
             {
                 new PyString(encoding), new PyString(text), new PyInt(start), new PyInt(end), new PyString(reason),
             }, null));
@@ -1955,10 +1942,8 @@ namespace SharpPy
     /// <summary>Python UnicodeTranslateError. CPython 3.12: Objects/exceptions.c UnicodeTranslateError_init.</summary>
     public class PyUnicodeTranslateError : PyUnicodeError
     {
-        internal PyUnicodeTranslateError(PyObject[] args, PyDict kwargs) : base(args, kwargs)
-        {
-            if (!AllocatingBlank) UnicodeTranslateErrorInit(this, args, kwargs);
-        }
+        // tp_alloc: the fields stay NULL until UnicodeTranslateError_init reads the arguments.
+        internal PyUnicodeTranslateError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         internal void UnicodeTranslateErrorInit(PyObject self, PyObject[] args, PyDict kwargs) =>
             UnicodeErrorInit(self, args, kwargs, "UnnU");

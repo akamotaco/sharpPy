@@ -166,17 +166,7 @@ internal static class PyExceptionSlots
         if (builtin.IsSubclassOf(PyType.BaseExceptionGroupType))
             created = (PyBaseException)PyBaseExceptionGroup.NewGroup(args, heap);
         else
-        {
-            PyUnicodeError.AllocatingBlank = builtin.IsSubclassOf(PyType.UnicodeErrorType) && !ReferenceEquals(builtin, PyType.UnicodeErrorType);
-            try
-            {
-                created = (PyBaseException)builtin.CreateInstance(new PyObject[0], null);
-            }
-            finally
-            {
-                PyUnicodeError.AllocatingBlank = false;
-            }
-        }
+            created = (PyBaseException)builtin.CreateInstance(new PyObject[0], null);
         created.SetCustomType(heap);
         return created;
     }
