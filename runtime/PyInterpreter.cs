@@ -607,38 +607,18 @@ namespace SharpPy
                 pythonExceptionType = pyEx.PyException.GetTypeName();
                 exceptionMessage = pyEx.PyException.ToStr().Value;
             }
+            else if (e is PySyntaxErrorException)
+            {
+                // The compiler's own route, as in the VM (IsHostFailure).
+                pythonExceptionType = "SyntaxError";
+                exceptionMessage = e.Message;
+            }
             else
             {
-                var exceptionTypeName = e.GetType().Name;
-                pythonExceptionType = exceptionTypeName switch
-                {
-                    "PyNameError" => "NameError",
-                    "PyTypeError" => "TypeError",
-                    "PyValueError" => "ValueError",
-                    "PyAttributeError" => "AttributeError",
-                    "PyKeyError" => "KeyError",
-                    "PyIndexError" => "IndexError",
-                    "PyRuntimeError" => "RuntimeError",
-                    "PyNotImplementedError" => "NotImplementedError",
-                    "PySyntaxError" => "SyntaxError",
-                    "PySyntaxErrorException" => "SyntaxError",
-                    "PyIndentationError" => "IndentationError",
-                    "PyTabError" => "TabError",
-                    "PySystemError" => "SystemError",
-                    "PyImportError" => "ImportError",
-                    "PyModuleNotFoundError" => "ModuleNotFoundError",
-                    "PyOSError" => "OSError",
-                    "PyFileNotFoundError" => "FileNotFoundError",
-                    "PyPermissionError" => "PermissionError",
-                    _ when e.Message.Contains("not defined") => "NameError",
-                    _ when e.Message.Contains("not found") => "NameError",
-                    _ when e.Message.Contains("has no attribute") => "AttributeError",
-                    _ when e.Message.Contains("required argument") => "TypeError",
-                    _ when e.Message.Contains("Complex target patterns") => "RuntimeError",
-                    _ when e.Message.Contains("not implemented") => "NotImplementedError",
-                    _ => "RuntimeError"
-                };
-                exceptionMessage = e.Message;
+                // A host fault: the VM's one conversion (SystemError for what no Python code causes).
+                var converted = PyVM.ConvertToPythonException(e);
+                pythonExceptionType = converted.GetTypeName();
+                exceptionMessage = converted.ToStr().Value;
             }
 
             // CPython 3.12: PyErr_Display appends suggestions for NameError at

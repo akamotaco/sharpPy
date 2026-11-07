@@ -620,8 +620,7 @@ namespace SharpPy
             if (revDesc != null)
                 return seq.CallSpecial(revDesc);
 
-            // PySequence_Check: sq_item, which no dict has.
-            if (seq is PyDict || seq.GetPyType().LookupSpecial("__getitem__") == null)
+            if (!PyVM.IsSequence(seq))
                 throw PyTypeError.Create($"'{seq.GetTypeName()}' object is not reversible");
 
             // PySequence_Size: the type's sq_length.

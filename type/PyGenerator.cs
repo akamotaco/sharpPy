@@ -265,15 +265,6 @@ namespace SharpPy
                 _finished = true;
                 throw;
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("Stack empty"))
-            {
-                // Generator completion: Stack empty during final cleanup is normal completion
-                #if DEBUG_GENERATOR_LOG
-                Console.WriteLine($"🎉 Generator: Completed successfully (stack empty during cleanup)");
-                #endif
-                _finished = true;
-                throw PyStopIteration.Create();
-            }
             catch (Exception ex)
             {
                 // 다른 예외가 발생한 경우

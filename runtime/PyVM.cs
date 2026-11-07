@@ -4513,15 +4513,13 @@ namespace SharpPy
                         // CPython 3.12: ceval.c unpack_iterable() - PyObject_GetIter first.
                         // Only a genuinely non-iterable object (tp_iter == NULL and not a
                         // sequence) reports "cannot unpack non-iterable X object"; a TypeError
-                        // raised by a user __iter__ propagates unchanged. In SharpPy the base
-                        // PyObject.GetIterator() marks genuine non-iterables with "is not iterable".
+                        // raised by a user __iter__ propagates unchanged.
                         PyObject unpackSeqIterator;
                         try
                         {
                             unpackSeqIterator = sequence.GetIterator();
                         }
-                        catch (PythonException iterFailure) when (iterFailure.PyException is PyTypeError &&
-                                                                  iterFailure.PyException.Message.Contains("is not iterable"))
+                        catch (PythonException iterFailure) when (iterFailure.PyException is PyTypeError && IsNonIterable(sequence))
                         {
                             throw PyTypeError.Create($"cannot unpack non-iterable {sequence.GetTypeName()} object");
                         }
@@ -4593,8 +4591,7 @@ namespace SharpPy
                         {
                             unpackIterator = unpackExSequence.GetIterator();
                         }
-                        catch (PythonException iterFailure) when (iterFailure.PyException is PyTypeError &&
-                                                                  iterFailure.PyException.Message.Contains("is not iterable"))
+                        catch (PythonException iterFailure) when (iterFailure.PyException is PyTypeError && IsNonIterable(unpackExSequence))
                         {
                             throw PyTypeError.Create($"cannot unpack non-iterable {unpackExSequence.GetTypeName()} object");
                         }
@@ -5578,6 +5575,9 @@ namespace SharpPy
             throw PyTypeError.Create($"'{s.GetTypeName()}' object can't be concatenated");
         }
 
+        // unpack_iterable's test of a failed PyObject_GetIter: tp_iter NULL and no PySequence_Check.
+        private static bool IsNonIterable(PyObject value) => !value.HasTypeSlot("__iter__") && !IsSequence(value);
+
         // PySequence_Check: __getitem__ and not a dict.
         internal static bool IsSequence(PyObject value) =>
             !(value is PyDict || value.GetPyType().IsSubclassOf(PyType.DictType)) && value.HasTypeSlot("__getitem__");
@@ -6354,7 +6354,7 @@ namespace SharpPy
             LoopBreakException or LoopContinueException or PyReturnException or PyYieldException or PySyntaxErrorException or
             SyntaxErrorException or SharpPy.Generated.SyntaxErrorException);
 
-        private PyBaseException ConvertToPythonException(Exception exception) => exception switch
+        internal static PyBaseException ConvertToPythonException(Exception exception) => exception switch
         {
             PythonException python => python.PyException,
             InsufficientExecutionStackException => new PyRecursionError(),
