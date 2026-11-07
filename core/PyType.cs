@@ -1094,6 +1094,114 @@ namespace SharpPy
             return false;
         }
 
+        /// <summary>tp_alloc of a builtin type allocated through CreateInstance, null for others.</summary>
+        internal Func<PyObject[], PyDict, PyObject> Allocator;
+
+        /// <summary>
+        /// tp_alloc and the C initialiser of each builtin exception type (Objects/exceptions.c): what
+        /// BaseException_new allocates for the type, found on the type itself rather than by name.
+        /// </summary>
+        internal static void InstallExceptionAllocators()
+        {
+            BaseExceptionType.Allocator = (args, kwargs) => new PyBaseException(args, kwargs);
+            ExceptionType.Allocator = (args, kwargs) => new PyException(args, kwargs);
+            WarningType.Allocator = (args, kwargs) => new PyWarning(args, kwargs);
+            UserWarningType.Allocator = (args, kwargs) => new PyUserWarning(args, kwargs);
+            DeprecationWarningType.Allocator = (args, kwargs) => new PyDeprecationWarning(args, kwargs);
+            PendingDeprecationWarningType.Allocator = (args, kwargs) => new PyPendingDeprecationWarning(args, kwargs);
+            SyntaxWarningType.Allocator = (args, kwargs) => new PySyntaxWarning(args, kwargs);
+            RuntimeWarningType.Allocator = (args, kwargs) => new PyRuntimeWarning(args, kwargs);
+            FutureWarningType.Allocator = (args, kwargs) => new PyFutureWarning(args, kwargs);
+            ImportWarningType.Allocator = (args, kwargs) => new PyImportWarning(args, kwargs);
+            UnicodeWarningType.Allocator = (args, kwargs) => new PyUnicodeWarning(args, kwargs);
+            BytesWarningType.Allocator = (args, kwargs) => new PyBytesWarning(args, kwargs);
+            ResourceWarningType.Allocator = (args, kwargs) => new PyResourceWarning(args, kwargs);
+            EncodingWarningType.Allocator = (args, kwargs) => new PyEncodingWarning(args, kwargs);
+            StopAsyncIterationType.Allocator = (args, kwargs) => new PyStopAsyncIteration(args, kwargs);
+            EOFErrorType.Allocator = (args, kwargs) => new PyEOFError(args, kwargs);
+            ValueErrorType.Allocator = (args, kwargs) => new PyValueError(args, kwargs);
+            TypeErrorType.Allocator = (args, kwargs) => new PyTypeError(args, kwargs);
+            AttributeErrorType.Allocator = (args, kwargs) => new PyAttributeError(args, kwargs);
+            NameErrorType.Allocator = (args, kwargs) => new PyNameError(args, kwargs);
+            UnboundLocalErrorType.Allocator = (args, kwargs) => new PyUnboundLocalError(args, kwargs);
+            ArithmeticErrorType.Allocator = (args, kwargs) => new PyArithmeticError(args, kwargs);
+            FloatingPointErrorType.Allocator = (args, kwargs) => new PyFloatingPointError(args, kwargs);
+            TabErrorType.Allocator = (args, kwargs) => new PyTabError(args, kwargs);
+            MemoryErrorType.Allocator = (args, kwargs) => new PyMemoryError(args, kwargs);
+            UnicodeErrorType.Allocator = (args, kwargs) => new PyUnicodeError(args, kwargs);
+            UnicodeEncodeErrorType.Allocator = (args, kwargs) => new PyUnicodeEncodeError(args, kwargs);
+            UnicodeDecodeErrorType.Allocator = (args, kwargs) => new PyUnicodeDecodeError(args, kwargs);
+            UnicodeTranslateErrorType.Allocator = (args, kwargs) => new PyUnicodeTranslateError(args, kwargs);
+            // Objects/exceptions.c ReferenceError/BufferError are builtins names, so calling them
+            // has to build the exception like every other one. BufferError was registered in
+            // builtins but missing here, so BufferError('x') raised NotImplementedError instead.
+            ZeroDivisionErrorType.Allocator = (args, kwargs) => new PyZeroDivisionError(args, kwargs);
+            ReferenceErrorType.Allocator = (args, kwargs) => new PyReferenceError(args, kwargs);
+            BufferErrorType.Allocator = (args, kwargs) => new PyBufferError(args, kwargs);
+            OverflowErrorType.Allocator = (args, kwargs) => new PyOverflowError(args, kwargs);
+            LookupErrorType.Allocator = (args, kwargs) => new PyLookupError(args, kwargs);
+            IndexErrorType.Allocator = (args, kwargs) => new PyIndexError(args, kwargs);
+            KeyErrorType.Allocator = (args, kwargs) => new PyKeyError(args, kwargs);
+            RuntimeErrorType.Allocator = (args, kwargs) => new PyRuntimeError(args, kwargs);
+            SystemErrorType.Allocator = (args, kwargs) => new PySystemError(args, kwargs);
+            NotImplementedErrorType.Allocator = (args, kwargs) => new PyNotImplementedError(args, kwargs);
+            RecursionErrorType.Allocator = (args, kwargs) => new PyRecursionError(args, kwargs);
+            ImportErrorType.Allocator = (args, kwargs) => new PyImportError(args, kwargs);
+            ModuleNotFoundErrorType.Allocator = (args, kwargs) => new PyModuleNotFoundError(args, kwargs);
+            SyntaxErrorType.Allocator = (args, kwargs) => new PySyntaxError(args, kwargs);
+            IndentationErrorType.Allocator = (args, kwargs) => new PyIndentationError(args, kwargs);
+            // The argument survives: SystemExit(3).args is (3,) and .code is 3
+            // (Objects/exceptions.c SystemExit_init), which is what decides the status later.
+            SystemExitType.Allocator = (args, kwargs) => new PySystemExit(args, kwargs);
+            // No constructor of its own: BaseException_init keeps the arguments, so
+            // KeyboardInterrupt().args is () and KeyboardInterrupt('x', 1).args is ('x', 1).
+            KeyboardInterruptType.Allocator = (args, kwargs) => new PyKeyboardInterrupt(args, kwargs);
+            GeneratorExitType.Allocator = (args, kwargs) => new PyGeneratorExit(args, kwargs);
+            StopIterationType.Allocator = (args, kwargs) =>
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("StopIteration() takes no keyword arguments");
+                return new PyStopIteration(args);
+            };
+            AssertionErrorType.Allocator = (args, kwargs) => new PyAssertionError(args, kwargs);
+            ConnectionErrorType.Allocator = (args, kwargs) => new PyConnectionError(args, kwargs);
+            BrokenPipeErrorType.Allocator = (args, kwargs) => new PyBrokenPipeError(args, kwargs);
+            ConnectionAbortedErrorType.Allocator = (args, kwargs) => new PyConnectionAbortedError(args, kwargs);
+            ConnectionRefusedErrorType.Allocator = (args, kwargs) => new PyConnectionRefusedError(args, kwargs);
+            ConnectionResetErrorType.Allocator = (args, kwargs) => new PyConnectionResetError(args, kwargs);
+            ChildProcessErrorType.Allocator = (args, kwargs) => new PyChildProcessError(args, kwargs);
+            InterruptedErrorType.Allocator = (args, kwargs) => new PyInterruptedError(args, kwargs);
+            ProcessLookupErrorType.Allocator = (args, kwargs) => new PyProcessLookupError(args, kwargs);
+            TimeoutErrorType.Allocator = (args, kwargs) => new PyTimeoutError(args, kwargs);
+            BlockingIOErrorType.Allocator = (args, kwargs) => new PyBlockingIOError(args, kwargs);
+            OSErrorType.Allocator = (args, kwargs) => PyOSError.FromArguments(args, kwargs);
+            PyUnsupportedOperation.UnsupportedOperationPyType.Allocator = (args, kwargs) => new PyUnsupportedOperation(args, kwargs);
+            FileNotFoundErrorType.Allocator = (args, kwargs) => new PyFileNotFoundError(args, kwargs);
+            PermissionErrorType.Allocator = (args, kwargs) => new PyPermissionError(args, kwargs);
+            FileExistsErrorType.Allocator = (args, kwargs) => new PyFileExistsError(args, kwargs);
+            NotADirectoryErrorType.Allocator = (args, kwargs) => new PyNotADirectoryError(args, kwargs);
+            // Both names go to the one constructor transliteration
+            // (Objects/exceptions.c BaseExceptionGroup_new). It used to have a copy here and
+            // another one in PyScope, both of which quietly dropped members that were not
+            // PyException, so BaseExceptionGroup('m', [KeyboardInterrupt()]) reported a group
+            // with no members instead of refusing or keeping the member.
+            IsADirectoryErrorType.Allocator = (args, kwargs) => new PyIsADirectoryError(args, kwargs);
+            // BaseExceptionGroup_new, then BaseExceptionGroup_init, which refuses keywords
+            // under the name of the type the group became.
+            BaseExceptionGroupType.Allocator = (args, kwargs) =>
+            {
+                var group = PyBaseExceptionGroup.NewGroup(args, BaseExceptionGroupType);
+                PyBaseException.BaseExceptionInit(group, args, kwargs);
+                return group;
+            };
+            ExceptionGroupType.Allocator = (args, kwargs) =>
+            {
+                var group = PyBaseExceptionGroup.NewGroup(args, ExceptionGroupType);
+                PyBaseException.BaseExceptionInit(group, args, kwargs);
+                return group;
+            };
+        }
+
         // 인스턴스 생성 (기본 구현)
         public virtual PyObject CreateInstance(PyObject[] args, PyDict kwargs = null)
         {
@@ -1107,152 +1215,10 @@ namespace SharpPy
                 (args.Length > 1 || (kwargs != null && PyObject.KwValue(kwargs, "encoding") != null)))
                 throw PyTypeError.Create("encoding without a string argument");
 
-            string message = args.Length > 0 && args[0] is PyString pyStr ? pyStr.Value : "";
+            // The type's own tp_alloc: an exception type's struct (InstallExceptionAllocators).
+            if (Allocator != null)
+                return Allocator(args, kwargs);
 
-            switch (Name)
-            {
-                case "BaseException":
-                    return new PyBaseException(args, kwargs);
-                case "Exception":
-                    return new PyException(args, kwargs);
-                case "Warning": return new PyWarning(args, kwargs);
-                case "UserWarning": return new PyUserWarning(args, kwargs);
-                case "DeprecationWarning": return new PyDeprecationWarning(args, kwargs);
-                case "PendingDeprecationWarning": return new PyPendingDeprecationWarning(args, kwargs);
-                case "SyntaxWarning": return new PySyntaxWarning(args, kwargs);
-                case "RuntimeWarning": return new PyRuntimeWarning(args, kwargs);
-                case "FutureWarning": return new PyFutureWarning(args, kwargs);
-                case "ImportWarning": return new PyImportWarning(args, kwargs);
-                case "UnicodeWarning": return new PyUnicodeWarning(args, kwargs);
-                case "BytesWarning": return new PyBytesWarning(args, kwargs);
-                case "ResourceWarning": return new PyResourceWarning(args, kwargs);
-                case "EncodingWarning": return new PyEncodingWarning(args, kwargs);
-                case "StopAsyncIteration": return new PyStopAsyncIteration(args, kwargs);
-                case "EOFError": return new PyEOFError(args, kwargs);
-                case "ValueError":
-                    return new PyValueError(args, kwargs);
-                case "TypeError":
-                    return new PyTypeError(args, kwargs);
-                case "AttributeError":
-                    return new PyAttributeError(args, kwargs);
-                case "NameError":
-                    return new PyNameError(args, kwargs);
-                case "UnboundLocalError":
-                    return new PyUnboundLocalError(args, kwargs);
-                case "ArithmeticError":
-                    return new PyArithmeticError(args, kwargs);
-                case "FloatingPointError":
-                    return new PyFloatingPointError(args, kwargs);
-                case "TabError":
-                    return new PyTabError(args, kwargs);
-                case "MemoryError":
-                    return new PyMemoryError(args, kwargs);
-                case "UnicodeError":
-                    return new PyUnicodeError(args, kwargs);
-                case "UnicodeEncodeError":
-                    return new PyUnicodeEncodeError(args, kwargs);
-                case "UnicodeDecodeError":
-                    return new PyUnicodeDecodeError(args, kwargs);
-                case "UnicodeTranslateError":
-                    return new PyUnicodeTranslateError(args, kwargs);
-                case "ZeroDivisionError":
-                    return new PyZeroDivisionError(args, kwargs);
-                // Objects/exceptions.c ReferenceError/BufferError are builtins names, so calling them
-                // has to build the exception like every other one. BufferError was registered in
-                // builtins but missing here, so BufferError('x') raised NotImplementedError instead.
-                case "ReferenceError":
-                    return new PyReferenceError(args, kwargs);
-                case "BufferError":
-                    return new PyBufferError(args, kwargs);
-                case "OverflowError":
-                    return new PyOverflowError(args, kwargs);
-                case "LookupError":
-                    return new PyLookupError(args, kwargs);
-                case "IndexError":
-                    return new PyIndexError(args, kwargs);
-                case "KeyError":
-                    return new PyKeyError(args, kwargs);
-                case "RuntimeError":
-                    return new PyRuntimeError(args, kwargs);
-                case "SystemError":
-                    return new PySystemError(args, kwargs);
-                case "NotImplementedError":
-                    return new PyNotImplementedError(args, kwargs);
-                case "RecursionError":
-                    return new PyRecursionError(args, kwargs);
-                case "ImportError":
-                    return new PyImportError(args, kwargs);
-                case "ModuleNotFoundError":
-                    return new PyModuleNotFoundError(args, kwargs);
-                case "SyntaxError":
-                    return new PySyntaxError(args, kwargs);
-                case "IndentationError":
-                    return new PyIndentationError(args, kwargs);
-                case "SystemExit":
-                    // The argument survives: SystemExit(3).args is (3,) and .code is 3
-                    // (Objects/exceptions.c SystemExit_init), which is what decides the status later.
-                    return new PySystemExit(args, kwargs);
-                case "KeyboardInterrupt":
-                    // No constructor of its own: BaseException_init keeps the arguments, so
-                    // KeyboardInterrupt().args is () and KeyboardInterrupt('x', 1).args is ('x', 1).
-                    return new PyKeyboardInterrupt(args, kwargs);
-                case "GeneratorExit":
-                    return new PyGeneratorExit(args, kwargs);
-                case "StopIteration":
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create("StopIteration() takes no keyword arguments");
-                    return new PyStopIteration(args);
-                case "AssertionError":
-                    return new PyAssertionError(args, kwargs);
-                case "ConnectionError":
-                    return new PyConnectionError(args, kwargs);
-                case "BrokenPipeError":
-                    return new PyBrokenPipeError(args, kwargs);
-                case "ConnectionAbortedError":
-                    return new PyConnectionAbortedError(args, kwargs);
-                case "ConnectionRefusedError":
-                    return new PyConnectionRefusedError(args, kwargs);
-                case "ConnectionResetError":
-                    return new PyConnectionResetError(args, kwargs);
-                case "ChildProcessError":
-                    return new PyChildProcessError(args, kwargs);
-                case "InterruptedError":
-                    return new PyInterruptedError(args, kwargs);
-                case "ProcessLookupError":
-                    return new PyProcessLookupError(args, kwargs);
-                case "TimeoutError":
-                    return new PyTimeoutError(args, kwargs);
-                case "BlockingIOError":
-                    return new PyBlockingIOError(args, kwargs);
-                case "OSError":
-                    return PyOSError.FromArguments(args, kwargs);
-                case "UnsupportedOperation" when ReferenceEquals(this, PyUnsupportedOperation.UnsupportedOperationPyType):
-                    return new PyUnsupportedOperation(args, kwargs);
-                case "FileNotFoundError":
-                    return new PyFileNotFoundError(args, kwargs);
-                case "PermissionError":
-                    return new PyPermissionError(args, kwargs);
-                case "FileExistsError":
-                    return new PyFileExistsError(args, kwargs);
-                case "NotADirectoryError":
-                    return new PyNotADirectoryError(args, kwargs);
-                case "IsADirectoryError":
-                    return new PyIsADirectoryError(args, kwargs);
-                // Both names go to the one constructor transliteration
-                // (Objects/exceptions.c BaseExceptionGroup_new). It used to have a copy here and
-                // another one in PyScope, both of which quietly dropped members that were not
-                // PyException, so BaseExceptionGroup('m', [KeyboardInterrupt()]) reported a group
-                // with no members instead of refusing or keeping the member.
-                case "BaseExceptionGroup":
-                case "ExceptionGroup":
-                {
-                    // BaseExceptionGroup_new, then BaseExceptionGroup_init, which refuses keywords
-                    // under the name of the type the group became.
-                    var group = PyBaseExceptionGroup.NewGroup(args, this);
-                    PyBaseException.BaseExceptionInit(group, args, kwargs);
-                    return group;
-                }
-            }
 
             // bytes_new for bytes itself, which bytes.__new__ hands here; the exceptions are above.
             if (ReferenceEquals(this, BytesType))
