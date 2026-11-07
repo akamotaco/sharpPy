@@ -187,38 +187,14 @@ namespace SharpPy
             if (normalized == "ascii")
                 return PyBytes.DecodeAsciiPython(data, errorName ?? "strict");
 
-            // CPython's utf-16/utf-32 consume the byte-order mark instead of putting it in the
-            // result; .NET's GetString left it as a leading U+FEFF in every round trip. A
-            // big-endian mark also flips the byte order, and no mark means native little-endian.
-            // Measured: "".encode("utf-16") == b'\xff\xfe'.
-            if (normalized == "utf-16" || normalized == "utf-32")
+            switch (normalized)
             {
-                int unit = normalized == "utf-16" ? 2 : 4;
-                bool bigEndian = false;
-                int skip = 0;
-                bool littleMark = data.Length >= 2 && data[0] == 0xFF && data[1] == 0xFE &&
-                                  (unit == 2 || (data.Length >= 4 && data[2] == 0x00 && data[3] == 0x00));
-                bool bigMark = unit == 2
-                    ? data.Length >= 2 && data[0] == 0xFE && data[1] == 0xFF
-                    : data.Length >= 4 && data[0] == 0x00 && data[1] == 0x00 &&
-                      data[2] == 0xFE && data[3] == 0xFF;
-                if (littleMark) skip = unit;
-                else if (bigMark) { skip = unit; bigEndian = true; }
-
-                encoding = normalized == "utf-16"
-                    ? (System.Text.Encoding)(bigEndian
-                        ? System.Text.UnicodeEncoding.BigEndianUnicode
-                        : System.Text.UnicodeEncoding.Unicode)
-                    : (System.Text.Encoding)(bigEndian
-                        ? new System.Text.UTF32Encoding(true, false)
-                        : new System.Text.UTF32Encoding(false, false));
-
-                if (skip != 0 && data.Length >= skip)
-                {
-                    var rest = new byte[data.Length - skip];
-                    Buffer.BlockCopy(data, skip, rest, 0, rest.Length);
-                    data = rest;
-                }
+                case "utf-16": return PyBytes.DecodeUtf16Python(data, errorName ?? "strict", 0);
+                case "utf-16-le": return PyBytes.DecodeUtf16Python(data, errorName ?? "strict", -1);
+                case "utf-16-be": return PyBytes.DecodeUtf16Python(data, errorName ?? "strict", 1);
+                case "utf-32": return PyBytes.DecodeUtf32Python(data, errorName ?? "strict", 0);
+                case "utf-32-le": return PyBytes.DecodeUtf32Python(data, errorName ?? "strict", -1);
+                case "utf-32-be": return PyBytes.DecodeUtf32Python(data, errorName ?? "strict", 1);
             }
 
             bool strict = errorName == null || errorName == "strict";

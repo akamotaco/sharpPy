@@ -122,6 +122,122 @@ namespace SharpPy
             return sb.ToString();
         }
 
+        /// <summary>
+        /// _PyUnicode_DecodeUTF16Stateful (Objects/unicodeobject.c): byteorder -1 little, 1 big, 0
+        /// read from a byte-order mark (consumed) and little-endian without one. Errors name
+        /// utf-16-le or utf-16-be and count positions from the start of the data.
+        /// </summary>
+        internal static string DecodeUtf16Python(byte[] data, string errors, int byteorder)
+        {
+            int i = 0;
+            if (byteorder == 0)
+            {
+                if (data.Length >= 2 && data[0] == 0xFF && data[1] == 0xFE) { byteorder = -1; i = 2; }
+                else if (data.Length >= 2 && data[0] == 0xFE && data[1] == 0xFF) { byteorder = 1; i = 2; }
+                else byteorder = -1;
+            }
+            bool big = byteorder > 0;
+            string encoding = big ? "utf-16-be" : "utf-16-le";
+            int Unit(byte[] d, int at) => big ? d[at] << 8 | d[at + 1] : d[at + 1] << 8 | d[at];
+            var sb = new System.Text.StringBuilder(data.Length / 2);
+            while (i < data.Length)
+            {
+                int n = data.Length;
+                if (n - i < 2)
+                {
+                    i = HandleDecodeError(ref data, i, n, errors, sb, "truncated data", encoding);
+                    continue;
+                }
+                int unit = Unit(data, i);
+                if (unit < 0xD800 || unit > 0xDFFF)
+                {
+                    sb.Append((char)unit);
+                    i += 2;
+                    continue;
+                }
+                string reason;
+                int end;
+                if (unit >= 0xDC00)
+                {
+                    reason = "illegal encoding";
+                    end = i + 2;
+                }
+                else if (n - i < 4)
+                {
+                    reason = "unexpected end of data";
+                    end = n;
+                }
+                else
+                {
+                    int low = Unit(data, i + 2);
+                    if (low >= 0xDC00 && low <= 0xDFFF)
+                    {
+                        sb.Append((char)unit).Append((char)low);
+                        i += 4;
+                        continue;
+                    }
+                    reason = "illegal UTF-16 surrogate";
+                    end = i + 2;
+                }
+                // PyCodec_SurrogatePassErrors: the surrogate code unit itself.
+                if (errors == "surrogatepass")
+                {
+                    sb.Append((char)unit);
+                    i += 2;
+                    continue;
+                }
+                i = HandleDecodeError(ref data, i, end, errors, sb, reason, encoding);
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>_PyUnicode_DecodeUTF32Stateful, with the byte orders of DecodeUtf16Python.</summary>
+        internal static string DecodeUtf32Python(byte[] data, string errors, int byteorder)
+        {
+            int i = 0;
+            if (byteorder == 0)
+            {
+                if (data.Length >= 4 && data[0] == 0xFF && data[1] == 0xFE && data[2] == 0 && data[3] == 0) { byteorder = -1; i = 4; }
+                else if (data.Length >= 4 && data[0] == 0 && data[1] == 0 && data[2] == 0xFE && data[3] == 0xFF) { byteorder = 1; i = 4; }
+                else byteorder = -1;
+            }
+            bool big = byteorder > 0;
+            string encoding = big ? "utf-32-be" : "utf-32-le";
+            var sb = new System.Text.StringBuilder(data.Length / 4);
+            while (i < data.Length)
+            {
+                int n = data.Length;
+                if (n - i < 4)
+                {
+                    i = HandleDecodeError(ref data, i, n, errors, sb, "truncated data", encoding);
+                    continue;
+                }
+                long cp = big
+                    ? (long)data[i] << 24 | (long)data[i + 1] << 16 | (long)data[i + 2] << 8 | data[i + 3]
+                    : (long)data[i + 3] << 24 | (long)data[i + 2] << 16 | (long)data[i + 1] << 8 | data[i];
+                if (cp > 0x10FFFF)
+                {
+                    i = HandleDecodeError(ref data, i, i + 4, errors, sb, "code point not in range(0x110000)", encoding);
+                    continue;
+                }
+                if (cp >= 0xD800 && cp <= 0xDFFF)
+                {
+                    if (errors == "surrogatepass")
+                    {
+                        sb.Append((char)cp);
+                        i += 4;
+                        continue;
+                    }
+                    i = HandleDecodeError(ref data, i, i + 4, errors, sb, "code point in surrogate code point range(0xd800, 0xe000)", encoding);
+                    continue;
+                }
+                if (cp > 0xFFFF) sb.Append(char.ConvertFromUtf32((int)cp));
+                else sb.Append((char)cp);
+                i += 4;
+            }
+            return sb.ToString();
+        }
+
         // The decoder's fast path for the builtin handler names (unicode_decode_utf8 with
         // _Py_GetErrorHandler); any other name is the registry's. Answers where decoding resumes.
         private static int HandleDecodeError(ref byte[] data, int start, int end, string errors,
@@ -138,8 +254,19 @@ namespace SharpPy
                 case "ignore":
                     return end;
                 case "surrogateescape":
-                    for (int k = start; k < end; k++) sb.Append((char)(0xDC00 + data[k]));
-                    return end;
+                {
+                    // PyCodec_SurrogateEscapeErrors: up to four bytes of 128 or more each; none is
+                    // the original error.
+                    int consumed = 0;
+                    while (consumed < 4 && start + consumed < end && data[start + consumed] >= 128)
+                    {
+                        sb.Append((char)(0xDC00 + data[start + consumed]));
+                        consumed++;
+                    }
+                    if (consumed == 0)
+                        throw PyUnicodeDecodeError.Failure(encoding, data, start, end, reason);
+                    return start + consumed;
+                }
                 case "backslashreplace":
                     for (int k = start; k < end; k++) sb.Append($"\\x{data[k]:x2}");
                     return end;
