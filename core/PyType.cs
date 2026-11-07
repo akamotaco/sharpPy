@@ -2609,16 +2609,7 @@ namespace SharpPy
                 setType,
                 (self, args, kwargs) => {
                     var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'union' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    // CPython set_union(set, *others)
-                    PySet acc = null;
-                    foreach (var other in args)
-                    {
-                        if (acc == null)
-                            acc = set.Union(other);
-                        else
-                            acc.Update(other);
-                    }
-                    return acc ?? new PySet();
+                    return PySet.UnionOf(set.Copy(), set, args);
                 },
                 minArgs: 0
             );
@@ -2629,16 +2620,7 @@ namespace SharpPy
                 setType,
                 (self, args, kwargs) => {
                     var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'intersection' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    // CPython set_intersection(se, *others)
-                    PySet acc = null;
-                    foreach (var other in args)
-                    {
-                        if (acc == null)
-                            acc = set.Intersection(other);
-                        else
-                            acc.IntersectionUpdate(other);
-                    }
-                    return acc ?? set.Copy();
+                    return PySet.IntersectionOf(set, args);
                 },
                 minArgs: 0
             );
@@ -2649,16 +2631,7 @@ namespace SharpPy
                 setType,
                 (self, args, kwargs) => {
                     var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'difference' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    // CPython set_difference(set, *others)
-                    PySet acc = null;
-                    foreach (var other in args)
-                    {
-                        if (acc == null)
-                            acc = set.Difference(other);
-                        else
-                            acc.DifferenceUpdate(other);
-                    }
-                    return acc ?? set.Copy();
+                    return PySet.DifferenceOf(set, args);
                 },
                 minArgs: 0
             );
@@ -2903,22 +2876,14 @@ namespace SharpPy
                 minArgs: 0, maxArgs: 0);
 
             RegisterFrozenSetMethod("copy", 0, 0, (frozen, a) => frozen.Copy());
-            RegisterFrozenSetMethod("union", 0, int.MaxValue, (frozen, a) => {
-                PyFrozenSet result = frozen;
-                foreach (var other in a) result = result.Union(other);
-                return result;
-            });
-            // set_copy: with no others these still answer a new object, unlike frozenset.copy.
-            RegisterFrozenSetMethod("intersection", 0, int.MaxValue, (frozen, a) => {
-                PyFrozenSet result = new PyFrozenSet(frozen.Items);
-                foreach (var other in a) result = result.Intersection(other);
-                return result;
-            });
-            RegisterFrozenSetMethod("difference", 0, int.MaxValue, (frozen, a) => {
-                PyFrozenSet result = new PyFrozenSet(frozen.Items);
-                foreach (var other in a) result = result.Difference(other);
-                return result;
-            });
+            // The set algorithms, the result made a frozenset (make_new_set_basetype): with no others
+            // still a new object, unlike frozenset.copy, and an exact frozenset for a subclass.
+            RegisterFrozenSetMethod("union", 0, int.MaxValue,
+                (frozen, a) => PyFrozenSet.Adopting(PySet.UnionOf(new PySet(frozen.Items), frozen, a)));
+            RegisterFrozenSetMethod("intersection", 0, int.MaxValue,
+                (frozen, a) => PyFrozenSet.Adopting(PySet.IntersectionOf(PySet.Over(frozen.Table), a)));
+            RegisterFrozenSetMethod("difference", 0, int.MaxValue,
+                (frozen, a) => PyFrozenSet.Adopting(PySet.DifferenceOf(PySet.Over(frozen.Table), a)));
             RegisterFrozenSetMethod("symmetric_difference", 1, 1,
                 (frozen, a) => frozen.SymmetricDifference(a[0]));
             RegisterFrozenSetMethod("isdisjoint", 1, 1, (frozen, a) => frozen.IsDisjoint(a[0]));

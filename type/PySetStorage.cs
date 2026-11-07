@@ -250,6 +250,14 @@ namespace SharpPy
         {
             if (ReferenceEquals(this, other)) { Clear(); return; }
             foreach (var entry in other.Entries()) RemoveKnown(entry.Key, entry.Hash);
+            ShrinkDummies();
+        }
+
+        // set_difference_update_internal's tail: more than a quarter of the table dummies, resized away.
+        internal void ShrinkDummies()
+        {
+            if (fill - Count <= (table.Length - 1) / 4) return;
+            Resize(Count > 50000 ? Count * 2 : Count * 4);
         }
         internal void SymmetricExceptWith(PySetStorage other)
         {

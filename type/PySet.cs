@@ -14,6 +14,44 @@ namespace SharpPy
         private readonly PySetStorage _items;
 
         public PySet() => _items = new PySetStorage();
+
+        internal PySetStorage Table => _items;
+
+        // A set reading a frozenset's table in place, for the algorithms below; nothing writes it.
+        private PySet(PySetStorage table, bool shared) => _items = table;
+        internal static PySet Over(PySetStorage table) => new PySet(table, true);
+
+        // set_union (Objects/setobject.c), for set and frozenset alike: a copy of so, then each
+        // other merged into it in place; an other that is so itself is skipped.
+        internal static PySet UnionOf(PySet copy, PyObject so, PyObject[] others)
+        {
+            foreach (var other in others)
+                if (!ReferenceEquals(other, so))
+                    copy.Update(other);
+            return copy;
+        }
+
+        // set_intersection_multi: a copy without others, else so, then a new set per other.
+        internal static PySet IntersectionOf(PySet so, PyObject[] others)
+        {
+            if (others.Length == 0)
+                return so.Copy();
+            var result = so;
+            foreach (var other in others)
+                result = result.Intersection(other);
+            return result;
+        }
+
+        // set_difference_multi: a copy without others, else so minus the first, the rest removed in place.
+        internal static PySet DifferenceOf(PySet so, PyObject[] others)
+        {
+            if (others.Length == 0)
+                return so.Copy();
+            var result = so.Difference(others[0]);
+            for (int i = 1; i < others.Length; i++)
+                result.DifferenceUpdate(others[i]);
+            return result;
+        }
         
         public PySet(IEnumerable<PyObject> items) => 
             _items = new PySetStorage(items);
@@ -479,6 +517,7 @@ namespace SharpPy
             if (other is not PySet && other is not PyFrozenSet)
             {
                 foreach (var item in IterableItems(other)) _items.Remove(item);
+                _items.ShrinkDummies();
                 return PyNone.Instance;
             }
             var otherItems = GetSetItems(other);
@@ -596,6 +635,14 @@ namespace SharpPy
 
         public PyFrozenSet() => _items = new PySetStorage(Array.Empty<PyObject>());
         
+        // make_new_set_basetype: the result's table is the frozenset's, not re-inserted (which would
+        // lay it out, and so iterate it, differently from CPython's).
+        private PyFrozenSet(PySetStorage table) => _items = table;
+
+        internal static PyFrozenSet Adopting(PySet result) => new PyFrozenSet(result.Table);
+
+        internal PySetStorage Table => _items;
+
         public PyFrozenSet(IEnumerable<PyObject> items) => 
             _items = new PySetStorage(items);
 
@@ -669,10 +716,10 @@ namespace SharpPy
 
         protected internal override PyBool ContainsItem(PyObject item) => PyBool.FromBool(PySet.WithSetKey(item, _items.Contains));
         
-        public PyFrozenSet Union(PyObject other) => new PyFrozenSet(new PySet(_items).Union(other).Items);
-        public PyFrozenSet Intersection(PyObject other) => new PyFrozenSet(new PySet(_items).Intersection(other).Items);
-        public PyFrozenSet Difference(PyObject other) => new PyFrozenSet(new PySet(_items).Difference(other).Items);
-        public PyFrozenSet SymmetricDifference(PyObject other) => new PyFrozenSet(new PySet(_items).SymmetricDifference(other).Items);
+        public PyFrozenSet Union(PyObject other) => Adopting(PySet.Over(_items).Union(other));
+        public PyFrozenSet Intersection(PyObject other) => Adopting(PySet.Over(_items).Intersection(other));
+        public PyFrozenSet Difference(PyObject other) => Adopting(PySet.Over(_items).Difference(other));
+        public PyFrozenSet SymmetricDifference(PyObject other) => Adopting(PySet.Over(_items).SymmetricDifference(other));
         
         public PyBool IsSubset(PyObject other) => new PySet(_items).IsSubset(other);
         public PyBool IsSuperset(PyObject other) => new PySet(_items).IsSuperset(other);
