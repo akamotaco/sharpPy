@@ -203,7 +203,7 @@ namespace SharpPy
         PyObject ICFunction.MethodSelf => OwnerType;
         PyObject ICFunction.MethodModule => null;
 
-        protected internal override PyString Repr() => new PyString($"<built-in method {Name} of type object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(OwnerType):x}>");
+        protected internal override PyString Repr() => new PyString($"<built-in method {Name} of type object at {PyObjectId.Pointer(OwnerType)}>");
         public override string ToString() => ToRepr().Value;
     }
 
@@ -279,7 +279,7 @@ namespace SharpPy
 
         // meth_repr: "<built-in method %s of %s object at %p>", the type of m_self and m_self.
         protected internal override PyString Repr() => new PyString(
-            $"<built-in method {((ICFunction)this).MethodName} of {Instance.GetPyType().FullName} object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(Instance):x}>");
+            $"<built-in method {((ICFunction)this).MethodName} of {Instance.GetPyType().FullName} object at {PyObjectId.Pointer(Instance)}>");
         public override string ToString() => ToRepr().Value;
     }
 
@@ -651,7 +651,7 @@ namespace SharpPy
 
         // CPython method-wrapper repr: <method-wrapper 'NAME' of TYPE object at 0xID>
         protected internal override PyString Repr()
-            => new PyString($"<method-wrapper '{WrapperDescriptor.Name}' of {Instance.GetTypeName()} object at 0x{Instance.GetHashCode():x}>");
+            => new PyString($"<method-wrapper '{WrapperDescriptor.Name}' of {Instance.GetTypeName()} object at {PyObjectId.Pointer(Instance)}>");
         public override string ToString() => ToRepr().Value;
     }
 }

@@ -67,8 +67,8 @@ namespace SharpPy
         internal PyString SlotRepr()
         {
             var target = Referent;
-            if (target == null) return new PyString($"<weakref at 0x{PyObjectId.Of(this):x}; dead>");
-            return new PyString($"<weakref at 0x{PyObjectId.Of(this):x}; to '{target.GetTypeName()}' at 0x{PyObjectId.Of(target):x}>");
+            if (target == null) return new PyString($"<weakref at {PyObjectId.Pointer(this)}; dead>");
+            return new PyString($"<weakref at {PyObjectId.Pointer(this)}; to '{target.GetTypeName()}' at {PyObjectId.Pointer(target)}>");
         }
 
         protected internal override PyObject TpRichCompare(PyObject other, CompareOp op) => SlotCompare(other, op);

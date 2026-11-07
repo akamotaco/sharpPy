@@ -1045,8 +1045,8 @@ namespace SharpPy
 
         // code_repr
         protected internal override PyString Repr() => new PyString(FileName != null
-            ? $"<code object {PyFrame.BindErrorName(Name)} at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}, file \"{FileName}\", line {GetFirstLineNo()}>"
-            : $"<code object {PyFrame.BindErrorName(Name)} at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}, file ???, line {GetFirstLineNo()}>");
+            ? $"<code object {PyFrame.BindErrorName(Name)} at {PyObjectId.Pointer(this)}, file \"{FileName}\", line {GetFirstLineNo()}>"
+            : $"<code object {PyFrame.BindErrorName(Name)} at {PyObjectId.Pointer(this)}, file ???, line {GetFirstLineNo()}>");
         
         /// <summary>
         /// Test the synchronous generator flag determined by scope analysis.

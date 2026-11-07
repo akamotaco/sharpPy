@@ -10,8 +10,8 @@ namespace SharpPy
     {
         // cell_repr (Objects/cellobject.c)
         protected internal override PyString Repr() => new PyString(HasValue
-            ? $"<cell at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}: {_value.GetTypeName()} object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_value):x}>"
-            : $"<cell at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}: empty>");
+            ? $"<cell at {PyObjectId.Pointer(this)}: {_value.GetTypeName()} object at {PyObjectId.Pointer(_value)}>"
+            : $"<cell at {PyObjectId.Pointer(this)}: empty>");
 
         private PyObject? _value;
         

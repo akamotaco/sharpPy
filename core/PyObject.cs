@@ -141,7 +141,7 @@ namespace SharpPy
 
         // ❌ 절대 금지: ToString() → AsString() 위임
         // ToString()은 CLR 디버깅 전용 identity(<type object at 0x…>)다.
-        public override string ToString() => $"<{GetTypeName()} object at 0x{GetHashCode():x}>";
+        public override string ToString() => $"<{GetTypeName()} object at {PyObjectId.Pointer(this)}>";
 
         #endregion
 

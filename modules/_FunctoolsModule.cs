@@ -124,7 +124,7 @@ namespace SharpPy.Modules
             return new PyKeyWrapper(_cmpFunc, parsed[0]);
         }
 
-        protected internal override PyString Repr() => new PyString($"<functools.KeyWrapper object at 0x{PyObjectId.Of(this):x}>");
+        protected internal override PyString Repr() => new PyString($"<functools.KeyWrapper object at {PyObjectId.Pointer(this)}>");
 
         // keyobject_richcompare: both keyobjects of the same type, the user's three-way result
         // compared with zero by PyObject_RichCompare.

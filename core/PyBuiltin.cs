@@ -2598,7 +2598,7 @@ namespace SharpPy
     {
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "object";
-        protected internal override PyString Repr() => new PyString($"<object object at 0x{GetHashCode():x}>");
+        protected internal override PyString Repr() => new PyString($"<object object at {PyObjectId.Pointer(this)}>");
         protected internal override PyString Str() => ToRepr();
     }
 }

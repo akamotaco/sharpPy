@@ -719,7 +719,7 @@ namespace SharpPy
 
         // frame_repr
         protected internal override PyString Repr() => new PyString(
-            $"<frame at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}, file {new PyString(Code.FileName ?? "<unknown>").ToRepr().Value}, line {Read("f_lineno").ToRepr().Value}, code {Read("f_code").GetAttribute("co_name").AsString().Value}>");
+            $"<frame at {PyObjectId.Pointer(this)}, file {new PyString(Code.FileName ?? "<unknown>").ToRepr().Value}, line {Read("f_lineno").ToRepr().Value}, code {Read("f_code").GetAttribute("co_name").AsString().Value}>");
 
         // PyObject required overrides
         public override PyType GetPyType() => FramePyType;
@@ -1941,8 +1941,7 @@ namespace SharpPy
                     }
                     else if (actualCallable is PyMethod method)
                     {
-                        // PyMethod.Call special-cases __exit__, so that name keeps its route.
-                        if (method.Function is PyFunction boundFunction && boundFunction.Name != "__exit__")
+                        if (method.Function is PyFunction boundFunction)
                         {
                             var withSelf = new PyObject[finalArgs.Length + 1];
                             withSelf[0] = method.Instance;

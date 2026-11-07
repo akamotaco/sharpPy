@@ -936,7 +936,7 @@ namespace SharpPy
         // Python-level hash hook (ToHash) is restricted to readonly byte-format views and would
         // throw here, which would break print(f"{view}") for a writable or released view.
         public override string ToString() =>
-            $"<{(_data == null ? "released memory" : "memory")} at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):X}>";
+            $"<{(_data == null ? "released memory" : "memory")} at {PyObjectId.Pointer(this)}>";
         protected internal override PyString Repr() => new PyString(ToString());
     }
 }

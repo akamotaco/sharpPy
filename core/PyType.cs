@@ -3567,6 +3567,6 @@ namespace SharpPy
 
         // CPython: str(object()) == repr(object()) == '<object object at 0x...>'
         public override string ToString() => ToRepr().Value;
-        protected internal override PyString Repr() => new PyString($"<object object at 0x{GetHashCode():x}>");
+        protected internal override PyString Repr() => new PyString($"<object object at {PyObjectId.Pointer(this)}>");
     }
 }

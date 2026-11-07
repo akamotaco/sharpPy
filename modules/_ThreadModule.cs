@@ -401,7 +401,7 @@ namespace SharpPy.Modules
         public override string GetTypeName() => "lock";
 
         // lock_repr
-        protected internal override PyString Repr() => new PyString($"<{(_locked ? "locked" : "unlocked")} _thread.lock object at 0x{GetHashCode():x}>");
+        protected internal override PyString Repr() => new PyString($"<{(_locked ? "locked" : "unlocked")} _thread.lock object at {PyObjectId.Pointer(this)}>");
     }
 
     /// <summary>
@@ -425,6 +425,6 @@ namespace SharpPy.Modules
 
         // rlock_repr
         protected internal override PyString Repr() =>
-            new PyString($"<{(Count > 0 ? "locked" : "unlocked")} _thread.RLock object owner={(Count > 0 ? Owner : 0)} count={Count} at 0x{GetHashCode():x}>");
+            new PyString($"<{(Count > 0 ? "locked" : "unlocked")} _thread.RLock object owner={(Count > 0 ? Owner : 0)} count={Count} at {PyObjectId.Pointer(this)}>");
     }
 }

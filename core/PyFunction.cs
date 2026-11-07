@@ -689,7 +689,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     public string ReprName => QualName;
     // CPython: repr(func) == "<function QUALNAME at 0xADDR>" (funcobject.c).
     protected internal override PyString Repr()
-        => new PyString($"<function {ReprName} at 0x{GetHashCode():x}>");
+        => new PyString($"<function {ReprName} at {PyObjectId.Pointer(this)}>");
     public override string ToString() => $"<function {ReprName}>";
     
 }
@@ -751,19 +751,6 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         // CPython 3.12 호환: kwargs 지원 버전
         public override PyObject Call(PyObject[] args, PyDict kwargs)
         {
-            // CPython 3.12 context manager 호환성: __exit__ method 특별 처리
-            if ((Function as PyFunction)?.Name == "__exit__" && args.Length == 2)
-            {
-                // CALL 2로 2개 인수를 받았지만, __exit__는 4개 매개변수 필요
-                // CPython에서는 스택에 3개 None이 있고 CALL 2는 특별 처리됨
-                var contextArgs = new PyObject[4];
-                contextArgs[0] = Instance; // self
-                contextArgs[1] = args[0];  // exc_type (None)
-                contextArgs[2] = args[1];  // exc_val (None)
-                contextArgs[3] = PyNone.Instance; // exc_tb (None) - 암시적으로 추가
-                return Function.Call(contextArgs, kwargs);
-            }
-
             // 일반적인 bound method 처리
             var newArgs = new PyObject[args.Length + 1];
             newArgs[0] = Instance;

@@ -25,5 +25,14 @@ namespace SharpPy
         private static readonly ConditionalWeakTable<PyObject, Number> Numbers = new();
 
         internal static long Of(PyObject value) => Numbers.GetValue(value, static _ => new Number()).Value;
+
+        /// <summary>
+        /// The address a repr shows: PyUnicode_FromFormat's %p of the object, which is what id()
+        /// answers - so repr(o) names hex(id(o)). %p is the C library's: MSVC writes sixteen
+        /// upper-case digits, the others the lower-case number.
+        /// </summary>
+        internal static string Pointer(PyObject value) => System.OperatingSystem.IsWindows()
+            ? $"0x{Of(value):X16}"
+            : $"0x{Of(value):x}";
     }
 }

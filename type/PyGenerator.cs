@@ -125,7 +125,7 @@ namespace SharpPy
 
         #region String Representation
 
-        protected internal override PyString Repr() => new PyString($"<generator object {((PyString)Qualname).Value} at 0x{GetHashCode():x}>");
+        protected internal override PyString Repr() => new PyString($"<generator object {((PyString)Qualname).Value} at {PyObjectId.Pointer(this)}>");
 
         #endregion
 

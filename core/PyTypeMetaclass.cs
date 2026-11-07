@@ -640,7 +640,7 @@ namespace SharpPy
             new PyStaticBuiltinMethod("__new__", method, owner);
 
         protected internal override PyString Repr() => _owner == null ? (PyString)base.Repr() :
-            new PyString($"<built-in method {Name} of type object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_owner):x}>");
+            new PyString($"<built-in method {Name} of type object at {PyObjectId.Pointer(_owner)}>");
 
         public PyStaticBuiltinMethod(string name, Func<PyObject[], PyDict, PyObject> method, PyType owner = null)
         {

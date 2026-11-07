@@ -256,7 +256,7 @@ namespace SharpPy
                 if (bound != null)
                     return bound.Call(Array.Empty<PyObject>(), null);
             }
-            return new PyString($"<{Name} object at 0x{self.GetHashCode():x}>");
+            return new PyString($"<{Name} object at {PyObjectId.Pointer(self)}>");
         }
 
         internal PyObject IterNextSlot(PyObject self)
@@ -749,7 +749,7 @@ namespace SharpPy
                 module is PyString { Value: { Length: > 0 } and not "builtins" } text ? text.Value + "." : "";
             // object_repr: a static type's __module__ and __qualname__ are its tp_name's parts.
             string name = type is PyClass named ? named.QualNameText : type.FullName;
-            return new PyString($"<{modulePrefix}{name} object at 0x{self.GetHashCode():x}>");
+            return new PyString($"<{modulePrefix}{name} object at {PyObjectId.Pointer(self)}>");
         }
 
         // A builtin type's own dict, then the slot wrappers SharpPy keeps beside it (PyType.SlotDict).
@@ -904,7 +904,7 @@ namespace SharpPy
         public override string ToString()
         {
             // Debugging only: Simple C# representation
-            return $"<{InstanceType.Name} instance at 0x{GetHashCode():x}>";
+            return $"<{InstanceType.Name} instance at {PyObjectId.Pointer(this)}>";
         }
 
         private bool IsExceptionClass()

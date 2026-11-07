@@ -26,7 +26,7 @@ namespace SharpPy
         protected internal override PyString Repr()
         {
             var target = Referent ?? PyNone.Instance;
-            return new PyString($"<weakproxy at 0x{PyObjectId.Of(this):x} to {target.GetTypeName()} at 0x{PyObjectId.Of(target):x}>");
+            return new PyString($"<weakproxy at {PyObjectId.Pointer(this)} to {target.GetTypeName()} at {PyObjectId.Pointer(target)}>");
         }
 
         protected internal override PyString Str() => new PyString(Target.ToClrString());

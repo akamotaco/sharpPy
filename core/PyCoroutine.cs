@@ -405,7 +405,7 @@ namespace SharpPy.Core
         // All coroutine methods (send, throw, close, __await__) are registered as descriptors in PyType.CoroutineType
 
         protected internal override PyString Repr() =>
-            new PyString($"<coroutine object {Qualname.ToClrString()} at 0x{PyObjectId.Of(this):x}>");
+            new PyString($"<coroutine object {Qualname.ToClrString()} at {PyObjectId.Pointer(this)}>");
 
         public override string ToString()
         {
@@ -418,7 +418,7 @@ namespace SharpPy.Core
                 _ => "unknown"
             };
 
-            return $"<coroutine object {Name} at 0x{GetHashCode():x8} [{stateStr}]>";
+            return $"<coroutine object {Name} at {PyObjectId.Pointer(this)} [{stateStr}]>";
         }
     }
     
@@ -504,7 +504,7 @@ namespace SharpPy.Core
         
         public override string ToString()
         {
-            return $"<coroutine_wrapper at 0x{GetHashCode():x8}>";
+            return $"<coroutine_wrapper at {PyObjectId.Pointer(this)}>";
         }
     }
 }

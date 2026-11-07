@@ -2190,7 +2190,7 @@ namespace SharpPy
 
         protected internal override PyString Str()
         {
-            return new PyString($"<traceback object at {GetHashCode():X}>");
+            return new PyString($"<traceback object at {PyObjectId.Pointer(this)}>");
         }
 
         protected internal override PyString Repr() => AsString();
