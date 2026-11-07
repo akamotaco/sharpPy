@@ -44,7 +44,7 @@ namespace SharpPy.Modules
                 module.ModuleDict[name] = new PyInt(value);
             module.ModuleDict["_have_functions"] = new PyList(new List<PyObject>
             {
-                new PyString("HAVE_FTRUNCATE"), new PyString("HAVE_LSTAT"), new PyString("MS_WINDOWS"),
+                PyString.From("HAVE_FTRUNCATE"), PyString.From("HAVE_LSTAT"), PyString.From("MS_WINDOWS"),
             });
             module.ModuleDict["stat_result"] = PyStatResult.Type;
             var terminalSize = new PyStructSequenceType("os", "terminal_size", new[] { "columns", "lines" });
@@ -82,7 +82,7 @@ namespace SharpPy.Modules
             module.ModuleDict["waitstatus_to_exitcode"] = new PyBuiltinFunction("waitstatus_to_exitcode", args => new PyInt(args[0].ToInt() >> 8));
             // No child process is ever started here.
             module.ModuleDict["waitpid"] = new PyBuiltinFunction("waitpid", args =>
-                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(10), new PyString("No child processes") }, null)));
+                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(10), PyString.From("No child processes") }, null)));
             module.ModuleDict["system"] = new PyBuiltinFunction("system", ShellCommand);
             module.ModuleDict["pipe"] = new PyBuiltinFunction("pipe", Pipe);
             module.ModuleDict["open"] = new PyBuiltinFunction("open", Open);
@@ -111,7 +111,7 @@ namespace SharpPy.Modules
                 return PyBool.True;
             });
             module.ModuleDict["device_encoding"] = new PyBuiltinFunction("device_encoding", args =>
-                PyFileDescriptors.Get(Descriptor(args[0])) is PyConsoleStream { IsTerminal: true } ? new PyString("utf-8") : PyNone.Instance);
+                PyFileDescriptors.Get(Descriptor(args[0])) is PyConsoleStream { IsTerminal: true } ? PyString.From("utf-8") : PyNone.Instance);
             module.ModuleDict["getcwd"] = new PyBuiltinFunction("getcwd", Getcwd);
             module.ModuleDict["chdir"] = new PyBuiltinFunction("chdir", Chdir);
             module.ModuleDict["listdir"] = new PyBuiltinFunction("listdir", Listdir);
@@ -146,7 +146,7 @@ namespace SharpPy.Modules
 
             try
             {
-                return new PyString(Directory.GetCurrentDirectory());
+                return PyString.From(Directory.GetCurrentDirectory());
             }
             catch (Exception ex)
             {
@@ -191,7 +191,7 @@ namespace SharpPy.Modules
                 var result = new List<PyObject>();
                 foreach (var entry in entries)
                 {
-                    result.Add(new PyString(IOHelper.GetFileName(entry)));
+                    result.Add(PyString.From(IOHelper.GetFileName(entry)));
                 }
                 return new PyList(result);
             }
@@ -355,7 +355,7 @@ namespace SharpPy.Modules
             return text;
         }
 
-        internal static PyObject StatPath(string path) => Stat(new PyObject[] { new PyString(path) });
+        internal static PyObject StatPath(string path) => Stat(new PyObject[] { PyString.From(path) });
 
         // os_scandir_impl
         private static PyObject Scandir(PyObject[] args)
@@ -431,7 +431,7 @@ namespace SharpPy.Modules
         }
 
         // The C runtime's strerror, for the numbers errno.c names on Windows.
-        private static PyObject Strerror(PyObject[] args) => new PyString(args[0].ToInt() switch
+        private static PyObject Strerror(PyObject[] args) => PyString.From(args[0].ToInt() switch
         {
             1 => "Operation not permitted",
             2 => "No such file or directory",
@@ -480,13 +480,13 @@ namespace SharpPy.Modules
         {
             int length = Descriptor(args[1]);
             if (length < 0)
-                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(22), new PyString("Invalid argument") }, null));
+                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(22), PyString.From("Invalid argument") }, null));
             var buffer = new byte[length];
             var stream = PyFileDescriptors.Get(Descriptor(args[0]));
             int count = 0;
             PyGil.AllowThreads(() => count = stream.Read(buffer, 0, length));
             Array.Resize(ref buffer, count);
-            return new PyBytes(buffer);
+            return PyBytes.From(buffer);
         }
 
         // os_write_impl
@@ -509,7 +509,7 @@ namespace SharpPy.Modules
             var stream = PyFileDescriptors.Get(Descriptor(args[0]));
             // lseek on a console or a pipe: ESPIPE
             if (!stream.CanSeek)
-                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(29), new PyString("Illegal seek") }, null));
+                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(29), PyString.From("Illegal seek") }, null));
             return new PyInt(stream.Seek((long)PyObject.TryGetIndex(args[1]).Value, origin));
         }
 
@@ -548,7 +548,7 @@ namespace SharpPy.Modules
             if (stream is FileStream file)
             {
                 file.Flush();
-                return Stat(new PyObject[] { new PyString(file.Name) });
+                return Stat(new PyObject[] { PyString.From(file.Name) });
             }
             // _Py_fstat_noraise: what is not a disk file has only its type, a character device
             // (the console) or a FIFO (a pipe); any other stream answers for its size.
@@ -558,7 +558,7 @@ namespace SharpPy.Modules
                 return new PyStatResult(0x1000, 0, 0);
             if (stream.CanSeek)
                 return new PyStatResult(0x8000 | 0x1A4, stream.Length, 0);
-            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(9), new PyString("Bad file descriptor") }, null));
+            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(9), PyString.From("Bad file descriptor") }, null));
         }
 
         // Host-shaped error text: Windows CPython uses "[WinError n] <localized>",
@@ -716,7 +716,7 @@ namespace SharpPy.Modules
             if (value == null)
                 return args.Length > 1 ? args[1] : PyNone.Instance;
 
-            return new PyString(value);
+            return PyString.From(value);
         }
 
         // putenv(key, value)
@@ -813,8 +813,8 @@ namespace SharpPy.Modules
             foreach (System.Collections.DictionaryEntry entry in Environment.GetEnvironmentVariables())
             {
                 string name = (string)entry.Key, value = (string)entry.Value;
-                environ.SetItem(windows ? new PyString(name) : new PyBytes(System.Text.Encoding.UTF8.GetBytes(name)),
-                    windows ? new PyString(value) : new PyBytes(System.Text.Encoding.UTF8.GetBytes(value)));
+                environ.SetItem(windows ? PyString.From(name) : PyBytes.From(System.Text.Encoding.UTF8.GetBytes(name)),
+                    windows ? PyString.From(value) : PyBytes.From(System.Text.Encoding.UTF8.GetBytes(value)));
             }
             return environ;
         }
@@ -833,7 +833,7 @@ namespace SharpPy.Modules
                 throw PyValueError.Create("negative argument not allowed");
 
             if (n == 0)
-                return new PyBytes(new byte[0]);
+                return PyBytes.From(new byte[0]);
 
             // Use .NET's cryptographically strong random number generator
             byte[] buffer = new byte[n];
@@ -842,7 +842,7 @@ namespace SharpPy.Modules
                 rng.GetBytes(buffer);
             }
 
-            return new PyBytes(buffer);
+            return PyBytes.From(buffer);
         }
 
         #endregion

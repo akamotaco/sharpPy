@@ -43,7 +43,7 @@ namespace SharpPy
 
         public override string GetTypeName() => "map";
         public override PyType GetPyType() => _customType ?? PyType.MapType;
-        protected internal override PyString Repr() => new PyString($"<map object at {PyObjectId.Pointer(this)}>");
+        protected internal override PyString Repr() => PyString.From($"<map object at {PyObjectId.Pointer(this)}>");
         protected internal override PyString Str() => ToRepr();
     }
 
@@ -115,7 +115,7 @@ namespace SharpPy
 
         public override string GetTypeName() => "zip";
         public override PyType GetPyType() => _customType ?? PyType.ZipType;
-        protected internal override PyString Repr() => new PyString($"<zip object at {PyObjectId.Pointer(this)}>");
+        protected internal override PyString Repr() => PyString.From($"<zip object at {PyObjectId.Pointer(this)}>");
         protected internal override PyString Str() => ToRepr();
     }
 
@@ -152,7 +152,7 @@ namespace SharpPy
 
         public override string GetTypeName() => "filter";
         public override PyType GetPyType() => _customType ?? PyType.FilterType;
-        protected internal override PyString Repr() => new PyString($"<filter object at {PyObjectId.Pointer(this)}>");
+        protected internal override PyString Repr() => PyString.From($"<filter object at {PyObjectId.Pointer(this)}>");
         protected internal override PyString Str() => ToRepr();
     }
 
@@ -202,7 +202,7 @@ namespace SharpPy
 
         public override string GetTypeName() => "callable_iterator";
         public override PyType GetPyType() => PyType.CallableIteratorType;
-        protected internal override PyString Repr() => new PyString($"<callable_iterator object at {PyObjectId.Pointer(this)}>");
+        protected internal override PyString Repr() => PyString.From($"<callable_iterator object at {PyObjectId.Pointer(this)}>");
         protected internal override PyString Str() => ToRepr();
     }
 

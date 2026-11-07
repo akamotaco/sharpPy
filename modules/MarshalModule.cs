@@ -64,7 +64,7 @@ namespace SharpPy.Modules
         {
             if (args.Length < 1)
                 throw PyTypeError.Create("dumps expected at least 1 argument, got 0");
-            return new PyBytes(Write(args[0], VersionArgument(args, 1, "dumps")));
+            return PyBytes.From(Write(args[0], VersionArgument(args, 1, "dumps")));
         }
 
         // marshal_dump_impl
@@ -72,7 +72,7 @@ namespace SharpPy.Modules
         {
             if (args.Length < 2)
                 throw PyTypeError.Create($"dump expected at least 2 arguments, got {args.Length}");
-            var data = new PyBytes(Write(args[0], VersionArgument(args, 2, "dump")));
+            var data = PyBytes.From(Write(args[0], VersionArgument(args, 2, "dump")));
             return args[1].GetAttribute("write").Call(new PyObject[] { data }, null);
         }
 
@@ -101,12 +101,12 @@ namespace SharpPy.Modules
             value.GetType() == typeof(T) && !value.HasCustomType;
 
         private static byte[] Utf8(string text) =>
-            ((PyBytes)new PyString(text).GetAttribute("encode")
-                .Call(new PyObject[] { new PyString("utf8"), new PyString("surrogatepass") }, null)).Value;
+            ((PyBytes)PyString.From(text).GetAttribute("encode")
+                .Call(new PyObject[] { PyString.From("utf8"), PyString.From("surrogatepass") }, null)).Value;
 
         private static string FromUtf8(byte[] data) =>
-            ((PyString)new PyBytes(data).GetAttribute("decode")
-                .Call(new PyObject[] { new PyString("utf8"), new PyString("surrogatepass") }, null)).Value;
+            ((PyString)PyBytes.From(data).GetAttribute("decode")
+                .Call(new PyObject[] { PyString.From("utf8"), PyString.From("surrogatepass") }, null)).Value;
 
         private static bool IsAscii(string text)
         {
@@ -258,7 +258,7 @@ namespace SharpPy.Modules
             {
                 var items = new List<PyObject>();
                 foreach (var name in names)
-                    items.Add(PySysFunction.Intern(new PyString(name)));
+                    items.Add(PySysFunction.Intern(PyString.From(name)));
                 return new PyTuple(items.ToArray());
             }
 
@@ -274,17 +274,17 @@ namespace SharpPy.Modules
                 Long(code.KwonlyArgCount);
                 Long(code.StackSize);
                 Long(code.Flags);
-                Object(new PyBytes(code.Tables.Code));
+                Object(PyBytes.From(code.Tables.Code));
                 Object(new PyTuple(code.Constants.ToArray()));
                 Object(InternedNames(code.Names));
                 Object(InternedNames(names));
-                Object(new PyBytes((byte[])kinds.Clone()));
+                Object(PyBytes.From((byte[])kinds.Clone()));
                 Object(PySysFunction.Intern((PyString)code.GetAttribute("co_filename")));
                 Object(PySysFunction.Intern((PyString)code.GetAttribute("co_name")));
                 Object(PySysFunction.Intern((PyString)code.GetAttribute("co_qualname")));
                 Long(code.GetFirstLineNo());
-                Object(new PyBytes(code.Tables.LineTable));
-                Object(new PyBytes(code.Tables.ExceptionTable));
+                Object(PyBytes.From(code.Tables.LineTable));
+                Object(PyBytes.From(code.Tables.ExceptionTable));
             }
 
             private void Integer(BigInteger number, byte flag)
@@ -491,7 +491,7 @@ namespace SharpPy.Modules
             }
 
             private double FloatText() =>
-                ((PyFloat)PyType.FloatType.Call(new PyObject[] { new PyString(Encoding.ASCII.GetString(Take(Byte()))) }, null)).Value;
+                ((PyFloat)PyType.FloatType.Call(new PyObject[] { PyString.From(Encoding.ASCII.GetString(Take(Byte()))) }, null)).Value;
 
             // r_ref_reserve: a container takes its index before its contents.
             private int Reserve(bool flagged)
@@ -519,13 +519,13 @@ namespace SharpPy.Modules
             private PyObject Required(string container) =>
                 Item() ?? throw PyTypeError.Create($"NULL object in marshal data for {container}");
 
-            private static PyString Intern(string text) => PySysFunction.Intern(new PyString(text));
+            private static PyString Intern(string text) => PySysFunction.Intern(PyString.From(text));
 
             private PyObject Text(int size, bool ascii, bool interned, bool flagged)
             {
                 var data = Take(size);
                 string text = ascii ? Encoding.Latin1.GetString(data) : FromUtf8(data);
-                return Keep(interned ? Intern(text) : new PyString(text), flagged);
+                return Keep(interned ? Intern(text) : PyString.From(text), flagged);
             }
 
             // read_object
@@ -582,7 +582,7 @@ namespace SharpPy.Modules
                         double real = Double();
                         return Keep(new PyComplex(real, Double()), flagged);
                     }
-                    case 's': return Keep(new PyBytes(Take(Size("bytes object"))), flagged);
+                    case 's': return Keep(PyBytes.From(Take(Size("bytes object"))), flagged);
                     case 'a': return Text(Size("string"), true, false, flagged);
                     case 'A': return Text(Size("string"), true, true, flagged);
                     case 'z': return Text(Byte(), true, false, flagged);

@@ -119,7 +119,7 @@ namespace SharpPy.Modules
             if (args[0] is not PyString name)
                 throw PyTypeError.Create("context variable name must be a str");
             PyObject? fallback = null;
-            if (kwargs != null) kwargs.TryGetStoredValue(new PyString("default"), out fallback);
+            if (kwargs != null) kwargs.TryGetStoredValue(PyString.From("default"), out fallback);
             return new PyContextVar(name, fallback);
         }
 

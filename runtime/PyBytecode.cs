@@ -570,7 +570,7 @@ namespace SharpPy
             LocalsPlusKinds = localsPlusKinds.ToArray();
             LocalsPlusKeys = new PyString[LocalsPlusNames.Length];
             for (int i = 0; i < LocalsPlusNames.Length; i++)
-                LocalsPlusKeys[i] = new PyString(LocalsPlusNames[i]);
+                LocalsPlusKeys[i] = PyString.From(LocalsPlusNames[i]);
         }
 
         // _PyLocals_Kind (Include/internal/pycore_code.h)
@@ -750,7 +750,7 @@ namespace SharpPy
                 }
                 unit++;
             }
-            return new PyBytes(table.ToArray());
+            return PyBytes.From(table.ToArray());
         }
 
         // code_replace_impl
@@ -833,26 +833,26 @@ namespace SharpPy
                 "co_flags" => new PyInt(Flags),
                 // SharpPy keeps unique internal lambda names (<lambda_N>) for the
                 // call-error mapping; CPython's co_name is the bare "<lambda>".
-                "co_name" => new PyString(PyFrame.BindErrorName(Name)),
-                "co_qualname" => new PyString(PyFrame.BindErrorName(DisplayQualName)),
+                "co_name" => PyString.From(PyFrame.BindErrorName(Name)),
+                "co_qualname" => PyString.From(PyFrame.BindErrorName(DisplayQualName)),
                 // CPython co_argcount counts positional-only + positional-or-keyword
                 // only; SharpPy stores non-variadic totals, so subtract kwonly.
                 "co_argcount" => new PyInt(Math.Max(0, ArgCount - KwonlyArgCount)),
                 "co_posonlyargcount" => new PyInt(PosonlyArgCount),
                 "co_kwonlyargcount" => new PyInt(KwonlyArgCount),
-                "co_varnames" => new PyTuple(VarNames.Select(n => new PyString(n) as PyObject).ToArray()),
-                "co_names" => new PyTuple(Names.Select(n => new PyString(n) as PyObject).ToArray()),
+                "co_varnames" => new PyTuple(VarNames.Select(n => PyString.From(n) as PyObject).ToArray()),
+                "co_names" => new PyTuple(Names.Select(n => PyString.From(n) as PyObject).ToArray()),
                 "co_consts" => new PyTuple(Constants.ToArray()),
-                "co_freevars" => new PyTuple(FreeVars.Select(n => new PyString(n) as PyObject).ToArray()),
-                "co_cellvars" => new PyTuple(CellVars.Select(n => new PyString(n) as PyObject).ToArray()),
-                "co_filename" => new PyString(FileName ?? "<unknown>"),
+                "co_freevars" => new PyTuple(FreeVars.Select(n => PyString.From(n) as PyObject).ToArray()),
+                "co_cellvars" => new PyTuple(CellVars.Select(n => PyString.From(n) as PyObject).ToArray()),
+                "co_filename" => PyString.From(FileName ?? "<unknown>"),
                 "co_firstlineno" => new PyInt(GetFirstLineNo()),
                 "co_nlocals" => new PyInt(VarNames.Count),
                 "co_stacksize" => new PyInt(StackSize),
-                "co_code" => new PyBytes(Tables.Code),
-                "_co_code_adaptive" => new PyBytes(Tables.Code),
-                "co_linetable" => new PyBytes(Tables.LineTable),
-                "co_exceptiontable" => new PyBytes(Tables.ExceptionTable),
+                "co_code" => PyBytes.From(Tables.Code),
+                "_co_code_adaptive" => PyBytes.From(Tables.Code),
+                "co_linetable" => PyBytes.From(Tables.LineTable),
+                "co_exceptiontable" => PyBytes.From(Tables.ExceptionTable),
                 "co_lines" => new PyBuiltinFunction("co_lines", CoLinesMethod),
                 "_varname_from_oparg" => new PyBuiltinFunction("_varname_from_oparg", args =>
                 {
@@ -1044,7 +1044,7 @@ namespace SharpPy
         public override string ToString() => $"<code object {Name}>";
 
         // code_repr
-        protected internal override PyString Repr() => new PyString(FileName != null
+        protected internal override PyString Repr() => PyString.From(FileName != null
             ? $"<code object {PyFrame.BindErrorName(Name)} at {PyObjectId.Pointer(this)}, file \"{FileName}\", line {GetFirstLineNo()}>"
             : $"<code object {PyFrame.BindErrorName(Name)} at {PyObjectId.Pointer(this)}, file ???, line {GetFirstLineNo()}>");
         

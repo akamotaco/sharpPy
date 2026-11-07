@@ -85,7 +85,7 @@ namespace SharpPy
             if (!written)
                 return false;
             var bound = self.BindSpecialMethod(method);
-            bound.Call(value == null ? new PyObject[] { new PyString(name) } : new[] { new PyString(name), value }, null);
+            bound.Call(value == null ? new PyObject[] { PyString.From(name) } : new[] { PyString.From(name), value }, null);
             return true;
         }
 

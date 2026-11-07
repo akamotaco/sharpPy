@@ -96,7 +96,7 @@ namespace SharpPy
             {
                 // The callbacks receive the NORMALISED name. That is why registering a function
                 // that tests name == "zzz-test" never fires: the key is "zzz_test".
-                PyObject result = searchFunction.Call(new PyObject[] { new PyString(key) }, null);
+                PyObject result = searchFunction.Call(new PyObject[] { PyString.From(key) }, null);
                 if (result is PyNone) continue;
                 if (!(result is PyTuple tuple) || tuple.Items.Length != 4)
                     throw PyTypeError.Create("codec search functions must return 4-tuples");
@@ -168,7 +168,7 @@ namespace SharpPy
             else if (obj is PyByteArray ba) data = ba.ToByteArrayCopy();
             else throw PyTypeError.Create($"decode() argument must be bytes, not {obj.GetTypeName()}");
             string decoded = PyStringNewArguments.DecodeBytes(data, encoding, errors);
-            return new PyTuple(new PyObject[] { new PyString(decoded), new PyInt(data.Length) });
+            return new PyTuple(new PyObject[] { PyString.From(decoded), new PyInt(data.Length) });
         }
 
         /// <summary>The _codecs entry point a text codec reports itself as, for its argcheck text.</summary>
@@ -201,7 +201,7 @@ namespace SharpPy
         {
             PyObject function = entry.GetAttribute(attribute);
             return function.Call(
-                new PyObject[] { obj, new PyString(errors ?? "strict") }, null);
+                new PyObject[] { obj, PyString.From(errors ?? "strict") }, null);
         }
 
         // --- builtin entries -------------------------------------------------------------------

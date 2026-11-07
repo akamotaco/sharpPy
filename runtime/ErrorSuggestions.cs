@@ -242,7 +242,7 @@ namespace SharpPy
                 // Are we inside a method and the instance has an attribute called 'name'?
                 if (localsNames != null && localsNames.Contains("self") && localsObj is PyDict localsDict)
                 {
-                    var selfObj = localsDict.Get(new PyString("self"));
+                    var selfObj = localsDict.Get(PyString.From("self"));
                     if (selfObj != null && !ReferenceEquals(selfObj, PyNone.Instance))
                     {
                         try

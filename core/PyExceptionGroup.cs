@@ -57,7 +57,7 @@ namespace SharpPy
         protected internal override PyString Str() => GroupStr();
 
         internal PyString GroupStr()
-            => new PyString($"{Msg.ToStr().Value} ({Exc.Length} sub-exception{(Exc.Length != 1 ? "s" : "")})");
+            => PyString.From($"{Msg.ToStr().Value} ({Exc.Length} sub-exception{(Exc.Length != 1 ? "s" : "")})");
 
         public override string ToString() => AsString().Value;
 
@@ -225,7 +225,7 @@ namespace SharpPy
         /// repr therefore shows ExceptionGroup('', (ValueError('plain'),)) with round brackets.
         /// </summary>
         internal static PyObject Create(string message, PyObject sequence)
-            => NewGroup(new PyObject[] { new PyString(message), sequence }, PyType.BaseExceptionGroupType);
+            => NewGroup(new PyObject[] { PyString.From(message), sequence }, PyType.BaseExceptionGroupType);
 
         /// <summary>BaseExceptionGroup_members and BaseExceptionGroup_methods (METH_VARARGS).</summary>
         internal static void InstallOn(PyType type)

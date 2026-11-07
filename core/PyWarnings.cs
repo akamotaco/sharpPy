@@ -8,7 +8,7 @@ namespace SharpPy
 
         // PyErr_WarnEx through Lib/warnings.py: stacklevel 1 is the Python frame that called in.
         internal static void Warn(PyType category, string message, int stacklevel) =>
-            PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[] { new PyString(message), category, new PyInt(stacklevel) }, null);
+            PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[] { PyString.From(message), category, new PyInt(stacklevel) }, null);
 
         // PyErr_WarnFormat(PyExc_DeprecationWarning, 1, ...)
         internal static void Deprecated(string message)
@@ -28,8 +28,8 @@ namespace SharpPy
                     registry = new PyDict();
                     PyGlobalsDict.Store(globals, "__warningregistry__", registry);
                 }
-                warn.Call(new PyObject[] { new PyString(message), PyType.DeprecationWarningType,
-                    new PyString(frame.Code.FileName), new PyInt(line), new PyString(moduleName), registry,
+                warn.Call(new PyObject[] { PyString.From(message), PyType.DeprecationWarningType,
+                    PyString.From(frame.Code.FileName), new PyInt(line), PyString.From(moduleName), registry,
                     PyGlobalsDict.For(globals) }, null);
                 return;
             }
@@ -47,7 +47,7 @@ namespace SharpPy
                     registry.Clear();
                     registry.SetItem(versionKey, new PyInt(version));
                 }
-                var key = new PyTuple(new PyString(message), PyType.DeprecationWarningType,
+                var key = new PyTuple(PyString.From(message), PyType.DeprecationWarningType,
                     new PyInt(line));
                 if (registry.ContainsKey(key)) return;
                 registry.SetItem(key, PyBool.True);
@@ -59,7 +59,7 @@ namespace SharpPy
             if (PyImportSystem.TryGetModule("sys", out var sys)) sys.ModuleDict.TryGetValue("stderr", out stream);
             if (stream is PyNone) return;
             if (stream == null) Console.Error.Write(output);
-            else stream.GetAttribute("write").Call(new PyObject[] { new PyString(output) }, null);
+            else stream.GetAttribute("write").Call(new PyObject[] { PyString.From(output) }, null);
         }
     }
 }

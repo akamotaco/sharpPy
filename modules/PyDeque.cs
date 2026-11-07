@@ -35,7 +35,7 @@ namespace SharpPy.Modules
         {
             var type = new PyType("deque", new[] { PyType.ObjectType }, "collections");
             DequeType = type;
-            type.TypeDict["__module__"] = new PyString("collections");
+            type.TypeDict["__module__"] = PyString.From("collections");
 
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type,
                 (cls, args, kwargs) => new PyDeque((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
@@ -113,7 +113,7 @@ namespace SharpPy.Modules
         private static PyType IteratorType(string name, bool reverse)
         {
             var type = new PyType(name, new[] { PyType.ObjectType }, "collections");
-            type.TypeDict["__module__"] = new PyString("collections");
+            type.TypeDict["__module__"] = PyString.From("collections");
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
             type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.IterNext());
             PyArgs.Define(type, "__length_hint__", PyCall.NoArgs, (self, args) => new PyInt(((PyDeque.DequeIterator)self).Counter));
@@ -871,12 +871,12 @@ namespace SharpPy.Modules
         protected internal override PyString Repr()
         {
             if (!PyReprGuard.Enter(this))
-                return new PyString("[...]");
+                return PyString.From("[...]");
             try
             {
                 var aslist = AsList();
                 string name = GetPyType().Name;
-                return new PyString(MaxLen >= 0
+                return PyString.From(MaxLen >= 0
                     ? $"{name}({aslist.ToRepr().Value}, maxlen={MaxLen})"
                     : $"{name}({aslist.ToRepr().Value})");
             }

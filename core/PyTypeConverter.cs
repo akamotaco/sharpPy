@@ -36,8 +36,8 @@ namespace SharpPy.Core
                 float f => new PyFloat(f),
                 double d => new PyFloat(d),
                 decimal dec => new PyFloat((double)dec),
-                string str => new PyString(str),
-                char c => new PyString(c.ToString()),
+                string str => PyString.From(str),
+                char c => PyString.From(c.ToString()),
 
                 // Performance: Eliminated LINQ - Manual array/list conversion
                 // 컬렉션 타입들
@@ -67,7 +67,7 @@ namespace SharpPy.Core
                 IEnumerable enumerable => ConvertEnumerable(enumerable),
                 
                 // 알 수 없는 타입은 문자열로 변환
-                _ => new PyString(obj.ToString() ?? "")
+                _ => PyString.From(obj.ToString() ?? "")
             };
         }
 
@@ -127,7 +127,7 @@ namespace SharpPy.Core
             var items = new List<PyObject>(strings.Length);
             for (int i = 0; i < strings.Length; i++)
             {
-                items.Add(new PyString(strings[i]));
+                items.Add(PyString.From(strings[i]));
             }
             return new PyList(items);
         }
@@ -177,7 +177,7 @@ namespace SharpPy.Core
             var items = new List<PyObject>(stringList.Count);
             for (int i = 0; i < stringList.Count; i++)
             {
-                items.Add(new PyString(stringList[i]));
+                items.Add(PyString.From(stringList[i]));
             }
             return new PyList(items);
         }
@@ -207,7 +207,7 @@ namespace SharpPy.Core
             var pyDict = new Dictionary<string, PyObject>();
             foreach (var kvp in dict)
             {
-                pyDict[kvp.Key] = new PyString(kvp.Value);
+                pyDict[kvp.Key] = PyString.From(kvp.Value);
             }
             return new PyDict(pyDict);
         }

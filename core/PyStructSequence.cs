@@ -29,13 +29,13 @@ namespace SharpPy
                 int index = i;
                 members.Add(fields[i]);
                 if (i < Visible)
-                    matchArgs.Add(new PyString(fields[i]));
+                    matchArgs.Add(PyString.From(fields[i]));
                 TypeDict[fields[i]] = new PyMemberDescriptor(fields[i], this, self => ((PyStructSequence)self).AllFields[index]);
             }
             Members = members.ToArray();
             // initialize_structseq_dict
             if (module != null && module != "sys")
-                TypeDict["__module__"] = new PyString(module);
+                TypeDict["__module__"] = PyString.From(module);
             TypeDict["n_sequence_fields"] = new PyInt(Visible);
             TypeDict["n_fields"] = new PyInt(fields.Length);
             TypeDict["n_unnamed_fields"] = new PyInt(fields.Length - members.Count);
@@ -94,8 +94,8 @@ namespace SharpPy
             {
                 if (i < items.Length)
                     fields[i] = items[i];
-                else if (dict is PyDict named && named.ContainsKey(new PyString(type.Members[i - unnamed])))
-                    fields[i] = named.GetItem(new PyString(type.Members[i - unnamed]));
+                else if (dict is PyDict named && named.ContainsKey(PyString.From(type.Members[i - unnamed])))
+                    fields[i] = named.GetItem(PyString.From(type.Members[i - unnamed]));
                 else
                     fields[i] = PyNone.Instance;
             }
@@ -138,7 +138,7 @@ namespace SharpPy
                     text.Append(", ");
                 text.Append(_type.Members[i]).Append('=').Append(Items[i].ToRepr().Value);
             }
-            return new PyString(text.Append(')').ToString());
+            return PyString.From(text.Append(')').ToString());
         }
 
         protected internal override PyString Str() => ToRepr();
@@ -149,7 +149,7 @@ namespace SharpPy
             var hidden = new PyDict();
             int unnamed = _type.Fields.Length - _type.Members.Length;
             for (int i = _type.Visible; i < _type.Fields.Length; i++)
-                hidden.SetItem(new PyString(_type.Members[i - unnamed]), AllFields[i]);
+                hidden.SetItem(PyString.From(_type.Members[i - unnamed]), AllFields[i]);
             return new PyTuple(new PyObject[] { _type, new PyTuple(new PyObject[] { new PyTuple(Items), hidden }) });
         }
     }

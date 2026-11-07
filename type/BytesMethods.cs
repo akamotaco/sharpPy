@@ -22,7 +22,7 @@ namespace SharpPy
 
         // STRINGLIB_NEW
         private static PyObject New(PyObject self, byte[] value) =>
-            self is PyBytes ? new PyBytes(value) : new PyByteArray(value);
+            self is PyBytes ? PyBytes.From(value) : new PyByteArray(value);
 
         // return_self: bytes is immutable, an exact one comes back as it is.
         private static PyObject ReturnSelf(PyObject self, byte[] value) =>
@@ -729,7 +729,7 @@ namespace SharpPy
                 }
                 result.Append(text[i].ToString("x2"));
             }
-            return new PyString(result.ToString());
+            return PyString.From(result.ToString());
         }
 
         // _PyBytes_FromHex
@@ -774,7 +774,7 @@ namespace SharpPy
                 table[i] = (byte)i;
             for (int i = 0; i < from.Length; i++)
                 table[from[i]] = to[i];
-            return new PyBytes(table);
+            return PyBytes.From(table);
         }
 
         private static PyObject Decode(PyObject self, PyObject[] args, PyDict kwargs)
@@ -787,7 +787,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"decode() argument 'encoding' must be str, not {encoding.GetTypeName()}");
             if (errors != null && errors is not PyString)
                 throw PyTypeError.Create($"decode() argument 'errors' must be str, not {errors.GetTypeName()}");
-            return new PyString(PyStringNewArguments.DecodeBytes(Self(self), (encoding as PyString)?.Value ?? "utf-8", (errors as PyString)?.Value ?? "strict"));
+            return PyString.From(PyStringNewArguments.DecodeBytes(Self(self), (encoding as PyString)?.Value ?? "utf-8", (errors as PyString)?.Value ?? "strict"));
         }
 
         private static byte ByteValue(PyObject item, string message)
@@ -898,13 +898,13 @@ namespace SharpPy
             {
                 if (encoding != null || errors != null)
                     throw PyTypeError.Create(encoding != null ? "encoding without a string argument" : "errors without a string argument");
-                return new PyBytes(new byte[0]);
+                return PyBytes.From(new byte[0]);
             }
             if (encoding != null)
             {
                 if (source is not PyString)
                     throw PyTypeError.Create("encoding without a string argument");
-                return new PyBytes(Encoded(source, encoding, errors));
+                return PyBytes.From(Encoded(source, encoding, errors));
             }
             if (errors != null)
                 throw PyTypeError.Create(source is PyString ? "string argument without an encoding" : "errors without a string argument");
@@ -916,9 +916,9 @@ namespace SharpPy
             {
                 long count = CountOf(source);
                 if (count >= 0)
-                    return new PyBytes(new byte[PyAllocation.ArrayLength(count)]);
+                    return PyBytes.From(new byte[PyAllocation.ArrayLength(count)]);
             }
-            return ReferenceEquals(source.GetPyType(), PyType.BytesType) ? source : new PyBytes(FromObject(source, "bytes"));
+            return ReferenceEquals(source.GetPyType(), PyType.BytesType) ? source : PyBytes.From(FromObject(source, "bytes"));
         }
 
         // bytearray___init___impl
@@ -1029,8 +1029,8 @@ namespace SharpPy
             var text = Self(self);
             PyObject state = PyType.GetState(self);
             PyObject[] arguments = text.Length == 0 ? Array.Empty<PyObject>() : protocol < 3
-                ? new PyObject[] { new PyString(Encoding.Latin1.GetString(text)), new PyString("latin-1") }
-                : new PyObject[] { new PyBytes(text) };
+                ? new PyObject[] { PyString.From(Encoding.Latin1.GetString(text)), PyString.From("latin-1") }
+                : new PyObject[] { PyBytes.From(text) };
             return new PyTuple(new[] { self.GetPyType(), new PyTuple(arguments), state });
         }
 
@@ -1046,8 +1046,8 @@ namespace SharpPy
 
         internal static void InstallBytes(PyType type)
         {
-            Zero(type, "__getnewargs__", self => new PyTuple(new PyObject[] { new PyBytes(Self(self)) }));
-            Zero(type, "__bytes__", self => ReferenceEquals(self.GetPyType(), PyType.BytesType) ? self : new PyBytes(Self(self)));
+            Zero(type, "__getnewargs__", self => new PyTuple(new PyObject[] { PyBytes.From(Self(self)) }));
+            Zero(type, "__bytes__", self => ReferenceEquals(self.GetPyType(), PyType.BytesType) ? self : PyBytes.From(Self(self)));
             One(type, "__mod__", (self, other) => self.Modulo(other));
             One(type, "__rmod__", (self, other) => PyNotImplemented.Instance);
         }
@@ -1143,7 +1143,7 @@ namespace SharpPy
                     throw PyTypeError.Create($"{type.Name}.fromhex() takes exactly one argument ({args.Length - 1} given)");
                 var cls = args[0];
                 var value = FromHex(args[1]);
-                PyObject result = ReferenceEquals(type, PyType.BytesType) ? new PyBytes(value) : new PyByteArray(value);
+                PyObject result = ReferenceEquals(type, PyType.BytesType) ? PyBytes.From(value) : new PyByteArray(value);
                 return ReferenceEquals(cls, type) ? result : cls.Call(new[] { result }, null);
             }));
             type.TypeDict["maketrans"] = PyStaticmethod.ForBuiltin(type, "maketrans", (args, kwargs) =>

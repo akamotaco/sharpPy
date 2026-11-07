@@ -77,7 +77,7 @@ namespace SharpPy.Modules
         public static PyModule CreateGcModule()
         {
             var module = new PyModule("gc");
-            module.ModuleDict["__doc__"] = new PyString(ModuleDoc);
+            module.ModuleDict["__doc__"] = PyString.From(ModuleDoc);
 
             module.ModuleDict["enable"] = new PyBuiltinFunction("enable", a =>
             {
@@ -221,9 +221,9 @@ namespace SharpPy.Modules
                 for (int i = 0; i < Generations; i++)
                 {
                     var entry = new PyDict();
-                    entry.SetItem(new PyString("collected"), new PyInt(0));
-                    entry.SetItem(new PyString("collections"), new PyInt(0));
-                    entry.SetItem(new PyString("uncollectable"), new PyInt(0));
+                    entry.SetItem(PyString.From("collected"), new PyInt(0));
+                    entry.SetItem(PyString.From("collections"), new PyInt(0));
+                    entry.SetItem(PyString.From("uncollectable"), new PyInt(0));
                     stats.Add(entry);
                 }
                 return new PyList(stats);
@@ -375,15 +375,15 @@ namespace SharpPy.Modules
             for (int i = 0; i < snapshot.Length; i++)
                 snapshot[i] = Callbacks.GetItem(new PyInt(i));
             var info = new PyDict();
-            info.SetItem(new PyString("collected"), new PyInt(0));
-            info.SetItem(new PyString("generation"), new PyInt(generation));
-            info.SetItem(new PyString("uncollectable"), new PyInt(0));
+            info.SetItem(PyString.From("collected"), new PyInt(0));
+            info.SetItem(PyString.From("generation"), new PyInt(generation));
+            info.SetItem(PyString.From("uncollectable"), new PyInt(0));
             foreach (var callback in snapshot)
             {
                 if (callback == null || callback is PyNone) continue;
                 try
                 {
-                    callback.Call(new PyObject[] { new PyString(phase), info }, null);
+                    callback.Call(new PyObject[] { PyString.From(phase), info }, null);
                 }
                 catch (PythonException)
                 {

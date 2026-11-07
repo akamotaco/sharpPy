@@ -356,7 +356,7 @@ namespace SharpPy
 
             var names = new PyObject[n];
             for (int i = 0; i < n; i++)
-                names[i] = new PyString(((GeneratedAlias)s.Names[i]).Name.Value);
+                names[i] = PyString.From(((GeneratedAlias)s.Names[i]).Name.Value);
 
             bool afterFuture = loc.Line > _future.LastLine ||
                 (loc.Line == _future.LastLine && loc.Col > _future.LastColumn);

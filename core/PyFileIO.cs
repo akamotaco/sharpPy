@@ -52,8 +52,8 @@ public sealed class PyFileIO : PyIOBaseInstance
             _ => error.Message,
         };
         var args = filename == null
-            ? new PyObject[] { new PyInt(errno), new PyString(message) }
-            : new PyObject[] { new PyInt(errno), new PyString(message), filename };
+            ? new PyObject[] { new PyInt(errno), PyString.From(message) }
+            : new PyObject[] { new PyInt(errno), PyString.From(message), filename };
         return new PythonException(PyOSError.FromArguments(args, null));
     }
 
@@ -249,7 +249,7 @@ public sealed class PyFileIO : PyIOBaseInstance
                 _seekable = 0;
             if (suppressPipeError)
                 return new PyInt(0);
-            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(29), new PyString("Invalid seek") }, null));
+            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(29), PyString.From("Invalid seek") }, null));
         }
         long result;
         try
@@ -260,7 +260,7 @@ public sealed class PyFileIO : PyIOBaseInstance
         {
             if (_seekable < 0)
                 _seekable = 1;
-            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(22), new PyString("Invalid argument") }, null));
+            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(22), PyString.From("Invalid argument") }, null));
         }
         if (_seekable < 0)
             _seekable = 1;
@@ -321,7 +321,7 @@ public sealed class PyFileIO : PyIOBaseInstance
             read += n;
         }
         Array.Resize(ref result, read);
-        return new PyBytes(result);
+        return PyBytes.From(result);
     }
 
     // fileio_repr
@@ -329,7 +329,7 @@ public sealed class PyFileIO : PyIOBaseInstance
     {
         string typeName = GetPyType() is PyClass ? $"{GetPyType().Module}.{GetPyType().Name}" : "_io.FileIO";
         if (Fd < 0)
-            return new PyString($"<{typeName} [closed]>");
+            return PyString.From($"<{typeName} [closed]>");
         PyObject name = null;
         try
         {
@@ -340,12 +340,12 @@ public sealed class PyFileIO : PyIOBaseInstance
         }
         string closefd = _closefd ? "True" : "False";
         if (name == null)
-            return new PyString($"<{typeName} fd={Fd} mode='{ModeString()}' closefd={closefd}>");
+            return PyString.From($"<{typeName} fd={Fd} mode='{ModeString()}' closefd={closefd}>");
         if (!PyReprGuard.Enter(this))
             throw PyRuntimeError.Create($"reentrant call inside {typeName}.__repr__");
         try
         {
-            return new PyString($"<{typeName} name={name.ToRepr().Value} mode='{ModeString()}' closefd={closefd}>");
+            return PyString.From($"<{typeName} name={name.ToRepr().Value} mode='{ModeString()}' closefd={closefd}>");
         }
         finally
         {
@@ -356,7 +356,7 @@ public sealed class PyFileIO : PyIOBaseInstance
     private static PyDict PyDictOf(string key, PyObject value)
     {
         var dict = new PyDict();
-        dict.SetItem(new PyString(key), value);
+        dict.SetItem(PyString.From(key), value);
         return dict;
     }
 
@@ -400,7 +400,7 @@ public sealed class PyFileIO : PyIOBaseInstance
             int n = self.ReadInto(buffer, 0, buffer.Length);
             if (n != buffer.Length)
                 Array.Resize(ref buffer, n);
-            return new PyBytes(buffer);
+            return PyBytes.From(buffer);
         }, 0, 1);
         Method(type, "readall", (self, args) => self.ReadAll());
         Method(type, "readinto", (self, args) =>
@@ -546,14 +546,14 @@ public sealed class PyFileIO : PyIOBaseInstance
         Method(type, "_dealloc_warn", (self, args) =>
         {
             if (self.Fd >= 0 && self._closefd)
-                PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[] { new PyString($"unclosed file {args[0].ToRepr().Value}"), PyType.ResourceWarningType, new PyInt(1) }, PyDictOf("source", args[0]));
+                PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[] { PyString.From($"unclosed file {args[0].ToRepr().Value}"), PyType.ResourceWarningType, new PyInt(1) }, PyDictOf("source", args[0]));
             return PyNone.Instance;
         }, 1, 1);
         Method(type, "__getstate__", (self, args) => throw PyTypeError.Create($"cannot pickle '{self.GetPyType().FullName}' instances"));
 
         type.TypeDict["closed"] = new PyGetSetDescriptor("closed", type, self => PyBool.FromBool(Self(self, "closed").Fd < 0));
         type.TypeDict["closefd"] = new PyGetSetDescriptor("closefd", type, self => PyBool.FromBool(Self(self, "closefd")._closefd));
-        type.TypeDict["mode"] = new PyGetSetDescriptor("mode", type, self => new PyString(Self(self, "mode").ModeString()));
+        type.TypeDict["mode"] = new PyGetSetDescriptor("mode", type, self => PyString.From(Self(self, "mode").ModeString()));
         type.TypeDict["_blksize"] = new PyMemberDescriptor("_blksize", type, self => new PyInt(Self(self, "_blksize")._blksize));
         type.TypeDict["_finalizing"] = new PyMemberDescriptor("_finalizing", type, self => PyBool.FromBool(Self(self, "_finalizing")._finalizing),
             (self, value) => Self(self, "_finalizing")._finalizing = value.IsTrue());

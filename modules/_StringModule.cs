@@ -64,7 +64,7 @@ namespace SharpPy.Modules
             if (firstStr.Length > 0 && IsAllDigits(firstStr))
                 first = new PyInt(long.Parse(firstStr));
             else
-                first = new PyString(firstStr);
+                first = PyString.From(firstStr);
 
             // Remaining parts are (is_attr, name) pairs
             var parts = new List<PyObject>();
@@ -79,7 +79,7 @@ namespace SharpPy.Modules
                     while (end < name.Length && name[end] != '.' && name[end] != '[')
                         end++;
                     string attrName = name.Substring(pos, end - pos);
-                    parts.Add(new PyTuple(new PyObject[] { PyBool.True, new PyString(attrName) }));
+                    parts.Add(new PyTuple(new PyObject[] { PyBool.True, PyString.From(attrName) }));
                     pos = end;
                 }
                 else // '['
@@ -88,7 +88,7 @@ namespace SharpPy.Modules
                     if (end < 0)
                         throw PyValueError.Create("invalid format specifier");
                     string indexName = name.Substring(pos, end - pos);
-                    parts.Add(new PyTuple(new PyObject[] { PyBool.False, IsAllDigits(indexName) ? new PyInt(System.Numerics.BigInteger.Parse(indexName)) : new PyString(indexName) }));
+                    parts.Add(new PyTuple(new PyObject[] { PyBool.False, IsAllDigits(indexName) ? new PyInt(System.Numerics.BigInteger.Parse(indexName)) : PyString.From(indexName) }));
                     pos = end + 1;
                 }
             }
@@ -143,7 +143,7 @@ namespace SharpPy.Modules
                 if (_text[_at] == c) { _at++; markup = false; }
                 else length--;
             }
-            var literal = new PyString(_text.Substring(start, length));
+            var literal = PyString.From(_text.Substring(start, length));
             if (!markup)
                 return new PyTuple(new PyObject[] { literal, PyNone.Instance, PyNone.Instance, PyNone.Instance });
 
@@ -177,13 +177,13 @@ namespace SharpPy.Modules
             {
                 if (stop + 1 >= field.Length)
                     throw PyValueError.Create("end of string while looking for conversion specifier");
-                conversion = new PyString(field.Substring(stop + 1, 1));
+                conversion = PyString.From(field.Substring(stop + 1, 1));
                 stop += 2;
                 if (stop < field.Length && field[stop] != ':')
                     throw PyValueError.Create("expected ':' after conversion specifier");
             }
             if (stop < field.Length && field[stop] == ':') spec = field.Substring(stop + 1);
-            return new PyTuple(new PyObject[] { literal, new PyString(name), new PyString(spec), conversion });
+            return new PyTuple(new PyObject[] { literal, PyString.From(name), PyString.From(spec), conversion });
         }
     }
 

@@ -9,7 +9,7 @@ namespace SharpPy
     public class PyCell : PyObject
     {
         // cell_repr (Objects/cellobject.c)
-        protected internal override PyString Repr() => new PyString(HasValue
+        protected internal override PyString Repr() => PyString.From(HasValue
             ? $"<cell at {PyObjectId.Pointer(this)}: {_value.GetTypeName()} object at {PyObjectId.Pointer(_value)}>"
             : $"<cell at {PyObjectId.Pointer(this)}: empty>");
 

@@ -138,7 +138,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             funcType,
             getter: self => {
                 if (self is PyFunction func)
-                    return func._nameObject ??= new PyString(func.Name);
+                    return func._nameObject ??= PyString.From(func.Name);
                 throw PyTypeError.Create("descriptor '__name__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             },
             setter: (self, value) => {
@@ -158,7 +158,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             funcType,
             getter: self => {
                 if (self is PyFunction func)
-                    return func._qualNameObject ??= new PyString(func.QualName);
+                    return func._qualNameObject ??= PyString.From(func.QualName);
                 throw PyTypeError.Create("descriptor '__qualname__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             },
             setter: (self, value) => {
@@ -209,7 +209,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
                     return func._module;
                 if (func.GlobalsDict != null && func.GlobalsDict.TryGetValue("__name__", out var name))
                     return name;
-                return func.DefiningModule != null ? new PyString(func.DefiningModule.Name) : PyNone.Instance;
+                return func.DefiningModule != null ? PyString.From(func.DefiningModule.Name) : PyNone.Instance;
             },
             setter: (self, value) => ((PyFunction)self)._module = value
         );
@@ -624,7 +624,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
 
         // CPython 3.12 완전 호환 PyGenerator 사용
-        return new PyGenerator(frame, vm, Name) { Qualname = new PyString(QualName) };
+        return new PyGenerator(frame, vm, Name) { Qualname = PyString.From(QualName) };
     }
     
     // Function은 항상 호출 가능
@@ -689,7 +689,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     public string ReprName => QualName;
     // CPython: repr(func) == "<function QUALNAME at 0xADDR>" (funcobject.c).
     protected internal override PyString Repr()
-        => new PyString($"<function {ReprName} at {PyObjectId.Pointer(this)}>");
+        => PyString.From($"<function {ReprName} at {PyObjectId.Pointer(this)}>");
     public override string ToString() => $"<function {ReprName}>";
     
 }
@@ -802,7 +802,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         }
 
         protected internal override PyString Repr()
-            => new PyString($"<bound method {ReprName} of {Instance.ToRepr().Value}>");
+            => PyString.From($"<bound method {ReprName} of {Instance.ToRepr().Value}>");
         public override string ToString() => ToRepr().Value;
     }
 
@@ -1224,7 +1224,7 @@ public class PyUnpackWrapper : PyObject
         // 필수 키가 모두 있는지 확인
         foreach (var requiredKey in requiredKeys)
         {
-            if (!kwargs.InternalDict.ContainsKey(new PyString(requiredKey)))
+            if (!kwargs.InternalDict.ContainsKey(PyString.From(requiredKey)))
                 return false;
         }
 

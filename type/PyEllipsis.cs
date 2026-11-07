@@ -20,8 +20,8 @@ namespace SharpPy
 
         #region String Representation
 
-        protected internal override PyString Str() => new PyString("Ellipsis");
-        protected internal override PyString Repr() => new PyString("Ellipsis");
+        protected internal override PyString Str() => PyString.From("Ellipsis");
+        protected internal override PyString Repr() => PyString.From("Ellipsis");
         public override string ToString() => "Ellipsis";
 
         #endregion

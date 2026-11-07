@@ -174,7 +174,7 @@ namespace SharpPy.Modules
 
         // ---- native routines (little-endian memory, as on every .NET target) ----
 
-        private static PyObject NuChar(ReadOnlySpan<byte> p, FormatDef f) => new PyBytes(new[] { p[0] });
+        private static PyObject NuChar(ReadOnlySpan<byte> p, FormatDef f) => PyBytes.From(new[] { p[0] });
         private static PyObject NuByte(ReadOnlySpan<byte> p, FormatDef f) => Long((sbyte)p[0]);
         private static PyObject NuUByte(ReadOnlySpan<byte> p, FormatDef f) => Long(p[0]);
         private static PyObject NuShort(ReadOnlySpan<byte> p, FormatDef f) => Long((short)ReadNative(p, 2));
@@ -694,7 +694,7 @@ namespace SharpPy.Modules
                 {
                     PyObject v;
                     if (e.Format == 's')
-                        v = new PyBytes(startfrom.Slice((int)res, (int)code.Size).ToArray());
+                        v = PyBytes.From(startfrom.Slice((int)res, (int)code.Size).ToArray());
                     else if (e.Format == 'p')
                     {
                         long n;
@@ -706,7 +706,7 @@ namespace SharpPy.Modules
                             if (n >= code.Size)
                                 n = code.Size - 1;
                         }
-                        v = new PyBytes(n == 0 ? Array.Empty<byte>() : startfrom.Slice((int)res + 1, (int)n).ToArray());
+                        v = PyBytes.From(n == 0 ? Array.Empty<byte>() : startfrom.Slice((int)res + 1, (int)n).ToArray());
                     }
                     else
                         v = e.Unpack(startfrom.Slice((int)res, (int)e.Size), e);
@@ -801,7 +801,7 @@ namespace SharpPy.Modules
                 throw PyMemoryError.Create();
             var buf = new byte[so.Size];
             PackInternal(so, args, offset, buf);
-            return new PyBytes(buf);
+            return PyBytes.From(buf);
         }
 
         // s_pack_into
@@ -933,7 +933,7 @@ namespace SharpPy.Modules
         {
             var type = new PyType("Struct", new[] { PyType.ObjectType }, "_struct");
             type.SetSpecLayout(new TypeLayout(56, 0, 0, 48, true));
-            type.TypeDict["__module__"] = new PyString("_struct");
+            type.TypeDict["__module__"] = PyString.From("_struct");
             // s_new: an object with no format yet, which __init__ prepares.
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type,
                 (cls, args, kwargs) => new StructObject((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
@@ -978,7 +978,7 @@ namespace SharpPy.Modules
             var type = new PyType("unpack_iterator", new[] { PyType.ObjectType }, "_struct");
             // unpackiter_type_spec: Py_TPFLAGS_DISALLOW_INSTANTIATION
             type.SetSpecLayout(new TypeLayout(112, 0, 0, 0, true, NoInstances: true));
-            type.TypeDict["__module__"] = new PyString("_struct");
+            type.TypeDict["__module__"] = PyString.From("_struct");
             TypeTables.GenericAttributes(type);
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
             type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.IterNext());
@@ -1011,7 +1011,7 @@ namespace SharpPy.Modules
             var module = new PyModule("_struct");
             var d = module.ModuleDict;
             if (PyDocs.Lookup("_struct.__doc__") is { } doc)
-                d["__doc__"] = new PyString(doc);
+                d["__doc__"] = PyString.From(doc);
             d["_clearcache"] = new PyBuiltinFunction("_clearcache", (args, kwargs) =>
             {
                 PyArgs.NoArgs("_clearcache", args, kwargs);
@@ -1103,7 +1103,7 @@ namespace SharpPy.Modules
         }
 
         // s_get_format
-        internal PyObject FormatString() => new PyString(Encoding.UTF8.GetString(Format.Value));
+        internal PyObject FormatString() => PyString.From(Encoding.UTF8.GetString(Format.Value));
 
         // s_sizeof
         internal PyObject SizeOf()

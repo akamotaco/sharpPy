@@ -424,7 +424,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     if (!PyFloat.TryFloatSelf(self, out var floatObj))
                         throw PyTypeError.Create($"descriptor '__repr__' requires a 'float' object but received a '{self.GetTypeName()}'");
-                    return new PyString(FormatFloat(floatObj.Value, ""));
+                    return PyString.From(FormatFloat(floatObj.Value, ""));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -440,7 +440,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
 
                     // _PyFloat_FormatAdvancedWriter: an empty spec is str(self).
-                    return specStr.Value.Length == 0 ? self.ToStr() : new PyString(FormatFloat(floatObj.Value, specStr.Value));
+                    return specStr.Value.Length == 0 ? self.ToStr() : PyString.From(FormatFloat(floatObj.Value, specStr.Value));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -482,7 +482,7 @@ namespace SharpPy
 
         #region String Representation
 
-        protected internal override PyString Str() => new PyString(FormatFloat(Value, ""));
+        protected internal override PyString Str() => PyString.From(FormatFloat(Value, ""));
 
         protected internal override PyString Repr() => AsString();
 
@@ -945,7 +945,7 @@ namespace SharpPy
             if (value == 1.0) return new PyFloat(negate ? -1.0 : 1.0);
             double result = Math.Pow(value, exponent);
             if (double.IsInfinity(result))
-                throw new PythonException(new PyOverflowError(new PyObject[] { new PyInt(34), new PyString("Result too large") }, null));
+                throw new PythonException(new PyOverflowError(new PyObject[] { new PyInt(34), PyString.From("Result too large") }, null));
             return new PyFloat(negate ? -result : result);
         }
 
@@ -1074,9 +1074,9 @@ namespace SharpPy
             // CPython 3.12: Objects/floatobject.c float_hex_impl
             // Format: [sign]0x1.<13 hex>p<±exp>; subnormals use 0x0.<13 hex>p-1022
             // CPython: isnan/isinf short-circuit to repr; repr of NaN is always "nan"
-            if (double.IsNaN(Value)) return new PyString("nan");
-            if (double.IsPositiveInfinity(Value)) return new PyString("inf");
-            if (double.IsNegativeInfinity(Value)) return new PyString("-inf");
+            if (double.IsNaN(Value)) return PyString.From("nan");
+            if (double.IsPositiveInfinity(Value)) return PyString.From("inf");
+            if (double.IsNegativeInfinity(Value)) return PyString.From("-inf");
 
             long bits = BitConverter.DoubleToInt64Bits(Value);
             bool negative = bits < 0;
@@ -1085,11 +1085,11 @@ namespace SharpPy
             string sign = negative ? "-" : "";
 
             if (mantissa == 0 && (biased == 0 || biased == 1023))
-                return new PyString(biased == 0 ? $"{sign}0x0.0p+0" : $"{sign}0x1.0000000000000p+0");
+                return PyString.From(biased == 0 ? $"{sign}0x0.0p+0" : $"{sign}0x1.0000000000000p+0");
 
             if (biased == 0)
-                return new PyString($"{sign}0x0.{mantissa:x13}p-1022");
-            return new PyString($"{sign}0x1.{mantissa:x13}p{((biased - 1023) >= 0 ? "+" : "")}{biased - 1023}");
+                return PyString.From($"{sign}0x0.{mantissa:x13}p-1022");
+            return PyString.From($"{sign}0x1.{mantissa:x13}p{((biased - 1023) >= 0 ? "+" : "")}{biased - 1023}");
         }
 
         #endregion
@@ -1232,7 +1232,7 @@ namespace SharpPy
             throw PyValueError.Create($"could not convert string to float: {value.ToRepr().Value}");
         }
 
-        public static PyFloat FromString(string s) => FromObject(new PyString(s));
+        public static PyFloat FromString(string s) => FromObject(PyString.From(s));
 
         /// <summary>
         /// 다른 숫자 타입에서 PyFloat 생성

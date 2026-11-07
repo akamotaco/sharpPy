@@ -268,7 +268,7 @@ namespace SharpPy
             int count = Len(e.Values);
             if (count > STACK_USE_GUIDELINE)
             {
-                ADDOP_LOAD_CONST(loc, new PyString(""));
+                ADDOP_LOAD_CONST(loc, PyString.From(""));
                 AddopName(loc, ByteCodeOp.LOAD_ATTR, _u.Names, "join", NameOp.LoadMethod);
                 ADDOP_I(loc, ByteCodeOp.BUILD_LIST, 0);
                 for (int i = 0; i < count; i++)
@@ -315,7 +315,7 @@ namespace SharpPy
                     VisitExpr(((GeneratedKeyword)keywords[i]).Value);
                 var keys = new PyObject[n];
                 for (int i = begin; i < end; i++)
-                    keys[i - begin] = new PyString(((GeneratedKeyword)keywords[i]).Arg!.Value);
+                    keys[i - begin] = PyString.From(((GeneratedKeyword)keywords[i]).Arg!.Value);
                 ADDOP_LOAD_CONST(loc, new PyTuple(keys));
                 ADDOP_I(loc, ByteCodeOp.BUILD_CONST_KEY_MAP, n);
                 return;
@@ -325,7 +325,7 @@ namespace SharpPy
             for (int i = begin; i < end; i++)
             {
                 var kw = (GeneratedKeyword)keywords[i];
-                ADDOP_LOAD_CONST(loc, new PyString(kw.Arg!.Value));
+                ADDOP_LOAD_CONST(loc, PyString.From(kw.Arg!.Value));
                 VisitExpr(kw.Value);
                 if (big)
                     ADDOP_I(Loc.NoLocation, ByteCodeOp.MAP_ADD, 1);
@@ -338,7 +338,7 @@ namespace SharpPy
         {
             var names = new PyObject[nkwelts];
             for (int i = 0; i < nkwelts; i++)
-                names[i] = new PyString(((GeneratedKeyword)keywords[i]).Arg!.Value);
+                names[i] = PyString.From(((GeneratedKeyword)keywords[i]).Arg!.Value);
             ADDOP_I(loc, ByteCodeOp.KW_NAMES, AddConst(new PyTuple(names)));
         }
 
@@ -1165,7 +1165,7 @@ namespace SharpPy
                         else
                             VisitExpr(s.Annotation);
                         AddopName(loc, ByteCodeOp.LOAD_NAME, _u.Names, "__annotations__");
-                        ADDOP_LOAD_CONST(loc, new PyString(MaybeMangle(_u.Private, _u.Ste, n.Id.Value)));
+                        ADDOP_LOAD_CONST(loc, PyString.From(MaybeMangle(_u.Private, _u.Ste, n.Id.Value)));
                         ADDOP(loc, ByteCodeOp.STORE_SUBSCR);
                     }
                     break;

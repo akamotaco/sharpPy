@@ -433,7 +433,7 @@ namespace SharpPy.Generated
             Array.Copy(bytes, offset, data, 0, data.Length);
             try
             {
-                return ((PyString)new PyBytes(data).GetAttribute("decode").Call(new PyObject[] { new PyString(enc) }, null)).Value;
+                return ((PyString)PyBytes.From(data).GetAttribute("decode").Call(new PyObject[] { PyString.From(enc) }, null)).Value;
             }
             catch (PythonException error) when (error.PyException is PyLookupError or PyUnicodeError)
             {
@@ -665,7 +665,7 @@ namespace SharpPy.Generated
                 endColOffset = colOffset;
             int lineEnd = _str.IndexOf('\n', LineStart);
             string text = _str.Substring(LineStart, (lineEnd < 0 ? _str.Length : lineEnd) - LineStart);
-            Error = PySyntaxError.Located(new PySyntaxError(message), message, _filename, Lineno, colOffset, Lineno, endColOffset, new PyString(text));
+            Error = PySyntaxError.Located(new PySyntaxError(message), message, _filename, Lineno, colOffset, Lineno, endColOffset, PyString.From(text));
             Done = State.E_ERROR;
         }
 

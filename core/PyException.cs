@@ -51,7 +51,7 @@ namespace SharpPy
         public PyBaseException(string message = "", params PyObject[] args)
         {
             Message = message ?? "";
-            Args = args.Length > 0 ? args : new PyObject[] { new PyString(Message) };
+            Args = args.Length > 0 ? args : new PyObject[] { PyString.From(Message) };
             __cause__ = null;
             __context__ = null;
             __suppress_context__ = false;
@@ -93,13 +93,13 @@ namespace SharpPy
                 return PyString.Empty;
             if (args.Length == 1)
                 return args[0].ToStr();
-            return new PyString($"({string.Join(", ", args.Select(a => a.ToRepr().Value))})");
+            return PyString.From($"({string.Join(", ", args.Select(a => a.ToRepr().Value))})");
         }
 
         protected internal override PyString Repr()
         {
             var args = PyExceptionSlots.ArgsOf(this);
-            return new PyString($"{GetTypeName()}{PyType.ArgsReprForException(args)}");
+            return PyString.From($"{GetTypeName()}{PyType.ArgsReprForException(args)}");
         }
 
         public override string ToString()
@@ -255,7 +255,7 @@ namespace SharpPy
         internal void SetContextIfUnset(string name, PyObject target)
         {
             if (_name != null || _obj != null) return;
-            _name = new PyString(name);
+            _name = PyString.From(name);
             _obj = target;
         }
 
@@ -362,7 +362,7 @@ namespace SharpPy
         public static System.Exception Create(string message, string name)
         {
             var pyException = new PyNameError(message);
-            pyException.SetAttribute("name", new PyString(name));
+            pyException.SetAttribute("name", PyString.From(name));
             return new PythonException(pyException);
         }
     }
@@ -570,8 +570,8 @@ namespace SharpPy
 
         public PyImportError(string message, string moduleName = null) : base(message)
         {
-            _msg = new PyString(message);
-            _name = moduleName == null ? null : new PyString(moduleName);
+            _msg = PyString.From(message);
+            _name = moduleName == null ? null : PyString.From(moduleName);
         }
 
         // ImportError_init (Objects/exceptions.c:1538): keywords name and path, msg from a single argument.
@@ -790,7 +790,7 @@ namespace SharpPy
         {
             var error = indentation ? new PyIndentationError(message) : new PySyntaxError(message, filename, line);
             PyObject text = sourceLines != null && line >= 1 && line <= sourceLines.Count
-                ? new PyString(sourceLines[line - 1] + (lastLineHasNewline ? "\n" : ""))
+                ? PyString.From(sourceLines[line - 1] + (lastLineHasNewline ? "\n" : ""))
                 : PyNone.Instance;
             return Located(error, message, filename, line, offset, endLine, endOffset, text);
         }
@@ -799,9 +799,9 @@ namespace SharpPy
         internal static PythonException TokenizerInit(string message, string filename)
         {
             var error = new PySyntaxError(message);
-            var details = new PyTuple(new PyString(filename), new PyInt(0), new PyInt(-1), PyNone.Instance);
+            var details = new PyTuple(PyString.From(filename), new PyInt(0), new PyInt(-1), PyNone.Instance);
             error.ReadDetails(details);
-            error.Args = new PyObject[] { new PyString(message), details };
+            error.Args = new PyObject[] { PyString.From(message), details };
             return new PythonException(error);
         }
 
@@ -809,20 +809,20 @@ namespace SharpPy
         internal static PythonException Located(PySyntaxError error, string message, string filename, int line, int offset,
             int endLine, int endOffset, PyObject text)
         {
-            var details = new PyTuple(new PyString(filename), new PyInt(line), new PyInt(offset), text,
+            var details = new PyTuple(PyString.From(filename), new PyInt(line), new PyInt(offset), text,
                 new PyInt(endLine), new PyInt(endOffset));
             error.ReadDetails(details);
-            error.Args = new PyObject[] { new PyString(message), details };
+            error.Args = new PyObject[] { PyString.From(message), details };
             return new PythonException(error);
         }
 
         internal static PythonException IntegerLiteralLimit(string message, string filename, int line, string source)
         {
             var error = new PySyntaxError(message, filename, line);
-            var details = new PyTuple(new PyString(filename), new PyInt(line), SmallIntCache.GetOrCreate(0),
-                new PyString((source ?? "") + "\n"), new PyInt(line), SmallIntCache.GetOrCreate(0));
+            var details = new PyTuple(PyString.From(filename), new PyInt(line), SmallIntCache.GetOrCreate(0),
+                PyString.From((source ?? "") + "\n"), new PyInt(line), SmallIntCache.GetOrCreate(0));
             error.ReadDetails(details);
-            error.Args = new PyObject[] { new PyString(message), details };
+            error.Args = new PyObject[] { PyString.From(message), details };
             return new PythonException(error);
         }
 
@@ -832,8 +832,8 @@ namespace SharpPy
         public PySyntaxError(string message, string fileName = "<unknown>", int lineNumber = 0)
             : base(message)
         {
-            _fields[0] = new PyString(message);
-            if (fileName != null && fileName != "<unknown>") _fields[1] = new PyString(fileName);
+            _fields[0] = PyString.From(message);
+            if (fileName != null && fileName != "<unknown>") _fields[1] = PyString.From(fileName);
             if (lineNumber > 0) _fields[2] = new PyInt(lineNumber);
         }
 
@@ -872,9 +872,9 @@ namespace SharpPy
             string file = (_fields[1] as PyString)?.Value;
             bool hasLine = _fields[2] is PyInt;
             if (file != null) file = file.Substring(file.LastIndexOfAny(new[] { '/', '\\' }) + 1);
-            if (file != null && hasLine) return new PyString($"{text} ({file}, line {LineNumber})");
-            if (hasLine) return new PyString($"{text} (line {LineNumber})");
-            return new PyString(file != null ? $"{text} ({file})" : text);
+            if (file != null && hasLine) return PyString.From($"{text} ({file}, line {LineNumber})");
+            if (hasLine) return PyString.From($"{text} (line {LineNumber})");
+            return PyString.From(file != null ? $"{text} ({file})" : text);
         }
 
         // SyntaxError_members
@@ -1343,8 +1343,8 @@ namespace SharpPy
             }
             int errnoCode = WindowsErrorToErrno(winCode);
             PyObject[] args = path2 == null
-                ? new PyObject[] { new PyInt(errnoCode), new PyString(message), new PyString(path), new PyInt(winCode) }
-                : new PyObject[] { new PyInt(errnoCode), new PyString(message), new PyString(path), new PyInt(winCode), new PyString(path2) };
+                ? new PyObject[] { new PyInt(errnoCode), PyString.From(message), PyString.From(path), new PyInt(winCode) }
+                : new PyObject[] { new PyInt(errnoCode), PyString.From(message), PyString.From(path), new PyInt(winCode), PyString.From(path2) };
             return new PythonException(FromStructuredArguments(args));
         }
 
@@ -1525,7 +1525,7 @@ namespace SharpPy
                     text += ": " + _filename.ToRepr().Value;
                     if (Filename2 != null) text += " -> " + Filename2.ToRepr().Value;
                 }
-                return new PyString(text);
+                return PyString.From(text);
             }
             return BaseExceptionStr(self);
         }
@@ -1662,7 +1662,7 @@ namespace SharpPy
             // _io builds this exception as a heap type; the same assignment on ValueError or
             // _io._IOBase is rejected (measured). Opting in keeps that line runnable here.
             UnsupportedOperationPyType.AllowsModuleAssignment = true;
-            UnsupportedOperationPyType.TypeDict["__module__"] = new PyString("io");
+            UnsupportedOperationPyType.TypeDict["__module__"] = PyString.From("io");
         }
 
         public override string GetTypeName() => _customType?.Name ?? "UnsupportedOperation";
@@ -1885,7 +1885,7 @@ namespace SharpPy
                     Fields[0] = Fields[1] = Fields[4] = null;
                     throw PyTypeError.Create($"a bytes-like object is required, not '{given.GetTypeName()}'");
                 }
-                Fields[1] = new PyBytes(bytes);
+                Fields[1] = PyBytes.From(bytes);
             }
         }
 
@@ -1895,7 +1895,7 @@ namespace SharpPy
         protected internal override PyString Str() => UnicodeDecodeErrorStr();
 
         // UnicodeDecodeError_str (Objects/exceptions.c:3012).
-        internal PyString UnicodeDecodeErrorStr() => new PyString(Fields[1] == null ? "" : OneItem
+        internal PyString UnicodeDecodeErrorStr() => PyString.From(Fields[1] == null ? "" : OneItem
             ? $"'{Encoding}' codec can't decode byte 0x{((PyBytes)Fields[1]).Value[Start]:x2} in position {Start}: {Reason}"
             : $"'{Encoding}' codec can't decode bytes in position {Start}-{End - 1}: {Reason}");
 
@@ -1904,7 +1904,7 @@ namespace SharpPy
             // PyUnicodeDecodeError_Create: PyObject_CallFunction(PyExc_UnicodeDecodeError, ...).
             => new PythonException((PyBaseException)PyType.UnicodeDecodeErrorType.Call(new PyObject[]
             {
-                new PyString(encoding), new PyBytes(data), new PyInt(start), new PyInt(end), new PyString(reason),
+                PyString.From(encoding), PyBytes.From(data), new PyInt(start), new PyInt(end), PyString.From(reason),
             }, null));
     }
 
@@ -1926,7 +1926,7 @@ namespace SharpPy
         protected internal override PyString Str() => UnicodeEncodeErrorStr();
 
         // UnicodeEncodeError_str (Objects/exceptions.c:2891).
-        internal PyString UnicodeEncodeErrorStr() => new PyString(Fields[1] == null ? "" : OneItem
+        internal PyString UnicodeEncodeErrorStr() => PyString.From(Fields[1] == null ? "" : OneItem
             ? $"'{Encoding}' codec can't encode character '{BadCharacter()}' in position {Start}: {Reason}"
             : $"'{Encoding}' codec can't encode characters in position {Start}-{End - 1}: {Reason}");
 
@@ -1935,7 +1935,7 @@ namespace SharpPy
             // PyUnicodeEncodeError_Create: PyObject_CallFunction(PyExc_UnicodeEncodeError, ...).
             => new PythonException((PyBaseException)PyType.UnicodeEncodeErrorType.Call(new PyObject[]
             {
-                new PyString(encoding), new PyString(text), new PyInt(start), new PyInt(end), new PyString(reason),
+                PyString.From(encoding), PyString.From(text), new PyInt(start), new PyInt(end), PyString.From(reason),
             }, null));
     }
 
@@ -1954,7 +1954,7 @@ namespace SharpPy
         protected internal override PyString Str() => UnicodeTranslateErrorStr();
 
         // UnicodeTranslateError_str
-        internal PyString UnicodeTranslateErrorStr() => new PyString(Fields[1] == null ? "" : OneItem
+        internal PyString UnicodeTranslateErrorStr() => PyString.From(Fields[1] == null ? "" : OneItem
             ? $"can't translate character '{BadCharacter()}' in position {Start}: {Reason}"
             : $"can't translate characters in position {Start}-{End - 1}: {Reason}");
     }
@@ -2181,7 +2181,7 @@ namespace SharpPy
             var type = new PyType("traceback", new[] { PyType.ObjectType });
             // tb_dir
             type.TypeDict["__dir__"] = new PyMethodDescriptor("__dir__", type, (self, args, kwargs) => new PyList(
-                new PyObject[] { new PyString("tb_frame"), new PyString("tb_next"), new PyString("tb_lasti"), new PyString("tb_lineno") }), 0, 0);
+                new PyObject[] { PyString.From("tb_frame"), PyString.From("tb_next"), PyString.From("tb_lasti"), PyString.From("tb_lineno") }), 0, 0);
             return type;
         }
 
@@ -2190,7 +2190,7 @@ namespace SharpPy
 
         protected internal override PyString Str()
         {
-            return new PyString($"<traceback object at {PyObjectId.Pointer(this)}>");
+            return PyString.From($"<traceback object at {PyObjectId.Pointer(this)}>");
         }
 
         protected internal override PyString Repr() => AsString();
@@ -2233,7 +2233,7 @@ namespace SharpPy
 
         protected internal override PyString Str()
         {
-            return new PyString($"ExceptionInfo(type={ExcType}, value={ExcValue}, traceback={ExcTraceback}, lasti={Lasti})");
+            return PyString.From($"ExceptionInfo(type={ExcType}, value={ExcValue}, traceback={ExcTraceback}, lasti={Lasti})");
         }
 
         protected internal override PyString Repr() => AsString();

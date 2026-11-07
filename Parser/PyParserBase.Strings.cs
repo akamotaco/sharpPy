@@ -150,7 +150,7 @@ namespace SharpPy.Generated
             }
             try
             {
-                new PyBytes(bytes.ToArray()).GetAttribute("decode").Call(new PyObject[] { new PyString("utf-8") }, null);
+                PyBytes.From(bytes.ToArray()).GetAttribute("decode").Call(new PyObject[] { PyString.From("utf-8") }, null);
                 return "";
             }
             catch (PythonException error)
@@ -362,7 +362,7 @@ namespace SharpPy.Generated
                 char first = id[0];
                 if (id.Length > 1 || !(first == 's' || first == 'r' || first == 'a'))
                     RaiseSyntaxErrorKnownLocation(conversionExpr,
-                        "f-string: invalid conversion character %R: expected 's', 'r', or 'a'", new PyString(id).ToRepr().Value);
+                        "f-string: invalid conversion character %R: expected 's', 'r', or 'a'", PyString.From(id).ToRepr().Value);
                 conversionVal = first;
             }
             else if (debug != null && format == null)

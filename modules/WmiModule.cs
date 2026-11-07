@@ -32,7 +32,7 @@ namespace SharpPy.Modules
         };
 
         private static PythonException Invalid() => new PythonException(
-            PyOSError.FromArguments(new PyObject[] { new PyInt(22), new PyString("Windows Error 0x80041010") }, null));
+            PyOSError.FromArguments(new PyObject[] { new PyInt(22), PyString.From("Windows Error 0x80041010") }, null));
 
         internal static PyModule CreateModule()
         {
@@ -53,7 +53,7 @@ namespace SharpPy.Modules
                 var rows = new List<string>();
                 foreach (var column in parts[0].Substring(7).Split(',').Select(c => c.Trim()).OrderBy(c => c, StringComparer.Ordinal))
                     rows.Add($"{column}={table(column) ?? throw Invalid()}");
-                return new PyString(string.Join("\0", rows));
+                return PyString.From(string.Join("\0", rows));
             });
             return module;
         }

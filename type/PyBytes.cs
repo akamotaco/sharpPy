@@ -396,7 +396,7 @@ namespace SharpPy
                     if (high >= 0)
                         throw PyValueError.Create(
                             $"non-hexadecimal number found in fromhex() arg at position {text.Length}");
-                    return new PyBytes(decoded.ToArray());
+                    return PyBytes.From(decoded.ToArray());
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -494,7 +494,7 @@ namespace SharpPy
                         table[frm[i]] = to[i];
                     }
 
-                    return new PyBytes(table);
+                    return PyBytes.From(table);
                 },
                 // Validation happens in the body so the message above is the one reported.
                 minArgs: 0,
@@ -526,6 +526,15 @@ namespace SharpPy
         {
             Value = value ?? new byte[0];
         }
+
+        /// <summary>
+        /// The one way the interpreter makes an exact bytes, as _PyBytes_FromSize is CPython's: the
+        /// empty bytes is always the one object. The public constructor stays for host code.
+        /// </summary>
+        public static PyBytes From(byte[] value) =>
+            value == null || value.Length == 0 ? Empty : new PyBytes(value);
+
+        public static readonly PyBytes Empty = new PyBytes(Array.Empty<byte>());
 
         public override string GetTypeName() => _customType?.Name ?? "bytes";
         public override PyType GetPyType() => _customType ?? PyType.BytesType;
@@ -575,7 +584,7 @@ namespace SharpPy
                 else
                     sb.Append((char)b);
             }
-            return new PyString(sb.Append(quote).ToString());
+            return PyString.From(sb.Append(quote).ToString());
         }
         
         protected internal override long Len() => Value.Length;
@@ -616,7 +625,7 @@ namespace SharpPy
         /// CPython 3.12: bytes % params - Objects/bytesobject.c bytes_format.
         /// Positional (tuple or single) and named (dict with bytes keys) forms.
         /// </summary>
-        public override PyObject Modulo(PyObject other) => new PyBytes(Format(Value, other));
+        public override PyObject Modulo(PyObject other) => PyBytes.From(Format(Value, other));
 
         // _PyBytes_FormatEx
         internal static byte[] Format(byte[] format, PyObject other)
@@ -702,7 +711,7 @@ namespace SharpPy
                     {
                         throw PyValueError.Create("incomplete format key");
                     }
-                    var key = new PyBytes(keyBytes.ToArray());
+                    var key = PyBytes.From(keyBytes.ToArray());
                     i = close + 1;
                     keyed = named.GetItem(key);
                 }
@@ -1043,7 +1052,7 @@ namespace SharpPy
             {
                 long times = PyAllocation.IndexSized(count.Value);
                 if (times < 0)
-                    return new PyBytes(new byte[0]);
+                    return PyBytes.From(new byte[0]);
                 // bytes_repeat: one copy of an exact bytes is that bytes.
                 if (times == 1 && ReferenceEquals(GetPyType(), PyType.BytesType))
                     return this;
@@ -1055,7 +1064,7 @@ namespace SharpPy
                 {
                     Array.Copy(Value, 0, result, i * Value.Length, Value.Length);
                 }
-                return new PyBytes(result);
+                return PyBytes.From(result);
             }
             
             throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'");
@@ -1150,7 +1159,7 @@ namespace SharpPy
                     var length = Math.Max(0, stop - start);
                     var result = new byte[length];
                     Array.Copy(Value, start, result, 0, length);
-                    return new PyBytes(result);
+                    return PyBytes.From(result);
                 }
                 else
                 {
@@ -1158,7 +1167,7 @@ namespace SharpPy
                     var result = new byte[count];
                     for (int n = 0, position = start; n < count; n++, position = unchecked(position + step))
                         result[n] = Value[position];
-                    return new PyBytes(result);
+                    return PyBytes.From(result);
                 }
             }
             

@@ -65,7 +65,7 @@ namespace SharpPy
             // CPython 3.12: genobject.c getseters
             // (gi_code, gi_frame, gi_name, gi_running, gi_yieldfrom)
             genType.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", genType,
-                self => new PyString(((PyGenerator)self).Name), (self, value) =>
+                self => PyString.From(((PyGenerator)self).Name), (self, value) =>
                     ((PyGenerator)self).Name = value is PyString text ? text.Value
                         : throw PyTypeError.Create("__name__ must be set to a string object"),
                 deleter: self => throw PyTypeError.Create("__name__ must be set to a string object"));
@@ -112,7 +112,7 @@ namespace SharpPy
             _finished = false;
             _frame.OwnerGenerator = this;
             Name = name;
-            Qualname = new PyString(frame.Code.QualName ?? name);
+            Qualname = PyString.From(frame.Code.QualName ?? name);
             
             // 제너레이터 플래그 설정
             _frame.IsGenerator = true;
@@ -125,7 +125,7 @@ namespace SharpPy
 
         #region String Representation
 
-        protected internal override PyString Repr() => new PyString($"<generator object {((PyString)Qualname).Value} at {PyObjectId.Pointer(this)}>");
+        protected internal override PyString Repr() => PyString.From($"<generator object {((PyString)Qualname).Value} at {PyObjectId.Pointer(this)}>");
 
         #endregion
 

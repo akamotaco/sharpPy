@@ -42,7 +42,7 @@ namespace SharpPy
                         throw PyTypeError.Create("__getformat__() argument must be str");
                     if (kind.Value != "double" && kind.Value != "float")
                         throw PyValueError.Create("__getformat__() argument 1 must be 'double' or 'float'");
-                    return new PyString(System.BitConverter.IsLittleEndian ? "IEEE, little-endian" : "IEEE, big-endian");
+                    return PyString.From(System.BitConverter.IsLittleEndian ? "IEEE, little-endian" : "IEEE, big-endian");
                 }));
             // none_new, ellipsis_new and notimplemented_new
             foreach (var singleton in new PyObject[] { PyNone.Instance, PyEllipsis.Instance, PyNotImplemented.Instance })
@@ -59,8 +59,8 @@ namespace SharpPy
             PyType.InstallExceptionAllocators();
             PyUnicodeError.InstallNew();
             // ellipsis_reduce, notimplemented_reduce
-            Method(PyType.EllipsisType, "__reduce__", (self, args) => new PyString("Ellipsis"));
-            Method(PyNotImplemented.Instance.GetPyType(), "__reduce__", (self, args) => new PyString("NotImplemented"));
+            Method(PyType.EllipsisType, "__reduce__", (self, args) => PyString.From("Ellipsis"));
+            Method(PyNotImplemented.Instance.GetPyType(), "__reduce__", (self, args) => PyString.From("NotImplemented"));
             // range_reduce, slice_reduce
             Method(PyType.RangeType, "__reduce__", (self, args) => new PyTuple(new PyObject[]
             {
@@ -106,20 +106,20 @@ namespace SharpPy
             {
                 if (self.GetAttribute("__dict__") is not PyDict names)
                     throw PyTypeError.Create("<module>.__dict__ is not a dictionary");
-                return names.ContainsKey(new PyString("__dir__"))
-                    ? names.GetItem(new PyString("__dir__")).Call(Array.Empty<PyObject>(), null)
+                return names.ContainsKey(PyString.From("__dir__"))
+                    ? names.GetItem(PyString.From("__dir__")).Call(Array.Empty<PyObject>(), null)
                     : PyList.FromIterable(names);
             }, 0, 0);
             PyType.ModuleType.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", PyType.ModuleType, (self, args, kwargs) =>
             {
-                var name = args.Length > 0 ? args[0] : kwargs?.GetItem(new PyString("name"));
+                var name = args.Length > 0 ? args[0] : kwargs?.GetItem(PyString.From("name"));
                 if (name == null)
                     throw PyTypeError.Create("module() missing required argument 'name' (pos 1)");
                 if (name is not PyString text)
                     throw PyTypeError.Create($"module() argument 'name' must be str, not {name.GetTypeName()}");
                 PyObject doc = args.Length > 1 ? args[1] : null;
-                if (doc == null && kwargs != null && kwargs.ContainsKey(new PyString("doc")))
-                    doc = kwargs.GetItem(new PyString("doc"));
+                if (doc == null && kwargs != null && kwargs.ContainsKey(PyString.From("doc")))
+                    doc = kwargs.GetItem(PyString.From("doc"));
                 ((PyModule)self).Initialize(text.Value, doc ?? PyNone.Instance);
                 return PyNone.Instance;
             }, 0, int.MaxValue);
@@ -381,7 +381,7 @@ namespace SharpPy
 
         private static void InstallIterators()
         {
-            foreach (var iterable in new PyObject[] { new PyList(), new PyTuple(), new PyString(""), new PyRange(0L) })
+            foreach (var iterable in new PyObject[] { new PyList(), new PyTuple(), PyString.From(""), new PyRange(0L) })
                 Method(iterable.GetIterator().GetPyType(), "__length_hint__", (self, args) => ((PyIterator)self).RemainingHint());
         }
     }

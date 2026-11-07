@@ -18,7 +18,7 @@ namespace SharpPy.Modules
             module.ModuleDict["QUOTE_NONE"] = new PyInt(3);
             module.ModuleDict["QUOTE_STRINGS"] = new PyInt(4);
             module.ModuleDict["QUOTE_NOTNULL"] = new PyInt(5);
-            module.ModuleDict["__version__"] = new PyString("1.0");
+            module.ModuleDict["__version__"] = PyString.From("1.0");
             module.ModuleDict["Error"] = ErrorType;
             module.ModuleDict["Dialect"] = DialectType;
             module.ModuleDict["reader"] = new PyBuiltinFunction("reader", ReaderFunc);
@@ -57,11 +57,11 @@ namespace SharpPy.Modules
         private static PyObject DialectNew(PyObject cls, PyObject[] args, PyDict kwargs)
         {
             var d = new PyDialect();
-            d.Delimiter = new PyString(",");
+            d.Delimiter = PyString.From(",");
             d.DoubleQuote = PyBool.FromBool(true);
             d.EscapeChar = PyNone.Instance;
-            d.LineTerminator = new PyString("\r\n");
-            d.QuoteChar = new PyString("\"");
+            d.LineTerminator = PyString.From("\r\n");
+            d.QuoteChar = PyString.From("\"");
             d.Quoting = new PyInt(0);
             d.SkipInitialSpace = PyBool.FromBool(false);
             d.Strict = PyBool.FromBool(false);
@@ -168,11 +168,11 @@ namespace SharpPy.Modules
         {
             var dialectArg = args.Length > 1 ? args[1] : PyNone.Instance;
             var d = new PyDialect();
-            d.Delimiter = new PyString(",");
+            d.Delimiter = PyString.From(",");
             d.DoubleQuote = PyBool.FromBool(true);
             d.EscapeChar = PyNone.Instance;
-            d.LineTerminator = new PyString("\r\n");
-            d.QuoteChar = new PyString("\"");
+            d.LineTerminator = PyString.From("\r\n");
+            d.QuoteChar = PyString.From("\"");
             d.Quoting = new PyInt(0);
             d.SkipInitialSpace = PyBool.FromBool(false);
             d.Strict = PyBool.FromBool(false);
@@ -275,11 +275,11 @@ namespace SharpPy.Modules
         // --- PyDialect ---
         private class PyDialect : PyObject
         {
-            public PyObject Delimiter = new PyString(",");
+            public PyObject Delimiter = PyString.From(",");
             public PyObject DoubleQuote = PyBool.FromBool(true);
             public PyObject EscapeChar = PyNone.Instance;
-            public PyObject LineTerminator = new PyString("\r\n");
-            public PyObject QuoteChar = new PyString("\"");
+            public PyObject LineTerminator = PyString.From("\r\n");
+            public PyObject QuoteChar = PyString.From("\"");
             public PyObject Quoting = new PyInt(0);
             public PyObject SkipInitialSpace = PyBool.FromBool(false);
             public PyObject Strict = PyBool.FromBool(false);
@@ -588,9 +588,9 @@ namespace SharpPy.Modules
                     if (unquoted && f.Length == 0 && (quoting == 4 || quoting == 5))
                         list.Append(PyNone.Instance);
                     else if (unquoted && (quoting == 2 || quoting == 4))
-                        list.Append(PyType.FloatType.Call(new PyObject[] { new PyString(f) }, null));
+                        list.Append(PyType.FloatType.Call(new PyObject[] { PyString.From(f) }, null));
                     else
-                        list.Append(new PyString(f));
+                        list.Append(PyString.From(f));
                 }
                 return list;
             }
@@ -655,7 +655,7 @@ namespace SharpPy.Modules
 
                 string lt = _dialect.LineTerminator is PyString ls ? ls.Value : "\r\n";
                 sb.Append(lt);
-                _fileobj.GetAttribute("write").Call(new PyObject[] { new PyString(sb.ToString()) }, null);
+                _fileobj.GetAttribute("write").Call(new PyObject[] { PyString.From(sb.ToString()) }, null);
                 return PyNone.Instance;
             }
 

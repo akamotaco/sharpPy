@@ -55,7 +55,7 @@ namespace SharpPy
             return _mapping.Contains(item);
         }
 
-        public bool ContainsKey(string key) => _table != null ? _table.ContainsKey(key) : Contains(new PyString(key)).Value;
+        public bool ContainsKey(string key) => _table != null ? _table.ContainsKey(key) : Contains(PyString.From(key)).Value;
 
         // mappingproxy_getiter: PyObject_GetIter(pp->mapping)
         protected internal override PyObject Iter() => Mapping.GetIterator();
@@ -66,7 +66,7 @@ namespace SharpPy
 
         // mappingproxy_str and mappingproxy_repr
         protected internal override PyString Str() => Mapping.ToStr();
-        protected internal override PyString Repr() => new PyString($"mappingproxy({Mapping.ToRepr().Value})");
+        protected internal override PyString Repr() => PyString.From($"mappingproxy({Mapping.ToRepr().Value})");
 
         // mappingproxy_richcompare: PyObject_RichCompare(v->mapping, w, op)
         protected internal override PyObject TpRichCompare(PyObject other, CompareOp op) => Compare(Mapping, other, op);

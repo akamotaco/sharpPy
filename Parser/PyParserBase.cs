@@ -740,7 +740,7 @@ namespace SharpPy.Generated
 
             int colNumber = ByteOffsetToCharacterOffset(errorLine, colOffset);
             int endColNumber = endColOffset > 0 ? ByteOffsetToCharacterOffset(errorLine, endColOffset) : endColOffset;
-            return PySyntaxError.Located(error, message, _filename, lineno, colNumber, endLineno, endColNumber, new PyString(errorLine));
+            return PySyntaxError.Located(error, message, _filename, lineno, colNumber, endLineno, endColNumber, PyString.From(errorLine));
         }
 
         // RAISE_ERROR_KNOWN_LOCATION

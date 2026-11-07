@@ -215,7 +215,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
             var data = BufferArgument(args, name);
             string decoded = PyStringNewArguments.DecodeBytes(data, codec, ErrorsOf(args, 1));
-            return new PyTuple(new PyObject[] { new PyString(decoded), new PyInt(data.Length) });
+            return new PyTuple(new PyObject[] { PyString.From(decoded), new PyInt(data.Length) });
         }
 
         // utf_8_decode(data, errors=None, final=False): what the decoder consumed.
@@ -226,7 +226,7 @@ namespace SharpPy.Modules
             var data = BufferArgument(args, name);
             bool final = args.Length > 2 && args[2].IsTrue();
             string decoded = PyBytes.DecodeUtf8(data, ErrorsOf(args, 1), final, out int consumed);
-            return new PyTuple(new PyObject[] { new PyString(decoded), new PyInt(consumed) });
+            return new PyTuple(new PyObject[] { PyString.From(decoded), new PyInt(consumed) });
         }
 
         // utf_16/utf_32 (_le, _be, _ex) decoding: the byte order given, or the mark's when it is 0.
@@ -236,7 +236,7 @@ namespace SharpPy.Modules
             string text = width == 2
                 ? PyBytes.DecodeUtf16(data, errors, ref order, final, out consumed)
                 : PyBytes.DecodeUtf32(data, errors, ref order, final, out consumed);
-            return (new PyString(text), consumed, order);
+            return (PyString.From(text), consumed, order);
         }
 
         private static PyObject DecodedWithOrder(PyObject[] args, string name, int width)
@@ -472,7 +472,7 @@ namespace SharpPy.Modules
                         break;
                 }
             }
-            return Result(new PyString(result.ToString()), data.Length);
+            return Result(PyString.From(result.ToString()), data.Length);
         }
 
         // PyUnicode_EncodeCharmap
@@ -534,7 +534,7 @@ namespace SharpPy.Modules
                 }
                 i += width;
             }
-            return Result(new PyBytes(result.ToArray()), position);
+            return Result(PyBytes.From(result.ToArray()), position);
         }
 
         // PyUnicode_BuildEncodingMap: the reverse table, a dict here
@@ -571,14 +571,14 @@ namespace SharpPy.Modules
                     _ => ((char)b).ToString(),
                 });
             }
-            return Result(new PyBytes(Encoding.ASCII.GetBytes(text.ToString())), data.Length);
+            return Result(PyBytes.From(Encoding.ASCII.GetBytes(text.ToString())), data.Length);
         }
 
         private static PyObject PyEscapeDecode(PyObject[] args, PyDict kwargs = null)
         {
             var data = args[0] is PyString text ? Encoding.UTF8.GetBytes(text.Value) : ByteArrayOf(args[0]);
             var decoded = SharpPy.Generated.EscapeDecoders.DecodeBytesEscape(Encoding.Latin1.GetString(data), out _, message => PyValueError.Create(message));
-            return Result(new PyBytes(decoded), data.Length);
+            return Result(PyBytes.From(decoded), data.Length);
         }
 
         // PyUnicode_AsUnicodeEscapeString
@@ -608,7 +608,7 @@ namespace SharpPy.Modules
                 else
                     result.Append($"\\U{cp:x8}");
             }
-            return Result(new PyBytes(Encoding.ASCII.GetBytes(result.ToString())), count);
+            return Result(PyBytes.From(Encoding.ASCII.GetBytes(result.ToString())), count);
         }
 
         private static Exception EscapeFailure(string codec, byte[] data, int start, int end, string reason) =>
@@ -619,7 +619,7 @@ namespace SharpPy.Modules
             var data = args[0] is PyString text ? Encoding.UTF8.GetBytes(text.Value) : ByteArrayOf(args[0]);
             string decoded = SharpPy.Generated.EscapeDecoders.DecodeUnicodeEscape(Encoding.Latin1.GetString(data), out _,
                 (start, end, reason) => EscapeFailure("unicodeescape", data, start, end, reason));
-            return Result(new PyString(decoded), data.Length);
+            return Result(PyString.From(decoded), data.Length);
         }
 
         // PyUnicode_AsRawUnicodeEscapeString
@@ -637,7 +637,7 @@ namespace SharpPy.Modules
                 else
                     result.AddRange(Encoding.ASCII.GetBytes(cp < 0x10000 ? $"\\u{cp:x4}" : $"\\U{cp:x8}"));
             }
-            return Result(new PyBytes(result.ToArray()), count);
+            return Result(PyBytes.From(result.ToArray()), count);
         }
 
         // _PyUnicode_DecodeRawUnicodeEscapeStateful: \\u and \\U are escapes when the backslash is itself
@@ -675,7 +675,7 @@ namespace SharpPy.Modules
                     throw PyUnicodeDecodeError.Failure("rawunicodeescape", data, start, position, "\\Uxxxxxxxx out of range");
                 result.Append(PyString.CodePointText((int)ch));
             }
-            return Result(new PyString(result.ToString()), data.Length);
+            return Result(PyString.From(result.ToString()), data.Length);
         }
 
         private static int HexValue(char c) =>

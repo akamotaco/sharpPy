@@ -50,7 +50,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
                     if (self is not PyComplex cx)
                         throw WrongComplexSelf("__format__", self);
-                    return new PyString(FormatComplex(cx.Real, cx.Imag, specStr.Value));
+                    return PyString.From(FormatComplex(cx.Real, cx.Imag, specStr.Value));
                 },
                 minArgs: 1, maxArgs: 1);
 
@@ -143,7 +143,7 @@ namespace SharpPy
             string body = realText + PyFloatFormatter.Render(imag, part) + "j";
             if (parens) body = "(" + body + ")";
 
-            int length = new PyString(body).Length();
+            int length = PyString.From(body).Length();
             long padding = System.Math.Max(0, format.Width - length);
             int left = format.Align == '>' ? (int)padding : format.Align == '^' ? (int)(padding / 2) : 0;
             var output = new StringBuilder();
@@ -163,11 +163,11 @@ namespace SharpPy
         {
             // complex_repr: with a real part of +0 there is neither real part nor parens.
             if (Real == 0.0 && !double.IsNegative(Real))
-                return new PyString($"{FormatNumber(Imag)}j");
+                return PyString.From($"{FormatNumber(Imag)}j");
             string imag = FormatNumber(Imag);
             if (imag[0] != '-')
                 imag = "+" + imag;
-            return new PyString($"({FormatNumber(Real)}{imag}j)");
+            return PyString.From($"({FormatNumber(Real)}{imag}j)");
         }
 
         // complex_neg
@@ -464,7 +464,7 @@ namespace SharpPy
         /// 문자열에서 복소수 파싱
         /// CPython 3.12: Objects/complexobject.c:complex_subtype_from_string
         /// </summary>
-        public static PyComplex FromString(string text) => FromObject(new PyString(text));
+        public static PyComplex FromString(string text) => FromObject(PyString.From(text));
 
         /// <summary>complex_from_string_inner, after the same text passes as float().</summary>
         internal static PyComplex FromObject(PyObject value)

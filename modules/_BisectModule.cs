@@ -16,7 +16,7 @@ namespace SharpPy.Modules
             var module = new PyModule("_bisect");
             var d = module.ModuleDict;
             if (PyDocs.Lookup("_bisect.__doc__") is { } doc)
-                d["__doc__"] = new PyString(doc);
+                d["__doc__"] = PyString.From(doc);
             d["bisect_right"] = Function("bisect_right", (a, x, lo, hi, key) => new PyInt(BisectRight(a, x, lo, hi, key)));
             d["insort_right"] = Function("insort_right", (a, x, lo, hi, key) =>
             {

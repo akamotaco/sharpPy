@@ -53,10 +53,10 @@ namespace SharpPy
         protected internal override PyString Repr()
         {
             if (!PyReprGuard.Enter(this))
-                return new PyString("...");
+                return PyString.From("...");
             try
             {
-                return new PyString($"{GetTypeName()}({AsList().ToRepr().Value})");
+                return PyString.From($"{GetTypeName()}({AsList().ToRepr().Value})");
             }
             finally
             {

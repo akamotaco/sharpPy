@@ -10,11 +10,11 @@ namespace SharpPy
     public static class StringCache
     {
         // 자주 사용되는 문자열 상수들
-        public static readonly PyString Empty = new PyString("");
-        public static readonly PyString Space = new PyString(" ");
-        public static readonly PyString Newline = new PyString("\n");
-        public static readonly PyString Tab = new PyString("\t");
-        public static readonly PyString CarriageReturn = new PyString("\r");
+        public static PyString Empty => PyString.Empty;
+        public static readonly PyString Space = PyString.From(" ");
+        public static readonly PyString Newline = PyString.From("\n");
+        public static readonly PyString Tab = PyString.From("\t");
+        public static readonly PyString CarriageReturn = PyString.From("\r");
 
         // ASCII 단일 문자 캐시 (0-127)
         // 단일 문자 문자열은 매우 자주 사용되므로 모두 캐싱
@@ -28,7 +28,7 @@ namespace SharpPy
             // ASCII 0-127 범위의 모든 단일 문자 문자열을 미리 생성
             for (int i = 0; i < 128; i++)
             {
-                _asciiCache[i] = new PyString(((char)i).ToString());
+                _asciiCache[i] = PyString.From(((char)i).ToString());
             }
         }
 
@@ -58,7 +58,7 @@ namespace SharpPy
             // (이미 단일 문자 체크를 했으므로 길이가 1인 경우는 제외됨)
 
             // 캐시에 없는 문자열은 새로 생성
-            return new PyString(value);
+            return PyString.From(value);
         }
 
     }

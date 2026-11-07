@@ -38,7 +38,7 @@ namespace SharpPy
         bool IInstanceDictAccessor.TryGetInstanceAttribute(string name, out PyObject value)
         {
             value = null;
-            return ObjectDict(false) is { } dict && dict.TryGetStoredValue(new PyString(name), out value);
+            return ObjectDict(false) is { } dict && dict.TryGetStoredValue(PyString.From(name), out value);
         }
 
         IEnumerable<KeyValuePair<string, PyObject>> IInstanceDictAccessor.InstanceAttributes
@@ -51,11 +51,11 @@ namespace SharpPy
             }
         }
 
-        void IInstanceDictStore.SetInstanceAttribute(string name, PyObject value) => ObjectDict(true).SetItem(new PyString(name), value);
+        void IInstanceDictStore.SetInstanceAttribute(string name, PyObject value) => ObjectDict(true).SetItem(PyString.From(name), value);
 
         bool IInstanceDictStore.RemoveInstanceAttribute(string name)
         {
-            var key = new PyString(name);
+            var key = PyString.From(name);
             if (ObjectDict(false) is not { } dict || !dict.ContainsKey(key)) return false;
             dict.DelItem(key);
             return true;

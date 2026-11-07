@@ -69,9 +69,9 @@ namespace SharpPy
         protected internal override PyString Repr()
         {
             if (Step == 1)
-                return new PyString($"range({Start}, {Stop})");
+                return PyString.From($"range({Start}, {Stop})");
             else
-                return new PyString($"range({Start}, {Stop}, {Step})");
+                return PyString.From($"range({Start}, {Stop}, {Step})");
         }
 
         #endregion

@@ -189,7 +189,7 @@ namespace SharpPy
             VisitExpr(p.Cls);
             var attrNames = new PyObject[nattrs];
             for (int i = 0; i < nattrs; i++)
-                attrNames[i] = new PyString(((GeneratedIdentifier)kwdAttrs[i]).Value);
+                attrNames[i] = PyString.From(((GeneratedIdentifier)kwdAttrs[i]).Value);
             ADDOP_LOAD_CONST(at, new PyTuple(attrNames));
             ADDOP_I(at, ByteCodeOp.MATCH_CLASS, nargs);
             ADDOP_I(at, ByteCodeOp.COPY, 1);

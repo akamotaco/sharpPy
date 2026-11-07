@@ -51,9 +51,9 @@ namespace SharpPy
         private PyObject Convert(GeneratedPtr? node) => node == null ? PyNone.Instance : Node(node);
 
         private static PyObject Identifier(GeneratedIdentifier? identifier) =>
-            identifier == null ? PyNone.Instance : new PyString(identifier.Value);
+            identifier == null ? PyNone.Instance : PyString.From(identifier.Value);
 
-        private static PyObject Str(string? text) => text == null ? PyNone.Instance : new PyString(text);
+        private static PyObject Str(string? text) => text == null ? PyNone.Instance : PyString.From(text);
 
         private static PyObject Int(int? value) => value == null ? PyNone.Instance : new PyInt(value.Value);
 

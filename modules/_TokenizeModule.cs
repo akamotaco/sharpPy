@@ -44,7 +44,7 @@ namespace SharpPy.Modules
                         break;
                     }
                     string text = line is PyBytes bytes
-                        ? ((PyString)bytes.GetAttribute("decode").Call(new PyObject[] { new PyString(encoding ?? "utf-8") }, null)).Value
+                        ? ((PyString)bytes.GetAttribute("decode").Call(new PyObject[] { PyString.From(encoding ?? "utf-8") }, null)).Value
                         : ((PyString)line).Value;
                     if (text.Length == 0)
                         break;
@@ -151,10 +151,10 @@ namespace SharpPy.Modules
                     _done = true;
                 return new PyTuple(new PyObject[]
                 {
-                    new PyInt((int)type), new PyString(text),
+                    new PyInt((int)type), PyString.From(text),
                     new PyTuple(new PyObject[] { new PyInt(lineno), new PyInt(column) }),
                     new PyTuple(new PyObject[] { new PyInt(endLineno), new PyInt(endColumn) }),
-                    new PyString(line),
+                    PyString.From(line),
                 });
             }
         }

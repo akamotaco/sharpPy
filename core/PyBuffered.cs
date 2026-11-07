@@ -146,7 +146,7 @@ public sealed class PyBuffered : PyIOBaseInstance
     {
         long n = Offset(Call(_s.Raw, "tell"));
         if (n < 0)
-            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyString($"Raw stream returned invalid position {n}") }, null));
+            throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From($"Raw stream returned invalid position {n}") }, null));
         _s.AbsPos = n;
         return n;
     }
@@ -156,7 +156,7 @@ public sealed class PyBuffered : PyIOBaseInstance
     {
         long n = Offset(Call(_s.Raw, "seek", new PyInt(target), new PyInt(whence)));
         if (n < 0)
-            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyString($"Raw stream returned invalid position {n}") }, null));
+            throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From($"Raw stream returned invalid position {n}") }, null));
         _s.AbsPos = n;
         return n;
     }
@@ -269,14 +269,14 @@ public sealed class PyBuffered : PyIOBaseInstance
         }
         catch (PythonException error)
         {
-            var failure = new PythonException(PyOSError.FromArguments(new PyObject[] { new PyString("raw readinto() failed") }, null));
+            var failure = new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From("raw readinto() failed") }, null));
             failure.PyException.SetAttribute("__cause__", error.PyException);
             throw failure;
         }
         if (n < 0 || n > length)
             throw new PythonException(PyOSError.FromArguments(new PyObject[]
             {
-                new PyString($"raw readinto() returned invalid length {n} (should have been between 0 and {length})"),
+                PyString.From($"raw readinto() returned invalid length {n} (should have been between 0 and {length})"),
             }, null));
         if (n > 0 && _s.AbsPos != -1)
             _s.AbsPos += n;
@@ -299,7 +299,7 @@ public sealed class PyBuffered : PyIOBaseInstance
     {
         var data = new byte[count];
         Array.Copy(_s.Buffer, start, data, 0, count);
-        return new PyBytes(data);
+        return PyBytes.From(data);
     }
 
     // _bufferedreader_read_all
@@ -324,7 +324,7 @@ public sealed class PyBuffered : PyIOBaseInstance
             if (currentSize == 0)
                 return all;
             if (all is PyBytes more)
-                return new PyBytes(Join(new List<byte[]> { data.Value, more.Value }));
+                return PyBytes.From(Join(new List<byte[]> { data.Value, more.Value }));
             return data;
         }
         var chunks = new List<byte[]>();
@@ -339,7 +339,7 @@ public sealed class PyBuffered : PyIOBaseInstance
             if (read is not PyNone && read is not PyBytes)
                 throw PyTypeError.Create("read() should return bytes");
             if (read is PyNone || ((PyBytes)read).Value.Length == 0)
-                return currentSize == 0 ? read : new PyBytes(Join(chunks));
+                return currentSize == 0 ? read : PyBytes.From(Join(chunks));
             data = (PyBytes)read;
             currentSize += data.Value.Length;
             if (_s.AbsPos != -1)
@@ -393,7 +393,7 @@ public sealed class PyBuffered : PyIOBaseInstance
         PyObject Short()
         {
             Array.Resize(ref output, (int)written);
-            return new PyBytes(output);
+            return PyBytes.From(output);
         }
         while (remaining > 0)
         {
@@ -422,7 +422,7 @@ public sealed class PyBuffered : PyIOBaseInstance
             if (remaining == 0)
                 break;
         }
-        return new PyBytes(output);
+        return PyBytes.From(output);
     }
 
     // _bufferedreader_peek_unlocked
@@ -450,7 +450,7 @@ public sealed class PyBuffered : PyIOBaseInstance
         if (n < 0 || n > length)
             throw new PythonException(PyOSError.FromArguments(new PyObject[]
             {
-                new PyString($"raw write() returned invalid length {n} (should have been between 0 and {length})"),
+                PyString.From($"raw write() returned invalid length {n} (should have been between 0 and {length})"),
             }, null));
         if (n > 0 && _s.AbsPos != -1)
             _s.AbsPos += n;
@@ -459,7 +459,7 @@ public sealed class PyBuffered : PyIOBaseInstance
 
     private static PythonException BlockingError(long written) => new PythonException(PyType.BlockingIOErrorType.Call(new PyObject[]
     {
-        new PyInt(11), new PyString("write could not complete without blocking"), new PyInt(written),
+        new PyInt(11), PyString.From("write could not complete without blocking"), new PyInt(written),
     }, null) as PyBaseException ?? throw PyRuntimeError.Create("BlockingIOError"));
 
     // _bufferedwriter_flush_unlocked
@@ -654,7 +654,7 @@ public sealed class PyBuffered : PyIOBaseInstance
                 if (limit >= 0)
                     limit -= filled;
             }
-            return new PyBytes(Join(chunks));
+            return PyBytes.From(Join(chunks));
         });
     }
 
@@ -758,7 +758,7 @@ public sealed class PyBuffered : PyIOBaseInstance
             n = _s.BufferSize;
         CheckClosed("read of closed file");
         if (n == 0)
-            return new PyBytes(Array.Empty<byte>());
+            return PyBytes.From(Array.Empty<byte>());
         long have = ReadAhead;
         if (have > 0)
             return ReadFast(Math.Min(have, n));
@@ -774,7 +774,7 @@ public sealed class PyBuffered : PyIOBaseInstance
             r = 0;
         if (n > r)
             Array.Resize(ref result, (int)r);
-        return new PyBytes(result);
+        return PyBytes.From(result);
     }
 
     private PyObject Peek()
@@ -948,12 +948,12 @@ public sealed class PyBuffered : PyIOBaseInstance
         {
         }
         if (name == null)
-            return new PyString($"<{typeName}>");
+            return PyString.From($"<{typeName}>");
         if (!PyReprGuard.Enter(this))
             throw PyRuntimeError.Create($"reentrant call inside {typeName}.__repr__");
         try
         {
-            return new PyString($"<{typeName} name={name.ToRepr().Value}>");
+            return PyString.From($"<{typeName} name={name.ToRepr().Value}>");
         }
         finally
         {
@@ -974,7 +974,7 @@ public sealed class PyBuffered : PyIOBaseInstance
             if (line is not PyBytes)
                 throw new PythonException(PyOSError.FromArguments(new PyObject[]
                 {
-                    new PyString($"readline() should have returned a bytes object, not '{line.GetTypeName()}'"),
+                    PyString.From($"readline() should have returned a bytes object, not '{line.GetTypeName()}'"),
                 }, null));
         }
         if (((PyBytes)line).Value.Length == 0)

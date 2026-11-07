@@ -35,9 +35,9 @@ namespace SharpPy.Modules
             Method("is_junction", self => PyBool.False);
             Method("stat", self => NtModule.StatPath(self._path));
             Method("inode", self => new PyInt(0));
-            Method("__fspath__", self => new PyString(self._path));
-            type.TypeDict["name"] = new PyMemberDescriptor("name", type, self => new PyString(((PyDirEntry)self)._name), readOnly: true);
-            type.TypeDict["path"] = new PyMemberDescriptor("path", type, self => new PyString(((PyDirEntry)self)._path), readOnly: true);
+            Method("__fspath__", self => PyString.From(self._path));
+            type.TypeDict["name"] = new PyMemberDescriptor("name", type, self => PyString.From(((PyDirEntry)self)._name), readOnly: true);
+            type.TypeDict["path"] = new PyMemberDescriptor("path", type, self => PyString.From(((PyDirEntry)self)._path), readOnly: true);
             return type;
         }
 
@@ -52,7 +52,7 @@ namespace SharpPy.Modules
 
         public override PyType GetPyType() => Type;
         public override string GetTypeName() => "DirEntry";
-        protected internal override PyString Repr() => new PyString($"<DirEntry {new PyString(_name).ToRepr().Value}>");
+        protected internal override PyString Repr() => PyString.From($"<DirEntry {PyString.From(_name).ToRepr().Value}>");
     }
 
     /// <summary>What os.scandir returns: an iterator and a context manager.</summary>

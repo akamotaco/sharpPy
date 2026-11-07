@@ -435,7 +435,7 @@ namespace SharpPy
                         big >>= 8;
                     }
 
-                    return new PyBytes(bytes);
+                    return PyBytes.From(bytes);
                 },
                 minArgs: 0, maxArgs: 2, acceptsKwargs: true);
 
@@ -624,7 +624,7 @@ namespace SharpPy
                     else
                         throw PyTypeError.Create($"descriptor '__format__' requires a 'int' object but received a '{self.GetTypeName()}'");
 
-                    return new PyString(FormatInt(value, specStr.Value));
+                    return PyString.From(FormatInt(value, specStr.Value));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -746,8 +746,8 @@ namespace SharpPy
                 throw PyValueError.Create($"Exceeds the limit ({limit} digits) for integer string conversion; use sys.set_int_max_str_digits() to increase the limit");
             return text;
         }
-        protected internal override PyString Str() => new PyString(DecimalString());
-        protected internal override PyString Repr() => new PyString(DecimalString());
+        protected internal override PyString Str() => PyString.From(DecimalString());
+        protected internal override PyString Repr() => PyString.From(DecimalString());
 
         #endregion
 
@@ -1449,14 +1449,14 @@ namespace SharpPy
         /// </summary>
         public PyString Bin()
         {
-            if (Value == 0) return new PyString("0b0");
+            if (Value == 0) return PyString.From("0b0");
 
             var absValue = BigInteger.Abs(Value);
             var binaryStr = ConvertToBase(absValue, 2);
 
             return Value < 0
-                ? new PyString("-0b" + binaryStr)
-                : new PyString("0b" + binaryStr);
+                ? PyString.From("-0b" + binaryStr)
+                : PyString.From("0b" + binaryStr);
         }
 
         /// <summary>
@@ -1465,14 +1465,14 @@ namespace SharpPy
         /// </summary>
         public PyString Oct()
         {
-            if (Value == 0) return new PyString("0o0");
+            if (Value == 0) return PyString.From("0o0");
 
             var absValue = BigInteger.Abs(Value);
             var octalStr = ConvertToBase(absValue, 8);
 
             return Value < 0
-                ? new PyString("-0o" + octalStr)
-                : new PyString("0o" + octalStr);
+                ? PyString.From("-0o" + octalStr)
+                : PyString.From("0o" + octalStr);
         }
 
         /// <summary>
@@ -1481,7 +1481,7 @@ namespace SharpPy
         /// </summary>
         public PyString Hex()
         {
-            if (Value == 0) return new PyString("0x0");
+            if (Value == 0) return PyString.From("0x0");
 
             var absValue = BigInteger.Abs(Value);
             // BigInteger.ToString("x") provides lowercase hex without prefix
@@ -1490,8 +1490,8 @@ namespace SharpPy
             if (string.IsNullOrEmpty(hexStr)) hexStr = "0";
 
             return Value < 0
-                ? new PyString("-0x" + hexStr)
-                : new PyString("0x" + hexStr);
+                ? PyString.From("-0x" + hexStr)
+                : PyString.From("0x" + hexStr);
         }
 
         /// <summary>
@@ -1777,8 +1777,8 @@ namespace SharpPy
             c >= 'a' && c <= 'z' ? c - 'a' + 10 : c >= 'A' && c <= 'Z' ? c - 'A' + 10 : -1;
         private static Exception InvalidIntegerLiteral(string text, int radix, PyObject literal = null)
         {
-            if (literal is PyByteArray buffer) literal = new PyBytes(buffer.BufferSpan.ToArray());
-            return PyValueError.Create($"invalid literal for int() with base {radix}: {(literal ?? new PyString(text)).ToRepr().Value}");
+            if (literal is PyByteArray buffer) literal = PyBytes.From(buffer.BufferSpan.ToArray());
+            return PyValueError.Create($"invalid literal for int() with base {radix}: {(literal ?? PyString.From(text)).ToRepr().Value}");
         }
 
         public static PyInt FromNumber(PyObject obj)

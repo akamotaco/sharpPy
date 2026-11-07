@@ -56,7 +56,7 @@ namespace SharpPy
         internal static PyObject DocFromInternal(string name, string doc)
         {
             string text = WithoutSignature(name, doc);
-            return string.IsNullOrEmpty(text) ? PyNone.Instance : new PyString(text);
+            return string.IsNullOrEmpty(text) ? PyNone.Instance : PyString.From(text);
         }
 
         // _PyType_GetTextSignatureFromInternalDoc
@@ -67,7 +67,7 @@ namespace SharpPy
             if (end < 0)
                 return PyNone.Instance;
             end -= EndMarker.Length - 1;
-            return new PyString(doc.Substring(start, end - start));
+            return PyString.From(doc.Substring(start, end - start));
         }
 
         // A static type of builtins; type itself is one, though SharpPy builds it as a class.
@@ -145,7 +145,7 @@ namespace SharpPy
         internal static PyObject PlainDoc(PyObject descriptor)
         {
             var (_, doc) = Of(descriptor);
-            return doc == null ? PyNone.Instance : new PyString(doc);
+            return doc == null ? PyNone.Instance : PyString.From(doc);
         }
     }
 }

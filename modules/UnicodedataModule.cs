@@ -244,18 +244,18 @@ namespace SharpPy.Modules
         internal static PyModule CreateModule()
         {
             var module = new PyModule("unicodedata");
-            module.ModuleDict["unidata_version"] = new PyString(UnicodePropertyData.Version);
-            Text1(module, "category", code => new PyString(Property("category").At(code)));
-            Text1(module, "bidirectional", code => new PyString(Property("bidirectional").At(code)));
-            Text1(module, "east_asian_width", code => new PyString(Property("east_asian_width").At(code)));
-            Text1(module, "decomposition", code => new PyString(Property("decomposition").At(code)));
+            module.ModuleDict["unidata_version"] = PyString.From(UnicodePropertyData.Version);
+            Text1(module, "category", code => PyString.From(Property("category").At(code)));
+            Text1(module, "bidirectional", code => PyString.From(Property("bidirectional").At(code)));
+            Text1(module, "east_asian_width", code => PyString.From(Property("east_asian_width").At(code)));
+            Text1(module, "decomposition", code => PyString.From(Property("decomposition").At(code)));
             Text1(module, "combining", code => new PyInt(Combining(code)));
             Text1(module, "mirrored", code => new PyInt(Property("mirrored").At(code) == "1" ? 1 : 0));
             Number(module, "decimal", "not a decimal", found => new PyInt(int.Parse(found, CultureInfo.InvariantCulture)));
             Number(module, "digit", "not a digit", found => new PyInt(int.Parse(found, CultureInfo.InvariantCulture)));
             Number(module, "numeric", "not a numeric character", found => new PyFloat(double.Parse(found, CultureInfo.InvariantCulture)));
             module.ModuleDict["normalize"] = new PyBuiltinFunction("normalize", args => TwoArguments("normalize", args,
-                (form, input) => new PyString(Normalize(form, input, "normalize"))));
+                (form, input) => PyString.From(Normalize(form, input, "normalize"))));
             module.ModuleDict["is_normalized"] = new PyBuiltinFunction("is_normalized", args => TwoArguments("is_normalized", args,
                 (form, input) => PyBool.FromBool(Normalize(form, input, "is_normalized") == ((PyString)input).Value)));
             module.ModuleDict["name"] = new PyBuiltinFunction("name", args =>
@@ -264,7 +264,7 @@ namespace SharpPy.Modules
                 int code = Code("name", args);
                 string found = Property("category").At(code) == "Cc" ? null : UnicodeNames.Name(code);
                 if (found != null)
-                    return new PyString(found);
+                    return PyString.From(found);
                 return args.Length > 1 ? args[1] : throw PyValueError.Create("no such name");
             });
             module.ModuleDict["lookup"] = new PyBuiltinFunction("lookup", args =>
@@ -273,8 +273,8 @@ namespace SharpPy.Modules
                     throw PyTypeError.Create("lookup() argument must be str");
                 int code = UnicodeNames.Lookup(name.Value);
                 if (code < 0)
-                    throw PyKeyError.Create(new PyString($"undefined character name '{name.Value}'"));
-                return new PyString(code >= 0x10000 ? char.ConvertFromUtf32(code) : ((char)code).ToString());
+                    throw PyKeyError.Create(PyString.From($"undefined character name '{name.Value}'"));
+                return PyString.From(code >= 0x10000 ? char.ConvertFromUtf32(code) : ((char)code).ToString());
             });
             return module;
         }

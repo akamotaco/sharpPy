@@ -63,7 +63,7 @@ namespace SharpPy.Modules
         public static PyObject PyCmpToKey(PyObject[] args, PyDict? kwargs)
         {
             var compare = args.Length > 0 ? args[0] : null;
-            if (kwargs != null && kwargs.TryGetStoredValue(new PyString("mycmp"), out var named))
+            if (kwargs != null && kwargs.TryGetStoredValue(PyString.From("mycmp"), out var named))
             {
                 if (compare != null)
                     throw PyTypeError.Create("argument for cmp_to_key() given by name ('mycmp') and position (1)");
@@ -124,7 +124,7 @@ namespace SharpPy.Modules
             return new PyKeyWrapper(_cmpFunc, parsed[0]);
         }
 
-        protected internal override PyString Repr() => new PyString($"<functools.KeyWrapper object at {PyObjectId.Pointer(this)}>");
+        protected internal override PyString Repr() => PyString.From($"<functools.KeyWrapper object at {PyObjectId.Pointer(this)}>");
 
         // keyobject_richcompare: both keyobjects of the same type, the user's three-way result
         // compared with zero by PyObject_RichCompare.

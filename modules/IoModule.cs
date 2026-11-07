@@ -41,7 +41,7 @@ namespace SharpPy.Modules
             PyBytesIO.Register();
 
             foreach (var t in new[] { FileIOType, BufferedRWPairType })
-                t.TypeDict["__module__"] = new PyString("_io");
+                t.TypeDict["__module__"] = PyString.From("_io");
             // The file types and UnsupportedOperation set their own __module__ at their
             // definition sites so they are correct even when _io is never imported.
         }
@@ -85,7 +85,7 @@ namespace SharpPy.Modules
                     throw PyTypeError.Create($"text_encoding expected at most 2 arguments, got {args.Length}");
                 if (args[0] is not PyNone)
                     return args[0];
-                return new PyString("locale");
+                return PyString.From("locale");
             });
 
             // CPython _io.open_code(path, /): open a source file for the import
@@ -98,7 +98,7 @@ namespace SharpPy.Modules
                     throw PyTypeError.Create($"open_code() argument must be str, not {args[0].GetTypeName()}");
                 if (pathStr.Value.Contains('\0'))
                     throw PyValueError.Create("embedded null character");
-                return Open(new PyObject[] { pathStr, new PyString("rb") }, null);
+                return Open(new PyObject[] { pathStr, PyString.From("rb") }, null);
             });
 
             return module;
@@ -193,7 +193,7 @@ namespace SharpPy.Modules
                 PyWarnings.Warn(PyType.RuntimeWarningType,
                     "line buffering (buffering=1) isn't supported in binary mode, the default buffer size will be used", 1);
 
-            var raw = PyFileIO.FileIOType.Call(new[] { pathOrFd, new PyString(rawmode), PyBool.FromBool(closefd), opener }, null);
+            var raw = PyFileIO.FileIOType.Call(new[] { pathOrFd, PyString.From(rawmode), PyBool.FromBool(closefd), opener }, null);
             PyObject result = raw;
             try
             {
@@ -224,13 +224,13 @@ namespace SharpPy.Modules
                 result = buffer;
                 if (binary)
                     return result;
-                PyObject Optional(string value) => value == null ? PyNone.Instance : new PyString(value);
+                PyObject Optional(string value) => value == null ? PyNone.Instance : PyString.From(value);
                 var wrapper = PyTextIOWrapper.WrapperType.Call(new[]
                 {
                     buffer, Optional(encoding), Optional(errors), Optional(newline), PyBool.FromBool(lineBuffering),
                 }, null);
                 result = wrapper;
-                wrapper.SetAttribute("mode", new PyString(mode));
+                wrapper.SetAttribute("mode", PyString.From(mode));
                 return result;
             }
             catch (PythonException error)

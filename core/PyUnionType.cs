@@ -18,8 +18,8 @@ namespace SharpPy
 
         public override PyType GetPyType() => PyType.UnionType;
 
-        protected internal override PyString Str() => new PyString(ToString());
-        protected internal override PyString Repr() => new PyString(ToString());
+        protected internal override PyString Str() => PyString.From(ToString());
+        protected internal override PyString Repr() => PyString.From(ToString());
 
         // union_getitem
         internal PyObject Subscript(PyObject item)

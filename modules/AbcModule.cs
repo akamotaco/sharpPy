@@ -139,7 +139,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create("__bases__ is not tuple");
             foreach (var entry in bases.Items)
             {
-                var inherited = AttributeOrNull(entry, new PyString("__abstractmethods__"));
+                var inherited = AttributeOrNull(entry, PyString.From("__abstractmethods__"));
                 if (inherited == null) continue;
                 foreach (var key in Iterate(inherited))
                 {

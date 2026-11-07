@@ -186,7 +186,7 @@ public interface IDescriptor
         private Exception Missing(PyObject? instance, string what)
         {
             var qualified = QualifiedName(instance);
-            var owner = new PyString(qualified ?? "").ToRepr().Value;
+            var owner = PyString.From(qualified ?? "").ToRepr().Value;
             if (_name != null && qualified != null)
                 return PyAttributeError.Create($"property {_name.ToRepr().Value} of {owner} object has no {what}");
             return PyAttributeError.Create(qualified != null ? $"property of {owner} object has no {what}" : $"property has no {what}");

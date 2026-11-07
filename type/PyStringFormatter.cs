@@ -10,7 +10,7 @@ internal static class PyStringFormatter
     internal static PyString Format(string format, PyObject[]? args, PyObject? mapping)
     {
         int numbering = 0, next = 0;
-        return new PyString(Expand(format, args, mapping, 2, ref numbering, ref next));
+        return PyString.From(Expand(format, args, mapping, 2, ref numbering, ref next));
     }
 
     private static string Expand(string text, PyObject[]? args, PyObject? mapping,
@@ -83,7 +83,7 @@ internal static class PyStringFormatter
                     (conversion <= 32 || conversion > 126 ? "\\x" + conversion.ToString("x") : ((char)conversion).ToString()))
             };
             if (expand) spec = Expand(spec, args, mapping, depth - 1, ref numbering, ref next);
-            output.Append(value.Format(new PyString(spec)).Value);
+            output.Append(value.Format(PyString.From(spec)).Value);
         }
         return output.ToString();
     }
@@ -111,7 +111,7 @@ internal static class PyStringFormatter
                 throw PyIndexError.Create($"Replacement index {index} out of range for positional args tuple");
             value = args[(int)index];
         }
-        else value = mapping != null ? mapping.GetItem(new PyString(first)) : throw PyKeyError.Create(first);
+        else value = mapping != null ? mapping.GetItem(PyString.From(first)) : throw PyKeyError.Create(first);
         while (p < field.Length)
         {
             char kind = field[p++];
@@ -129,7 +129,7 @@ internal static class PyStringFormatter
                 if (p == start) throw PyValueError.Create("Empty attribute in format string");
                 string key = field.Substring(start, p++ - start);
                 index = Index(key);
-                value = value.GetItem(index < 0 ? new PyString(key) : new PyInt(index));
+                value = value.GetItem(index < 0 ? PyString.From(key) : new PyInt(index));
             }
             else throw PyValueError.Create("Only '.' or '[' may follow ']' in format field specifier");
         }
@@ -163,6 +163,6 @@ internal static class PyStringFormatter
             else result.Append(c <= 255 ? "\\x" + c.ToString("x2") :
                 c <= 65535 ? "\\u" + c.ToString("x4") : "\\U" + c.ToString("x8"));
         }
-        return new PyString(result.ToString());
+        return PyString.From(result.ToString());
     }
 }

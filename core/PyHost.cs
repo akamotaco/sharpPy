@@ -94,7 +94,7 @@ namespace SharpPy
             if (PyBundle.Open(path) == null)
                 throw new System.IO.FileNotFoundException("no such bundle", path);
             var sys = PyImportSystem.Import("sys");
-            ((PyList)sys.ModuleDict["path"]).Insert(0, new PyString(path));
+            ((PyList)sys.ModuleDict["path"]).Insert(0, PyString.From(path));
         }
 
         /// <summary>Py_FinalizeEx: threading joins what is no daemon, then atexit and finalizers run.</summary>

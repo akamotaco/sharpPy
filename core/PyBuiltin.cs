@@ -181,8 +181,8 @@ namespace SharpPy
         // CPython builtin_function_repr for an unbound (module-level) builtin:
         // <built-in function NAME>. repr()/str() route through ToRepr/ToStr, not the
         // C# ToString(), so these must be overridden explicitly.
-        protected internal override PyString Repr() => new PyString($"<built-in function {Name}>");
-        protected internal override PyString Str() => new PyString($"<built-in function {Name}>");
+        protected internal override PyString Repr() => PyString.From($"<built-in function {Name}>");
+        protected internal override PyString Str() => PyString.From($"<built-in function {Name}>");
 
         /// <summary>
         /// CPython 호환: 내장 함수 구현 테이블 초기화
@@ -295,8 +295,8 @@ namespace SharpPy
         private static PyObject CallPrint(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12 print(*values, sep=' ', end='\n', file=sys.stdout, flush=False)
-            var sep = new PyString(" ");
-            var end = new PyString("\n");
+            var sep = PyString.From(" ");
+            var end = PyString.From("\n");
             PyObject file = null; // sys.stdout는 추후 구현
             var flush = PyBool.False;
 
@@ -384,7 +384,7 @@ namespace SharpPy
             }
             if (args.Length == 1)
             {
-                output.GetAttribute("write").Call(new PyObject[] { new PyString(args[0].ToStr().Value) }, null);
+                output.GetAttribute("write").Call(new PyObject[] { PyString.From(args[0].ToStr().Value) }, null);
                 // builtin_input_impl: a failing flush is cleared.
                 try { output.GetAttribute("flush").Call(new PyObject[0], null); }
                 catch (PythonException) { }
@@ -395,7 +395,7 @@ namespace SharpPy
                     throw PyTypeError.Create("object.readline() returned non-string");
                 if (text.Value.Length == 0)
                     throw PyEOFError.Create("EOF when reading a line");
-                return new PyString(text.Value.EndsWith("\n", StringComparison.Ordinal) ? text.Value.Substring(0, text.Value.Length - 1) : text.Value);
+                return PyString.From(text.Value.EndsWith("\n", StringComparison.Ordinal) ? text.Value.Substring(0, text.Value.Length - 1) : text.Value);
             }
         }
 
@@ -485,8 +485,8 @@ namespace SharpPy
                     if (!(key is PyString ks && ks.Value == "strict"))
                         throw PyTypeError.Create($"zip() has got an unexpected keyword argument '{key.ToStr().Value}'");
                 }
-                if (kwargs.Contains(new PyString("strict")).ToBool())
-                    strict = kwargs.GetItem(new PyString("strict")).IsTrue();
+                if (kwargs.Contains(PyString.From("strict")).ToBool())
+                    strict = kwargs.GetItem(PyString.From("strict")).IsTrue();
             }
 
             var iterators = new PyObject[args.Length];
@@ -694,7 +694,7 @@ namespace SharpPy
             PyObject defaultVal = null;
             if (kwargs != null)
             {
-                if (kwargs.InternalDict.TryGetValue(new PyString("key"), out var k)
+                if (kwargs.InternalDict.TryGetValue(PyString.From("key"), out var k)
                     && !ReferenceEquals(k, PyNone.Instance))
                 {
                     keyFn = k;
@@ -703,7 +703,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"'{keyFn.GetTypeName()}' object is not callable");
                     }
                 }
-                if (kwargs.InternalDict.TryGetValue(new PyString("default"), out var dv))
+                if (kwargs.InternalDict.TryGetValue(PyString.From("default"), out var dv))
                 {
                     hasDefault = true;
                     defaultVal = dv;
@@ -1082,7 +1082,7 @@ namespace SharpPy
             }
 
             // CPython 3.12: Add __builtins__ to globals if not present
-            var builtinsKey = new PyString("__builtins__");
+            var builtinsKey = PyString.From("__builtins__");
             if (!globals.Contains(builtinsKey).Value)
             {
                 // Get builtins module
@@ -1335,7 +1335,7 @@ namespace SharpPy
             }
 
             // CPython 3.12: Add __builtins__ to globals if not present
-            var builtinsKey = new PyString("__builtins__");
+            var builtinsKey = PyString.From("__builtins__");
             if (!globals.Contains(builtinsKey).Value)
             {
                 // Get builtins module
@@ -1552,7 +1552,7 @@ namespace SharpPy
                     throw PyValueError.Create("chr() arg not in range(0x110000)");
                 
                 int codepoint = (int)i.Value;
-                return new PyString(codepoint <= 0xffff ? new string((char)codepoint, 1) : char.ConvertFromUtf32(codepoint));
+                return PyString.From(codepoint <= 0xffff ? new string((char)codepoint, 1) : char.ConvertFromUtf32(codepoint));
             }
             else
             {
@@ -1566,7 +1566,7 @@ namespace SharpPy
         // PyCFunctionObject of a module's function: m_self is the module, m_module its name.
         string ICFunction.MethodName => Name;
         PyObject ICFunction.MethodSelf => PyImportSystem.Import(OwnerModule);
-        PyObject ICFunction.MethodModule => new PyString(OwnerModule);
+        PyObject ICFunction.MethodModule => PyString.From(OwnerModule);
 
         private static PyObject CallDir(PyObject[] args, PyDict kwargs = null)
         {
@@ -1676,7 +1676,7 @@ namespace SharpPy
                     $"{(metaclass is PyType named ? named.Name : "<metaclass>")}.__prepare__() must return a mapping, not {ns.GetTypeName()}");
 
             var cell = PyVM.Instance.ExecuteClassBody(body.CodeObject, body.Closure, ns);
-            if (originalBases != null) ns.SetItem(new PyString("__orig_bases__"), originalBases);
+            if (originalBases != null) ns.SetItem(PyString.From("__orig_bases__"), originalBases);
             var created = metaclass.Call(new[] { name, bases, ns }, classKeywords);
             if (created is PyType && cell is PyCell classCell && !ReferenceEquals(classCell.Value, created))
             {
@@ -1719,7 +1719,7 @@ namespace SharpPy
             // PyArg_ParseTupleAndKeywords "U|OOOi:__import__"
             if (args.Length > 5)
                 throw PyTypeError.Create($"__import__() takes at most 5 arguments ({args.Length} given)");
-            if (args.Length >= 1 && kwargs != null && kwargs.Contains(new PyString("name")).Value)
+            if (args.Length >= 1 && kwargs != null && kwargs.Contains(PyString.From("name")).Value)
                 throw PyTypeError.Create("argument for __import__() given by name ('name') and position (1)");
             var nameArgument = args.Length >= 1 ? args[0] : KwValue(kwargs, "name");
             if (nameArgument == null)
@@ -1817,7 +1817,7 @@ namespace SharpPy
                 if ((package == null || package is PyNone) && (spec == null || spec is PyNone))
                     PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[]
                     {
-                        new PyString("can't resolve package from __spec__ or __package__, falling back on __name__ and __path__"),
+                        PyString.From("can't resolve package from __spec__ or __package__, falling back on __name__ and __path__"),
                         PyType.ImportWarningType,
                     }, null);
             }
@@ -2056,7 +2056,7 @@ namespace SharpPy
             var result = new PyDict();
             foreach (var variable in localScope.Variables)
             {
-                result.SetItem(new PyString(variable.Key), variable.Value);
+                result.SetItem(PyString.From(variable.Key), variable.Value);
             }
 
             return result;
@@ -2381,8 +2381,8 @@ namespace SharpPy
         //   obj_type == NULL: <super: <class 'TYPE'>, NULL>
         protected internal override PyString Repr()
             => ObjectType != null
-                ? new PyString($"<super: <class '{Type.Name}'>, <{ObjectType.Name} object>>")
-                : new PyString($"<super: <class '{Type.Name}'>, NULL>");
+                ? PyString.From($"<super: <class '{Type.Name}'>, <{ObjectType.Name} object>>")
+                : PyString.From($"<super: <class '{Type.Name}'>, NULL>");
 
         // super_getattro (Objects/typeobject.c): __class__ is the super object's own; every other
         // name goes through do_super_lookup.
@@ -2470,7 +2470,7 @@ namespace SharpPy
         // CPython: Lib/_sitebuiltins.py:30-36
         protected internal override PyString Repr()
         {
-            return new PyString(_message);
+            return PyString.From(_message);
         }
 
         // CPython: Lib/_sitebuiltins.py:38-42
@@ -2498,7 +2498,7 @@ namespace SharpPy
                 }
                 if (args.Length != 0)
                     throw PyTypeError.Create("Quitter.__call__() got multiple values for argument 'code'");
-                var given = kwargs.GetItem(new PyString("code")) ?? PyNone.Instance;
+                var given = kwargs.GetItem(PyString.From("code")) ?? PyNone.Instance;
                 throw new PythonException(new PySystemExit(new PyObject[] { given }));
             }
             if (args.Length > 1)
@@ -2519,7 +2519,7 @@ namespace SharpPy
     {
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "object";
-        protected internal override PyString Repr() => new PyString($"<object object at {PyObjectId.Pointer(this)}>");
+        protected internal override PyString Repr() => PyString.From($"<object object at {PyObjectId.Pointer(this)}>");
         protected internal override PyString Str() => ToRepr();
     }
 }

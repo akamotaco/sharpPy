@@ -339,7 +339,7 @@ namespace SharpPy
                 else
                     sb.Append((char)b);
             }
-            return new PyString(sb.Append(quote).Append(')').ToString());
+            return PyString.From(sb.Append(quote).Append(')').ToString());
         }
 
         protected internal override long Len() => _bytes.Count;

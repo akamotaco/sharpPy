@@ -63,7 +63,7 @@ namespace SharpPy
             if (_frozen == null)
             {
                 var items = new PyObject[Names.Length];
-                for (int i = 0; i < Names.Length; i++) items[i] = new PyString(Names[i]);
+                for (int i = 0; i < Names.Length; i++) items[i] = PyString.From(Names[i]);
                 _frozen = new PyFrozenSet(items);
             }
             return _frozen;

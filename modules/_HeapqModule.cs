@@ -13,7 +13,7 @@ namespace SharpPy.Modules
             var module = new PyModule("_heapq");
             var d = module.ModuleDict;
             if (PyDocs.Lookup("_heapq.__doc__") is { } doc)
-                d["__doc__"] = new PyString(doc);
+                d["__doc__"] = PyString.From(doc);
             d["heappush"] = Fast("heappush", 2, args =>
             {
                 var heap = ListArg("heappush", args[0]);

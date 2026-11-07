@@ -50,7 +50,7 @@ internal static class PyExceptionSlots
             var value = self.GetAttribute(name);
             if (value is PyNone) continue;
             state ??= new PyDict();
-            state.SetItem(new PyString(name), value);
+            state.SetItem(PyString.From(name), value);
         }
         var dict = StateOf(self);
         if (state == null) return dict;
@@ -142,14 +142,14 @@ internal static class PyExceptionSlots
     internal static PyType NewException(string module, string name, PyType baseType)
     {
         var namespaceDict = new PyDict();
-        namespaceDict.SetItem(new PyString("__module__"), new PyString(module));
+        namespaceDict.SetItem(PyString.From("__module__"), PyString.From(module));
         return (PyType)PyType.TypeType.Call(
-            new PyObject[] { new PyString(name), new PyTuple(new PyObject[] { baseType }), namespaceDict }, null);
+            new PyObject[] { PyString.From(name), new PyTuple(new PyObject[] { baseType }), namespaceDict }, null);
     }
 
     /// <summary>PyErr_SetString for such a class.</summary>
     internal static PythonException Raise(PyType type, string message)
-        => new PythonException((PyBaseException)type.Call(new PyObject[] { new PyString(message) }, null));
+        => new PythonException((PyBaseException)type.Call(new PyObject[] { PyString.From(message) }, null));
 
     // The struct a member descriptor reads: the exception object itself.
     private static PyBaseException MemberLayout(PyObject self) => self as PyBaseException;

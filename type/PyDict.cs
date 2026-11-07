@@ -472,7 +472,7 @@ namespace SharpPy
             _keys = new OrderedKeyList();
             foreach (var kv in items)
             {
-                var key = new PyString(kv.Key);
+                var key = PyString.From(kv.Key);
                 _dict[key] = kv.Value;
                 AddOrderedKey(key);
             }
@@ -854,7 +854,7 @@ namespace SharpPy
                 // Line 2967: PyDict_SetItem (does NOT call __setitem__, updates storage directly)
                 foreach (var key in mappingProxy.Keys)
                 {
-                    var pyKey = new PyString(key);
+                    var pyKey = PyString.From(key);
                     var value = mappingProxy.GetItem(pyKey);
 
                     #if DEBUG
@@ -1017,7 +1017,7 @@ namespace SharpPy
             {
                 foreach (char c in str.Value)
                 {
-                    dict.SetItem(new PyString(c.ToString()), defaultValue);
+                    dict.SetItem(PyString.From(c.ToString()), defaultValue);
                 }
             }
             else
@@ -1316,7 +1316,7 @@ namespace SharpPy
             // Initialize with current global variables
             foreach (var kv in globalScopeVariables)
             {
-                base.MpAssSubscript(new PyString(kv.Key), kv.Value);
+                base.MpAssSubscript(PyString.From(kv.Key), kv.Value);
             }
         }
 

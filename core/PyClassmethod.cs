@@ -33,7 +33,7 @@ namespace SharpPy
             {
                 try
                 {
-                    ObjectDict(true).SetItem(new PyString(name), callable.GetAttribute(name));
+                    ObjectDict(true).SetItem(PyString.From(name), callable.GetAttribute(name));
                 }
                 catch (PythonException error) when (error.PyException is PyAttributeError)
                 {

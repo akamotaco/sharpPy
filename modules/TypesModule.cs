@@ -65,7 +65,7 @@ namespace SharpPy.Modules
         {
             string name = ReferenceEquals(GetPyType(), PySimpleNamespaceType.Instance) ? "namespace" : GetPyType().FullName;
             if (!PyReprGuard.Enter(this))
-                return new PyString($"{name}(...)");
+                return PyString.From($"{name}(...)");
             try
             {
                 var pairs = new List<string>();
@@ -73,7 +73,7 @@ namespace SharpPy.Modules
                 foreach (var pair in new List<KeyValuePair<PyObject, PyObject>>(_dict.InternalDict))
                     if (pair.Key is PyString key && key.Value.Length > 0)
                         pairs.Add($"{key.Value}={pair.Value.ToRepr().Value}");
-                return new PyString($"{name}({string.Join(", ", pairs)})");
+                return PyString.From($"{name}({string.Join(", ", pairs)})");
             }
             finally
             {

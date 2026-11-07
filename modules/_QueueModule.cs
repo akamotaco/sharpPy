@@ -17,7 +17,7 @@ namespace SharpPy.Modules
         {
             var module = new PyModule("_queue");
             _empty = new PyClass("Empty", new[] { PyType.ExceptionType },
-                new Dictionary<string, PyObject> { ["__module__"] = new PyString("queue") });
+                new Dictionary<string, PyObject> { ["__module__"] = PyString.From("queue") });
             var type = new PyType("SimpleQueue", new[] { PyType.ObjectType }, "_queue");
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
             {
@@ -45,7 +45,7 @@ namespace SharpPy.Modules
 
         private static PyObject Put(PyObject self, PyObject[] args, PyDict kwargs)
         {
-            var key = new PyString("item");
+            var key = PyString.From("item");
             if (args.Length == 0 && (kwargs == null || !kwargs.Contains(key).Value))
                 throw PyTypeError.Create("put() missing required argument 'item' (pos 1)");
             var item = args.Length > 0 ? args[0] : kwargs.GetItem(key);
@@ -56,9 +56,9 @@ namespace SharpPy.Modules
         // _queue_SimpleQueue_get_impl
         private static PyObject Get(PyObject self, PyObject[] args, PyDict kwargs)
         {
-            var blockKey = new PyString("block");
+            var blockKey = PyString.From("block");
             var blockArgument = args.Length > 0 ? args[0] : kwargs != null && kwargs.Contains(blockKey).Value ? kwargs.GetItem(blockKey) : null;
-            var timeoutArgument = args.Length > 1 ? args[1] : kwargs?.Get(new PyString("timeout"), null);
+            var timeoutArgument = args.Length > 1 ? args[1] : kwargs?.Get(PyString.From("timeout"), null);
             bool block = blockArgument == null || blockArgument.IsTrue();
             double timeout = -1;
             if (block && timeoutArgument != null && timeoutArgument is not PyNone)

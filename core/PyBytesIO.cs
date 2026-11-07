@@ -125,14 +125,14 @@ public class PyBytesIO : PyIOBaseInstance
     }
 
     // The bytes object over the whole array, made once and then shared.
-    private PyBytes SharedBytes() => _shared ??= new PyBytes(_buf);
+    private PyBytes SharedBytes() => _shared ??= PyBytes.From(_buf);
 
     // _io_BytesIO_getvalue_impl
     private PyObject GetValue()
     {
         CheckClosed();
         if (_size <= 1 || _exports > 0)
-            return new PyBytes(_buf.AsSpan(0, _size).ToArray());
+            return PyBytes.From(_buf.AsSpan(0, _size).ToArray());
         if (_size != _buf.Length)
         {
             if (Shared)
@@ -154,7 +154,7 @@ public class PyBytesIO : PyIOBaseInstance
         // Past the end, size is 0 and nothing is copied.
         var output = size == 0 ? Array.Empty<byte>() : _buf.AsSpan((int)_pos, (int)size).ToArray();
         _pos += size;
-        return new PyBytes(output);
+        return PyBytes.From(output);
     }
 
     private PyObject Read(long size)
@@ -184,7 +184,7 @@ public class PyBytesIO : PyIOBaseInstance
         var result = new PyList();
         while ((n = ScanEol(-1)) != 0)
         {
-            result.Append(new PyBytes(_buf.AsSpan((int)_pos, (int)n).ToArray()));
+            result.Append(PyBytes.From(_buf.AsSpan((int)_pos, (int)n).ToArray()));
             _pos += n;
             size += n;
             if (maxsize > 0 && size >= maxsize)
@@ -346,7 +346,7 @@ public class PyBytesIO : PyIOBaseInstance
         private static PyType MakeBufferType()
         {
             var type = new PyType("_BytesIOBuffer", new[] { PyType.ObjectType }, "_io");
-            type.TypeDict["__module__"] = new PyString("_io");
+            type.TypeDict["__module__"] = PyString.From("_io");
             return type;
         }
 

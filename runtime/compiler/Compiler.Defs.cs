@@ -33,7 +33,7 @@ namespace SharpPy
                 switch (typeparam)
                 {
                     case GeneratedTypeVar v:
-                        ADDOP_LOAD_CONST(loc, new PyString(v.Name.Value));
+                        ADDOP_LOAD_CONST(loc, PyString.From(v.Name.Value));
                         if (v.Bound != null)
                         {
                             EnterScope(v.Name.Value, ScopeType.TypeParams, typeparam, v.Bound.LineNo);
@@ -54,13 +54,13 @@ namespace SharpPy
                         Nameop(loc, v.Name.Value, Ctx.Store);
                         break;
                     case GeneratedTypeVarTuple v:
-                        ADDOP_LOAD_CONST(loc, new PyString(v.Name.Value));
+                        ADDOP_LOAD_CONST(loc, PyString.From(v.Name.Value));
                         ADDOP_I(loc, ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_TYPEVARTUPLE);
                         ADDOP_I(loc, ByteCodeOp.COPY, 1);
                         Nameop(loc, v.Name.Value, Ctx.Store);
                         break;
                     case GeneratedParamSpec v:
-                        ADDOP_LOAD_CONST(loc, new PyString(v.Name.Value));
+                        ADDOP_LOAD_CONST(loc, PyString.From(v.Name.Value));
                         ADDOP_I(loc, ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_PARAMSPEC);
                         ADDOP_I(loc, ByteCodeOp.COPY, 1);
                         Nameop(loc, v.Name.Value, Ctx.Store);
@@ -170,7 +170,7 @@ namespace SharpPy
             _u.Private = s.Name.Value;
             Nameop(loc, "__name__", Ctx.Load);
             Nameop(loc, "__module__", Ctx.Store);
-            ADDOP_LOAD_CONST(loc, new PyString(_u.QualName));
+            ADDOP_LOAD_CONST(loc, PyString.From(_u.QualName));
             Nameop(loc, "__qualname__", Ctx.Store);
             if (Len(s.TypeParams) > 0)
             {
@@ -206,7 +206,7 @@ namespace SharpPy
             ADDOP(loc, ByteCodeOp.PUSH_NULL);
             ADDOP(loc, ByteCodeOp.LOAD_BUILD_CLASS);
             MakeClosure(loc, co, 0);
-            ADDOP_LOAD_CONST(loc, new PyString(s.Name.Value));
+            ADDOP_LOAD_CONST(loc, PyString.From(s.Name.Value));
         }
 
         // compiler_class
@@ -289,12 +289,12 @@ namespace SharpPy
             {
                 ADDOP(loc, ByteCodeOp.PUSH_NULL);
                 EnterScope($"<generic parameters of {name}>", ScopeType.TypeParams, s.TypeParams, loc.Line);
-                ADDOP_LOAD_CONST(loc, new PyString(name));
+                ADDOP_LOAD_CONST(loc, PyString.From(name));
                 TypeParams(s.TypeParams);
             }
             else
             {
-                ADDOP_LOAD_CONST(loc, new PyString(name));
+                ADDOP_LOAD_CONST(loc, PyString.From(name));
                 ADDOP_LOAD_CONST(loc, PyNone.Instance);
             }
 

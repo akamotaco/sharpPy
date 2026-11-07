@@ -64,7 +64,7 @@ namespace SharpPy
                 return module.ModuleDict.TryGetValue(name, out var found) ? found : null;
             try
             {
-                return PyAbstract.GetItem(_ownBuiltins, new PyString(name));
+                return PyAbstract.GetItem(_ownBuiltins, PyString.From(name));
             }
             catch (PythonException error) when (error.PyException is PyKeyError)
             {
@@ -536,7 +536,7 @@ namespace SharpPy
                 {
                     foreach (var kvp in keywordArgs)
                     {
-                        kwargsDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                        kwargsDict.SetItem(PyString.From(kvp.Key), kvp.Value);
                     }
                 }
 
@@ -694,8 +694,8 @@ namespace SharpPy
         public override string ToString() => $"<frame for {Code.Name}>";
 
         // frame_repr
-        protected internal override PyString Repr() => new PyString(
-            $"<frame at {PyObjectId.Pointer(this)}, file {new PyString(Code.FileName ?? "<unknown>").ToRepr().Value}, line {Read("f_lineno").ToRepr().Value}, code {Read("f_code").GetAttribute("co_name").AsString().Value}>");
+        protected internal override PyString Repr() => PyString.From(
+            $"<frame at {PyObjectId.Pointer(this)}, file {PyString.From(Code.FileName ?? "<unknown>").ToRepr().Value}, line {Read("f_lineno").ToRepr().Value}, code {Read("f_code").GetAttribute("co_name").AsString().Value}>");
 
         // PyObject required overrides
         public override PyType GetPyType() => FramePyType;
@@ -1650,7 +1650,7 @@ namespace SharpPy
             _tracing = true;
             try
             {
-                var answer = callback.Call(new PyObject[] { frame, new PyString(what), argument }, null);
+                var answer = callback.Call(new PyObject[] { frame, PyString.From(what), argument }, null);
                 if (answer is not PyNone)
                     frame.Trace = answer;
             }
@@ -1672,7 +1672,7 @@ namespace SharpPy
             _tracing = true;
             try
             {
-                ProfileFunction.Call(new PyObject[] { frame, new PyString(what), argument }, null);
+                ProfileFunction.Call(new PyObject[] { frame, PyString.From(what), argument }, null);
             }
             catch
             {
@@ -1769,20 +1769,20 @@ namespace SharpPy
                 ? file as PyString : null;
             string message;
             if (path == null)
-                message = $"cannot import name {new PyString(itemName).ToRepr().Value} from {shown} (unknown location)";
+                message = $"cannot import name {PyString.From(itemName).ToRepr().Value} from {shown} (unknown location)";
             else
             {
                 var spec = module.LookupAttribute("__spec__");
                 bool initializing = spec != null && spec is not PyNone && spec.LookupAttribute("_initializing") is { } flag && flag.IsTrue();
                 message = initializing
-                    ? $"cannot import name {new PyString(itemName).ToRepr().Value} from partially initialized module {shown} (most likely due to a circular import) ({path.Value})"
-                    : $"cannot import name {new PyString(itemName).ToRepr().Value} from {shown} ({path.Value})";
+                    ? $"cannot import name {PyString.From(itemName).ToRepr().Value} from partially initialized module {shown} (most likely due to a circular import) ({path.Value})"
+                    : $"cannot import name {PyString.From(itemName).ToRepr().Value} from {shown} ({path.Value})";
             }
             var kwargs = new PyDict();
-            kwargs.SetItem(new PyString("name"), (PyObject)packageName ?? PyNone.Instance);
-            kwargs.SetItem(new PyString("path"), (PyObject)path ?? PyNone.Instance);
-            var error = (PyBaseException)PyType.ImportErrorType.Call(new PyObject[] { new PyString(message) }, kwargs);
-            error.SetAttribute("name_from", new PyString(itemName));
+            kwargs.SetItem(PyString.From("name"), (PyObject)packageName ?? PyNone.Instance);
+            kwargs.SetItem(PyString.From("path"), (PyObject)path ?? PyNone.Instance);
+            var error = (PyBaseException)PyType.ImportErrorType.Call(new PyObject[] { PyString.From(message) }, kwargs);
+            error.SetAttribute("name_from", PyString.From(itemName));
             return new PythonException(error);
         }
 
@@ -1803,7 +1803,7 @@ namespace SharpPy
         {
             try
             {
-                var key = new PyString(name);
+                var key = PyString.From(name);
                 // PyDict_CheckExact(ns) ? PyDict_DelItem : PyObject_DelItem
                 if (frame.ClassLocalsDict is PyDict { HasCustomType: false } dict) dict.DelItem(key);
                 else frame.ClassLocalsDict.DelItem(key);
@@ -2442,7 +2442,7 @@ namespace SharpPy
                         Console.WriteLine($"🔍 LOAD_NAME({name}): Checking ClassLocalsDict first");
                         #endif
 
-                        value = LookupNamespaceMapping(frame.ClassLocalsDict, new PyString(name));
+                        value = LookupNamespaceMapping(frame.ClassLocalsDict, PyString.From(name));
                     }
 
                     // GLOBALS(), then BUILTINS() (lines 1736-1767). Without a mapping of its own the
@@ -2559,7 +2559,7 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"📝 STORE_NAME to ClassLocalsDict: {storeName} = {storeValue?.GetType().Name}");
                         #endif
-                        frame.ClassLocalsDict.SetItem(new PyString(storeName), storeValue);
+                        frame.ClassLocalsDict.SetItem(PyString.From(storeName), storeValue);
                     }
                     else
                     {
@@ -2677,7 +2677,7 @@ namespace SharpPy
                 case ByteCodeOp.SETUP_ANNOTATIONS:
                     // CPython 3.12 Python/ceval.c SETUP_ANNOTATIONS:
                     // Create __annotations__ in the namespace where STORE_NAME writes.
-                    var annotationsKey = new PyString("__annotations__");
+                    var annotationsKey = PyString.From("__annotations__");
                     if (frame.ClassLocalsDict != null)
                     {
                         if (LookupNamespaceMapping(frame.ClassLocalsDict, annotationsKey) == null)
@@ -4428,7 +4428,7 @@ namespace SharpPy
                         {
                             1 => formatValue.ToStr(), // !s
                             2 => formatValue.ToRepr(), // !r
-                            3 => new PyString(PyString.AsciiEscape(formatValue.ToRepr().Value)), // !a
+                            3 => PyString.From(PyString.AsciiEscape(formatValue.ToRepr().Value)), // !a
                             _ => formatValue // No conversion, use original value
                         };
                         formattedString = ApplyFormatting(converted, formatSpec.ToStr().Value);
@@ -4440,7 +4440,7 @@ namespace SharpPy
                         {
                             1 => formatValue.ToStr(), // !s
                             2 => formatValue.ToRepr(), // !r
-                            3 => new PyString(PyString.AsciiEscape(formatValue.ToRepr().Value)), // !a
+                            3 => PyString.From(PyString.AsciiEscape(formatValue.ToRepr().Value)), // !a
                             _ => formatValue.Format(StringCache.GetOrCreate(""))
                         };
                     }
@@ -4458,7 +4458,7 @@ namespace SharpPy
                         var part = frame.ValueStack.Pop();
                         stringParts[i] = (part is PyString pyStr) ? pyStr.Value : part.ToStr().Value;
                     }
-                    var concatenatedString = new PyString(string.Concat(stringParts));
+                    var concatenatedString = PyString.From(string.Concat(stringParts));
                     frame.ValueStack.Push(concatenatedString);
                     break;
 
@@ -4684,7 +4684,7 @@ namespace SharpPy
                     {
                         frame.ValueStack.Push(importer.Call(new PyObject[]
                         {
-                            new PyString(moduleName), PyGlobalsDict.DictOf(frame.Globals),
+                            PyString.From(moduleName), PyGlobalsDict.DictOf(frame.Globals),
                             frame.ClassLocalsDict ?? ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
                                 ? frame.GetAttribute("f_locals") : PyGlobalsDict.DictOf(frame.Globals)),
                             fromlist, level,
@@ -4964,7 +4964,7 @@ namespace SharpPy
                 case ByteCodeOp.LOAD_FROM_DICT_OR_GLOBALS:
                     var globalsMapping = frame.ValueStack.Pop();
                     var mappedName = frame.Code.Names[argument];
-                    frame.ValueStack.Push(LookupNamespaceMapping(globalsMapping, new PyString(mappedName))
+                    frame.ValueStack.Push(LookupNamespaceMapping(globalsMapping, PyString.From(mappedName))
                         ?? (frame.Globals.TryGetValue(mappedName, out var mappedGlobal) ? mappedGlobal : null)
                         ?? frame.ScopeChain.BuiltinModule.GetBuiltin(mappedName)
                         ?? throw CreateNameErrorWithSuggestion(mappedName, frame));
@@ -6063,7 +6063,7 @@ namespace SharpPy
         private static PyDict InferVariance()
         {
             var keywords = new PyDict();
-            keywords.SetItem(new PyString("infer_variance"), PyBool.True);
+            keywords.SetItem(PyString.From("infer_variance"), PyBool.True);
             return keywords;
         }
 

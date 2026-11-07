@@ -1292,7 +1292,7 @@ namespace SharpPy
                     throw PyUnicodeEncodeError.Create(
                         $"'{encoding}' codec can't encode character: unencodable text");
             }
-            return mutable ? (PyObject)new PyByteArray(encodedBytes) : new PyBytes(encodedBytes);
+            return mutable ? (PyObject)new PyByteArray(encodedBytes) : PyBytes.From(encodedBytes);
         }
 
         /// <summary>
@@ -1419,7 +1419,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
                     // long_to_decimal_string: the digits, whatever a subclass declares.
                     if (self is PyIntSubclass subclass) self = subclass.GetIntValue();
-                    if (self is PyBool truth) return new PyString(truth.Value ? "1" : "0");
+                    if (self is PyBool truth) return PyString.From(truth.Value ? "1" : "0");
                     if (self is not PyInt pyInt)
                         throw PyTypeError.Create("descriptor '__repr__' for 'int' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return pyInt.ToRepr();
@@ -1536,7 +1536,7 @@ namespace SharpPy
         /// that repeated type.__name__ reads return the same object. Static builtin types do not use
         /// this - CPython allocates for those on every read (:998).
         /// </summary>
-        internal PyString NameString => _nameString ??= new PyString(Name);
+        internal PyString NameString => _nameString ??= PyString.From(Name);
 
         /// <summary>type_set_name replaces tp_name and ht_name, not a dict entry. ht_qualname is a
         /// separate field and stays what it was, so it is fixed before the name moves.</summary>
@@ -1550,9 +1550,9 @@ namespace SharpPy
         /// <summary>ht_qualname, held separately because CPython holds it separately. type_new_set_ht_name
         /// fills it from the class body and removes that entry from the dict (Objects/typeobject.c:3416),
         /// type_set_qualname (:1044) replaces it on assignment.</summary>
-        internal PyString QualNameString => _qualNameString ??= new PyString(Name);
+        internal PyString QualNameString => _qualNameString ??= PyString.From(Name);
         internal string QualNameText => QualNameString.Value;
-        internal void SetQualName(string value) => _qualNameString = new PyString(value);
+        internal void SetQualName(string value) => _qualNameString = PyString.From(value);
 
         internal static int CountItems(IEnumerable<PyObject> items)
         {
@@ -1987,7 +1987,7 @@ namespace SharpPy
             // (instance __dict__ + class/base dicts). See DefaultDirNames. This one is
             // safe to expose functionally: no operator/dispatch path resolves __dir__.
             TypeDict["__dir__"] = new PyMethodDescriptor("__dir__", objectType,
-                (self, args, kwargs) => new PyList(DefaultDirNames(self).Select(n => (PyObject)new PyString(n)).ToList()),
+                (self, args, kwargs) => new PyList(DefaultDirNames(self).Select(n => (PyObject)PyString.From(n)).ToList()),
                 minArgs: 0, maxArgs: 0);
             // NOTE on __eq__/__ne__/__lt__/__le__/__gt__/__ge__/__hash__/__str__/__repr__/
             // __sizeof__/__getstate__/__reduce__/__reduce_ex__/__subclasshook__:
@@ -2121,7 +2121,7 @@ namespace SharpPy
                     // same object; a static spec has no stored str and CPython builds one per read.
                     // The branch is kept because it is observable: C.__name__ is C.__name__ is True,
                     // and that has to come from a cache, not from interning every string.
-                    return type.HasFeature(PyTypeFlags.HeapType) ? type.NameString : new PyString(type.Name);
+                    return type.HasFeature(PyTypeFlags.HeapType) ? type.NameString : PyString.From(type.Name);
                 },
                 setter: (self, value) => {
                     if (self is not PyType type)
@@ -2163,7 +2163,7 @@ namespace SharpPy
                     // name today, but still as one stored object per type rather than a fresh str.
                     return type.HasFeature(PyTypeFlags.HeapType)
                         ? type.QualNameString
-                        : new PyString(type.Name);  // For built-in types, qualname == name
+                        : PyString.From(type.Name);  // For built-in types, qualname == name
                 },
                 setter: (self, value) => {
                     if (self is not PyType type)
@@ -2312,19 +2312,19 @@ namespace SharpPy
                     // For built-in/native types SharpPy stores the module in the
                     // Module field (CPython encodes it in tp_name as "module.Name").
                     if (!string.IsNullOrEmpty(type.Module))
-                        return new PyString(type.Module);
+                        return PyString.From(type.Module);
 
                     // For built-in types: check if tp_name contains '.'
                     // CPython: const char *s = strrchr(type->tp_name, '.');
                     var dotIndex = type.Name.LastIndexOf('.');
                     if (dotIndex >= 0)
                     {
-                        return new PyString(type.Name.Substring(0, dotIndex));
+                        return PyString.From(type.Name.Substring(0, dotIndex));
                     }
 
                     // Default: "builtins" for built-in types
                     // CPython: mod = Py_NewRef(&_Py_ID(builtins));
-                    return new PyString("builtins");
+                    return PyString.From("builtins");
                 },
                 setter: (self, value) => {
                     if (self is not PyType type)
@@ -2407,7 +2407,7 @@ namespace SharpPy
 
             // type___dir___impl: METH_NOARGS, the names of the class and its bases.
             TypeDict["__dir__"] = new PyMethodDescriptor("__dir__", typeType,
-                (self, args, kwargs) => new PyList(DefaultDirNames(self).ConvertAll(n => (PyObject)new PyString(n))), minArgs: 0, maxArgs: 0);
+                (self, args, kwargs) => new PyList(DefaultDirNames(self).ConvertAll(n => (PyObject)PyString.From(n))), minArgs: 0, maxArgs: 0);
         }
 
         /// <summary>
@@ -3148,7 +3148,7 @@ namespace SharpPy
                 // type_repr reads ht_qualname, not a dict entry.
                 qualname = cls.QualNameText;
             }
-            return new PyString(module != null && module != "builtins"
+            return PyString.From(module != null && module != "builtins"
                 ? $"<class '{module}.{qualname}'>" : $"<class '{Name}'>");
         }
 
@@ -3413,7 +3413,7 @@ namespace SharpPy
                 if (!self.GetPyType().IsSubclassOf(BaseExceptionType))
                     throw PyTypeError.Create(
                         $"descriptor '__repr__' requires a 'BaseException' object but received a '{self.GetTypeName()}'");
-                return new PyString(self.GetTypeName()
+                return PyString.From(self.GetTypeName()
                     + ArgsReprForException(PyExceptionSlots.ArgsOf(self)));
             });
 
@@ -3486,6 +3486,6 @@ namespace SharpPy
 
         // CPython: str(object()) == repr(object()) == '<object object at 0x...>'
         public override string ToString() => ToRepr().Value;
-        protected internal override PyString Repr() => new PyString($"<object object at {PyObjectId.Pointer(this)}>");
+        protected internal override PyString Repr() => PyString.From($"<object object at {PyObjectId.Pointer(this)}>");
     }
 }

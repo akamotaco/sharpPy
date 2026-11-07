@@ -39,14 +39,14 @@ namespace SharpPy
         internal static PyObject QualName(PyObject self)
         {
             var descr = Of(self);
-            return new PyString(descr.DescrType != null
+            return PyString.From(descr.DescrType != null
                 ? $"{PyBuiltinFunction.QualifiedClassLabel(descr.DescrType)}.{descr.DescrName}"
                 : descr.DescrName);
         }
 
         internal static void Install(PyType type)
         {
-            type.TypeDict["__name__"] = new PyMemberDescriptor("__name__", type, self => new PyString(Of(self).DescrName), readOnly: true);
+            type.TypeDict["__name__"] = new PyMemberDescriptor("__name__", type, self => PyString.From(Of(self).DescrName), readOnly: true);
             type.TypeDict["__objclass__"] = new PyMemberDescriptor("__objclass__", type,
                 self => (PyObject)Of(self).DescrType ?? PyNone.Instance, readOnly: true);
             type.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", type, QualName);
@@ -57,7 +57,7 @@ namespace SharpPy
                     new PyTuple(new PyObject[]
                     {
                         PyImportSystem.Import("builtins").GetAttribute("getattr"),
-                        new PyTuple(new PyObject[] { Of(self).DescrType, new PyString(Of(self).DescrName) }),
+                        new PyTuple(new PyObject[] { Of(self).DescrType, PyString.From(Of(self).DescrName) }),
                     }), 0, 0);
         }
     }
@@ -79,7 +79,7 @@ namespace SharpPy
             var type = PyType.MethodWrapperType;
             type.TypeDict["__objclass__"] = new PyGetSetDescriptor("__objclass__", type,
                 self => (PyObject)Of(self).WrapperDescr.DescrType ?? PyNone.Instance);
-            type.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", type, self => new PyString(Of(self).WrapperDescr.DescrName));
+            type.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", type, self => PyString.From(Of(self).WrapperDescr.DescrName));
             type.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", type,
                 self => PyDescrObject.QualName((PyObject)Of(self).WrapperDescr));
             type.TypeDict["__self__"] = new PyMemberDescriptor("__self__", type, self => Of(self).WrapperSelf, readOnly: true);
@@ -88,7 +88,7 @@ namespace SharpPy
                 new PyTuple(new PyObject[]
                 {
                     PyImportSystem.Import("builtins").GetAttribute("getattr"),
-                    new PyTuple(new PyObject[] { Of(self).WrapperSelf, new PyString(Of(self).WrapperDescr.DescrName) }),
+                    new PyTuple(new PyObject[] { Of(self).WrapperSelf, PyString.From(Of(self).WrapperDescr.DescrName) }),
                 }), 0, 0);
         }
     }
@@ -113,9 +113,9 @@ namespace SharpPy
             var function = Of(self);
             var bound = function.MethodSelf;
             if (bound == null || bound is PyModule)
-                return new PyString(function.MethodName);
+                return PyString.From(function.MethodName);
             var type = bound as PyType ?? bound.GetPyType();
-            return new PyString($"{PyBuiltinFunction.QualifiedClassLabel(type)}.{function.MethodName}");
+            return PyString.From($"{PyBuiltinFunction.QualifiedClassLabel(type)}.{function.MethodName}");
         }
 
         internal static PyObject Module(PyObject self) =>
@@ -129,15 +129,15 @@ namespace SharpPy
             var function = Of(self);
             var bound = function.MethodSelf;
             if (bound == null || bound is PyModule)
-                return new PyString(function.MethodName);
+                return PyString.From(function.MethodName);
             var getattr = PyImportSystem.Import("builtins").GetAttribute("getattr");
-            return new PyTuple(new PyObject[] { getattr, new PyTuple(new PyObject[] { bound, new PyString(function.MethodName) }) });
+            return new PyTuple(new PyObject[] { getattr, new PyTuple(new PyObject[] { bound, PyString.From(function.MethodName) }) });
         }
 
         internal static void Install()
         {
             var type = PyType.BuiltinFunctionOrMethodType;
-            type.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", type, self => new PyString(Of(self).MethodName));
+            type.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", type, self => PyString.From(Of(self).MethodName));
             type.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", type, QualName);
             type.TypeDict["__self__"] = new PyGetSetDescriptor("__self__", type, Self);
             type.TypeDict["__module__"] = new PyMemberDescriptor("__module__", type, Module, SetModule,

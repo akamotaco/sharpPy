@@ -75,7 +75,7 @@ public class PyIOBaseType : PyType
 {
     public PyIOBaseType(string name, PyType[] baseTypes) : base(name, baseTypes, "_io")
     {
-        TypeDict["__module__"] = new PyString("_io");
+        TypeDict["__module__"] = PyString.From("_io");
     }
 
     public override PyObject CreateInstance(PyObject[] args, PyDict kwargs = null)
@@ -151,7 +151,7 @@ public static class PyIOBaseSlots
         }
         if (view.ItemSize == 1)
             return view;
-        var bytes = (PyMemoryView)view.GetAttribute("cast").Call(new PyObject[] { new PyString("B") }, null);
+        var bytes = (PyMemoryView)view.GetAttribute("cast").Call(new PyObject[] { PyString.From("B") }, null);
         view.Release();
         return bytes;
     }
@@ -260,7 +260,7 @@ public static class PyIOBaseSlots
                     {
                         var readahead = peek.Call(new PyObject[] { new PyInt(1) }, null);
                         if (readahead is not PyBytes peeked)
-                            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyString(
+                            throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From(
                                 $"peek() should have returned a bytes object, not '{readahead.GetTypeName()}'") }, null));
                         if (peeked.Value.Length > 0)
                         {
@@ -273,7 +273,7 @@ public static class PyIOBaseSlots
                     }
                     var read = CallWith(self, "read", One(new PyInt(ahead)));
                     if (read is not PyBytes chunk)
-                        throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyString(
+                        throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From(
                             $"read() should have returned a bytes object, not '{read.GetTypeName()}'") }, null));
                     if (chunk.Value.Length == 0)
                         break;
@@ -281,7 +281,7 @@ public static class PyIOBaseSlots
                     if (buffer[buffer.Count - 1] == (byte)'\n')
                         break;
                 }
-                return new PyBytes(buffer.ToArray());
+                return PyBytes.From(buffer.ToArray());
             }, minArgs: 0, maxArgs: 1);
 
         IOBaseType.TypeDict["readlines"] = new PyMethodDescriptor(
@@ -436,7 +436,7 @@ public static class PyIOBaseSlots
                 if (got < 0 || got > data.Length)
                     throw PyValueError.Create($"readinto returned {got} outside buffer size {data.Length}");
                 Array.Resize(ref data, (int)got);
-                return new PyBytes(data);
+                return PyBytes.From(data);
             }, minArgs: 0, maxArgs: 1);
         RawIOBaseType.TypeDict["readall"] = new PyMethodDescriptor(
             "readall", RawIOBaseType, (self, args, kw) =>
@@ -459,7 +459,7 @@ public static class PyIOBaseSlots
                     chunks.AddRange(bytes.Value);
                     any = true;
                 }
-                return new PyBytes(chunks.ToArray());
+                return PyBytes.From(chunks.ToArray());
             }, minArgs: 0, maxArgs: 0);
 
         // ---- _BufferedIOBase (bufferedio.c): read, read1, write and detach are unsupported;

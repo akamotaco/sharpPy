@@ -56,7 +56,7 @@ namespace SharpPy
             var stopStr = Stop == PyNone.Instance ? "None" : Stop.ToRepr().Value;
             var stepStr = Step == PyNone.Instance ? "None" : Step.ToRepr().Value;
 
-            return new PyString($"slice({startStr}, {stopStr}, {stepStr})");
+            return PyString.From($"slice({startStr}, {stopStr}, {stepStr})");
         }
 
         #endregion

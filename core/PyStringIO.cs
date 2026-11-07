@@ -105,7 +105,7 @@ public class PyStringIO : PyIOBaseInstance
     // write_str
     private void WriteStr(string text)
     {
-        string decoded = _decoder != null ? _decoder.Decode(new PyString(text), true) : text;
+        string decoded = _decoder != null ? _decoder.Decode(PyString.From(text), true) : text;
         if (_writenl != null)
             decoded = decoded.Replace("\n", _writenl);
         int len = PyString.CodePointCount(decoded);
@@ -153,13 +153,13 @@ public class PyStringIO : PyIOBaseInstance
         if (_accumulating && _pos == 0 && size == n)
         {
             _pos = _size;
-            return new PyString(_writer.ToString());
+            return PyString.From(_writer.ToString());
         }
         Realize();
         // Past the end, size is 0 and nothing is copied.
         var output = size == 0 ? "" : Text(_buf.AsSpan((int)_pos, (int)size));
         _pos += size;
-        return new PyString(output);
+        return PyString.From(output);
     }
 
     // _stringio_readline
@@ -182,7 +182,7 @@ public class PyStringIO : PyIOBaseInstance
         CheckInitialized();
         CheckClosed();
         Realize();
-        return new PyString(ReadLineRealized(limit));
+        return PyString.From(ReadLineRealized(limit));
     }
 
     // stringio_iternext
@@ -193,14 +193,14 @@ public class PyStringIO : PyIOBaseInstance
         Realize();
         PyObject line;
         if (ReferenceEquals(GetPyType(), StringType))
-            line = new PyString(ReadLineRealized(-1));
+            line = PyString.From(ReadLineRealized(-1));
         else
         {
             line = GetAttribute("readline").Call(Array.Empty<PyObject>(), null);
             if (line is not PyString)
                 throw new PythonException(PyOSError.FromArguments(new PyObject[]
                 {
-                    new PyString($"readline() should have returned a str object, not '{line.GetTypeName()}'"),
+                    PyString.From($"readline() should have returned a str object, not '{line.GetTypeName()}'"),
                 }, null));
         }
         if (line.Length() == 0)
@@ -232,7 +232,7 @@ public class PyStringIO : PyIOBaseInstance
         if (pos < 0 && whence == 0)
             throw PyValueError.Create($"Negative seek position {pos}");
         if (whence != 0 && pos != 0)
-            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyString("Can't do nonzero cur-relative seeks") }, null));
+            throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From("Can't do nonzero cur-relative seeks") }, null));
         if (whence == 1)
             pos = _pos;
         else if (whence == 2)
@@ -316,9 +316,9 @@ public class PyStringIO : PyIOBaseInstance
 
     private PyObject GetState()
     {
-        var value = new PyString(GetValue());
+        var value = PyString.From(GetValue());
         PyObject dict = ObjectDict(false) is { } own ? own.Copy() : PyNone.Instance;
-        return new PyTuple(new PyObject[] { value, _readnl == null ? PyNone.Instance : new PyString(_readnl), new PyInt(_pos), dict });
+        return new PyTuple(new PyObject[] { value, _readnl == null ? PyNone.Instance : PyString.From(_readnl), new PyInt(_pos), dict });
     }
 
     private static string TypeName(PyObject self) =>
@@ -378,7 +378,7 @@ public class PyStringIO : PyIOBaseInstance
         PyObject Arg(PyObject[] args, int i) => args.Length > i ? args[i] : null;
 
         Def("close", PyCall.NoArgs, (self, args) => self.Close());
-        Def("getvalue", PyCall.NoArgs, (self, args) => new PyString(self.GetValue()));
+        Def("getvalue", PyCall.NoArgs, (self, args) => PyString.From(self.GetValue()));
         Def("read", PyCall.Fast, (self, args) => self.Read(PyArgs.OptionalSsize(Arg(args, 0))), 0, 1);
         Def("readline", PyCall.Fast, (self, args) => self.ReadLine(PyArgs.OptionalSsize(Arg(args, 0))), 0, 1);
         Def("tell", PyCall.NoArgs, (self, args) =>

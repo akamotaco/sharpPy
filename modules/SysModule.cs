@@ -36,18 +36,18 @@ namespace SharpPy.Modules
             PyObject Create(int fd, bool write, string name, string errors)
             {
                 var kwargs = new PyDict();
-                kwargs.SetItem(new PyString("closefd"), PyBool.False);
-                var buffer = IoModule.Open(new PyObject[] { new PyInt(fd), new PyString(write ? "wb" : "rb"), new PyInt(-1) }, kwargs);
+                kwargs.SetItem(PyString.From("closefd"), PyBool.False);
+                var buffer = IoModule.Open(new PyObject[] { new PyInt(fd), PyString.From(write ? "wb" : "rb"), new PyInt(-1) }, kwargs);
                 var raw = buffer.GetAttribute("raw");
-                raw.SetAttribute("name", new PyString(name));
+                raw.SetAttribute("name", PyString.From(name));
                 bool isatty = raw.GetAttribute("isatty").Call(Array.Empty<PyObject>(), null).IsTrue();
                 bool lineBuffering = isatty || fd == 2;
-                PyObject newline = OperatingSystem.IsWindows() ? PyNone.Instance : new PyString("\n");
+                PyObject newline = OperatingSystem.IsWindows() ? PyNone.Instance : PyString.From("\n");
                 var stream = PyTextIOWrapper.WrapperType.Call(new PyObject[]
                 {
-                    buffer, new PyString(stdioEncoding), new PyString(errors), newline, PyBool.FromBool(lineBuffering), PyBool.False,
+                    buffer, PyString.From(stdioEncoding), PyString.From(errors), newline, PyBool.FromBool(lineBuffering), PyBool.False,
                 }, null);
-                stream.SetAttribute("mode", new PyString(write ? "w" : "r"));
+                stream.SetAttribute("mode", PyString.From(write ? "w" : "r"));
                 // The interpreter keeps these to its very end (flush_std_files), so no finalizer
                 // pass closes them under a __del__ that still prints.
                 foreach (var layer in new[] { stream, buffer, raw })
@@ -130,20 +130,20 @@ namespace SharpPy.Modules
             module.ModuleDict["modules"] = PyImportSystem.SysModules;
 
             // 플랫폼 정보
-            module.ModuleDict["platform"] = new PyString(GetPlatformName());
+            module.ModuleDict["platform"] = PyString.From(GetPlatformName());
             // CPython 3.12: sys.stdlib_module_names (frozenset; used by traceback suggestions)
             module.ModuleDict["stdlib_module_names"] = StdlibModuleNames.FrozenSet();
-            module.ModuleDict["version"] = new PyString(GetPythonVersion());
+            module.ModuleDict["version"] = PyString.From(GetPythonVersion());
             module.ModuleDict["version_info"] = CreateVersionInfo();
             
             // 실행 경로
-            module.ModuleDict["executable"] = new PyString(GetExecutablePath());
-            module.ModuleDict["prefix"] = new PyString(GetPrefixPath());
-            module.ModuleDict["platlibdir"] = new PyString("DLLs");
-            module.ModuleDict["exec_prefix"] = new PyString(GetPrefixPath());
+            module.ModuleDict["executable"] = PyString.From(GetExecutablePath());
+            module.ModuleDict["prefix"] = PyString.From(GetPrefixPath());
+            module.ModuleDict["platlibdir"] = PyString.From("DLLs");
+            module.ModuleDict["exec_prefix"] = PyString.From(GetPrefixPath());
 
             // 바이트 순서
-            module.ModuleDict["byteorder"] = new PyString(BitConverter.IsLittleEndian ? "little" : "big");
+            module.ModuleDict["byteorder"] = PyString.From(BitConverter.IsLittleEndian ? "little" : "big");
 
             // 최대 정수 크기 (int 범위로 제한)
             module.ModuleDict["maxsize"] = new PyInt((long)nint.MaxValue);
@@ -158,26 +158,26 @@ namespace SharpPy.Modules
             }), new PyObject[]
             {
                 new PyInt(64), new PyInt((1L << 61) - 1), new PyInt(314159), new PyInt(0), new PyInt(1000003),
-                new PyString("siphash13"), new PyInt(64), new PyInt(128), new PyInt(0),
+                PyString.From("siphash13"), new PyInt(64), new PyInt(128), new PyInt(0),
             });
             bool windows = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
             // PyThread_GetInfo
             module.ModuleDict["thread_info"] = new PyStructSequence(new PyStructSequenceType("sys", "thread_info", new[] { "name", "lock", "version" }),
-                new PyObject[] { new PyString(windows ? "nt" : "pthread"), PyNone.Instance, PyNone.Instance });
+                new PyObject[] { PyString.From(windows ? "nt" : "pthread"), PyNone.Instance, PyNone.Instance });
             module.ModuleDict["meta_path"] = new PyList(new PyObject[] { PyImportSystem.BuiltinFinder, PyImportSystem.PathFinder });
             module.ModuleDict["path_hooks"] = new PyList();
             module.ModuleDict["path_importer_cache"] = new PyDict();
             module.ModuleDict["hexversion"] = new PyInt(HexVersion);
             module.ModuleDict["api_version"] = new PyInt(1013);
-            module.ModuleDict["copyright"] = new PyString("Copyright (c) 2001-2026 Python Software Foundation.\nAll Rights Reserved.");
+            module.ModuleDict["copyright"] = PyString.From("Copyright (c) 2001-2026 Python Software Foundation.\nAll Rights Reserved.");
             module.ModuleDict["pycache_prefix"] = PyNone.Instance;
             module.ModuleDict["dont_write_bytecode"] = PyBool.FromBool(!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PYTHONDONTWRITEBYTECODE")));
-            module.ModuleDict["_git"] = new PyTuple(new PyObject[] { new PyString("SharpPy"), new PyString(""), new PyString("") });
+            module.ModuleDict["_git"] = new PyTuple(new PyObject[] { PyString.From("SharpPy"), PyString.From(""), PyString.From("") });
             module.ModuleDict["_xoptions"] = new PyDict();
             module.ModuleDict["_home"] = PyNone.Instance;
-            module.ModuleDict["_vpath"] = new PyString("");
-            module.ModuleDict["_framework"] = new PyString("");
-            module.ModuleDict["_base_executable"] = new PyString(GetExecutablePath());
+            module.ModuleDict["_vpath"] = PyString.From("");
+            module.ModuleDict["_framework"] = PyString.From("");
+            module.ModuleDict["_base_executable"] = PyString.From(GetExecutablePath());
             module.ModuleDict["_stdlib_dir"] = PyNone.Instance;
             module.ModuleDict["is_finalizing"] = new PyBuiltinFunction("is_finalizing", args => PyBool.FromBool(PyGil.Finalizing));
             module.ModuleDict["get_asyncgen_hooks"] = new PyBuiltinFunction("get_asyncgen_hooks", args => AsyncgenHooks());
@@ -195,7 +195,7 @@ namespace SharpPy.Modules
             module.ModuleDict["_getframemodulename"] = new PyBuiltinFunction("_getframemodulename", GetFrameModuleName);
             if (windows)
             {
-                module.ModuleDict["winver"] = new PyString("3.12");
+                module.ModuleDict["winver"] = PyString.From("3.12");
                 module.ModuleDict["getwindowsversion"] = new PyBuiltinFunction("getwindowsversion", args => WindowsVersion());
             }
 
@@ -209,7 +209,7 @@ namespace SharpPy.Modules
             // sys.stdin, stdout and stderr come later, from InitStdStreams (init_sys_streams).
             Current = module;
             foreach (var prefix in new[] { "prefix", "exec_prefix", "base_prefix", "base_exec_prefix" })
-                module.ModuleDict[prefix] = new PyString("");
+                module.ModuleDict[prefix] = PyString.From("");
 
             // sys.argv is a copy of what the host put in PyConfig.argv
             // (Python/sysmodule.c:3612 COPY_LIST("argv", config->argv)). Program.Main fills it for the
@@ -217,15 +217,15 @@ namespace SharpPy.Modules
             // is what an embedding that sets no argv produces in CPython as well.
             var argvValues = SharpPy.Core.PyArgv.Values;
             var argvItems = new PyObject[argvValues.Length];
-            for (int i = 0; i < argvValues.Length; i++) argvItems[i] = new PyString(argvValues[i]);
+            for (int i = 0; i < argvValues.Length; i++) argvItems[i] = PyString.From(argvValues[i]);
             module.ModuleDict["argv"] = new PyList(argvItems);
-            var original = new List<PyObject> { new PyString(GetExecutablePath()) };
+            var original = new List<PyObject> { PyString.From(GetExecutablePath()) };
             original.AddRange(argvItems);
             module.ModuleDict["orig_argv"] = new PyList(original.ToArray());
 
             // CPython 3.12: sys.builtin_module_names (tuple of builtin C module names)
             module.ModuleDict["builtin_module_names"] = CreateBuiltinModuleNames();
-            module.ModuleDict["float_repr_style"] = new PyString("short");
+            module.ModuleDict["float_repr_style"] = PyString.From("short");
             module.ModuleDict["maxunicode"] = new PyInt(0x10FFFF);
 
             // CPython 3.12: sys.implementation (namespace with interpreter details)
@@ -266,7 +266,7 @@ namespace SharpPy.Modules
             });
             module.ModuleDict["setrecursionlimit"] = new PySysFunction("setrecursionlimit");
             module.ModuleDict["getfilesystemencodeerrors"] = new PyBuiltinFunction("getfilesystemencodeerrors", args =>
-                new PyString(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "surrogatepass" : "surrogateescape"));
+                PyString.From(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "surrogatepass" : "surrogateescape"));
             module.ModuleDict["intern"] = new PySysFunction("intern");
             module.ModuleDict["getswitchinterval"] = new PyBuiltinFunction("getswitchinterval", args => new PyFloat(PyGil.SwitchInterval));
             module.ModuleDict["setswitchinterval"] = new PyBuiltinFunction("setswitchinterval", args =>
@@ -306,17 +306,17 @@ namespace SharpPy.Modules
             // SharpPy: Names of C# modules in _builtinModules
             var names = new List<PyObject>
             {
-                new PyString("sys"),
-                new PyString("builtins"),
-                new PyString("math"),
-                new PyString("time"),
-                new PyString("itertools"),
-                new PyString("_collections"),
-                new PyString("_functools"),
-                new PyString("_random"),
-                new PyString("_heapq"),
-                new PyString("_bisect"),
-                new PyString(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "nt" : "posix"),
+                PyString.From("sys"),
+                PyString.From("builtins"),
+                PyString.From("math"),
+                PyString.From("time"),
+                PyString.From("itertools"),
+                PyString.From("_collections"),
+                PyString.From("_functools"),
+                PyString.From("_random"),
+                PyString.From("_heapq"),
+                PyString.From("_bisect"),
+                PyString.From(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "nt" : "posix"),
             };
             return new PyTuple(names.ToArray());
         }
@@ -328,11 +328,11 @@ namespace SharpPy.Modules
             // Created via _PyNamespace_New(impl_info) in CPython
             var kwargs = new PyDict();
             // Observable parity with the reference CPython 3.12.15 runtime.
-            kwargs.SetItem(new PyString("name"), new PyString("cpython"));
-            kwargs.SetItem(new PyString("version"), CreateVersionInfo());
-            kwargs.SetItem(new PyString("hexversion"), new PyInt(HexVersion));
+            kwargs.SetItem(PyString.From("name"), PyString.From("cpython"));
+            kwargs.SetItem(PyString.From("version"), CreateVersionInfo());
+            kwargs.SetItem(PyString.From("hexversion"), new PyInt(HexVersion));
             // Its own tag, so a cache SharpPy writes never takes the name of one CPython reads.
-            kwargs.SetItem(new PyString("cache_tag"), new PyString(PyBytecodeCache.Tag));
+            kwargs.SetItem(PyString.From("cache_tag"), PyString.From(PyBytecodeCache.Tag));
 
             return new PySimpleNamespace(kwargs);
         }
@@ -344,11 +344,11 @@ namespace SharpPy.Modules
             // Godot compiles sources into its own assembly/cache directory;
             // bundled Python modules live in the project resources instead.
 #if GODOT
-            pathList.Add(new PyString("res://"));
+            pathList.Add(PyString.From("res://"));
             var exeDir = "res://";
             var projectRoot = "res://";
 #else
-            pathList.Add(new PyString("."));
+            pathList.Add(PyString.From("."));
             var exeDir = IOHelper.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
             var projectRoot = IOHelper.GetFullPath(IOHelper.CombinePath(exeDir, "..", "..", ".."));
 #endif
@@ -360,19 +360,19 @@ namespace SharpPy.Modules
                 var paths = pythonPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var path in paths)
                 {
-                    pathList.Add(new PyString(path.Trim()));
+                    pathList.Add(PyString.From(path.Trim()));
                 }
             }
 
             // 3. 표준 라이브러리 경로들 (CPython 호환 순서)
             // CPython 3.12: Lib 디렉토리만 사용 (stdlib 폴더 삭제됨)
-            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "Lib")));
+            pathList.Add(PyString.From(IOHelper.CombinePath(projectRoot, "Lib")));
 
             // 3순위: modules 디렉토리 (SharpPy 전용 C# 구현 모듈) - 프로젝트 루트에서
-            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "modules")));
+            pathList.Add(PyString.From(IOHelper.CombinePath(projectRoot, "modules")));
 
             // 4순위: 실행 파일 디렉토리
-            pathList.Add(new PyString(exeDir));
+            pathList.Add(PyString.From(exeDir));
 
             return new PyList(pathList.ToArray());
         }
@@ -403,7 +403,7 @@ namespace SharpPy.Modules
 
         private static PyObject CreateVersionInfo() => new PyStructSequence(VersionInfoType, new PyObject[]
         {
-            new PyInt(3), new PyInt(12), new PyInt(15), new PyString("final"), new PyInt(0),
+            new PyInt(3), new PyInt(12), new PyInt(15), PyString.From("final"), new PyInt(0),
         });
 
         // PyFloat_GetInfo
@@ -498,7 +498,7 @@ namespace SharpPy.Modules
             if (frame == null)
                 return PyNone.Instance;
             var globals = frame.GetAttribute("f_globals");
-            var name = new PyString("__name__");
+            var name = PyString.From("__name__");
             return globals is PyDict names && names.ContainsKey(name) ? names.GetItem(name) : PyNone.Instance;
         }
 
@@ -514,7 +514,7 @@ namespace SharpPy.Modules
             return new PyStructSequence(WindowsVersionType, new PyObject[]
             {
                 new PyInt(version.Major), new PyInt(version.Minor), new PyInt(version.Build), new PyInt(2),
-                new PyString(Environment.OSVersion.ServicePack), new PyInt(0), new PyInt(0), new PyInt(0x100), new PyInt(1),
+                PyString.From(Environment.OSVersion.ServicePack), new PyInt(0), new PyInt(0), new PyInt(0x100), new PyInt(1),
                 new PyTuple(new PyObject[] { new PyInt(version.Major), new PyInt(version.Minor), new PyInt(version.Build) }),
             });
         }
@@ -596,7 +596,7 @@ namespace SharpPy.Modules
             if (args.Length != 0)
                 throw PyTypeError.Create($"getdefaultencoding() takes no arguments ({args.Length} given)");
             
-            return new PyString("utf-8");
+            return PyString.From("utf-8");
         }
 
         private PyObject CallGetFilesystemEncoding(PyObject[] args)
@@ -604,7 +604,7 @@ namespace SharpPy.Modules
             if (args.Length != 0)
                 throw PyTypeError.Create($"getfilesystemencoding() takes no arguments ({args.Length} given)");
             
-            return new PyString("utf-8");
+            return PyString.From("utf-8");
         }
 
         /// <summary>
@@ -736,12 +736,12 @@ namespace SharpPy.Modules
             if (function != null)
                 return function.Call(args, kwargs);
             PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[]
-                { new PyString($"Ignoring unimportable $PYTHONBREAKPOINT: \"{setting}\""), PyType.RuntimeWarningType }, null);
+                { PyString.From($"Ignoring unimportable $PYTHONBREAKPOINT: \"{setting}\""), PyType.RuntimeWarningType }, null);
             return PyNone.Instance;
         }
 
         private static PyObject ImportForHook(string path) =>
-            PyImportSystem.Import("importlib").GetAttribute("import_module").Call(new PyObject[] { new PyString(path) }, null);
+            PyImportSystem.Import("importlib").GetAttribute("import_module").Call(new PyObject[] { PyString.From(path) }, null);
 
         private PyObject CallExceptHook(PyObject[] args)
         {
@@ -751,7 +751,7 @@ namespace SharpPy.Modules
             var stderr = PyImportSystem.Import("sys").GetAttribute("stderr");
             var print = PyImportSystem.Import("traceback").GetAttribute("print_exception");
             var keywords = new PyDict();
-            keywords.SetItem(new PyString("file"), stderr);
+            keywords.SetItem(PyString.From("file"), stderr);
             print.Call(new[] { args[0], args[1], args[2] }, keywords);
             return PyNone.Instance;
         }
@@ -918,7 +918,7 @@ namespace SharpPy.Modules
                 throw PyRuntimeError.Create("lost sys.stdout");
             var write = stdout.GetAttribute("write");
             write.Call(new PyObject[] { value.ToRepr() }, null);
-            write.Call(new PyObject[] { new PyString("\n") }, null);
+            write.Call(new PyObject[] { PyString.From("\n") }, null);
             builtins.SetAttribute("_", value);
             return PyNone.Instance;
         }

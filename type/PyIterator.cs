@@ -417,7 +417,7 @@ namespace SharpPy
         internal override PyObject RemainingHint() => new PyInt(Characters(_string.Length) - Characters(_index));
 
         internal override PyObject Reduce() =>
-            _index < _string.Length ? ReduceIter(new PyString(_string), Characters(_index)) : ReduceExhausted(new PyString(""));
+            _index < _string.Length ? ReduceIter(PyString.From(_string), Characters(_index)) : ReduceExhausted(PyString.From(""));
 
         internal override void SetState(PyObject state)
         {
@@ -448,7 +448,7 @@ namespace SharpPy
                 throw PyStopIteration.Create();
 
             int width = PyString.PairWidth(_string, _index);
-            var ch = new PyString(_string.Substring(_index, width));
+            var ch = PyString.From(_string.Substring(_index, width));
             _index += width;
             return ch;
         }

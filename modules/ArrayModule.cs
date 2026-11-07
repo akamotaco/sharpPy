@@ -70,7 +70,7 @@ namespace SharpPy.Modules
             if (typecode == 'u')
             {
                 int codePoint = BinaryPrimitives.ReadInt32LittleEndian(span);
-                return new PyString(char.ConvertFromUtf32(codePoint));
+                return PyString.From(char.ConvertFromUtf32(codePoint));
             }
 
             switch (info.Size)
@@ -384,7 +384,7 @@ namespace SharpPy.Modules
                     }
                 }
                 sb.Append(')');
-                return new PyString(sb.ToString());
+                return PyString.From(sb.ToString());
             }
 
             protected internal override PyString Str() => ToRepr();
@@ -635,7 +635,7 @@ namespace SharpPy.Modules
                 int byteLen = _count * ItemSize;
                 var result = new byte[byteLen];
                 Array.Copy(_buffer, result, byteLen);
-                return new PyBytes(result);
+                return PyBytes.From(result);
             }
 
             internal void FromBytes(byte[] data)
@@ -679,7 +679,7 @@ namespace SharpPy.Modules
                     var item = ReadItem(_buffer, i, _typecode);
                     sb.Append(((PyString)item).Value);
                 }
-                return new PyString(sb.ToString());
+                return PyString.From(sb.ToString());
             }
 
             internal void FromUnicode(string s)
@@ -690,7 +690,7 @@ namespace SharpPy.Modules
                 {
                     int cp = char.ConvertToUtf32(s, i);
                     i += char.IsHighSurrogate(s[i]) ? 2 : 1;
-                    Append(new PyString(char.ConvertFromUtf32(cp)));
+                    Append(PyString.From(char.ConvertFromUtf32(cp)));
                 }
             }
 
@@ -728,13 +728,13 @@ namespace SharpPy.Modules
                     return new PyTuple(new PyObject[]
                     {
                         GetPyType(),
-                        new PyTuple(new PyObject[] { new PyString(_typecode.ToString()), ToList() }),
+                        new PyTuple(new PyObject[] { PyString.From(_typecode.ToString()), ToList() }),
                         state,
                     });
                 return new PyTuple(new PyObject[]
                 {
                     Reconstructor,
-                    new PyTuple(new PyObject[] { GetPyType(), new PyString(_typecode.ToString()), new PyInt(MachineFormat()), ToBytes() }),
+                    new PyTuple(new PyObject[] { GetPyType(), PyString.From(_typecode.ToString()), new PyInt(MachineFormat()), ToBytes() }),
                     state,
                 });
             }
@@ -781,8 +781,8 @@ namespace SharpPy.Modules
                         12 or 13 => new PyInt(BitConverter.ToInt64(cell)),
                         14 or 15 => new PyFloat(BitConverter.ToSingle(cell)),
                         16 or 17 => new PyFloat(BitConverter.ToDouble(cell)),
-                        18 or 19 => new PyString(((char)BitConverter.ToUInt16(cell)).ToString()),
-                        _ => new PyString(char.ConvertFromUtf32(BitConverter.ToInt32(cell))),
+                        18 or 19 => PyString.From(((char)BitConverter.ToUInt16(cell)).ToString()),
+                        _ => PyString.From(char.ConvertFromUtf32(BitConverter.ToInt32(cell))),
                     };
                 }
                 if (code >= 18 && typecode.Value != "u" || code < 18 && typecode.Value == "u")
@@ -1073,7 +1073,7 @@ namespace SharpPy.Modules
 
             type.TypeDict["typecode"] = new PyGetSetDescriptor("typecode", type, self =>
             {
-                return new PyString(((PyArray)self)._typecode.ToString());
+                return PyString.From(((PyArray)self)._typecode.ToString());
             });
 
             type.TypeDict["itemsize"] = new PyGetSetDescriptor("itemsize", type, self =>
@@ -1106,7 +1106,7 @@ namespace SharpPy.Modules
             module.ModuleDict["ArrayType"] = type;
             PyArray.Type = type;
             module.ModuleDict["_array_reconstructor"] = PyArray.Reconstructor;
-            module.ModuleDict["typecodes"] = new PyString("bBuhHiIlLqQfd");
+            module.ModuleDict["typecodes"] = PyString.From("bBuhHiIlLqQfd");
 
             return module;
         }

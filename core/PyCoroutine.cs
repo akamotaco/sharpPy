@@ -21,7 +21,7 @@ namespace SharpPy.Core
 
             // send method descriptor
             corType.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", corType,
-                self => new PyString(((PyCoroutine)self).Name), (self, value) =>
+                self => PyString.From(((PyCoroutine)self).Name), (self, value) =>
                     ((PyCoroutine)self).Name = value is PyString text ? text.Value
                         : throw PyTypeError.Create("__name__ must be set to a string object"));
             corType.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", corType,
@@ -129,7 +129,7 @@ namespace SharpPy.Core
         
         public PyCoroutine(PyFrame frame, PyVM vm, string name, string qualname = null)
         {
-            Qualname = new PyString(qualname ?? frame?.Code.QualName ?? name);
+            Qualname = PyString.From(qualname ?? frame?.Code.QualName ?? name);
             _frame = frame ?? throw new ArgumentNullException(nameof(frame));
             _vm = vm ?? throw new ArgumentNullException(nameof(vm));
             Name = name;
@@ -160,7 +160,7 @@ namespace SharpPy.Core
             {
                 entries.Add(new PyTuple(new PyObject[]
                 {
-                    new PyString(current.Code.FileName), current.GetAttribute("f_lineno"), new PyString(current.Code.Name),
+                    PyString.From(current.Code.FileName), current.GetAttribute("f_lineno"), PyString.From(current.Code.Name),
                 }));
                 frame = current.GetAttribute("f_back");
             }
@@ -405,7 +405,7 @@ namespace SharpPy.Core
         // All coroutine methods (send, throw, close, __await__) are registered as descriptors in PyType.CoroutineType
 
         protected internal override PyString Repr() =>
-            new PyString($"<coroutine object {Qualname.ToClrString()} at {PyObjectId.Pointer(this)}>");
+            PyString.From($"<coroutine object {Qualname.ToClrString()} at {PyObjectId.Pointer(this)}>");
 
         public override string ToString()
         {

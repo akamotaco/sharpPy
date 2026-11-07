@@ -78,8 +78,8 @@ namespace SharpPy.Core
                     if (sys.ModuleDict["path"] is PyList searchPath)
                     {
                         var directory = IOHelper.GetDirectoryName(IOHelper.GetFullPath(pythonFile));
-                        if (searchPath.Length() == 0) searchPath.Append(new PyString(directory));
-                        else searchPath.SetItem(new PyInt(0), new PyString(directory));
+                        if (searchPath.Length() == 0) searchPath.Append(PyString.From(directory));
+                        else searchPath.SetItem(new PyInt(0), PyString.From(directory));
                     }
                     interpreter.Execute(code, pythonFile, showTokenize, showAst, showBytecode);
                 }
@@ -246,7 +246,7 @@ namespace SharpPy.Core
             }
             try
             {
-                stream.GetAttribute("write").Call(new PyObject[] { new PyString(text) }, null);
+                stream.GetAttribute("write").Call(new PyObject[] { PyString.From(text) }, null);
                 return true;
             }
             catch (PythonException error)

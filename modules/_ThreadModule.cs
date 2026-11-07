@@ -172,8 +172,8 @@ namespace SharpPy.Modules
             PyObject timeoutArgument = args.Length >= 2 ? args[1] : null;
             if (kwargs != null)
             {
-                blockingArgument ??= kwargs.Get(new PyString("blocking"), null);
-                timeoutArgument ??= kwargs.Get(new PyString("timeout"), null);
+                blockingArgument ??= kwargs.Get(PyString.From("blocking"), null);
+                timeoutArgument ??= kwargs.Get(PyString.From("timeout"), null);
             }
             bool blocking = blockingArgument == null || blockingArgument is PyNone || blockingArgument.IsTrue();
             double timeout = -1;
@@ -401,7 +401,7 @@ namespace SharpPy.Modules
         public override string GetTypeName() => "lock";
 
         // lock_repr
-        protected internal override PyString Repr() => new PyString($"<{(_locked ? "locked" : "unlocked")} _thread.lock object at {PyObjectId.Pointer(this)}>");
+        protected internal override PyString Repr() => PyString.From($"<{(_locked ? "locked" : "unlocked")} _thread.lock object at {PyObjectId.Pointer(this)}>");
     }
 
     /// <summary>
@@ -425,6 +425,6 @@ namespace SharpPy.Modules
 
         // rlock_repr
         protected internal override PyString Repr() =>
-            new PyString($"<{(Count > 0 ? "locked" : "unlocked")} _thread.RLock object owner={(Count > 0 ? Owner : 0)} count={Count} at {PyObjectId.Pointer(this)}>");
+            PyString.From($"<{(Count > 0 ? "locked" : "unlocked")} _thread.RLock object owner={(Count > 0 ? Owner : 0)} count={Count} at {PyObjectId.Pointer(this)}>");
     }
 }

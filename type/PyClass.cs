@@ -73,8 +73,8 @@ namespace SharpPy
 
         private static PyObject CallGetattrMethod(PyObject self, PyObject method, string name) =>
             method.GetType() == typeof(PyFunction)
-                ? method.Call(new PyObject[] { self, new PyString(name) }, null)
-                : self.BindSpecialMethod(method).Call(new PyObject[] { new PyString(name) }, null);
+                ? method.Call(new PyObject[] { self, PyString.From(name) }, null)
+                : self.BindSpecialMethod(method).Call(new PyObject[] { PyString.From(name) }, null);
 
         // Version 0 is never a tag, so every slot starts undecided.
         private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool, _sqContains, _tpHash, _mpSubscript,
@@ -256,7 +256,7 @@ namespace SharpPy
                 if (bound != null)
                     return bound.Call(Array.Empty<PyObject>(), null);
             }
-            return new PyString($"<{Name} object at {PyObjectId.Pointer(self)}>");
+            return PyString.From($"<{Name} object at {PyObjectId.Pointer(self)}>");
         }
 
         internal PyObject IterNextSlot(PyObject self)
@@ -663,7 +663,7 @@ namespace SharpPy
                 module is PyString { Value: { Length: > 0 } and not "builtins" } text ? text.Value + "." : "";
             // object_repr: a static type's __module__ and __qualname__ are its tp_name's parts.
             string name = type is PyClass named ? named.QualNameText : type.FullName;
-            return new PyString($"<{modulePrefix}{name} object at {PyObjectId.Pointer(self)}>");
+            return PyString.From($"<{modulePrefix}{name} object at {PyObjectId.Pointer(self)}>");
         }
 
         // A builtin type's own dict, then the slot wrappers SharpPy keeps beside it (PyType.SlotDict).
@@ -714,7 +714,7 @@ namespace SharpPy
         public bool TryGetInstanceAttribute(string name, out PyObject value)
         {
             if (_materialized != null)
-                return _materialized.TryGetStoredValue(new PyString(name), out value);
+                return _materialized.TryGetStoredValue(PyString.From(name), out value);
             return _attrs.TryGetValue(name, out value);
         }
 
@@ -734,7 +734,7 @@ namespace SharpPy
         public void SetInstanceAttribute(string name, PyObject value)
         {
             if (_materialized != null)
-                _materialized.SetItem(new PyString(name), value);
+                _materialized.SetItem(PyString.From(name), value);
             else
                 _attrs[name] = value;
         }
@@ -744,7 +744,7 @@ namespace SharpPy
             // Dictionary reuses a freed slot, which would reorder __dict__; the dict keeps insertion order.
             if (_materialized == null && !_attrs.ContainsKey(name)) return false;
             var dict = Materialize();
-            var key = new PyString(name);
+            var key = PyString.From(name);
             if (!dict.ContainsKey(key)) return false;
             dict.DelItem(key);
             return true;
@@ -777,7 +777,7 @@ namespace SharpPy
             {
                 var dict = new PyDict();
                 foreach (var entry in _attrs)
-                    dict.SetItem(new PyString(entry.Key), entry.Value);
+                    dict.SetItem(PyString.From(entry.Key), entry.Value);
                 _materialized = dict;
                 _attrs = null;
             }

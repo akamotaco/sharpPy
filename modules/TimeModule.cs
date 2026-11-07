@@ -28,7 +28,7 @@ namespace SharpPy
         public TimeModule() : base("time")
         {
             if (PyDocs.Lookup("time.__doc__") is { } doc)
-                SetAttribute("__doc__", new PyString(doc));
+                SetAttribute("__doc__", PyString.From(doc));
             Function("time", (args, kwargs) => { PyArgs.NoArgs("time.time", args, kwargs); return FloatFromPyTime(SystemTime()); });
             Function("time_ns", (args, kwargs) => { PyArgs.NoArgs("time.time_ns", args, kwargs); return PyTime.AsNanosecondsObject(SystemTime()); });
             Function("sleep", Sleep);
@@ -108,7 +108,7 @@ namespace SharpPy
         private static Exception FromErrno(int errno)
         {
             string message = errno == CTimeRuntime.EINVAL ? "Invalid argument" : "Value too large for defined data type";
-            return new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(errno), new PyString(message) }, null));
+            return new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(errno), PyString.From(message) }, null));
         }
 
         // _PyTime_gmtime
@@ -134,7 +134,7 @@ namespace SharpPy
         {
             new PyInt(p.Year + 1900L), new PyInt(p.Mon + 1), new PyInt(p.Mday), new PyInt(p.Hour), new PyInt(p.Min),
             new PyInt(p.Sec), new PyInt((p.Wday + 6) % 7), new PyInt(p.Yday + 1), new PyInt(p.Isdst),
-            new PyString(zone), new PyInt(gmtoff),
+            PyString.From(zone), new PyInt(gmtoff),
         });
 
         // parse_time_t_args
@@ -290,7 +290,7 @@ namespace SharpPy
                 if (start < i)
                     writer.Append(format, start, i - start);
             }
-            return new PyString(writer.ToString());
+            return PyString.From(writer.ToString());
         }
 
         // time_strptime: _strptime._strptime_time(*args)
@@ -306,7 +306,7 @@ namespace SharpPy
         private static readonly string[] MonName = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
         // _asctime: "%s %s%3d %.2d:%.2d:%.2d %d"
-        private static PyObject AscTimeOf(in CTm t) => new PyString(
+        private static PyObject AscTimeOf(in CTm t) => PyString.From(
             $"{WdayName[t.Wday]} {MonName[t.Mon]}{t.Mday,3} {t.Hour:00}:{t.Min:00}:{t.Sec:00} {1900L + t.Year}");
 
         // time_asctime
@@ -377,10 +377,10 @@ namespace SharpPy
                 default: throw PyValueError.Create("unknown clock");
             }
             var dict = new PyDict();
-            dict.SetItem(new PyString("implementation"), new PyString(info.Implementation));
-            dict.SetItem(new PyString("monotonic"), PyBool.FromBool(info.Monotonic));
-            dict.SetItem(new PyString("adjustable"), PyBool.FromBool(info.Adjustable));
-            dict.SetItem(new PyString("resolution"), new PyFloat(info.Resolution));
+            dict.SetItem(PyString.From("implementation"), PyString.From(info.Implementation));
+            dict.SetItem(PyString.From("monotonic"), PyBool.FromBool(info.Monotonic));
+            dict.SetItem(PyString.From("adjustable"), PyBool.FromBool(info.Adjustable));
+            dict.SetItem(PyString.From("resolution"), new PyFloat(info.Resolution));
             return new SharpPy.Modules.PySimpleNamespace(dict);
         }
 
@@ -392,7 +392,7 @@ namespace SharpPy
             SetAttribute("daylight", new PyInt(CTimeRuntime.Daylight));
             SetAttribute("tzname", new PyTuple(new PyObject[]
             {
-                new PyString(CTimeRuntime.TzName[0]), new PyString(CTimeRuntime.TzName[1]),
+                PyString.From(CTimeRuntime.TzName[0]), PyString.From(CTimeRuntime.TzName[1]),
             }));
         }
     }

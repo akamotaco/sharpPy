@@ -120,7 +120,7 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
         }
         else
         {
-            buffer = new PyBytes(Array.Empty<byte>());
+            buffer = PyBytes.From(Array.Empty<byte>());
             flag = 0;
         }
         flag <<= 1;
@@ -155,7 +155,7 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
     private PyObject Newlines()
     {
         CheckInitialized();
-        PyObject S(string text) => new PyString(text);
+        PyObject S(string text) => PyString.From(text);
         return _seen switch
         {
             SeenCR => S("\r"),
@@ -198,7 +198,7 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
                     }
             if (inner == null || translate == null)
                 throw PyTypeError.Create($"IncrementalNewlineDecoder() missing required argument '{(inner == null ? "decoder" : "translate")}' (pos {(inner == null ? 1 : 2)})");
-            decoder._errors = errors ?? new PyString("strict");
+            decoder._errors = errors ?? PyString.From("strict");
             decoder.Decoder = inner;
             decoder._translate = translate.IsTrue();
             decoder._seen = 0;
@@ -211,7 +211,7 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
             PyObject final = args.Length > 1 ? args[1] : Keyword(kwargs, "final");
             if (input == null)
                 throw PyTypeError.Create("decode() missing required argument 'input' (pos 1)");
-            return new PyString(((PyNewlineDecoder)self).Decode(input, final != null && final.IsTrue()));
+            return PyString.From(((PyNewlineDecoder)self).Decode(input, final != null && final.IsTrue()));
         }, acceptsKwargs: true);
         type.TypeDict["getstate"] = new PyMethodDescriptor("getstate", type, (self, args, kwargs) => ((PyNewlineDecoder)self).GetState());
         type.TypeDict["setstate"] = new PyMethodDescriptor("setstate", type, (self, args, kwargs) => ((PyNewlineDecoder)self).SetState(args[0]), 1, 1);
@@ -357,7 +357,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     // set_newline
     private void SetNewline(string newline)
     {
-        _readnl = newline == null ? null : new PyString(newline);
+        _readnl = newline == null ? null : PyString.From(newline);
         _readUniversal = newline == null || newline.Length == 0;
         _readTranslate = newline == null;
         _writeTranslate = newline == null || newline.Length != 0;
@@ -370,7 +370,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     // _PyCodec_LookupTextEncoding
     private static PyObject CodecInfo(string encoding)
     {
-        var info = PyImportSystem.Import("codecs").GetAttribute("lookup").Call(new PyObject[] { new PyString(encoding) }, null);
+        var info = PyImportSystem.Import("codecs").GetAttribute("lookup").Call(new PyObject[] { PyString.From(encoding) }, null);
         var isText = info.LookupAttribute("_is_text_encoding");
         if (isText != null && !isText.IsTrue())
             throw PyLookupError.Create($"'{encoding}' is not a text encoding; use codecs.open() to handle arbitrary codecs");
@@ -381,7 +381,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     {
         if (!Call(_buffer, "readable").IsTrue())
             return;
-        _decoder = codecInfo.GetAttribute("incrementaldecoder").Call(new PyObject[] { new PyString(errors) }, null);
+        _decoder = codecInfo.GetAttribute("incrementaldecoder").Call(new PyObject[] { PyString.From(errors) }, null);
         if (_readUniversal)
             _decoder = PyNewlineDecoder.DecoderType.Call(new[] { _decoder, PyBool.FromBool(_readTranslate) }, null);
     }
@@ -390,7 +390,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     {
         if (!Call(_buffer, "writable").IsTrue())
             return;
-        _encoder = codecInfo.GetAttribute("incrementalencoder").Call(new PyObject[] { new PyString(errors) }, null);
+        _encoder = codecInfo.GetAttribute("incrementalencoder").Call(new PyObject[] { PyString.From(errors) }, null);
     }
 
     // _textiowrapper_fix_encoder_state
@@ -447,7 +447,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         _ok = false;
         _detached = false;
         if (errorsObject is PyNone)
-            errorsObject = new PyString("strict");
+            errorsObject = PyString.From("strict");
         else if (errorsObject is not PyString)
             throw PyTypeError.Create($"TextIOWrapper() argument 'errors' must be str or None, not {errorsObject.GetTypeName()}");
         string errors = ((PyString)errorsObject).Value;
@@ -468,7 +468,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         // _Py_GetLocaleEncodingObject: SharpPy's locale is UTF-8, on every platform Godot runs on.
         if (encoding == null || encoding == "locale")
             encoding = "utf-8";
-        _encoding = new PyString(encoding);
+        _encoding = PyString.From(encoding);
         var codecInfo = CodecInfo(encoding);
         _errors = errorsObject;
         _chunkSize = 8192;
@@ -505,9 +505,9 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         else
         {
             if (((PyString)encoding).Value == "locale")
-                encoding = new PyString("utf-8");
+                encoding = PyString.From("utf-8");
             if (errors is PyNone)
-                errors = new PyString("strict");
+                errors = PyString.From("strict");
         }
         var codecInfo = CodecInfo(((PyString)encoding).Value);
         SetDecoder(codecInfo, ((PyString)errors).Value);
@@ -571,7 +571,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         }
         _pending = null;
         _pendingCount = 0;
-        Call(_buffer, "write", new PyBytes(data));
+        Call(_buffer, "write", PyBytes.From(data));
     }
 
     private static PyObject TextArgument(PyObject value, string method) => value is PyString ? value
@@ -595,7 +595,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             textNeedFlush = true;
         if (_lineBuffering && (hasLF || text.IndexOf('\r') >= 0))
             needFlush = true;
-        var encoded = Call(_encoder, "encode", new PyString(text));
+        var encoded = Call(_encoder, "encode", PyString.From(text));
         _encodingStartOfStream = false;
         if (encoded is not PyBytes bytes)
             throw PyTypeError.Create($"encoder should return a bytes object, not '{encoded.GetTypeName()}'");
@@ -683,7 +683,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             var next = new byte[previous.Length + nbytes];
             Array.Copy(previous, next, previous.Length);
             Array.Copy(inputBytes, 0, next, previous.Length, nbytes);
-            _snapshot = new PyTuple(new[] { decFlags, new PyBytes(next) });
+            _snapshot = new PyTuple(new[] { decFlags, PyBytes.From(next) });
         }
         return !eof;
     }
@@ -706,12 +706,12 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
                 SetDecodedChars(null);
                 _snapshot = null;
             }
-            return new PyString(result);
+            return PyString.From(result);
         }
         var first = GetDecodedChars(n);
         long remaining = n - PyString.CodePointCount(first);
         if (remaining <= 0)
-            return new PyString(first);
+            return PyString.From(first);
         var chunks = new StringBuilder(first);
         while (remaining > 0)
         {
@@ -721,7 +721,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             chunks.Append(piece);
             remaining -= PyString.CodePointCount(piece);
         }
-        return new PyString(chunks.ToString());
+        return PyString.From(chunks.ToString());
     }
 
     // The end of the line after start, or -1 with how much was consumed.
@@ -816,7 +816,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
                 chunks.Append(line);
             line = chunks.ToString();
         }
-        return new PyString(line ?? "");
+        return PyString.From(line ?? "");
     }
 
     private static long CodePoints(string text, int start, int end) => PyString.CodePointCount(text.Substring(start, end - start));
@@ -872,7 +872,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         if (cookie.StartPos == 0 && cookie.DecFlags == 0)
             Call(_decoder, "reset");
         else
-            Call(_decoder, "setstate", new PyTuple(new PyObject[] { new PyBytes(Array.Empty<byte>()), new PyInt(cookie.DecFlags) }));
+            Call(_decoder, "setstate", new PyTuple(new PyObject[] { PyBytes.From(Array.Empty<byte>()), new PyInt(cookie.DecFlags) }));
     }
 
     private void EncoderReset(bool startOfStream)
@@ -941,12 +941,12 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             string decoded = PyNewlineDecoder.CheckDecoded(Call(_decoder, "decode", input, PyBool.FromBool(cookie.NeedEof)));
             SetDecodedChars(decoded);
             if (PyString.CodePointCount(decoded) < cookie.CharsToSkip)
-                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyString("can't restore logical file position") }, null));
+                throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From("can't restore logical file position") }, null));
             _usedPoints = cookie.CharsToSkip;
             _usedUnits = UnitsAfter(0, cookie.CharsToSkip);
         }
         else
-            _snapshot = new PyTuple(new PyObject[] { new PyInt(cookie.DecFlags), new PyBytes(Array.Empty<byte>()) });
+            _snapshot = new PyTuple(new PyObject[] { new PyInt(cookie.DecFlags), PyBytes.From(Array.Empty<byte>()) });
         if (_encoder != null)
             EncoderReset(cookie.StartPos == 0 && cookie.DecFlags == 0);
         return cookieObject;
@@ -966,7 +966,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     {
         var part = new byte[length];
         Array.Copy(input, start, part, 0, length);
-        return PyString.CodePointCount(PyNewlineDecoder.CheckDecoded(Call(_decoder, "decode", new PyBytes(part))));
+        return PyString.CodePointCount(PyNewlineDecoder.CheckDecoded(Call(_decoder, "decode", PyBytes.From(part))));
     }
 
     // _io_TextIOWrapper_tell_impl
@@ -977,7 +977,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         if (!_seekable)
             throw Unsupported("underlying stream is not seekable");
         if (!_telling)
-            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyString("telling position disabled by next() call") }, null));
+            throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From("telling position disabled by next() call") }, null));
         WriteFlush();
         Call(this, "flush");
         var position = Call(_buffer, "tell");
@@ -1047,10 +1047,10 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
                 if (input == nextInput.Length)
                 {
                     charsDecoded += PyString.CodePointCount(PyNewlineDecoder.CheckDecoded(
-                        Call(_decoder, "decode", new PyBytes(Array.Empty<byte>()), PyBool.True)));
+                        Call(_decoder, "decode", PyBytes.From(Array.Empty<byte>()), PyBool.True)));
                     cookie.NeedEof = true;
                     if (charsDecoded < charsToSkip)
-                        throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyString("can't reconstruct logical file position") }, null));
+                        throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From("can't reconstruct logical file position") }, null));
                 }
             }
         }
@@ -1115,7 +1115,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             var mode = LookupAttribute("mode");
             if (mode != null)
                 result.Append(" mode=").Append(mode.ToRepr().Value);
-            return new PyString(result.Append(" encoding=").Append(_encoding.ToRepr().Value).Append('>').ToString());
+            return PyString.From(result.Append(" encoding=").Append(_encoding.ToRepr().Value).Append('>').ToString());
         }
         finally
         {
@@ -1137,7 +1137,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             if (line is not PyString)
                 throw new PythonException(PyOSError.FromArguments(new PyObject[]
                 {
-                    new PyString($"readline() should have returned a str object, not '{line.GetTypeName()}'"),
+                    PyString.From($"readline() should have returned a str object, not '{line.GetTypeName()}'"),
                 }, null));
         }
         if (line.Length() == 0)

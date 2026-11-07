@@ -56,7 +56,7 @@ namespace SharpPy
             }, acceptsKwargs: true);
         }
 
-        internal static PyObject Repr(PyObject self) => new PyString(((PyGenericAlias)self).GaRepr());
+        internal static PyObject Repr(PyObject self) => PyString.From(((PyGenericAlias)self).GaRepr());
 
         internal static PyObject GetItemSlot(PyObject self, PyObject item) => ((PyGenericAlias)self).GaGetItem(item);
 
@@ -303,7 +303,7 @@ namespace SharpPy
             return text.ToString();
         }
 
-        protected internal override PyString Repr() => new PyString(GaRepr());
+        protected internal override PyString Repr() => PyString.From(GaRepr());
 
         protected internal override PyString Str() => ToRepr();
 

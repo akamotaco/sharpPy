@@ -304,7 +304,7 @@ namespace SharpPy.Modules {
 
             public override PyType GetPyType() => HashType;
             public override string GetTypeName() => "HASH";
-            protected internal override PyString Repr() => new PyString("<" + Name + " HASH object>");
+            protected internal override PyString Repr() => PyString.From("<" + Name + " HASH object>");
             protected internal override PyString Str() => ToRepr();
 
             internal void DoCompress(byte[] block) {
@@ -424,12 +424,12 @@ namespace SharpPy.Modules {
 
             HashType.TypeDict["digest"] = new PyMethodDescriptor("digest", HashType, (self, args, kwargs) => {
                 var h = (PyHash)self;
-                return new PyBytes(h.ComputeDigest());
+                return PyBytes.From(h.ComputeDigest());
             }, 0, 0);
 
             HashType.TypeDict["hexdigest"] = new PyMethodDescriptor("hexdigest", HashType, (self, args, kwargs) => {
                 var h = (PyHash)self;
-                return new PyString(ToHex(h.ComputeDigest()));
+                return PyString.From(ToHex(h.ComputeDigest()));
             }, 0, 0);
 
             HashType.TypeDict["copy"] = new PyMethodDescriptor("copy", HashType, (self, args, kwargs) => {
@@ -437,7 +437,7 @@ namespace SharpPy.Modules {
                 return h.Clone();
             }, 0, 0);
 
-            HashType.TypeDict["name"] = new PyGetSetDescriptor("name", HashType, self => new PyString(((PyHash)self).Name));
+            HashType.TypeDict["name"] = new PyGetSetDescriptor("name", HashType, self => PyString.From(((PyHash)self).Name));
             HashType.TypeDict["digest_size"] = new PyGetSetDescriptor("digest_size", HashType, self => new PyInt(((PyHash)self).DigestSize));
             HashType.TypeDict["block_size"] = new PyGetSetDescriptor("block_size", HashType, self => new PyInt(((PyHash)self).BlockSize));
 
@@ -462,7 +462,7 @@ namespace SharpPy.Modules {
 
             string[] algos = { "md5", "sha1", "sha224", "sha256", "sha384", "sha512" };
             var list = new PyList();
-            for (int i = 0; i < algos.Length; i++) list.Append(new PyString(algos[i]));
+            for (int i = 0; i < algos.Length; i++) list.Append(PyString.From(algos[i]));
             var fset = PyType.FrozenSetType.Call(new PyObject[] { list }, null);
             module.ModuleDict["algorithms_guaranteed"] = fset;
             module.ModuleDict["algorithms_available"] = fset;

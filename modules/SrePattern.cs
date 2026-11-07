@@ -81,7 +81,7 @@ namespace SharpPy.Modules
             {
                 var data = new byte[end - start];
                 for (int i = start; i < end; i++) data[i - start] = (byte)Items[i];
-                return new PyBytes(data);
+                return PyBytes.From(data);
             }
             var builder = new StringBuilder(end - start);
             for (int i = start; i < end; i++)
@@ -90,10 +90,10 @@ namespace SharpPy.Modules
                 if (item < 0x10000) builder.Append((char)item);
                 else builder.Append(char.ConvertFromUtf32(item));
             }
-            return new PyString(builder.ToString());
+            return PyString.From(builder.ToString());
         }
 
-        internal PyObject Empty() => IsBytes ? new PyBytes(Array.Empty<byte>()) : new PyString("");
+        internal PyObject Empty() => IsBytes ? PyBytes.From(Array.Empty<byte>()) : PyString.From("");
     }
 
     public sealed class PySrePattern : PyObject
@@ -137,7 +137,7 @@ namespace SharpPy.Modules
         private static PyObject Argument(PyObject[] args, PyDict kwargs, int position, string name)
         {
             if (args.Length > position) return args[position];
-            return kwargs != null && kwargs.TryGetStoredValue(new PyString(name), out var value) ? value : null;
+            return kwargs != null && kwargs.TryGetStoredValue(PyString.From(name), out var value) ? value : null;
         }
 
         private static int Position(PyObject value, int fallback)
@@ -305,7 +305,7 @@ namespace SharpPy.Modules
                     else throw PyTypeError.Create(
                         $"sequence item {i}: expected a bytes-like object, {pieces[i].GetTypeName()} found");
                 }
-                return new PyBytes(output.ToArray());
+                return PyBytes.From(output.ToArray());
             }
             var builder = new StringBuilder();
             for (int i = 0; i < pieces.Count; i++)
@@ -313,7 +313,7 @@ namespace SharpPy.Modules
                 if (pieces[i] is PyString piece) builder.Append(piece.Value);
                 else throw PyTypeError.Create($"sequence item {i}: expected str instance, {pieces[i].GetTypeName()} found");
             }
-            return new PyString(builder.ToString());
+            return PyString.From(builder.ToString());
         }
 
         private PyObject Scanner(PyObject[] args, PyDict kwargs)
@@ -388,7 +388,7 @@ namespace SharpPy.Modules
             if (remaining != 0) flags.Add($"0x{remaining:x}");
             string text = Pattern.ToRepr().Value;
             if (text.Length > 200) text = text.Substring(0, 200);
-            return new PyString(flags.Count == 0 ? $"re.compile({text})" : $"re.compile({text}, {string.Join("|", flags)})");
+            return PyString.From(flags.Count == 0 ? $"re.compile({text})" : $"re.compile({text}, {string.Join("|", flags)})");
         }
 
         protected internal override PyString Str() => ToRepr();
@@ -470,7 +470,7 @@ namespace SharpPy.Modules
         private static PyObject Default(PyObject[] args, PyDict kwargs)
         {
             if (args.Length > 0) return args[0];
-            return kwargs != null && kwargs.TryGetStoredValue(new PyString("default"), out var value) ? value : PyNone.Instance;
+            return kwargs != null && kwargs.TryGetStoredValue(PyString.From("default"), out var value) ? value : PyNone.Instance;
         }
 
         private PyObject Groups(PyObject[] args, PyDict kwargs)
@@ -549,7 +549,7 @@ namespace SharpPy.Modules
         {
             string text = GroupValue(0, PyNone.Instance).ToRepr().Value;
             if (text.Length > 50) text = text.Substring(0, 50);
-            return new PyString($"<re.Match object; span=({_marks[0]}, {_marks[1]}), match={text}>");
+            return PyString.From($"<re.Match object; span=({_marks[0]}, {_marks[1]}), match={text}>");
         }
 
         protected internal override PyString Str() => ToRepr();
@@ -589,7 +589,7 @@ namespace SharpPy.Modules
                 Add(match.GroupOrEmpty(_items[i].ToInt()));
                 Add(_items[i + 1]);
             }
-            return isBytes ? new PyBytes(bytes.ToArray()) : new PyString(builder.ToString());
+            return isBytes ? PyBytes.From(bytes.ToArray()) : PyString.From(builder.ToString());
         }
     }
 

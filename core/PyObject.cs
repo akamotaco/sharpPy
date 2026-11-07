@@ -12,10 +12,10 @@ namespace SharpPy
             // the type descriptor; instance __getattribute__ must not run here.
             if (!HasCustomType)
             {
-                if (GetType() == typeof(PyFloat)) return new PyString(PyFloat.FormatFloat(((PyFloat)this).Value, spec.Value));
-                if (GetType() == typeof(PyInt)) return new PyString(PyInt.FormatInt(((PyInt)this).Value, spec.Value));
+                if (GetType() == typeof(PyFloat)) return PyString.From(PyFloat.FormatFloat(((PyFloat)this).Value, spec.Value));
+                if (GetType() == typeof(PyInt)) return PyString.From(PyInt.FormatInt(((PyInt)this).Value, spec.Value));
                 if (GetType() == typeof(PyString)) return spec.Value.Length == 0 ? (PyString)this
-                    : new PyString(PyString.FormatString(((PyString)this).Value, spec.Value));
+                    : PyString.From(PyString.FormatString(((PyString)this).Value, spec.Value));
             }
             var method = LookupSpecialMethodUncached("__format__");
             if (method == null) throw PyTypeError.Create($"Type {GetTypeName()} doesn't define __format__");
@@ -402,7 +402,7 @@ namespace SharpPy
         {
             if (kwargs == null)
                 return null;
-            var key = new PyString(name);
+            var key = PyString.From(name);
             return kwargs.ContainsKey(key) ? kwargs.GetItem(key) : null;
         }
 
@@ -1434,8 +1434,8 @@ namespace SharpPy
 
         public override string GetTypeName() => "NotImplementedType";
         public override PyType GetPyType() => PyType.NotImplementedType;
-        protected internal override PyString Str() => new PyString("NotImplemented");
-        protected internal override PyString Repr() => new PyString("NotImplemented");
+        protected internal override PyString Str() => PyString.From("NotImplemented");
+        protected internal override PyString Repr() => PyString.From("NotImplemented");
 
         // NotImplemented_bool
         protected internal override bool Bool()

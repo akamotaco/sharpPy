@@ -133,14 +133,14 @@ namespace SharpPy
         internal static PyString SetRepr(PyObject so, int used, bool exactSet)
         {
             string typeName = so.GetTypeName();
-            if (used == 0) return new PyString(typeName + "()");
-            if (!PyReprGuard.Enter(so)) return new PyString(typeName + "(...)");
+            if (used == 0) return PyString.From(typeName + "()");
+            if (!PyReprGuard.Enter(so)) return PyString.From(typeName + "(...)");
             try
             {
                 // PySequence_List(so), its repr without the brackets.
                 string listRepr = PyList.FromIterable(so).ToRepr().Value;
                 string body = listRepr.Substring(1, listRepr.Length - 2);
-                return new PyString(exactSet ? "{" + body + "}" : typeName + "({" + body + "})");
+                return PyString.From(exactSet ? "{" + body + "}" : typeName + "({" + body + "})");
             }
             finally
             {

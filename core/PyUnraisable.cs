@@ -61,7 +61,7 @@ namespace SharpPy
         {
             var parts = new string[5];
             for (int i = 0; i < parts.Length; i++) parts[i] = Fields[i] + "=" + Items[i].ToRepr().Value;
-            return new PyString("UnraisableHookArgs(" + string.Join(", ", parts) + ")");
+            return PyString.From("UnraisableHookArgs(" + string.Join(", ", parts) + ")");
         }
         protected internal override PyString Str() => ToRepr();
     }
@@ -89,7 +89,7 @@ namespace SharpPy
             var exception = error.PyException;
             var args = new PyUnraisableHookArgs(new PyObject[] {
                 exception.GetPyType(), exception, (PyObject)exception.__traceback__ ?? PyNone.Instance,
-                message != null ? new PyString(message) : PyNone.Instance, target
+                message != null ? PyString.From(message) : PyNone.Instance, target
             });
             PyObject hook = null;
             if (PyImportSystem.TryGetModule("sys", out var sys))
@@ -104,7 +104,7 @@ namespace SharpPy
                         var failure = hookError.PyException;
                         args = new PyUnraisableHookArgs(new PyObject[] {
                             failure.GetPyType(), failure, (PyObject)failure.__traceback__ ?? PyNone.Instance,
-                            new PyString("Exception ignored in sys.unraisablehook"), hook
+                            PyString.From("Exception ignored in sys.unraisablehook"), hook
                         });
                     }
                 }
@@ -136,7 +136,7 @@ namespace SharpPy
             void Write(string value)
             {
                 if (console) Console.Error.Write(value);
-                else stream.GetAttribute("write").Call(new PyObject[] { new PyString(value) }, null);
+                else stream.GetAttribute("write").Call(new PyObject[] { PyString.From(value) }, null);
             }
             var value = args.Items[1];
             var message = args.Items[3];

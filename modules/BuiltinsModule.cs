@@ -232,8 +232,8 @@ namespace SharpPy.Modules
             module.ModuleDict["__build_class__"] = new PyBuiltinFunction("__build_class__");
 
             // Python 3.12 special attributes
-            module.ModuleDict["__name__"] = new PyString("builtins");
-            module.ModuleDict["__doc__"] = new PyString("Built-in functions, exceptions, and other objects.");
+            module.ModuleDict["__name__"] = PyString.From("builtins");
+            module.ModuleDict["__doc__"] = PyString.From("Built-in functions, exceptions, and other objects.");
 
             PyDocs.SetTypeDocs(module.ModuleDict.Values);
             return module;
@@ -568,7 +568,7 @@ namespace SharpPy.Modules
                 }
             }
 
-            return new PyString(result.ToString());
+            return PyString.From(result.ToString());
         }
 
         // CPython 3.12: Python/bltinmodule.c:3079 builtin_vars.
@@ -608,7 +608,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"format expected at most 2 arguments, got {args.Length}");
 
             var value = args[0];
-            var formatSpec = args.Length == 2 ? args[1] : new PyString("");
+            var formatSpec = args.Length == 2 ? args[1] : PyString.From("");
 
             // format_spec must be a string
             if (formatSpec is not PyString formatStr)

@@ -242,7 +242,7 @@ namespace SharpPy.Modules
                 (cls, args, kwargs) => new MethObject((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
             foreach (var kind in MethNames)
                 type.TypeDict[kind] = method(type, kind);
-            type.TypeDict["__doc__"] = new PyString(doc);
+            type.TypeDict["__doc__"] = PyString.From(doc);
             return type;
         }
 

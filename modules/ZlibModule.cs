@@ -25,7 +25,7 @@ namespace SharpPy.Modules
             module.ModuleDict["compress"] = new PyBuiltinFunction("compress", (args, kwargs) =>
             {
                 int level = args.Length > 1 ? args[1].ToInt()
-                    : kwargs != null && kwargs.TryGetStoredValue(new PyString("level"), out var given) ? given.ToInt() : -1;
+                    : kwargs != null && kwargs.TryGetStoredValue(PyString.From("level"), out var given) ? given.ToInt() : -1;
                 var output = new MemoryStream();
                 using (var stream = new ZLibStream(output, level is 0 ? CompressionLevel.NoCompression
                            : level is 1 or 2 or 3 ? CompressionLevel.Fastest
@@ -34,7 +34,7 @@ namespace SharpPy.Modules
                     var data = Bytes(args[0]);
                     stream.Write(data, 0, data.Length);
                 }
-                return new PyBytes(output.ToArray());
+                return PyBytes.From(output.ToArray());
             });
             module.ModuleDict["decompress"] = new PyBuiltinFunction("decompress", (args, kwargs) =>
             {
@@ -44,7 +44,7 @@ namespace SharpPy.Modules
                     using var stream = new ZLibStream(input, CompressionMode.Decompress);
                     var output = new MemoryStream();
                     stream.CopyTo(output);
-                    return new PyBytes(output.ToArray());
+                    return PyBytes.From(output.ToArray());
                 }
                 catch (InvalidDataException)
                 {

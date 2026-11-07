@@ -260,7 +260,7 @@ namespace SharpPy
             for (int i = 0; i < Len(e.Values); i++)
                 FstringElement(body, (GeneratedExpr)e.Values[i], isFormatSpec);
             if (!isFormatSpec)
-                w.Append('f').Append(new PyString(body.ToString()).ToRepr().Value);
+                w.Append('f').Append(PyString.From(body.ToString()).ToRepr().Value);
             else
                 w.Append(body);
         }

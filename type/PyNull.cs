@@ -21,8 +21,8 @@ namespace SharpPy
 
         #region String Representation
 
-        protected internal override PyString Str() => new PyString("<NULL>");
-        protected internal override PyString Repr() => new PyString("<NULL>");
+        protected internal override PyString Str() => PyString.From("<NULL>");
+        protected internal override PyString Repr() => PyString.From("<NULL>");
         public override string ToString() => "<NULL>";
 
         #endregion

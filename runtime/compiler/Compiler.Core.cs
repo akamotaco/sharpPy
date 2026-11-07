@@ -672,7 +672,7 @@ namespace SharpPy
                 if (kwDefaults![i] is GeneratedExpr value)
                 {
                     keys ??= new List<PyObject>();
-                    keys.Add(new PyString(MaybeMangle(_u.Private, _u.Ste, arg.Arg.Value)));
+                    keys.Add(PyString.From(MaybeMangle(_u.Private, _u.Ste, arg.Arg.Value)));
                     VisitExpr(value);
                 }
             }
@@ -684,13 +684,13 @@ namespace SharpPy
         }
 
         private void VisitAnnexpr(GeneratedExpr annotation) =>
-            ADDOP_LOAD_CONST(LOC(annotation), new PyString(AstUnparse.ExprAsUnicode(annotation)));
+            ADDOP_LOAD_CONST(LOC(annotation), PyString.From(AstUnparse.ExprAsUnicode(annotation)));
 
         private void VisitArgannotation(string id, GeneratedExpr? annotation, ref int annotationsLen, Loc loc)
         {
             if (annotation == null)
                 return;
-            ADDOP_LOAD_CONST(loc, new PyString(MaybeMangle(_u.Private, _u.Ste, id)));
+            ADDOP_LOAD_CONST(loc, PyString.From(MaybeMangle(_u.Private, _u.Ste, id)));
             if (_future.Annotations)
             {
                 VisitAnnexpr(annotation);

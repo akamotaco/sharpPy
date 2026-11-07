@@ -97,7 +97,7 @@ namespace SharpPy
         /// </summary>
         internal static byte[] A2bBase64(PyObject obj, bool strict = false)
         {
-            byte[] data = obj is PyString ? ToBytes(new PyBytes(Encoding.ASCII.GetBytes(((PyString)obj).Value)),
+            byte[] data = obj is PyString ? ToBytes(PyBytes.From(Encoding.ASCII.GetBytes(((PyString)obj).Value)),
                 requireStrAllowed: false, strWording: ExpectedBytesLike)
                 : ToBytes(obj, requireStrAllowed: false, strWording: ExpectedBytesLike);
             var bits = new List<int>();
@@ -168,13 +168,13 @@ namespace SharpPy
             var module = new PyModule("binascii", "Conversion between binary data and ASCII");
             module.ModuleDict["Error"] = PyBinasciiError.ErrorType;
             module.ModuleDict["hexlify"] = new PyBuiltinFunction("hexlify", a =>
-                new PyBytes(Hexlify(Check(a, "hexlify"))));
+                PyBytes.From(Hexlify(Check(a, "hexlify"))));
             module.ModuleDict["unhexlify"] = new PyBuiltinFunction("unhexlify", a =>
-                new PyBytes(Unhexlify(Check(a, "unhexlify"))));
+                PyBytes.From(Unhexlify(Check(a, "unhexlify"))));
             module.ModuleDict["b2a_base64"] = new PyBuiltinFunction("b2a_base64", (a, kwargs) =>
-                new PyBytes(B2aBase64(Check(a, "b2a_base64"), Flag(kwargs, "newline", true))));
+                PyBytes.From(B2aBase64(Check(a, "b2a_base64"), Flag(kwargs, "newline", true))));
             module.ModuleDict["a2b_base64"] = new PyBuiltinFunction("a2b_base64", (a, kwargs) =>
-                new PyBytes(A2bBase64(Check(a, "a2b_base64"), Flag(kwargs, "strict_mode", false))));
+                PyBytes.From(A2bBase64(Check(a, "a2b_base64"), Flag(kwargs, "strict_mode", false))));
             module.ModuleDict["b2a_hex"] = module.ModuleDict["hexlify"];
             module.ModuleDict["a2b_hex"] = module.ModuleDict["unhexlify"];
             module.ModuleDict["crc32"] = new PyBuiltinFunction("crc32", a =>
@@ -192,7 +192,7 @@ namespace SharpPy
         }
 
         private static bool Flag(PyDict kwargs, string name, bool fallback) =>
-            kwargs != null && kwargs.TryGetStoredValue(new PyString(name), out var value) ? value.IsTrue() : fallback;
+            kwargs != null && kwargs.TryGetStoredValue(PyString.From(name), out var value) ? value.IsTrue() : fallback;
 
         private static PyObject Check(PyObject[] args, string name)
         {

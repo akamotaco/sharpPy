@@ -24,12 +24,12 @@ public class PyNamespaceModule : PyModule
         var pathList = new PyObject[namespaceDirs.Count];
         for (int i = 0; i < namespaceDirs.Count; i++)
         {
-            pathList[i] = new PyString(namespaceDirs[i]);
+            pathList[i] = PyString.From(namespaceDirs[i]);
         }
         ModuleDict["__path__"] = new PyList(pathList);
 
         // 네임스페이스 패키지 표시
-        ModuleDict["__doc__"] = new PyString($"Namespace package {Name}");
+        ModuleDict["__doc__"] = PyString.From($"Namespace package {Name}");
     }
     
     /// <summary>
@@ -122,11 +122,11 @@ public class PyModule : PyObject
     
     private void InitializeBuiltinAttributes(bool hasFile)
     {
-        ModuleDict["__name__"] = new PyString(Name);
+        ModuleDict["__name__"] = PyString.From(Name);
         // A builtin module has no __file__.
         if (hasFile && !string.IsNullOrEmpty(FileName) && !FileName.StartsWith("<", StringComparison.Ordinal))
-            ModuleDict["__file__"] = new PyString(FileName);
-        ModuleDict["__doc__"] = new PyString($"Module {Name}");
+            ModuleDict["__file__"] = PyString.From(FileName);
+        ModuleDict["__doc__"] = PyString.From($"Module {Name}");
 
         // CPython 3.12: Set __package__
         // For packages (__init__.py): __package__ = __name__
@@ -136,7 +136,7 @@ public class PyModule : PyObject
         if (isPackage)
         {
             // Package: __package__ == __name__
-            ModuleDict["__package__"] = new PyString(Name);
+            ModuleDict["__package__"] = PyString.From(Name);
         }
         else
         {
@@ -145,7 +145,7 @@ public class PyModule : PyObject
             string packageName = lastDot >= 0 ? Name.Substring(0, lastDot) : "";
             ModuleDict["__package__"] = string.IsNullOrEmpty(packageName)
                 ? PyNone.Instance
-                : new PyString(packageName);
+                : PyString.From(packageName);
         }
     }
     
@@ -168,7 +168,7 @@ public class PyModule : PyObject
     internal void Initialize(string name, PyObject doc)
     {
         Name = name;
-        ModuleDict["__name__"] = new PyString(name);
+        ModuleDict["__name__"] = PyString.From(name);
         ModuleDict["__doc__"] = doc;
         foreach (var key in new[] { "__package__", "__loader__", "__spec__" })
             ModuleDict.TryAdd(key, PyNone.Instance);
@@ -217,7 +217,7 @@ public class PyModule : PyObject
         if (declared != null)
             return BindSpecialMethod(declared);
         if (ModuleDict.TryGetValue("__getattr__", out var hook))
-            return hook.Call(new PyObject[] { new PyString(name) }, null);
+            return hook.Call(new PyObject[] { PyString.From(name) }, null);
 
         throw PyAttributeError.Create(ModuleDict.ContainsKey("__name__")
             ? $"module '{Name}' has no attribute '{name}'"
@@ -347,7 +347,7 @@ public class PyModule : PyObject
     }
 
     // module_repr; a module subclass's __repr__ is its tp_repr, which PyObject_Repr reaches first.
-    protected internal override PyString Repr() => new PyString(ToString());
+    protected internal override PyString Repr() => PyString.From(ToString());
     
 }
 
@@ -362,7 +362,7 @@ public class PyModule : PyObject
         // CPython uses PyUnicode_FromString + PyDict_GetItem pattern
         public static bool TryGetModule(string name, out PyModule module)
         {
-            var key = new PyString(name);
+            var key = PyString.From(name);
             if (SysModules.InternalDict.TryGetValue(key, out var value) && value is PyModule pyModule)
             {
                 module = pyModule;
@@ -375,13 +375,13 @@ public class PyModule : PyObject
         public static void SetModule(string name, PyModule module)
         {
             // CPython 3.12: Python/import.c:630 - PyDict_SetItemString
-            SysModules.SetItem(new PyString(name), module);
+            SysModules.SetItem(PyString.From(name), module);
         }
 
         public static void RemoveModule(string name)
         {
             // CPython 3.12: Python/import.c - PyDict_DelItemString
-            var key = new PyString(name);
+            var key = PyString.From(name);
             if (SysModules.ContainsKey(key)) SysModules.DelItem(key);
         }
 
@@ -533,7 +533,7 @@ public class PyModule : PyObject
                 return cachedModule;
             }
             // _find_and_load: None in sys.modules stops the import.
-            if (SysModules.InternalDict.TryGetValue(new PyString(moduleName), out var blocked) && blocked is PyNone)
+            if (SysModules.InternalDict.TryGetValue(PyString.From(moduleName), out var blocked) && blocked is PyNone)
                 throw PyModuleNotFoundError.Create($"import of {moduleName} halted; None in sys.modules", moduleName);
 
             // 2. 점으로 구분된 모듈명 처리 (예: package.submodule)
@@ -597,7 +597,7 @@ public class PyModule : PyObject
             var findSpec = finder.LookupAttribute("find_spec");
             if (findSpec == null)
                 return null;
-            var spec = findSpec.Call(new[] { new PyString(name), searchPath, PyNone.Instance }, null);
+            var spec = findSpec.Call(new[] { PyString.From(name), searchPath, PyNone.Instance }, null);
             if (spec is PyNone)
                 return null;
             // module_from_spec
@@ -607,12 +607,12 @@ public class PyModule : PyObject
             module.ModuleDict["__spec__"] = spec;
             module.ModuleDict["__loader__"] = loader;
             int dot = name.LastIndexOf('.');
-            module.ModuleDict["__package__"] = new PyString(dot < 0 ? "" : name.Substring(0, dot));
+            module.ModuleDict["__package__"] = PyString.From(dot < 0 ? "" : name.Substring(0, dot));
             var locations = spec.LookupAttribute("submodule_search_locations");
             if (locations != null && locations is not PyNone)
             {
                 module.ModuleDict["__path__"] = locations;
-                module.ModuleDict["__package__"] = new PyString(name);
+                module.ModuleDict["__package__"] = PyString.From(name);
             }
             var origin = spec.LookupAttribute("origin");
             if (origin != null && origin is not PyNone && spec.LookupAttribute("has_location")?.IsTrue() == true)
@@ -820,7 +820,7 @@ public class PyModule : PyObject
             module.HasSourceFile = true;
             module.Bundle = bundle;
             if (isPackage)
-                module.ModuleDict["__path__"] = new PyList(new[] { new PyString($"{bundle.Path}/{relative}") });
+                module.ModuleDict["__path__"] = new PyList(new[] { PyString.From($"{bundle.Path}/{relative}") });
             SetModule(moduleName, module);
             try
             {
@@ -848,7 +848,7 @@ public class PyModule : PyObject
                 // This must happen before exec_module() so that the module code can see __path__
                 if (packageDir != null)
                 {
-                    module.ModuleDict["__path__"] = new PyList(new[] { new PyString(packageDir) });
+                    module.ModuleDict["__path__"] = new PyList(new[] { PyString.From(packageDir) });
                 }
 
                 // CPython 3.12: Register in sys.modules (prevents circular import)
@@ -907,7 +907,7 @@ public class PyModule : PyObject
         private static bool IsMissing(PythonException error, string fullName) =>
             error.PyException.GetPyType().IsSubclassOf(PyType.ModuleNotFoundErrorType) &&
             error.PyException.LookupAttribute("name") is PyString name && name.Value == fullName &&
-            !(SysModules.InternalDict.TryGetValue(new PyString(fullName), out var entry) && entry is PyNone);
+            !(SysModules.InternalDict.TryGetValue(PyString.From(fullName), out var entry) && entry is PyNone);
 
         // PyImport_ImportModuleLevelObject: _handle_fromlist runs for a package, a module that has
         // __path__ (read with getattr, so a module's __getattr__ answers and its errors propagate).
@@ -916,7 +916,7 @@ public class PyModule : PyObject
             if (fromlist == null || fromlist.Length == 0 || module.LookupAttribute("__path__") == null)
                 return;
             var names = new PyObject[fromlist.Length];
-            for (int i = 0; i < names.Length; i++) names[i] = new PyString(fromlist[i]);
+            for (int i = 0; i < names.Length; i++) names[i] = PyString.From(fromlist[i]);
             HandleFromList(module, names, recursive: false);
         }
 
@@ -984,7 +984,7 @@ public class PyModule : PyObject
                 PyWarnings.Warn(PyType.ImportWarningType,
                     "can't resolve package from __spec__ or __package__, falling back on __name__ and __path__", 1);
                 if (!globals.TryGetValue("__name__", out var nameObject))
-                    throw PyKeyError.Create(new PyString("'__name__' not in globals"));
+                    throw PyKeyError.Create(PyString.From("'__name__' not in globals"));
                 package = (nameObject as PyString)?.Value ?? throw PyTypeError.Create("__name__ must be a string");
                 if (!globals.ContainsKey("__path__"))
                 {

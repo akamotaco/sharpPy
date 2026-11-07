@@ -86,7 +86,7 @@ namespace SharpPy
                 if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
                     throw PyTypeError.Create($"tobytes() takes no arguments ({args.Length} given)");
                 view.CheckReleased();
-                return new PyBytes(view.Data);
+                return PyBytes.From(view.Data);
             });
             // memoryview_toreadonly
             type.TypeDict["toreadonly"] = new PyMethodDescriptor("toreadonly", type, (self, args, kwargs) =>
@@ -118,7 +118,7 @@ namespace SharpPy
                 if (self is not PyMemoryView view)
                     throw PyTypeError.Create($"descriptor '__bytes__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
                 view.CheckReleased();
-                return new PyBytes(view.Data);
+                return PyBytes.From(view.Data);
             });
 
             foreach (var name in new[] { "release", "__enter__", "__exit__" })
@@ -405,7 +405,7 @@ namespace SharpPy
                 case "":
                 case "B": return SmallIntCache.GetOrCreate(b0);
                 case "b": return SmallIntCache.GetOrCreate((sbyte)b0);
-                case "c": return new PyBytes(new[] { b0 });
+                case "c": return PyBytes.From(new[] { b0 });
                 case "H": return SmallIntCache.GetOrCreate((uint)(b0 | (ReadByte(storageByte + 1) << 8)));
                 case "h": return SmallIntCache.GetOrCreate((short)(b0 | (ReadByte(storageByte + 1) << 8)));
                 case "I":
@@ -657,7 +657,7 @@ namespace SharpPy
             if (fmt != 'B' && fmt != 'b' && fmt != 'c')
                 throw PyValueError.Create(
                     "memoryview: hashing is restricted to formats 'B', 'b' or 'c'");
-            return new PyBytes(Data).ToHash();
+            return PyBytes.From(Data).ToHash();
         }
 
         protected internal override long Hash()
@@ -723,7 +723,7 @@ namespace SharpPy
             {
                 return SmallIntCache.GetOrCreate(ItemSize);
             }
-            if (name == "format") { CheckReleased(); return new PyString(_fmt); }
+            if (name == "format") { CheckReleased(); return PyString.From(_fmt); }
             if (name == "nbytes") { CheckReleased(); return SmallIntCache.GetOrCreate((long)_length * _itemsize); }
             if (name == "ndim") { CheckReleased(); return SmallIntCache.GetOrCreate(_shape == null ? 1 : _shape.Length); }
             if (name == "shape")
@@ -953,6 +953,6 @@ namespace SharpPy
         // throw here, which would break print(f"{view}") for a writable or released view.
         public override string ToString() =>
             $"<{(_data == null ? "released memory" : "memory")} at {PyObjectId.Pointer(this)}>";
-        protected internal override PyString Repr() => new PyString(ToString());
+        protected internal override PyString Repr() => PyString.From(ToString());
     }
 }

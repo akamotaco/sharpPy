@@ -253,7 +253,7 @@ namespace SharpPy
                         dict[text.Value] = PyAbstract.GetItem(args[3], key);
             }
             // type_new_set_names and type_new_set_doc: both must encode.
-            new PyString(name.Value).GetAttribute("encode").Call(Array.Empty<PyObject>(), null);
+            PyString.From(name.Value).GetAttribute("encode").Call(Array.Empty<PyObject>(), null);
             if (dict.TryGetValue("__doc__", out var classDoc) && classDoc.GetType() == typeof(PyString))
                 classDoc.GetAttribute("encode").Call(Array.Empty<PyObject>(), null);
             CheckSlots(dict, baseTypes);
@@ -299,11 +299,11 @@ namespace SharpPy
                 if (hook == null) continue;
                 try
                 {
-                    entry.Value.BindSpecialMethod(hook).Call(new PyObject[] { created, new PyString(entry.Key) }, null);
+                    entry.Value.BindSpecialMethod(hook).Call(new PyObject[] { created, PyString.From(entry.Key) }, null);
                 }
                 catch (PythonException error)
                 {
-                    error.PyException.GetAttribute("add_note").Call(new PyObject[] { new PyString(
+                    error.PyException.GetAttribute("add_note").Call(new PyObject[] { PyString.From(
                         $"Error calling __set_name__ on '{entry.Value.GetTypeName()}' instance '{entry.Key}' in '{name.Value}'") }, null);
                     throw;
                 }
@@ -640,7 +640,7 @@ namespace SharpPy
             new PyStaticBuiltinMethod("__new__", method, owner);
 
         protected internal override PyString Repr() => _owner == null ? (PyString)base.Repr() :
-            new PyString($"<built-in method {Name} of type object at {PyObjectId.Pointer(_owner)}>");
+            PyString.From($"<built-in method {Name} of type object at {PyObjectId.Pointer(_owner)}>");
 
         public PyStaticBuiltinMethod(string name, Func<PyObject[], PyDict, PyObject> method, PyType owner = null)
         {

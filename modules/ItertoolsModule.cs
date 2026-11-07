@@ -22,7 +22,7 @@ namespace SharpPy.Modules
             var module = new PyModule("itertools");
             var d = module.ModuleDict;
             if (PyDocs.Lookup("itertools.__doc__") is { } doc)
-                d["__doc__"] = new PyString(doc);
+                d["__doc__"] = PyString.From(doc);
             // itertoolsmodule_exec: PyModule_AddType files each type under the name after the dot.
             foreach (var type in AllTypes)
                 d[type.Name] = type;
@@ -50,7 +50,7 @@ namespace SharpPy.Modules
             bool iterator = true, bool genericGetAttr = true)
         {
             var type = new PyType(name, new[] { PyType.ObjectType }, "itertools");
-            type.TypeDict["__module__"] = new PyString("itertools");
+            type.TypeDict["__module__"] = PyString.From("itertools");
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type,
                 (cls, args, kwargs) => tpNew((PyType)cls, args, kwargs), 0, int.MaxValue, acceptsKwargs: true);
             if (genericGetAttr)
@@ -1843,11 +1843,11 @@ namespace SharpPy.Modules
         private PyString CountRepr()
         {
             if (_longCnt == null)
-                return new PyString($"{ShortTypeName}({_cnt})");
+                return PyString.From($"{ShortTypeName}({_cnt})");
             // Don't display step when it is an integer equal to 1
             if (ItertoolsModule.LongValue(_longStep, out var step) && step == 1)
-                return new PyString($"{ShortTypeName}({_longCnt.ToRepr().Value})");
-            return new PyString($"{ShortTypeName}({_longCnt.ToRepr().Value}, {_longStep.ToRepr().Value})");
+                return PyString.From($"{ShortTypeName}({_longCnt.ToRepr().Value})");
+            return PyString.From($"{ShortTypeName}({_longCnt.ToRepr().Value}, {_longStep.ToRepr().Value})");
         }
 
         // count_reduce
@@ -1897,8 +1897,8 @@ namespace SharpPy.Modules
         protected internal override PyString Repr() => RepeatRepr();
 
         private PyString RepeatRepr() => _cnt == -1
-            ? new PyString($"{ShortTypeName}({_element.ToRepr().Value})")
-            : new PyString($"{ShortTypeName}({_element.ToRepr().Value}, {_cnt})");
+            ? PyString.From($"{ShortTypeName}({_element.ToRepr().Value})")
+            : PyString.From($"{ShortTypeName}({_element.ToRepr().Value}, {_cnt})");
 
         // repeat_len
         internal override PyObject RemainingHint() => _cnt == -1 ? throw PyTypeError.Create("len() of unsized object") : new PyInt(_cnt);
@@ -1930,7 +1930,7 @@ namespace SharpPy.Modules
             if (kwargs != null && kwargs.Length() > 0)
             {
                 fillvalue = null;
-                var key = new PyString("fillvalue");
+                var key = PyString.From("fillvalue");
                 if (kwargs.Length() == 1 && kwargs.ContainsKey(key))
                     fillvalue = kwargs.GetItem(key);
                 if (fillvalue == null)
