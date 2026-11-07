@@ -482,7 +482,6 @@ namespace SharpPy
         public List<ExceptionTableEntry> ExceptionTable { get; set; } = new List<ExceptionTableEntry>();
         
         // Line Number Table: instruction offset → source line number mapping
-        public Dictionary<int, int> LineNumberTable { get; set; } = new Dictionary<int, int>();
         
         public PyCodeObject(string name, List<ByteCodeInstruction> instructions,
                         List<PyObject> constants, List<string> names,
@@ -512,7 +511,6 @@ namespace SharpPy
             DefaultValues = defaultValues ?? new List<PyObject>();
             KwDefaults = kwDefaults ?? new List<PyObject>();
             ExceptionTable = exceptionTable ?? new List<ExceptionTableEntry>(); // 전달된 exception table 보존
-            LineNumberTable = lineNumberTable ?? new Dictionary<int, int>();
 
             // CPython 3.12: Build cached index maps for O(1) lookup at runtime
             BuildIndexMaps();
@@ -868,7 +866,7 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Get first line number from LineNumberTable
+        /// co_firstlineno
         /// </summary>
         public int FirstLineNo { get; set; }
 
@@ -876,10 +874,6 @@ namespace SharpPy
         {
             if (FirstLineNo > 0)
                 return FirstLineNo;
-            if (LineNumberTable.Count > 0)
-            {
-                return LineNumberTable.Values.Min();
-            }
             return 1; // Default to line 1
         }
 

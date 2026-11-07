@@ -76,7 +76,13 @@ namespace SharpPy
         public PyScope? LocalScope => ScopeChain?.CurrentScope;
 
         // CPython-style error location tracking
-        public int CurrentLineNumber { get; set; } = -1;
+        // PyCode_Addr2Line(code, lasti): the line of the last instruction, -1 when it has none or
+        // nothing has run yet. Computed when asked, as PyFrame_GetLineNumber does.
+        internal bool HasRun;
+        public int CurrentLineNumber => HasRun ? LineAt(Code, LastInstruction) : -1;
+
+        internal static int LineAt(PyCodeObject code, int instruction) =>
+            instruction >= 0 && instruction < code.Instructions.Count ? code.Instructions[instruction].LineNumber : -1;
 
         // CPython 3.12: Keyword names for next CALL instruction
         public PyTuple? KeywordNamesForNextCall { get; set; }
@@ -1351,17 +1357,7 @@ namespace SharpPy
 
                     frame.LastInstruction = frame.InstructionPointer;
 
-                    // CPython-style error location tracking: Update current execution location
-                    // First try from LineNumberTable (more accurate), then from instruction
-                    if (frame.Code.LineNumberTable.TryGetValue(frame.InstructionPointer, out var lineFromTable))
-                    {
-                        frame.CurrentLineNumber = lineFromTable;
-                    }
-                    else
-                    {
-                        // An instruction with no location has no line: PyCode_Addr2Line gives -1.
-                        frame.CurrentLineNumber = instruction.LineNumber;
-                    }
+                    frame.HasRun = true;
                     if ((TraceFunction != null || ProfileFunction != null) && !_tracing)
                         TraceInstruction(frame, instruction);
 
@@ -4356,10 +4352,6 @@ namespace SharpPy
                     if (reraiseArg > 0 && frame.ValueStack.PeekBelow(reraiseArg - 1) is PyInt restoredLasti)
                     {
                         frame.LastInstruction = (int)restoredLasti.Value;
-                        if (frame.Code.LineNumberTable.TryGetValue(frame.LastInstruction, out var restoredLine))
-                            frame.CurrentLineNumber = restoredLine;
-                        else if (frame.LastInstruction < frame.Code.Instructions.Count && frame.Code.Instructions[frame.LastInstruction].LineNumber > 0)
-                            frame.CurrentLineNumber = frame.Code.Instructions[frame.LastInstruction].LineNumber;
                     }
                     // Reraise the exception
                     if (exceptionToReraise != null)
@@ -6393,52 +6385,8 @@ namespace SharpPy
                 tb = tb.Next;
             }
 
-            // 3. Get line number - try multiple strategies (the columns are the location table's, by tb_lasti)
-            int lineNo = 0;
-
-            // Strategy 1: the line of the instruction itself
-            if (lasti >= 0 && lasti < frame.Code.Instructions.Count)
-                lineNo = frame.Code.Instructions[lasti].LineNumber;
-
-            // Strategy 2: Use CurrentLineNumber if valid
-            if (lineNo <= 0 && frame.CurrentLineNumber > 0)
-                lineNo = frame.CurrentLineNumber;
-
-            // Strategy 3: Look up exact lasti in LineNumberTable
-            if (lineNo <= 0 && frame.Code.LineNumberTable.TryGetValue(lasti, out var line))
-            {
-                lineNo = line;
-            }
-
-            // Strategy 4: Scan backwards in line number table to find most recent line
-            if (lineNo <= 0)
-            {
-                for (int offset = lasti; offset >= 0; offset--)
-                {
-                    if (frame.Code.LineNumberTable.TryGetValue(offset, out var foundLine) && foundLine > 0)
-                    {
-                        lineNo = foundLine;
-                        break;
-                    }
-                }
-            }
-
-            // Strategy 5: Scan backwards in instructions to find most recent line and column
-            if (lineNo <= 0)
-            {
-                for (int offset = lasti; offset >= 0; offset--)
-                {
-                    if (offset < frame.Code.Instructions.Count)
-                    {
-                        var instrLine = frame.Code.Instructions[offset].LineNumber;
-                        if (instrLine > 0)
-                        {
-                            lineNo = instrLine;
-                            break;
-                        }
-                    }
-                }
-            }
+            // 3. _PyTraceBack_FromFrame: tb_lineno is PyFrame_GetLineNumber(frame), the line of lasti.
+            int lineNo = PyFrame.LineAt(frame.Code, lasti);
 
             // 4. Create new traceback entry for current frame
             // CPython: newtb = _PyTraceBack_FromFrame(tb, frame)

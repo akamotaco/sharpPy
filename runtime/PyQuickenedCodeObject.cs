@@ -56,7 +56,7 @@ namespace SharpPy
                 fileName ?? originalCode.FileName,
                 sourceLines ?? originalCode.SourceLines,
                 isOptimized: true, // Quickened 코드는 항상 최적화됨
-                lineNumberTable ?? originalCode.LineNumberTable,
+                lineNumberTable,
                 new List<ExceptionTableEntry>()) // 빈 exception table로 시작 - 최적화 후 재계산됨
         {
             OriginalCode = originalCode ?? throw new ArgumentNullException(nameof(originalCode));
