@@ -1149,36 +1149,6 @@ namespace SharpPy
             return ExecuteFrame(frame);
         }
 
-        internal static PyScope PushLocals(PyScopeChain scopeChain, PyDict globals, PyDict locals)
-        {
-            if (locals == null || ReferenceEquals(locals, globals)) return null;
-            var localScope = scopeChain.PushScope(ScopeType.Local, "exec_locals");
-            foreach (var kvp in locals.InternalDict)
-                if (kvp.Key is PyString keyStr)
-                    localScope.Variables[keyStr.Value] = kvp.Value;
-            return localScope;
-        }
-
-        internal static void StoreLocals(PyScope localScope, PyDict locals)
-        {
-            if (localScope == null) return;
-            locals.Clear();
-            foreach (var kvp in localScope.Variables) locals.SetItem(new PyString(kvp.Key), kvp.Value);
-        }
-
-        /// <summary>
-        /// Execute an expression with custom globals/locals (for eval())
-        /// CPython 3.12: Python/pythonrun.c:run_eval_code_obj
-        /// </summary>
-        public PyObject ExecuteExpression(PyCodeObject codeObject, PyDict globals, PyDict locals)
-        {
-            var scopeChain = ScopeOver(globals);
-            var localScope = PushLocals(scopeChain, globals, locals);
-            var result = ExecuteModule(codeObject, scopeChain);
-            StoreLocals(localScope, locals);
-            return result;
-        }
-
         // 프레임 실행 (바이트코드 해석)
         // CPython 3.12: Execute class body and return namespace
         /// <summary>_PyEval_Vector with the namespace as locals: returns what the body returned, the
@@ -1838,6 +1808,11 @@ namespace SharpPy
         }
 
         // Keep mapping protocol exception handling outside the opcode dispatcher.
+        // GLOBALS() then BUILTINS(), the tail of LOAD_NAME and all of LOAD_GLOBAL; NameError past both.
+        private static PyObject GlobalOrBuiltin(PyFrame frame, string name) =>
+            frame.ScopeChain.GlobalScope?.GetVariable(name) ?? frame.Builtin(name)
+            ?? throw CreateNameErrorWithSuggestion(name, frame);
+
         private static PyObject LookupNamespaceMapping(PyObject mapping, PyString key)
         {
             if (mapping.GetType() == typeof(PyDict))
@@ -2508,26 +2483,9 @@ namespace SharpPy
                         value = LookupNamespaceMapping(frame.ClassLocalsDict, new PyString(name));
                     }
 
-                    // CPython 3.12: If not found in locals, check GLOBALS() and BUILTINS() (lines 1736-1767)
-                    if (value == null)
-                    {
-                        if (frame.ClassLocalsDict != null)
-                        {
-                            // LOAD_NAME checks the actual class mapping, then globals
-                            // and builtins. A copied scope may retain a deleted seed.
-                            if (!frame.Globals.TryGetValue(name, out value))
-                                value = frame.Builtin(name);
-                            if (value == null)
-                                throw CreateNameErrorWithSuggestion(name, frame);
-                        }
-                        else if (frame.HasOwnBuiltins)
-                        {
-                            value = frame.ScopeChain.LookupLocalOrGlobal(name) ?? frame.Builtin(name)
-                                ?? throw CreateNameErrorWithSuggestion(name, frame);
-                        }
-                        else
-                            value = frame.ScopeChain.LookupVariable(name, verbose: true);
-                    }
+                    // GLOBALS(), then BUILTINS() (lines 1736-1767). Without a mapping of its own the
+                    // frame's locals are its globals, so this is the whole lookup.
+                    value ??= GlobalOrBuiltin(frame, name);
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 LOAD_NAME({name}): loaded {value?.GetType().Name ?? "null"} value = {value}");
@@ -2643,8 +2601,8 @@ namespace SharpPy
                     }
                     else
                     {
-                        // Normal case: use LEGB system
-                        frame.ScopeChain.AssignVariable(storeName, storeValue);
+                        // The frame's locals are its globals.
+                        frame.ScopeChain.GlobalScope.SetVariable(storeName, storeValue);
                     }
                     break;
 
@@ -2655,19 +2613,9 @@ namespace SharpPy
                         DeleteNamespaceName(frame, deleteName);
                         break;
                     }
-                    // 변수 삭제: 현재 스코프에서 먼저 찾기
-                    if (frame.ScopeChain.CurrentScope?.DeleteVariable(deleteName) == true)
-                    {
-                        // 현재 스코프에서 삭제됨
-                        break;
-                    }
-                    // 전역 스코프에서 찾기
+                    // The frame's locals are its globals.
                     if (frame.ScopeChain.GlobalScope?.DeleteVariable(deleteName) == true)
-                    {
-                        // 전역 스코프에서 삭제됨
                         break;
-                    }
-                    // 변수가 없으면 NameError with suggestion
                     throw CreateNameErrorWithSuggestion(deleteName, frame);
 
                 case ByteCodeOp.LOAD_GLOBAL:
@@ -2678,79 +2626,10 @@ namespace SharpPy
 
                     var globalName = frame.Code.Names[globalNameIndex];
 
-                    // Special debugging for ReprEnum, Enum, Flag lookup
-                    bool isEnumRelated = globalName == "ReprEnum" || globalName == "Enum" || globalName == "Flag";
-
-                    if (isEnumRelated)
-                    {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"\n[LOAD_GLOBAL] Looking for: {globalName}");
-                        Console.WriteLine($"  Current function: {frame.Code.Name}");
-                        Console.WriteLine($"  GlobalScope: {frame.ScopeChain.GlobalScope?.Name ?? "null"}");
-                        #endif
-                        if (frame.ScopeChain.GlobalScope != null)
-                        {
-                            #if DEBUG_VM_LOG
-                            Console.WriteLine($"  GlobalScope variable count: {frame.ScopeChain.GlobalScope.Variables.Count}");
-                            // Performance: Eliminated LINQ - manual key preview
-                            var keyCount = Math.Min(20, frame.ScopeChain.GlobalScope.Variables.Keys.Count);
-                            var keys = new string[keyCount];
-                            int keyIdx = 0;
-                            foreach (var key in frame.ScopeChain.GlobalScope.Variables.Keys)
-                            {
-                                if (keyIdx >= keyCount) break;
-                                keys[keyIdx++] = key;
-                            }
-                            Console.WriteLine($"  GlobalScope keys: {string.Join(", ", keys)}");
-                            Console.WriteLine($"  Has '{globalName}': {frame.ScopeChain.GlobalScope.Variables.ContainsKey(globalName)}");
-                            #endif
-                        }
-                    }
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 LOAD_GLOBAL({globalName}): pushNull={pushNull}, nameIndex={globalNameIndex}");
-                    #endif
-
                     // CPython 3.12: Push NULL first if flag is set
                     if (pushNull)
-                    {
-                        frame.ValueStack.Push(PyNull.Instance); // Use PyNone.Instance as NULL marker
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   Pushed NULL before loading {globalName}");
-                        #endif
-                    }
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   GlobalScope is null: {frame.ScopeChain.GlobalScope == null}");
-                    #endif
-                    if (frame.ScopeChain.GlobalScope != null)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   GlobalScope variables: {frame.ScopeChain.GlobalScope.Variables.Count}");
-                        #endif
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   Has '{globalName}': {frame.ScopeChain.GlobalScope.Variables.ContainsKey(globalName)}");
-                        #endif
-                    }
-                    var globalValue = frame.ScopeChain.GlobalScope?.GetVariable(globalName) ??
-                                    frame.Builtin(globalName);
-                    if (globalValue == null)
-                    {
-                        if (isEnumRelated)
-                        {
-                            #if DEBUG_VM_LOG
-                            Console.WriteLine($"[LOAD_GLOBAL] ❌ Failed to find '{globalName}'!");
-                            #endif
-                        }
-                        throw CreateNameErrorWithSuggestion(globalName, frame);
-                    }
-
-                    if (isEnumRelated)
-                    {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"[LOAD_GLOBAL] ✅ Found '{globalName}': {globalValue?.GetType().Name}");
-                        #endif
-                    }
+                        frame.ValueStack.Push(PyNull.Instance);
+                    var globalValue = GlobalOrBuiltin(frame, globalName);
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 LOAD_GLOBAL({globalName}): loaded {globalValue?.GetType().Name ?? "null"} value = {globalValue}");

@@ -1197,10 +1197,13 @@ namespace SharpPy
             // 4. Execute with provided globals/locals
             if (FrameOfGenerator(codeObject, globals) is { } suspended)
                 return suspended;
+            // PyEval_EvalCode(code, globals, locals): locals other than the globals are the frame's
+            // locals mapping, a dict or any mapping, read and written in place.
             var vm = PyVM.Instance;
-            if (localsMapping != null)
-                return vm.ExecuteWithNamespace(codeObject, PyVM.ScopeOver(globals), localsMapping);
-            return vm.ExecuteExpression(codeObject, globals, locals);
+            var namespaceLocals = localsMapping ?? (ReferenceEquals(locals, globals) ? null : locals);
+            if (namespaceLocals != null)
+                return vm.ExecuteWithNamespace(codeObject, PyVM.ScopeOver(globals), namespaceLocals);
+            return vm.ExecuteModule(codeObject, PyVM.ScopeOver(globals));
         }
 
         private static PyObject CallCompile(PyObject[] args, PyDict kwargs = null)
@@ -1463,15 +1466,11 @@ namespace SharpPy
                 PyVM.Instance.ExecuteWithClosure(codeObject, scopeChain, cellArray);
                 return PyNone.Instance;
             }
-            if (localsMapping != null)
-            {
-                PyVM.Instance.ExecuteWithNamespace(codeObject, scopeChain, localsMapping);
-                return PyNone.Instance;
-            }
-            var localScope = PyVM.PushLocals(scopeChain, globals, locals);
-            PyVM.Instance.ExecuteModule(codeObject, scopeChain);
-            PyVM.StoreLocals(localScope, locals);
-
+            var namespaceLocals = localsMapping ?? (ReferenceEquals(locals, globals) ? null : locals);
+            if (namespaceLocals != null)
+                PyVM.Instance.ExecuteWithNamespace(codeObject, scopeChain, namespaceLocals);
+            else
+                PyVM.Instance.ExecuteModule(codeObject, scopeChain);
             return PyNone.Instance;
         }
 
