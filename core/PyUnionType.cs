@@ -66,7 +66,8 @@ namespace SharpPy
         // is_unionable
         private static bool IsUnionable(PyObject value) =>
             value is PyNone or PyType or PyGenericAlias or PyUnionType ||
-            value.GetPyType().Name == "TypeAliasType";
+            // Py_IS_TYPE(obj, &_PyTypeAlias_Type)
+            ReferenceEquals(value.GetPyType(), PyImportSystem.Import("_typing").GetAttribute("TypeAliasType"));
 
         private static void Append(List<PyObject> parts, PyObject value)
         {

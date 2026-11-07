@@ -5600,17 +5600,8 @@ namespace SharpPy
 
         // 이항 연산 (기존 타입 시스템 활용)
         // CPython 3.12+ unified binary operation executor
-        // str instance test including str subclasses (CPython PyUnicode_Check semantics).
-        // Used only on the final binop-failure path, so the MRO walk cost is irrelevant.
-        private static bool IsStrLikeInstance(PyObject o)
-        {
-            if (o is PyString) return true;
-            var mro = o.GetPyType()?.MRO;
-            if (mro == null) return false;
-            for (int i = 0; i < mro.Count; i++)
-                if (mro[i].Name == "str") return true;
-            return false;
-        }
+        // PyUnicode_Check: a str subclass instance is a str.
+        private static bool IsStrLikeInstance(PyObject o) => o is PyString;
 
         // unpack_iterable (Python/ceval.c)
         private static Exception UnpackCountError(int expected, int got) => PyValueError.Create(got < expected
@@ -6552,7 +6543,9 @@ namespace SharpPy
             var parameters = new List<PyObject>();
             foreach (var parameter in ((PyTuple)arg).Items)
             {
-                if (parameter.GetTypeName() == "TypeVarTuple") parameters.Add(parameter.GetIterator().Next());
+                // unpack_typevartuples: Py_IS_TYPE(param, typevartuple_type) gives *param.
+                if (ReferenceEquals(parameter.GetPyType(), PyImportSystem.Import("_typing").GetAttribute("TypeVarTuple")))
+                    parameters.Add(parameter.GetIterator().Next());
                 else parameters.Add(parameter);
             }
             return typing.GetAttribute("_generic_class_getitem").Call(
@@ -7102,21 +7095,8 @@ namespace SharpPy
         // is the raised class itself OR appears anywhere in its MRO. Reference identity
         // is authoritative; name is a fallback only for identical names across modules.
 
-        // CPython 3.12: an exception class is any class whose MRO contains BaseException.
-        // Used to decide whether `raise SomeClass` (bare) may instantiate and raise it,
-        // including multi-level user subclasses (Child -> Mid -> Exception).
-        private static bool DerivesFromBaseException(PyType? t)
-        {
-            if (t == null) return false;
-            var mro = t.MRO;
-            if (mro == null) return ReferenceEquals(t, PyType.BaseExceptionType);
-            for (int i = 0; i < mro.Count; i++)
-            {
-                if (ReferenceEquals(mro[i], PyType.BaseExceptionType) || mro[i].Name == "BaseException")
-                    return true;
-            }
-            return false;
-        }
+        // PyExceptionClass_Check: a type whose MRO holds BaseException.
+        private static bool DerivesFromBaseException(PyType? t) => t != null && t.IsSubclassOf(PyType.BaseExceptionType);
 
         // CPython 3.12: Python/errors.c:330-358 - PyErr_GivenExceptionMatches
         // Checks if exception instance is of expected type (using C# subtype checking)

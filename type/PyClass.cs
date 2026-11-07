@@ -907,13 +907,6 @@ namespace SharpPy
             return $"<{InstanceType.Name} instance at {PyObjectId.Pointer(this)}>";
         }
 
-        private bool IsExceptionClass()
-        {
-            // Check if this class inherits from Exception
-            return InstanceType.Name.EndsWith("Error", StringComparison.Ordinal) ||
-                   InstanceType.Name == "Exception" ||
-                   InstanceType.BaseTypes.Any(bt => bt.Name == "Exception" || bt.Name == "BaseException");
-        }
 
         public override PyType GetPyType() => InstanceType;
         public override string GetTypeName() => InstanceType.Name;

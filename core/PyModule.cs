@@ -903,7 +903,7 @@ public class PyModule : PyObject
         /// importlib/_bootstrap.py:1020-1040 - _handle_fromlist implementation
         /// </summary>
         private static bool IsMissing(PythonException error, string fullName) =>
-            error.PyException.GetTypeName() == "ModuleNotFoundError" && error.Message.Contains($"'{fullName}'");
+            error.PyException.GetPyType().IsSubclassOf(PyType.ModuleNotFoundErrorType) && error.Message.Contains($"'{fullName}'");
 
         private static void HandleFromList(PyModule module, string[] fromlist)
         {
