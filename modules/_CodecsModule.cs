@@ -206,80 +206,39 @@ namespace SharpPy.Modules
         /// and bytes.decode() use. Measured: codecs.getdecoder("utf-16")(b"\xff\xfea\x00") is
         /// ("a", 4) - the mark is consumed, not decoded.
         /// </summary>
-        private enum Unit { Whole, Utf8, Utf16Le, Utf16Be, Utf32 }
-
-        // Of a decode that is not final, the bytes at the end that may begin a character still to come.
-        private static int Incomplete(byte[] data, int start, Unit unit)
-        {
-            int length = data.Length - start;
-            switch (unit)
-            {
-                case Unit.Utf8:
-                    for (int back = 1; back <= Math.Min(3, length); back++)
-                    {
-                        int lead = data[data.Length - back];
-                        if ((lead & 0xC0) == 0x80)
-                            continue;
-                        int need = lead >= 0xF0 && lead <= 0xF4 ? 4 : lead >= 0xE0 ? 3 : lead >= 0xC2 && lead < 0xE0 ? 2 : 0;
-                        if (need <= back)
-                            return 0;
-                        // unicode_decode_utf8: a truncated surrogate waits for a handler that may take it.
-                        if (back == 2 && lead == 0xED && data[data.Length - 1] >= 0xA0)
-                            return back;
-                        if (back >= 2)
-                        {
-                            int second = data[data.Length - back + 1];
-                            bool valid = lead switch
-                            {
-                                0xE0 => second >= 0xA0,
-                                0xED => second <= 0x9F,
-                                0xF0 => second >= 0x90,
-                                0xF4 => second <= 0x8F,
-                                _ => true,
-                            };
-                            if (!valid)
-                                return 0;
-                        }
-                        return back;
-                    }
-                    return 0;
-                case Unit.Utf16Le:
-                case Unit.Utf16Be:
-                {
-                    int odd = length % 2;
-                    if (length - odd >= 2)
-                    {
-                        int at = data.Length - odd - 2;
-                        int high = unit == Unit.Utf16Le ? data[at + 1] : data[at];
-                        if (high >= 0xD8 && high <= 0xDB)
-                            return odd + 2;
-                    }
-                    return odd;
-                }
-                case Unit.Utf32:
-                    return length % 4;
-                default:
-                    return 0;
-            }
-        }
-
         private static byte[] BufferArgument(PyObject[] args, string name) =>
             BytesMethods.Buffer(args[0]) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
 
-        private static PyObject Decoded(PyObject[] args, string codec, string name, Unit unit = Unit.Whole, int start = 0)
+        private static PyObject Decoded(PyObject[] args, string codec, string name)
         {
             if (args.Length < 1)
                 throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
             var data = BufferArgument(args, name);
-            string errors = args.Length > 1 && args[1] is PyString errorName ? errorName.Value : null;
-            bool final = unit == Unit.Whole || (args.Length > 2 && args[2].IsTrue());
-            int end = data.Length - (final ? 0 : Incomplete(data, start, unit));
-            var part = start == 0 && end == data.Length ? data : data.AsSpan(start, end - start).ToArray();
-            string decoded = PyStringNewArguments.DecodeBytes(part, codec, errors);
-            return new PyTuple(new PyObject[] { new PyString(decoded), new PyInt(end) });
+            string decoded = PyStringNewArguments.DecodeBytes(data, codec, ErrorsOf(args, 1));
+            return new PyTuple(new PyObject[] { new PyString(decoded), new PyInt(data.Length) });
         }
 
-        // utf_16_ex_decode and utf_32_ex_decode: the byte order mark decides, then the order is kept.
+        // utf_8_decode(data, errors=None, final=False): what the decoder consumed.
+        private static PyObject DecodedUtf8(PyObject[] args, string name)
+        {
+            if (args.Length < 1)
+                throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
+            var data = BufferArgument(args, name);
+            bool final = args.Length > 2 && args[2].IsTrue();
+            string decoded = PyBytes.DecodeUtf8(data, ErrorsOf(args, 1), final, out int consumed);
+            return new PyTuple(new PyObject[] { new PyString(decoded), new PyInt(consumed) });
+        }
+
+        // utf_16/utf_32 (_le, _be, _ex) decoding: the byte order given, or the mark's when it is 0.
+        private static (PyString Text, int Consumed, int Order) DecodedUtfWide(byte[] data, string errors, int order, bool final, int width)
+        {
+            int consumed;
+            string text = width == 2
+                ? PyBytes.DecodeUtf16(data, errors, ref order, final, out consumed)
+                : PyBytes.DecodeUtf32(data, errors, ref order, final, out consumed);
+            return (new PyString(text), consumed, order);
+        }
+
         private static PyObject DecodedWithOrder(PyObject[] args, string name, int width)
         {
             if (args.Length < 1)
@@ -287,39 +246,18 @@ namespace SharpPy.Modules
             var data = BufferArgument(args, name);
             int order = args.Length > 2 ? args[2].ToInt() : 0;
             bool final = args.Length > 3 && args[3].IsTrue();
-            int start = 0;
-            if (order == 0)
-            {
-                if (data.Length < width && !final)
-                    return new PyTuple(new PyObject[] { new PyString(""), new PyInt(0), new PyInt(0) });
-                bool little = width == 2 ? data.Length >= 2 && data[0] == 0xFF && data[1] == 0xFE
-                    : data.Length >= 4 && data[0] == 0xFF && data[1] == 0xFE && data[2] == 0 && data[3] == 0;
-                bool big = width == 2 ? data.Length >= 2 && data[0] == 0xFE && data[1] == 0xFF
-                    : data.Length >= 4 && data[0] == 0 && data[1] == 0 && data[2] == 0xFE && data[3] == 0xFF;
-                if (little || big)
-                {
-                    start = width;
-                    order = little ? -1 : 1;
-                }
-            }
-            bool bigEndian = order == 1;
-            string codec = width == 2 ? (bigEndian ? "utf-16-be" : "utf-16-le") : (bigEndian ? "utf-32-be" : "utf-32-le");
-            var unit = width == 4 ? Unit.Utf32 : bigEndian ? Unit.Utf16Be : Unit.Utf16Le;
-            var forwarded = new PyObject[] { args[0], args.Length > 1 ? args[1] : new PyString("strict"), PyBool.FromBool(final) };
-            var result = (PyTuple)Decoded(forwarded, codec, name, unit, start);
-            return new PyTuple(new PyObject[] { result.Items[0], result.Items[1], new PyInt(order) });
+            var (text, consumed, found) = DecodedUtfWide(data, ErrorsOf(args, 1), order, final, width);
+            return new PyTuple(new PyObject[] { text, new PyInt(consumed), new PyInt(found) });
         }
 
-        // utf_16_decode: the order mark of the start, or native order.
-        private static PyObject DecodedByMark(PyObject[] args, string name, int width)
+        private static PyObject DecodedFixed(PyObject[] args, string name, int width, int order)
         {
-            var forwarded = new PyObject[]
-            {
-                args.Length > 0 ? args[0] : throw PyTypeError.Create($"{name} expected at least 1 argument, got 0"),
-                args.Length > 1 ? args[1] : new PyString("strict"), new PyInt(0), args.Length > 2 ? args[2] : PyBool.False,
-            };
-            var result = (PyTuple)DecodedWithOrder(forwarded, name, width);
-            return new PyTuple(new PyObject[] { result.Items[0], result.Items[1] });
+            if (args.Length < 1)
+                throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
+            var data = BufferArgument(args, name);
+            bool final = args.Length > 2 && args[2].IsTrue();
+            var (text, consumed, _) = DecodedUtfWide(data, ErrorsOf(args, 1), order, final, width);
+            return new PyTuple(new PyObject[] { text, new PyInt(consumed) });
         }
 
         private static PyObject Encoded(PyObject[] args, string codec, string name)
@@ -353,7 +291,7 @@ namespace SharpPy.Modules
             if (args.Length < 1 || args.Length > 3)
                 throw PyTypeError.Create($"utf_8_decode() takes 1 to 3 arguments ({args.Length} given)");
 
-            return Decoded(args, "utf-8", "utf_8_decode", Unit.Utf8);
+            return DecodedUtf8(args, "utf_8_decode");
         }
 
         // UTF-16 encoding
@@ -366,7 +304,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf16Decode(PyObject[] args, PyDict kwargs = null)
         {
-            return DecodedByMark(args, "utf_16_decode", 2);
+            return DecodedFixed(args, "utf_16_decode", 2, 0);
         }
 
         private static PyObject PyUtf16LeEncode(PyObject[] args, PyDict kwargs = null)
@@ -378,7 +316,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf16LeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            return Decoded(args, "utf-16-le", "utf_16_le_decode", Unit.Utf16Le);
+            return DecodedFixed(args, "utf_16_le_decode", 2, -1);
         }
 
         private static PyObject PyUtf16BeEncode(PyObject[] args, PyDict kwargs = null)
@@ -390,7 +328,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf16BeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            return Decoded(args, "utf-16-be", "utf_16_be_decode", Unit.Utf16Be);
+            return DecodedFixed(args, "utf_16_be_decode", 2, 1);
         }
 
         private static PyObject PyUtf16ExDecode(PyObject[] args, PyDict kwargs = null)
@@ -408,7 +346,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf32Decode(PyObject[] args, PyDict kwargs = null)
         {
-            return DecodedByMark(args, "utf_32_decode", 4);
+            return DecodedFixed(args, "utf_32_decode", 4, 0);
         }
 
         private static PyObject PyUtf32LeEncode(PyObject[] args, PyDict kwargs = null)
@@ -418,7 +356,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf32LeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            return Decoded(args, "utf-32-le", "utf_32_le_decode", Unit.Utf32);
+            return DecodedFixed(args, "utf_32_le_decode", 4, -1);
         }
 
         private static PyObject PyUtf32BeEncode(PyObject[] args, PyDict kwargs = null)
@@ -430,7 +368,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf32BeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            return Decoded(args, "utf-32-be", "utf_32_be_decode", Unit.Utf32);
+            return DecodedFixed(args, "utf_32_be_decode", 4, 1);
         }
 
         private static PyObject PyUtf32ExDecode(PyObject[] args, PyDict kwargs = null)

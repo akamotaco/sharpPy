@@ -29,9 +29,18 @@ namespace SharpPy
         /// unicode_decode_utf8). Errors are reported at the sequence start byte;
         /// truncated sequences report "unexpected end of data" with a byte range.
         /// </summary>
-        internal static string DecodeUtf8Python(byte[] data, string errors)
+                /// <summary>
+        /// unicode_decode_utf8 (Objects/unicodeobject.c), _PyUnicode_DecodeUTF8Stateful when not final:
+        /// a lead byte, then each continuation byte checked against the range its position allows
+        /// (E0 A0.., ED ..9F, F0 90.., F4 ..8F). A bad one is "invalid continuation byte" over the
+        /// lead and the good ones before it; the end of the data inside a sequence is "unexpected
+        /// end of data", or, when not final, where decoding stops.
+        /// </summary>
+        internal static string DecodeUtf8Python(byte[] data, string errors) => DecodeUtf8(data, errors, true, out _);
+
+        internal static string DecodeUtf8(byte[] data, string errors, bool final, out int consumed)
         {
-            var sb = new System.Text.StringBuilder();
+            var sb = new System.Text.StringBuilder(data.Length);
             int i = 0;
             int n = data.Length;
             while (i < n)
@@ -53,12 +62,10 @@ namespace SharpPy
                     continue;
                 }
 
-                int extra;      // continuation bytes required
-                uint minCp;     // range guards
-                uint maxCp;
-                if (b0 >= 0xC2 && b0 <= 0xDF) { extra = 1; minCp = 0x80; maxCp = 0x7FF; }
-                else if (b0 >= 0xE0 && b0 <= 0xEF) { extra = 2; minCp = 0x800; maxCp = 0xFFFF; }
-                else if (b0 >= 0xF0 && b0 <= 0xF4) { extra = 3; minCp = 0x10000; maxCp = 0x10FFFF; }
+                int extra;
+                if (b0 >= 0xC2 && b0 <= 0xDF) extra = 1;
+                else if (b0 >= 0xE0 && b0 <= 0xEF) extra = 2;
+                else if (b0 >= 0xF0 && b0 <= 0xF4) extra = 3;
                 else
                 {
                     i = HandleDecodeError(ref data, i, i + 1, errors, sb, "invalid start byte");
@@ -66,59 +73,46 @@ namespace SharpPy
                     continue;
                 }
 
-                if (i + extra >= n)
-                {
-                    // Truncated: all continuation bytes that exist must still be valid
-                    for (int k = 1; k < n - i; k++)
-                    {
-                        if ((data[i + k] & 0xC0) != 0x80)
-                        {
-                            i = HandleDecodeError(ref data, i, i + 1, errors, sb, "invalid continuation byte");
-                            n = data.Length;
-                            goto nextInput;
-                        }
-                    }
-                    i = HandleDecodeError(ref data, i, n, errors, sb, "unexpected end of data");
-                    n = data.Length;
-                    continue;
-                }
-
-                bool ok = true;
-                uint cp = (uint)(b0 & (0x7F >> extra));
-                for (int k = 1; k <= extra; k++)
+                int k = 1;
+                for (; k <= extra && i + k < n; k++)
                 {
                     byte bk = data[i + k];
                     byte lo = 0x80, hi = 0xBF;
                     if (k == 1)
                     {
-                        if (b0 == 0xE0) lo = 0xA0;         // overlong guard
-                        else if (b0 == 0xED) hi = 0x9F;    // surrogate guard
-                        else if (b0 == 0xF0) lo = 0x90;
-                        else if (b0 == 0xF4) hi = 0x8F;
+                        if (b0 == 0xE0) lo = 0xA0;         // overlong
+                        else if (b0 == 0xED) hi = 0x9F;    // surrogate
+                        else if (b0 == 0xF0) lo = 0x90;    // overlong
+                        else if (b0 == 0xF4) hi = 0x8F;    // past U+10FFFF
                     }
-                    if (bk < lo || bk > hi) { ok = false; break; }
-                    cp = (cp << 6) | (uint)(bk & 0x3F);
+                    if (bk < lo || bk > hi) break;
                 }
-                if (!ok || cp < minCp || cp > maxCp)
+                if (k <= extra)
                 {
-                    i = HandleDecodeError(ref data, i, i + 1, errors, sb, "invalid continuation byte");
+                    if (i + k >= n)
+                    {
+                        // Every byte there is good, and the data ends inside the sequence.
+                        if (!final) break;
+                        i = HandleDecodeError(ref data, i, n, errors, sb, "unexpected end of data");
+                    }
+                    else
+                    {
+                        // A truncated surrogate waits for more when not final: surrogatepass may take it.
+                        if (!final && b0 == 0xED && n - i == 2 && data[i + 1] >= 0xA0 && data[i + 1] <= 0xBF)
+                            break;
+                        i = HandleDecodeError(ref data, i, i + k, errors, sb, "invalid continuation byte");
+                    }
                     n = data.Length;
                     continue;
                 }
 
-                if (cp <= 0xFFFF)
-                {
-                    sb.Append((char)cp);
-                }
-                else
-                {
-                    cp -= 0x10000;
-                    sb.Append((char)(0xD800 + (cp >> 10)));
-                    sb.Append((char)(0xDC00 + (cp & 0x3FF)));
-                }
+                int cp = b0 & (0x7F >> extra);
+                for (int m = 1; m <= extra; m++) cp = (cp << 6) | (data[i + m] & 0x3F);
+                if (cp <= 0xFFFF) sb.Append((char)cp);
+                else sb.Append(char.ConvertFromUtf32(cp));
                 i += extra + 1;
-                nextInput: ;
             }
+            consumed = i;
             return sb.ToString();
         }
 
@@ -127,14 +121,17 @@ namespace SharpPy
         /// read from a byte-order mark (consumed) and little-endian without one. Errors name
         /// utf-16-le or utf-16-be and count positions from the start of the data.
         /// </summary>
-        internal static string DecodeUtf16Python(byte[] data, string errors, int byteorder)
+        internal static string DecodeUtf16Python(byte[] data, string errors, int byteorder) =>
+            DecodeUtf16(data, errors, ref byteorder, true, out _);
+
+        // byteorder comes back as the mark set it, 0 when there was none (native order decoded).
+        internal static string DecodeUtf16(byte[] data, string errors, ref int byteorder, bool final, out int consumed)
         {
             int i = 0;
-            if (byteorder == 0)
+            if (byteorder == 0 && data.Length >= 2)
             {
-                if (data.Length >= 2 && data[0] == 0xFF && data[1] == 0xFE) { byteorder = -1; i = 2; }
-                else if (data.Length >= 2 && data[0] == 0xFE && data[1] == 0xFF) { byteorder = 1; i = 2; }
-                else byteorder = -1;
+                if (data[0] == 0xFF && data[1] == 0xFE) { byteorder = -1; i = 2; }
+                else if (data[0] == 0xFE && data[1] == 0xFF) { byteorder = 1; i = 2; }
             }
             bool big = byteorder > 0;
             string encoding = big ? "utf-16-be" : "utf-16-le";
@@ -145,6 +142,7 @@ namespace SharpPy
                 int n = data.Length;
                 if (n - i < 2)
                 {
+                    if (!final) break;
                     i = HandleDecodeError(ref data, i, n, errors, sb, "truncated data", encoding);
                     continue;
                 }
@@ -164,6 +162,7 @@ namespace SharpPy
                 }
                 else if (n - i < 4)
                 {
+                    if (!final) break;
                     reason = "unexpected end of data";
                     end = n;
                 }
@@ -188,18 +187,21 @@ namespace SharpPy
                 }
                 i = HandleDecodeError(ref data, i, end, errors, sb, reason, encoding);
             }
+            consumed = i;
             return sb.ToString();
         }
 
         /// <summary>_PyUnicode_DecodeUTF32Stateful, with the byte orders of DecodeUtf16Python.</summary>
-        internal static string DecodeUtf32Python(byte[] data, string errors, int byteorder)
+        internal static string DecodeUtf32Python(byte[] data, string errors, int byteorder) =>
+            DecodeUtf32(data, errors, ref byteorder, true, out _);
+
+        internal static string DecodeUtf32(byte[] data, string errors, ref int byteorder, bool final, out int consumed)
         {
             int i = 0;
-            if (byteorder == 0)
+            if (byteorder == 0 && data.Length >= 4)
             {
-                if (data.Length >= 4 && data[0] == 0xFF && data[1] == 0xFE && data[2] == 0 && data[3] == 0) { byteorder = -1; i = 4; }
-                else if (data.Length >= 4 && data[0] == 0 && data[1] == 0 && data[2] == 0xFE && data[3] == 0xFF) { byteorder = 1; i = 4; }
-                else byteorder = -1;
+                if (data[0] == 0xFF && data[1] == 0xFE && data[2] == 0 && data[3] == 0) { byteorder = -1; i = 4; }
+                else if (data[0] == 0 && data[1] == 0 && data[2] == 0xFE && data[3] == 0xFF) { byteorder = 1; i = 4; }
             }
             bool big = byteorder > 0;
             string encoding = big ? "utf-32-be" : "utf-32-le";
@@ -209,6 +211,7 @@ namespace SharpPy
                 int n = data.Length;
                 if (n - i < 4)
                 {
+                    if (!final) break;
                     i = HandleDecodeError(ref data, i, n, errors, sb, "truncated data", encoding);
                     continue;
                 }
@@ -235,6 +238,7 @@ namespace SharpPy
                 else sb.Append((char)cp);
                 i += 4;
             }
+            consumed = i;
             return sb.ToString();
         }
 
