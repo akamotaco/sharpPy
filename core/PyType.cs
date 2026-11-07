@@ -1990,7 +1990,16 @@ namespace SharpPy
             // visible through GenericGetAttribute/MRO for builtin instances too.
             objectType.TypeDict["__class__"] = new PyGetSetDescriptor("__class__", objectType,
                 self => self.GetPyType(),
-                (self, value) => throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses"));
+                (self, value) =>
+                {
+                    // object_set_class: both types heap types with compatible layouts.
+                    if (self.GetPyType() is PyClass current && self is not PyType)
+                    {
+                        self.SetCustomType(SubclassInstanceSupport.ClassAssignment(current, value));
+                        return;
+                    }
+                    throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses");
+                });
 
             // object.__format__(format_spec) - CPython 3.12: Objects/typeobject.c:6257 (object___format__)
             // Default implementation: if format_spec is empty, return str(self), else raise TypeError
@@ -3392,25 +3401,19 @@ namespace SharpPy
                         throw PyTypeError.Create(
                             $"BaseException.__new__({foreign}): {foreign} is not an exception class");
                     }
-                    // The type allocates itself. For a heap class that allocation is the instance
-                    // carrying the exception slots.
+                    // type->tp_alloc(type, 0): the struct of the type. A class written in Python has
+                    // the layout of its nearest builtin exception, with ob_type the class.
                     var created = wanted is PyClass heap
-                        ? (PyObject)new PyExceptionInstance(heap)
+                        ? PyExceptionSlots.Allocate(heap, args)
                         : wanted.CreateInstance(new PyObject[0], null);
-                    if (created is PyExceptionInstance instance && heapIsGroup(instance))
-                        PyBaseExceptionGroup.FillStruct(instance, args);
-                    else if (created is PyExceptionInstance plain)
-                        PyExceptionSlots.AllocateStruct(plain);
                     PyExceptionSlots.StoreArgs(created, args);
                     return created;
                 },
                 minArgs: 0,
                 maxArgs: int.MaxValue);
-            static bool heapIsGroup(PyExceptionInstance instance) => instance.InstanceType.IsSubclassOf(BaseExceptionGroupType);
 
-            // BaseException_getset: one table for builtin exceptions and Python subclasses, reading the one
-            // transport object. The value that comes out is always the object Python made.
-            static PyBaseException Head(PyObject self) => (PyBaseException)PyExceptionSlots.ToTransport(self);
+            // BaseException_getset: one table for builtin exceptions and Python subclasses.
+            static PyBaseException Head(PyObject self) => (PyBaseException)self;
             TypeDict["__traceback__"] = new PyGetSetDescriptor("__traceback__", this, self => Head(self).TracebackGet(),
                 (self, value) => Head(self).TracebackSet(value), deleter: self => Head(self).TracebackSet(null));
             TypeDict["__context__"] = new PyGetSetDescriptor("__context__", this, self => Head(self).ContextGet(),
@@ -3442,7 +3445,7 @@ namespace SharpPy
             TypeDict["with_traceback"] = new PyMethodDescriptor("with_traceback", this, (self, args, kwargs) =>
             {
                 // BaseException_with_traceback: PyException_SetTraceback.
-                ((PyBaseException)PyExceptionSlots.ToTransport(self)).TracebackSet(args[0]);
+                ((PyBaseException)self).TracebackSet(args[0]);
                 return self;
             }, 1, 1);
 

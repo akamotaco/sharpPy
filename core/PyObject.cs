@@ -565,8 +565,16 @@ namespace SharpPy
         /// <summary>tp_setattro of the CLR type: PyObject_GenericSetAttr by default.</summary>
         protected internal virtual void TpSetattro(string name, PyObject value)
         {
+            // object_set_class: a heap type to a compatible heap type.
             if (name == "__class__")
+            {
+                if (_customType is SharpPy.PyClass current && value != null)
+                {
+                    SetCustomType(SubclassInstanceSupport.ClassAssignment(current, value));
+                    return;
+                }
                 throw PyTypeError.Create(value is PyType ? "__class__ assignment only supported for mutable types or ModuleType subclasses" : $"__class__ must be set to a class, not '{value.GetTypeName()}' object");
+            }
 
             if (_customType is PyClass heap && this is not IDictBackedInstance)
                 SubclassInstanceSupport.GenericSetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, value);

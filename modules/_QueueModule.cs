@@ -134,7 +134,7 @@ namespace SharpPy.Modules
             }
 
             private static PyBaseException PyBaseExceptionOf(PyType type) =>
-                PyExceptionSlots.ToTransport(type.Call(Array.Empty<PyObject>(), null)) as PyBaseException;
+                type.Call(Array.Empty<PyObject>(), null) as PyBaseException;
         }
     }
 }

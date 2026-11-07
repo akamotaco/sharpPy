@@ -1647,7 +1647,7 @@ namespace SharpPy
             // CPython 3.12: Push exception instance to stack for PUSH_EXC_INFO
             // CPython ceval.c:985-986
             // PUSH_EXC_INFO will add prev_exc, transforming stack to: [..., lasti (if lasti=true), prev_exc, exc]
-            frame.ValueStack.Push(PyExceptionSlots.Visible(pyEx.PyException));
+            frame.ValueStack.Push(pyEx.PyException);
             #if DEBUG_LOG
             Console.WriteLine($"🔧 Exception handled: pushed exception instance to stack (depth={exceptionEntry.Depth}, lasti={exceptionEntry.Lasti})");
             #endif
@@ -1824,7 +1824,7 @@ namespace SharpPy
         // sys_trace_exception_func: 'exception' with (type, value, traceback).
         private void TraceRaised(PyFrame frame, PythonException raised)
         {
-            var value = PyExceptionSlots.Visible(raised.PyException);
+            var value = raised.PyException;
             TraceEvent(frame, "exception", new PyTuple(new[] { value.GetPyType(), value, value.GetAttribute("__traceback__") }));
         }
 
@@ -3364,7 +3364,7 @@ namespace SharpPy
                         // Normal loop termination - just discard both values
                         break;
                     }
-                    else if (PyExceptionSlots.ToTransport(asyncForExc) is PyBaseException asyncForException)
+                    else if (asyncForExc is PyBaseException asyncForException)
                     {
                         // Re-raise other exceptions
                         throw new PythonException(asyncForException);
@@ -4129,7 +4129,7 @@ namespace SharpPy
                         var prevExcValue = frame.ValueStack.Pop();
 
                         // bytecodes.c POP_EXCEPT: exc_info takes the value PUSH_EXC_INFO saved.
-                        var restored = prevExcValue is PyNone ? null : (PyBaseException)PyExceptionSlots.ToTransport(prevExcValue);
+                        var restored = prevExcValue is PyNone ? null : (PyBaseException)prevExcValue;
                         frame.CurrentException = restored;
 
                         #if DEBUG_LOG
@@ -4150,7 +4150,7 @@ namespace SharpPy
 
                 case ByteCodeOp.CLEANUP_THROW:
                     // CPython: (sub_iter, last_sent_val, exc -- None, value).
-                    var cleanupException = (PyBaseException)PyExceptionSlots.ToTransport(frame.ValueStack.Pop());
+                    var cleanupException = (PyBaseException)frame.ValueStack.Pop();
                     if (cleanupException is PyStopIteration stopped)
                     {
                         frame.ValueStack.Pop(); // last_sent_val
@@ -4282,7 +4282,7 @@ namespace SharpPy
                     }
 
                     // Update frame's current exception
-                    if (PyExceptionSlots.ToTransport(newExc) is PyBaseException pyExc)
+                    if (newExc is PyBaseException pyExc)
                     {
                         frame.CurrentException = pyExc;
                     }
@@ -4352,7 +4352,7 @@ namespace SharpPy
                     #endif
 
                     // Validate val is an exception
-                    if (!(PyExceptionSlots.ToTransport(val) is PyBaseException pyExcVal))
+                    if (!(val is PyBaseException pyExcVal))
                     {
                         #if DEBUG_LOG
                         Console.WriteLine($"❌ WITH_EXCEPT_START: val is not PyException, got {val?.GetType().Name}");
@@ -4482,7 +4482,7 @@ namespace SharpPy
                     // PyErr_SetHandledException(match): inside the clause, the handled exception
                     // is the matched part, not the group that arrived.
                     if (egMatch != null && egMatch is not PyNone &&
-                        PyExceptionSlots.ToTransport(egMatch) is PyBaseException handledPart)
+                        egMatch is PyBaseException handledPart)
                         frame.CurrentException = handledPart;
                     break;
 
@@ -4580,9 +4580,9 @@ namespace SharpPy
                         // If it's a PyExceptionInfo, extract the actual exception
                         if (exceptionOnStack is PyExceptionInfo reraiseExcInfo)
                         {
-                            exceptionToReraise = PyExceptionSlots.ToTransport(reraiseExcInfo.ExcValue) as PyBaseException;
+                            exceptionToReraise = reraiseExcInfo.ExcValue as PyBaseException;
                         }
-                        else if (PyExceptionSlots.ToTransport(exceptionOnStack) is PyBaseException directException)
+                        else if (exceptionOnStack is PyBaseException directException)
                         {
                             exceptionToReraise = directException;
                         }
@@ -6473,7 +6473,7 @@ namespace SharpPy
         private PyObject StopIterationError(PyObject exc)
         {
             // CPython: assert(PyExceptionInstance_Check(exc))
-            exc = PyExceptionSlots.ToTransport(exc);
+            exc = exc;
             if (exc is not PyBaseException exception)
             {
                 throw new InvalidOperationException("INTRINSIC_STOPITERATION_ERROR requires an exception instance");
@@ -6632,7 +6632,7 @@ namespace SharpPy
 
             if (entries.Length == 0) return PyNone.Instance;
 
-            var originalGroup = PyBaseExceptionGroup.Of(PyExceptionSlots.Visible(original));
+            var originalGroup = PyBaseExceptionGroup.Of(original);
             if (originalGroup == null)
             {
                 // A naked exception was caught and wrapped, so at most one except* clause ran.
@@ -6670,7 +6670,7 @@ namespace SharpPy
                                                 out PyObject match, out PyObject rest)
         {
             if (excValue is PyExceptionInfo info) excValue = info.ExcValue;
-            excValue = PyExceptionSlots.Visible(excValue);
+            excValue = excValue;
 
             // check_except_star_type_valid: match_type is a class or a tuple of classes that
             // inherit BaseException, otherwise "catching classes that do not inherit from
@@ -7153,21 +7153,21 @@ namespace SharpPy
             if (IsExceptionClass(exc))
             {
                 value = exc.Call(Array.Empty<PyObject>(), null);
-                if (PyExceptionSlots.ToTransport(value) is not PyBaseException)
+                if (value is not PyBaseException)
                     throw PyTypeError.Create($"calling {exc.ToRepr().Value} should have returned an instance of BaseException, not {value.GetPyType().ToRepr().Value}");
             }
             else
             {
                 value = exc;
             }
-            if (PyExceptionSlots.ToTransport(value) is not PyBaseException raised)
+            if (value is not PyBaseException raised)
                 throw PyTypeError.Create("exceptions must derive from BaseException");
 
             if (cause != null)
             {
                 if (IsExceptionClass(cause))
                     cause = cause.Call(Array.Empty<PyObject>(), null);
-                if (PyExceptionSlots.ToTransport(cause) is PyBaseException causeException)
+                if (cause is PyBaseException causeException)
                     raised.__cause__ = causeException;
                 else if (cause is PyNone)
                     raised.__cause__ = null;

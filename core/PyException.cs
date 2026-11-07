@@ -68,8 +68,8 @@ namespace SharpPy
             Message = args.Length > 0 && args[0] is PyString text ? text.Value : "";
         }
 
-        public override PyType GetPyType() => PyType.BaseExceptionType;
-        public override string GetTypeName() => "BaseException";
+        public override PyType GetPyType() => _customType ?? PyType.BaseExceptionType;
+        public override string GetTypeName() => _customType?.Name ?? "BaseException";
 
         // BaseException_str (Objects/exceptions.c:79) and BaseException_repr (:131) both read the
         // args slot, so they read it through PyExceptionSlots.ArgsOf like the member descriptor
@@ -142,24 +142,24 @@ namespace SharpPy
         }
 
         // BaseException_get_context / BaseException_set_context
-        internal PyObject ContextGet() => PyExceptionSlots.Visible(__context__) ?? PyNone.Instance;
+        internal PyObject ContextGet() => (PyObject)__context__ ?? PyNone.Instance;
         internal void ContextSet(PyObject value)
         {
             if (value == null)
                 throw PyTypeError.Create("__context__ may not be deleted");
             if (value is PyNone) __context__ = null;
-            else if (PyExceptionSlots.ToTransport(value) is PyBaseException exc) __context__ = exc;
+            else if (value is PyBaseException exc) __context__ = exc;
             else throw PyTypeError.Create("exception context must be None or derive from BaseException");
         }
 
         // BaseException_get_cause / BaseException_set_cause; PyException_SetCause sets suppress_context.
-        internal PyObject CauseGet() => PyExceptionSlots.Visible(__cause__) ?? PyNone.Instance;
+        internal PyObject CauseGet() => (PyObject)__cause__ ?? PyNone.Instance;
         internal void CauseSet(PyObject value)
         {
             if (value == null)
                 throw PyTypeError.Create("__cause__ may not be deleted");
             if (value is PyNone) __cause__ = null;
-            else if (PyExceptionSlots.ToTransport(value) is PyBaseException exc) __cause__ = exc;
+            else if (value is PyBaseException exc) __cause__ = exc;
             else throw PyTypeError.Create("exception cause must be None or derive from BaseException");
             __suppress_context__ = true;
         }
@@ -190,92 +190,12 @@ namespace SharpPy
     /// </summary>
     public class PyException : PyBaseException
     {
-        public PyClass? OriginalClass { get; set; } // Store original user-defined class
-        public PyClassInstance? OriginalInstance { get; set; } // Store original user-defined instance
-
         public PyException(string message = "", params PyObject[] args) : base(message, args) { }
 
         protected internal PyException(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
 
-        // Constructor for wrapping user-defined exceptions with class info
-        public PyException(string message, PyClass? originalClass) : base(message)
-        {
-            OriginalClass = originalClass;
-        }
-
-        // Constructor for wrapping user-defined exception instances
-        public PyException(string message, PyClass? originalClass, PyClassInstance? originalInstance) : base(message)
-        {
-            OriginalClass = originalClass;
-            OriginalInstance = originalInstance;
-            // CPython 3.12: BaseException.__init__ stores the *constructor* arguments as
-            // __args__ (raise E -> (), raise E("x") -> ("x",)), not the instance repr.
-            // str()/repr() still delegate to OriginalInstance below.
-            if (originalInstance != null)
-            {
-                Args = PyExceptionSlots.ArgsOf(originalInstance);
-            }
-        }
-
-        public override PyType GetPyType() => OriginalClass ?? PyType.ExceptionType;
-        public override string GetTypeName() => OriginalClass?.Name ?? "Exception";
-
-        // CPython 3.12: Objects/exceptions.c:79-105 (BaseException_str)
-        // For user-defined exceptions, delegate ToStr() to OriginalInstance
-        // This ensures BaseException.__str__ descriptor is properly invoked
-        protected internal override PyString Str()
-        {
-            // CPython 3.12: User-defined exception instances use __str__ method from class hierarchy
-            if (OriginalInstance != null)
-            {
-                return OriginalInstance.ToStr();
-            }
-
-            // CPython 3.12: C-level exceptions use Args-based string representation
-            return (PyString)base.Str();
-        }
-
-        // CPython 3.12: Objects/exceptions.c:42-849
-        // Exception attribute lookup follows standard descriptor protocol
-        // User-defined exception instances delegate ALL attribute access to OriginalInstance
-        // This ensures descriptors (like BaseException.args) are properly invoked
-        protected internal override PyObject TpGetattro(string name)
-        {
-            // CPython 3.12: Exception chaining attributes are stored on the exception wrapper,
-            // not on the user-defined instance. Check these first before delegating.
-            // Corresponds to BaseException attributes in Objects/exceptions.c:785-795
-            switch (name)
-            {
-                case "args":
-                    // One slot, on the instance the wrapper carries. There is no second store on the
-                    // wrapper that could disagree with it.
-                    if (OriginalInstance != null)
-                    {
-                        return PyExceptionSlots.ArgsTuple(this);
-                    }
-                    return base.TpGetattro(name);
-                case "__cause__":
-                case "__context__":
-                case "__suppress_context__":
-                case "__traceback__":
-                    // These are exception-specific attributes stored on the wrapper
-                    return base.TpGetattro(name);
-            }
-
-            // CPython 3.12: Objects/exceptions.c:42-849
-            // For user-defined exceptions (Python classes inheriting from Exception),
-            // delegate remaining attribute access to the original PyClassInstance
-            // This ensures proper descriptor protocol and MRO traversal for custom attributes
-            if (OriginalInstance != null)
-            {
-                return OriginalInstance.GetAttribute(name);
-            }
-
-            // CPython 3.12: Objects/exceptions.c:785-795
-            // For C-level exceptions (PyBaseException), use standard attribute lookup
-            // This includes built-in exception types like TypeError, ValueError, etc.
-            return base.TpGetattro(name);
-        }
+        public override PyType GetPyType() => _customType ?? PyType.ExceptionType;
+        public override string GetTypeName() => _customType?.Name ?? "Exception";
 
         public new static System.Exception Create(string message = "")
         {
@@ -294,8 +214,8 @@ namespace SharpPy
         internal PyTypeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyTypeError(string message) : base(message) { }
-        public override PyType GetPyType() => PyType.TypeErrorType;
-        public override string GetTypeName() => "TypeError";
+        public override PyType GetPyType() => _customType ?? PyType.TypeErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "TypeError";
 
         public new static System.Exception Create(string message)
         {
@@ -309,8 +229,8 @@ namespace SharpPy
         internal PyValueError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyValueError(string message) : base(message) { }
-        public override PyType GetPyType() => PyType.ValueErrorType;
-        public override string GetTypeName() => "ValueError";
+        public override PyType GetPyType() => _customType ?? PyType.ValueErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "ValueError";
 
         public new static System.Exception Create(string message)
         {
@@ -383,8 +303,8 @@ namespace SharpPy
             return base.TrySetMember(name, value);
         }
 
-        public override PyType GetPyType() => PyType.AttributeErrorType;
-        public override string GetTypeName() => "AttributeError";
+        public override PyType GetPyType() => _customType ?? PyType.AttributeErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "AttributeError";
 
         public new static System.Exception Create(string message)
         {
@@ -431,8 +351,8 @@ namespace SharpPy
             return base.TrySetMember(name, value);
         }
 
-        public override PyType GetPyType() => PyType.NameErrorType;
-        public override string GetTypeName() => "NameError";
+        public override PyType GetPyType() => _customType ?? PyType.NameErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "NameError";
 
         public new static System.Exception Create(string message)
         {
@@ -452,8 +372,8 @@ namespace SharpPy
         internal PyUnboundLocalError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyUnboundLocalError(string message) : base(message) { }
-        public override PyType GetPyType() => PyType.UnboundLocalErrorType;
-        public override string GetTypeName() => "UnboundLocalError";
+        public override PyType GetPyType() => _customType ?? PyType.UnboundLocalErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "UnboundLocalError";
 
         public new static System.Exception Create(string message)
         {
@@ -468,8 +388,8 @@ namespace SharpPy
         internal PyArithmeticError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyArithmeticError(string message = "") : base(message) { }
-        public override PyType GetPyType() => PyType.ArithmeticErrorType;
-        public override string GetTypeName() => "ArithmeticError";
+        public override PyType GetPyType() => _customType ?? PyType.ArithmeticErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "ArithmeticError";
 
         public new static System.Exception Create(string message = "")
         {
@@ -482,8 +402,8 @@ namespace SharpPy
     {
         internal PyFloatingPointError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
         public PyFloatingPointError(string message = "") : base(message) { }
-        public override PyType GetPyType() => PyType.FloatingPointErrorType;
-        public override string GetTypeName() => "FloatingPointError";
+        public override PyType GetPyType() => _customType ?? PyType.FloatingPointErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "FloatingPointError";
     }
 
     public class PyZeroDivisionError : PyArithmeticError
@@ -491,8 +411,8 @@ namespace SharpPy
         internal PyZeroDivisionError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyZeroDivisionError(string message = "division by zero") : base(message) { }
-        public override PyType GetPyType() => PyType.ZeroDivisionErrorType;
-        public override string GetTypeName() => "ZeroDivisionError";
+        public override PyType GetPyType() => _customType ?? PyType.ZeroDivisionErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "ZeroDivisionError";
 
         public new static System.Exception Create(string message = "division by zero")
         {
@@ -506,8 +426,8 @@ namespace SharpPy
         internal PyOverflowError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyOverflowError(string message = "math range error") : base(message) { }
-        public override PyType GetPyType() => PyType.OverflowErrorType;
-        public override string GetTypeName() => "OverflowError";
+        public override PyType GetPyType() => _customType ?? PyType.OverflowErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "OverflowError";
 
         public new static System.Exception Create(string message = "math range error")
         {
@@ -522,8 +442,8 @@ namespace SharpPy
         internal PyLookupError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyLookupError(string message = "") : base(message) { }
-        public override PyType GetPyType() => PyType.LookupErrorType;
-        public override string GetTypeName() => "LookupError";
+        public override PyType GetPyType() => _customType ?? PyType.LookupErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "LookupError";
 
         public new static System.Exception Create(string message = "")
         {
@@ -537,8 +457,8 @@ namespace SharpPy
         internal PyIndexError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyIndexError(string message = "list index out of range") : base(message) { }
-        public override PyType GetPyType() => PyType.IndexErrorType;
-        public override string GetTypeName() => "IndexError";
+        public override PyType GetPyType() => _customType ?? PyType.IndexErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "IndexError";
 
         public new static System.Exception Create(string message = "list index out of range")
         {
@@ -562,8 +482,8 @@ namespace SharpPy
             if (args.Length != 1) return BaseExceptionStr(self);
             return args[0].ToRepr();
         }
-        public override PyType GetPyType() => PyType.KeyErrorType;
-        public override string GetTypeName() => "KeyError";
+        public override PyType GetPyType() => _customType ?? PyType.KeyErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "KeyError";
 
         public static System.Exception Create(string key)
         {
@@ -584,8 +504,8 @@ namespace SharpPy
         internal PyRuntimeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyRuntimeError(string message = "") : base(message) { }
-        public override PyType GetPyType() => PyType.RuntimeErrorType;
-        public override string GetTypeName() => "RuntimeError";
+        public override PyType GetPyType() => _customType ?? PyType.RuntimeErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "RuntimeError";
 
         public new static System.Exception Create(string message = "")
         {
@@ -601,8 +521,8 @@ namespace SharpPy
         internal PySystemError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PySystemError(string message = "") : base(message) { }
-        public override PyType GetPyType() => PyType.SystemErrorType;
-        public override string GetTypeName() => "SystemError";
+        public override PyType GetPyType() => _customType ?? PyType.SystemErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "SystemError";
 
         public new static System.Exception Create(string message = "")
         {
@@ -616,8 +536,8 @@ namespace SharpPy
         internal PyNotImplementedError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyNotImplementedError(string message = "method not implemented") : base(message) { }
-        public override PyType GetPyType() => PyType.NotImplementedErrorType;
-        public override string GetTypeName() => "NotImplementedError";
+        public override PyType GetPyType() => _customType ?? PyType.NotImplementedErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "NotImplementedError";
 
         public new static System.Exception Create(string message = "method not implemented")
         {
@@ -631,8 +551,8 @@ namespace SharpPy
         internal PyRecursionError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyRecursionError(string message = "maximum recursion depth exceeded") : base(message) { }
-        public override PyType GetPyType() => PyType.RecursionErrorType;
-        public override string GetTypeName() => "RecursionError";
+        public override PyType GetPyType() => _customType ?? PyType.RecursionErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "RecursionError";
 
         public new static System.Exception Create(string message = "maximum recursion depth exceeded")
         {
@@ -684,8 +604,8 @@ namespace SharpPy
             _msg = args.Length == 1 ? args[0] : null;
         }
 
-        public override PyType GetPyType() => PyType.ImportErrorType;
-        public override string GetTypeName() => "ImportError";
+        public override PyType GetPyType() => _customType ?? PyType.ImportErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "ImportError";
 
         // ImportError_members
         internal override bool TryGetMember(string name, out PyObject value)
@@ -726,8 +646,8 @@ namespace SharpPy
 
         internal PyModuleNotFoundError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
         
-        public override PyType GetPyType() => PyType.ModuleNotFoundErrorType;
-        public override string GetTypeName() => "ModuleNotFoundError";
+        public override PyType GetPyType() => _customType ?? PyType.ModuleNotFoundErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "ModuleNotFoundError";
 
         public new static System.Exception Create(string message, string moduleName = null)
         {
@@ -794,8 +714,8 @@ namespace SharpPy
             return type != null && type.IsSubclassOf(PyType.SystemExitType);
         }
 
-        public override PyType GetPyType() => PyType.SystemExitType;
-        public override string GetTypeName() => "SystemExit";
+        public override PyType GetPyType() => _customType ?? PyType.SystemExitType;
+        public override string GetTypeName() => _customType?.Name ?? "SystemExit";
 
 
         /// <summary>
@@ -847,8 +767,8 @@ namespace SharpPy
         public PyKeyboardInterrupt(PyObject[] args = null, PyDict kwargs = null)
             : base(args ?? new PyObject[0], kwargs) { }
 
-        public override PyType GetPyType() => PyType.KeyboardInterruptType;
-        public override string GetTypeName() => "KeyboardInterrupt";
+        public override PyType GetPyType() => _customType ?? PyType.KeyboardInterruptType;
+        public override string GetTypeName() => _customType?.Name ?? "KeyboardInterrupt";
 
         public new static System.Exception Create()
         {
@@ -940,8 +860,8 @@ namespace SharpPy
 
         private void ReadDetails(PyTuple info) => Array.Copy(info.Items, 0, _fields, 1, info.Items.Length);
 
-        public override PyType GetPyType() => PyType.SyntaxErrorType;
-        public override string GetTypeName() => "SyntaxError";
+        public override PyType GetPyType() => _customType ?? PyType.SyntaxErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "SyntaxError";
 
         protected internal override PyString Str() => SyntaxErrorStr();
 
@@ -988,8 +908,8 @@ namespace SharpPy
         public PyIndentationError(string message, string fileName = null, int lineNumber = 0) 
             : base(message, fileName, lineNumber) { }
         
-        public override PyType GetPyType() => PyType.IndentationErrorType;
-        public override string GetTypeName() => "IndentationError";
+        public override PyType GetPyType() => _customType ?? PyType.IndentationErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "IndentationError";
 
         public new static System.Exception Create(string message, string fileName = "<unknown>", int lineNumber = 0)
         {
@@ -1015,8 +935,8 @@ namespace SharpPy
             Value = args.Length > 0 ? args[0] : PyNone.Instance;
         }
 
-        public override PyType GetPyType() => PyType.StopIterationType;
-        public override string GetTypeName() => "StopIteration";
+        public override PyType GetPyType() => _customType ?? PyType.StopIterationType;
+        public override string GetTypeName() => _customType?.Name ?? "StopIteration";
 
         // StopIteration_members. Value stays non-null for the iteration protocol; NULL reads as None.
         internal override bool TryGetMember(string name, out PyObject value)
@@ -1046,8 +966,8 @@ namespace SharpPy
         public PyStopAsyncIteration(PyObject value = null) : base(value == null ? Array.Empty<PyObject>() : new[] { value }, null) { }
         public PyStopAsyncIteration(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
-        public override PyType GetPyType() => PyType.StopAsyncIterationType;
-        public override string GetTypeName() => "StopAsyncIteration";
+        public override PyType GetPyType() => _customType ?? PyType.StopAsyncIterationType;
+        public override string GetTypeName() => _customType?.Name ?? "StopAsyncIteration";
 
         public new static System.Exception Create(PyObject value = null)
         {
@@ -1069,8 +989,8 @@ namespace SharpPy
         {
         }
 
-        public override PyType GetPyType() => PyType.GeneratorExitType;
-        public override string GetTypeName() => "GeneratorExit";
+        public override PyType GetPyType() => _customType ?? PyType.GeneratorExitType;
+        public override string GetTypeName() => _customType?.Name ?? "GeneratorExit";
 
         public new static System.Exception Create(string message = "generator exit")
         {
@@ -1175,8 +1095,8 @@ namespace SharpPy
 
         public PyAssertionError(string message = "") : base(message) { }
         
-        public override PyType GetPyType() => PyType.AssertionErrorType;
-        public override string GetTypeName() => "AssertionError";
+        public override PyType GetPyType() => _customType ?? PyType.AssertionErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "AssertionError";
         
         public new static PythonException Create(string message = "")
         {
@@ -1200,8 +1120,8 @@ namespace SharpPy
 
         public PyReferenceError(string message = "") : base(message) { }
 
-        public override string GetTypeName() => "ReferenceError";
-        public override PyType GetPyType() => PyType.ReferenceErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "ReferenceError";
+        public override PyType GetPyType() => _customType ?? PyType.ReferenceErrorType;
 
         public new static PythonException Create(string message = "")
         {
@@ -1220,8 +1140,8 @@ namespace SharpPy
 
         public PyBufferError(string message = "") : base(message) { }
 
-        public override string GetTypeName() => "BufferError";
-        public override PyType GetPyType() => PyType.BufferErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "BufferError";
+        public override PyType GetPyType() => _customType ?? PyType.BufferErrorType;
 
         public new static PythonException Create(string message = "")
         {
@@ -1611,8 +1531,8 @@ namespace SharpPy
         }
 
 
-        public override string GetTypeName() => "OSError";
-        public override PyType GetPyType() => PyType.OSErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "OSError";
+        public override PyType GetPyType() => _customType ?? PyType.OSErrorType;
 
         public new static PythonException Create(string message = "")
         {
@@ -1624,99 +1544,99 @@ namespace SharpPy
     public class PyConnectionError : PyOSError
     {
         internal PyConnectionError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "ConnectionError";
-        public override PyType GetPyType() => PyType.ConnectionErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "ConnectionError";
+        public override PyType GetPyType() => _customType ?? PyType.ConnectionErrorType;
     }
 
     public class PyBrokenPipeError : PyConnectionError
     {
         internal PyBrokenPipeError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "BrokenPipeError";
-        public override PyType GetPyType() => PyType.BrokenPipeErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "BrokenPipeError";
+        public override PyType GetPyType() => _customType ?? PyType.BrokenPipeErrorType;
     }
 
     public class PyConnectionAbortedError : PyConnectionError
     {
         internal PyConnectionAbortedError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "ConnectionAbortedError";
-        public override PyType GetPyType() => PyType.ConnectionAbortedErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "ConnectionAbortedError";
+        public override PyType GetPyType() => _customType ?? PyType.ConnectionAbortedErrorType;
     }
 
     public class PyConnectionRefusedError : PyConnectionError
     {
         internal PyConnectionRefusedError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "ConnectionRefusedError";
-        public override PyType GetPyType() => PyType.ConnectionRefusedErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "ConnectionRefusedError";
+        public override PyType GetPyType() => _customType ?? PyType.ConnectionRefusedErrorType;
     }
 
     public class PyConnectionResetError : PyConnectionError
     {
         internal PyConnectionResetError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "ConnectionResetError";
-        public override PyType GetPyType() => PyType.ConnectionResetErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "ConnectionResetError";
+        public override PyType GetPyType() => _customType ?? PyType.ConnectionResetErrorType;
     }
 
     public class PyChildProcessError : PyOSError
     {
         internal PyChildProcessError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "ChildProcessError";
-        public override PyType GetPyType() => PyType.ChildProcessErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "ChildProcessError";
+        public override PyType GetPyType() => _customType ?? PyType.ChildProcessErrorType;
     }
 
     public class PyInterruptedError : PyOSError
     {
         internal PyInterruptedError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "InterruptedError";
-        public override PyType GetPyType() => PyType.InterruptedErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "InterruptedError";
+        public override PyType GetPyType() => _customType ?? PyType.InterruptedErrorType;
     }
 
     public class PyProcessLookupError : PyOSError
     {
         internal PyProcessLookupError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "ProcessLookupError";
-        public override PyType GetPyType() => PyType.ProcessLookupErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "ProcessLookupError";
+        public override PyType GetPyType() => _customType ?? PyType.ProcessLookupErrorType;
     }
 
     public class PyTimeoutError : PyOSError
     {
         internal PyTimeoutError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "TimeoutError";
-        public override PyType GetPyType() => PyType.TimeoutErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "TimeoutError";
+        public override PyType GetPyType() => _customType ?? PyType.TimeoutErrorType;
     }
 
     public class PyBlockingIOError : PyOSError
     {
         internal PyBlockingIOError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "BlockingIOError";
-        public override PyType GetPyType() => PyType.BlockingIOErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "BlockingIOError";
+        public override PyType GetPyType() => _customType ?? PyType.BlockingIOErrorType;
     }
 
     public class PyNotADirectoryError : PyOSError
     {
         internal PyNotADirectoryError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "NotADirectoryError";
-        public override PyType GetPyType() => PyType.NotADirectoryErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "NotADirectoryError";
+        public override PyType GetPyType() => _customType ?? PyType.NotADirectoryErrorType;
     }
 
     public class PyIsADirectoryError : PyOSError
     {
         internal PyIsADirectoryError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "IsADirectoryError";
-        public override PyType GetPyType() => PyType.IsADirectoryErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "IsADirectoryError";
+        public override PyType GetPyType() => _customType ?? PyType.IsADirectoryErrorType;
     }
 
     public class PyPermissionError : PyOSError
     {
         internal PyPermissionError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "PermissionError";
-        public override PyType GetPyType() => PyType.PermissionErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "PermissionError";
+        public override PyType GetPyType() => _customType ?? PyType.PermissionErrorType;
     }
 
     public class PyFileExistsError : PyOSError
     {
         internal PyFileExistsError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
-        public override string GetTypeName() => "FileExistsError";
-        public override PyType GetPyType() => PyType.FileExistsErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "FileExistsError";
+        public override PyType GetPyType() => _customType ?? PyType.FileExistsErrorType;
     }
 
     /// <summary>
@@ -1745,7 +1665,7 @@ namespace SharpPy
             UnsupportedOperationPyType.TypeDict["__module__"] = new PyString("io");
         }
 
-        public override string GetTypeName() => "UnsupportedOperation";
+        public override string GetTypeName() => _customType?.Name ?? "UnsupportedOperation";
         public override PyType GetPyType() => UnsupportedOperationPyType;
 
         public new static PythonException Create(string message = "operation not supported")
@@ -1760,8 +1680,8 @@ namespace SharpPy
 
         public PyFileNotFoundError(string message = "") : base(message) { }
 
-        public override string GetTypeName() => "FileNotFoundError";
-        public override PyType GetPyType() => PyType.FileNotFoundErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "FileNotFoundError";
+        public override PyType GetPyType() => _customType ?? PyType.FileNotFoundErrorType;
 
         public new static PythonException Create(string message = "")
         {
@@ -1780,8 +1700,8 @@ namespace SharpPy
 
         internal PyEOFError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
-        public override string GetTypeName() => "EOFError";
-        public override PyType GetPyType() => PyType.EOFErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "EOFError";
+        public override PyType GetPyType() => _customType ?? PyType.EOFErrorType;
 
         public new static PythonException Create(string message = "EOF when reading a line")
         {
@@ -1800,8 +1720,8 @@ namespace SharpPy
 
         public PyMemoryError(string message = "") : base(message) { }
 
-        public override string GetTypeName() => "MemoryError";
-        public override PyType GetPyType() => PyType.MemoryErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "MemoryError";
+        public override PyType GetPyType() => _customType ?? PyType.MemoryErrorType;
 
         public new static PythonException Create(string message = "")
         {
@@ -1918,8 +1838,8 @@ namespace SharpPy
             return code <= 0xFF ? $"\\x{code:x2}" : code <= 0xFFFF ? $"\\u{code:x4}" : $"\\U{code:x8}";
         }
 
-        public override string GetTypeName() => "UnicodeError";
-        public override PyType GetPyType() => PyType.UnicodeErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "UnicodeError";
+        public override PyType GetPyType() => _customType ?? PyType.UnicodeErrorType;
 
         // UnicodeError_members, which the three concrete types carry: start and end are T_PYSSIZET.
         internal override bool TryGetMember(string name, out PyObject value)
@@ -1982,8 +1902,8 @@ namespace SharpPy
             }
         }
 
-        public override string GetTypeName() => "UnicodeDecodeError";
-        public override PyType GetPyType() => PyType.UnicodeDecodeErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "UnicodeDecodeError";
+        public override PyType GetPyType() => _customType ?? PyType.UnicodeDecodeErrorType;
 
         protected internal override PyString Str() => UnicodeDecodeErrorStr();
 
@@ -2014,8 +1934,8 @@ namespace SharpPy
         internal void UnicodeEncodeErrorInit(PyObject self, PyObject[] args, PyDict kwargs) =>
             UnicodeErrorInit(self, args, kwargs, "UUnnU");
 
-        public override string GetTypeName() => "UnicodeEncodeError";
-        public override PyType GetPyType() => PyType.UnicodeEncodeErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "UnicodeEncodeError";
+        public override PyType GetPyType() => _customType ?? PyType.UnicodeEncodeErrorType;
 
         protected internal override PyString Str() => UnicodeEncodeErrorStr();
 
@@ -2043,8 +1963,8 @@ namespace SharpPy
         internal void UnicodeTranslateErrorInit(PyObject self, PyObject[] args, PyDict kwargs) =>
             UnicodeErrorInit(self, args, kwargs, "UnnU");
 
-        public override string GetTypeName() => "UnicodeTranslateError";
-        public override PyType GetPyType() => PyType.UnicodeTranslateErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "UnicodeTranslateError";
+        public override PyType GetPyType() => _customType ?? PyType.UnicodeTranslateErrorType;
 
         protected internal override PyString Str() => UnicodeTranslateErrorStr();
 
@@ -2059,8 +1979,8 @@ namespace SharpPy
         internal PyTabError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyTabError(string message = "") : base(message) { }
-        public override PyType GetPyType() => PyType.TabErrorType;
-        public override string GetTypeName() => "TabError";
+        public override PyType GetPyType() => _customType ?? PyType.TabErrorType;
+        public override string GetTypeName() => _customType?.Name ?? "TabError";
     }
 
     #region Warning Hierarchy (CPython 3.12)
@@ -2072,8 +1992,8 @@ namespace SharpPy
     {
         public PyWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyWarning(string message = "") : base(message) { }
-        public override string GetTypeName() => "Warning";
-        public override PyType GetPyType() => PyType.WarningType;
+        public override string GetTypeName() => _customType?.Name ?? "Warning";
+        public override PyType GetPyType() => _customType ?? PyType.WarningType;
 
         public new static PythonException Create(string message = "")
         {
@@ -2085,8 +2005,8 @@ namespace SharpPy
     {
         public PyUserWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyUserWarning(string message = "") : base(message) { }
-        public override string GetTypeName() => "UserWarning";
-        public override PyType GetPyType() => PyType.UserWarningType;
+        public override string GetTypeName() => _customType?.Name ?? "UserWarning";
+        public override PyType GetPyType() => _customType ?? PyType.UserWarningType;
 
         public new static PythonException Create(string message = "")
         {
@@ -2098,8 +2018,8 @@ namespace SharpPy
     {
         public PyDeprecationWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyDeprecationWarning(string message = "") : base(message) { }
-        public override string GetTypeName() => "DeprecationWarning";
-        public override PyType GetPyType() => PyType.DeprecationWarningType;
+        public override string GetTypeName() => _customType?.Name ?? "DeprecationWarning";
+        public override PyType GetPyType() => _customType ?? PyType.DeprecationWarningType;
 
         public new static PythonException Create(string message = "")
         {
@@ -2111,8 +2031,8 @@ namespace SharpPy
     {
         public PyPendingDeprecationWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyPendingDeprecationWarning(string message = "") : base(message) { }
-        public override string GetTypeName() => "PendingDeprecationWarning";
-        public override PyType GetPyType() => PyType.PendingDeprecationWarningType;
+        public override string GetTypeName() => _customType?.Name ?? "PendingDeprecationWarning";
+        public override PyType GetPyType() => _customType ?? PyType.PendingDeprecationWarningType;
 
         public new static PythonException Create(string message = "")
         {
@@ -2124,8 +2044,8 @@ namespace SharpPy
     {
         public PySyntaxWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PySyntaxWarning(string message = "") : base(message) { }
-        public override string GetTypeName() => "SyntaxWarning";
-        public override PyType GetPyType() => PyType.SyntaxWarningType;
+        public override string GetTypeName() => _customType?.Name ?? "SyntaxWarning";
+        public override PyType GetPyType() => _customType ?? PyType.SyntaxWarningType;
 
         public new static PythonException Create(string message = "")
         {
@@ -2137,8 +2057,8 @@ namespace SharpPy
     {
         public PyRuntimeWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyRuntimeWarning(string message = "") : base(message) { }
-        public override string GetTypeName() => "RuntimeWarning";
-        public override PyType GetPyType() => PyType.RuntimeWarningType;
+        public override string GetTypeName() => _customType?.Name ?? "RuntimeWarning";
+        public override PyType GetPyType() => _customType ?? PyType.RuntimeWarningType;
 
         public new static PythonException Create(string message = "")
         {
@@ -2150,8 +2070,8 @@ namespace SharpPy
     {
         public PyFutureWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyFutureWarning(string message = "") : base(message) { }
-        public override string GetTypeName() => "FutureWarning";
-        public override PyType GetPyType() => PyType.FutureWarningType;
+        public override string GetTypeName() => _customType?.Name ?? "FutureWarning";
+        public override PyType GetPyType() => _customType ?? PyType.FutureWarningType;
 
         public new static PythonException Create(string message = "")
         {
@@ -2163,8 +2083,8 @@ namespace SharpPy
     {
         public PyImportWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyImportWarning(string message = "") : base(message) { }
-        public override string GetTypeName() => "ImportWarning";
-        public override PyType GetPyType() => PyType.ImportWarningType;
+        public override string GetTypeName() => _customType?.Name ?? "ImportWarning";
+        public override PyType GetPyType() => _customType ?? PyType.ImportWarningType;
 
         public new static PythonException Create(string message = "")
         {
@@ -2176,8 +2096,8 @@ namespace SharpPy
     {
         public PyUnicodeWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyUnicodeWarning(string message = "") : base(message) { }
-        public override string GetTypeName() => "UnicodeWarning";
-        public override PyType GetPyType() => PyType.UnicodeWarningType;
+        public override string GetTypeName() => _customType?.Name ?? "UnicodeWarning";
+        public override PyType GetPyType() => _customType ?? PyType.UnicodeWarningType;
 
         public new static PythonException Create(string message = "")
         {
@@ -2189,8 +2109,8 @@ namespace SharpPy
     {
         public PyBytesWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyBytesWarning(string message = "") : base(message) { }
-        public override string GetTypeName() => "BytesWarning";
-        public override PyType GetPyType() => PyType.BytesWarningType;
+        public override string GetTypeName() => _customType?.Name ?? "BytesWarning";
+        public override PyType GetPyType() => _customType ?? PyType.BytesWarningType;
 
         public new static PythonException Create(string message = "")
         {
@@ -2202,16 +2122,16 @@ namespace SharpPy
     {
         public PyEncodingWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyEncodingWarning(string message = "") : base(message) { }
-        public override string GetTypeName() => "EncodingWarning";
-        public override PyType GetPyType() => PyType.EncodingWarningType;
+        public override string GetTypeName() => _customType?.Name ?? "EncodingWarning";
+        public override PyType GetPyType() => _customType ?? PyType.EncodingWarningType;
     }
 
     public class PyResourceWarning : PyWarning
     {
         public PyResourceWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyResourceWarning(string message = "") : base(message) { }
-        public override string GetTypeName() => "ResourceWarning";
-        public override PyType GetPyType() => PyType.ResourceWarningType;
+        public override string GetTypeName() => _customType?.Name ?? "ResourceWarning";
+        public override PyType GetPyType() => _customType ?? PyType.ResourceWarningType;
 
         public new static PythonException Create(string message = "")
         {
@@ -2281,7 +2201,7 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => TracebackPyType;
-        public override string GetTypeName() => "traceback";
+        public override string GetTypeName() => _customType?.Name ?? "traceback";
 
         protected internal override PyString Str()
         {
@@ -2323,8 +2243,8 @@ namespace SharpPy
             Lasti = lasti;
         }
 
-        public override PyType GetPyType() => PyType.ObjectType;
-        public override string GetTypeName() => "ExceptionInfo";
+        public override PyType GetPyType() => _customType ?? PyType.ObjectType;
+        public override string GetTypeName() => _customType?.Name ?? "ExceptionInfo";
 
         protected internal override PyString Str()
         {

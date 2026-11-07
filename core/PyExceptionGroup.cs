@@ -35,12 +35,9 @@ namespace SharpPy
         internal readonly PyObject Msg;
         internal readonly PyTuple Excs;
 
-        /// <summary>The Python object when this is the struct of a subclass instance.</summary>
-        internal PyObject Owner;
-
         /// <summary>_PyBaseExceptionGroup_Check: a group, or an instance of a subclass of one.</summary>
         internal static PyBaseExceptionGroup Of(PyObject exception) =>
-            exception as PyBaseExceptionGroup ?? PyExceptionSlots.LayoutOf(exception) as PyBaseExceptionGroup;
+            exception as PyBaseExceptionGroup;
 
         protected PyBaseExceptionGroup(PyObject[] callArgs, PyObject[] excs) : base(callArgs)
         {
@@ -49,9 +46,9 @@ namespace SharpPy
             Excs = new PyTuple(excs);
         }
 
-        public override PyType GetPyType() => PyType.BaseExceptionGroupType;
+        public override PyType GetPyType() => _customType ?? PyType.BaseExceptionGroupType;
 
-        public override string GetTypeName() => "BaseExceptionGroup";
+        public override string GetTypeName() => _customType?.Name ?? "BaseExceptionGroup";
 
         /// <summary>
         /// BaseExceptionGroup_str: "message (N sub-exception)" - note that the members are NOT
@@ -86,7 +83,7 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"split expected 1 argument, got {args.Length}");
             Matcher matcher = Matcher.From(args[0]);
-            SplitResult matched = SplitRecursive(Owner ?? this, matcher, constructRest: true);
+            SplitResult matched = SplitRecursive(this, matcher, constructRest: true);
             return new PyTuple(new PyObject[]
             {
                 matched.Match ?? PyNone.Instance,
@@ -99,7 +96,7 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"subgroup expected 1 argument, got {args.Length}");
             Matcher matcher = Matcher.From(args[0]);
-            SplitResult matched = SplitRecursive(Owner ?? this, matcher, constructRest: false);
+            SplitResult matched = SplitRecursive(this, matcher, constructRest: false);
             return matched.Match ?? PyNone.Instance;
         }
 
@@ -111,7 +108,7 @@ namespace SharpPy
         {
             if (exs.Length == 0) return null;
 
-            PyObject original = Owner ?? this;
+            PyObject original = this;
             PyObject derived = original.GetAttribute("derive").Call(new PyObject[] { new PyList(exs) }, null);
             if (Of(derived) == null)
                 throw PyTypeError.Create("derive must return an instance of BaseExceptionGroup");
@@ -186,7 +183,7 @@ namespace SharpPy
         {
             var leafIds = new HashSet<PyObject>(ReferenceEqualityComparer.Instance);
             for (int i = 0; i < keep.Count; i++) CollectLeafIds(keep[i], leafIds);
-            PyObject matched = SplitRecursive(Owner ?? this, Matcher.ByLeafId(leafIds),
+            PyObject matched = SplitRecursive(this, Matcher.ByLeafId(leafIds),
                                               constructRest: false).Match;
             return matched ?? PyNone.Instance;
         }
@@ -210,8 +207,8 @@ namespace SharpPy
         /// </summary>
         internal static bool SameMetadata(PyObject a, PyObject b)
         {
-            if (!(PyExceptionSlots.ToTransport(a) is PyBaseException x) ||
-                !(PyExceptionSlots.ToTransport(b) is PyBaseException y)) return false;
+            if (!(a is PyBaseException x) ||
+                !(b is PyBaseException y)) return false;
             return ReferenceEquals(NotesOf(a), NotesOf(b)) &&
                    ReferenceEquals(x.__traceback__, y.__traceback__) &&
                    ReferenceEquals(x.__cause__, y.__cause__) &&
@@ -256,14 +253,6 @@ namespace SharpPy
             type.TypeDict["subgroup"] = new PyMethodDescriptor("subgroup", type, (self, args, kwargs) => Of(self).SubgroupImpl(args));
         }
 
-        /// <summary>BaseExceptionGroup_new for a Python subclass: the struct behind the instance.</summary>
-        internal static void FillStruct(PyExceptionInstance instance, PyObject[] args)
-        {
-            var layout = (PyBaseExceptionGroup)NewGroup(args, instance.InstanceType);
-            layout.Owner = instance;
-            instance.Layout = layout;
-        }
-
         /// <summary>
         /// BaseExceptionGroup_new: the class asked for decides what may nest, and
         /// BaseExceptionGroup itself becomes ExceptionGroup when every member is an Exception.
@@ -285,7 +274,7 @@ namespace SharpPy
             bool nestedBaseExceptions = false;
             for (int i = 0; i < items.Length; i++)
             {
-                if (!(PyExceptionSlots.ToTransport(items[i]) is PyBaseException))
+                if (!(items[i] is PyBaseException))
                     throw PyValueError.Create(
                         $"Item {i} of second argument (exceptions) is not an exception");
                 if (!items[i].GetPyType().IsSubclassOf(PyType.ExceptionType))
@@ -420,8 +409,8 @@ namespace SharpPy
     {
         internal PyExceptionGroup(PyObject[] callArgs, PyObject[] excs) : base(callArgs, excs) { }
 
-        public override PyType GetPyType() => PyType.ExceptionGroupType;
+        public override PyType GetPyType() => _customType ?? PyType.ExceptionGroupType;
 
-        public override string GetTypeName() => "ExceptionGroup";
+        public override string GetTypeName() => _customType?.Name ?? "ExceptionGroup";
     }
 }

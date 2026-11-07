@@ -64,7 +64,7 @@ namespace SharpPy
 
         // The struct behind self: the builtin object, or the layout of a subclass instance.
         private static PyBaseException Struct(PyObject self) =>
-            PyExceptionSlots.LayoutOf(self) ?? PyExceptionSlots.ToTransport(self) as PyBaseException
+            self as PyBaseException
             ?? throw PyTypeError.Create($"'{self.GetTypeName()}' object is not an exception");
 
         // X_str, called by name: tp_str of the type, not of the object.
