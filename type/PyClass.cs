@@ -500,7 +500,6 @@ namespace SharpPy
             return TypeCall(args, kwargs);
         }
 
-        internal virtual PyObject TypeCall(PyObject[] args, PyDict kwargs) => base.Call(args, kwargs);
 
         // 클래스는 항상 호출 가능 (인스턴스 생성)
         public override bool IsCallable() => true;
@@ -546,7 +545,6 @@ namespace SharpPy
         protected internal override PyObject IterNext() => InvokeNextMethod();
 
 
-        internal PyObject TypeGetAttribute(string name) => TypeGetattro(name);
 
 
         /// <summary>

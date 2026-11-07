@@ -137,12 +137,12 @@ namespace SharpPy
                     throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                 if (args[0] is not PyString name)
                     throw PyTypeError.Create($"attribute name must be string, not '{args[0].GetTypeName()}'");
-                return self is PyClass cls ? cls.TypeGetAttribute(name.Value) : self.GetAttribute(name.Value);
+                return ((PyType)self).TypeGetattro(name.Value);
             });
 
             // type_call behind tp_call.
             typeClass.ClassDict["__call__"] = new PyWrapperDescriptor("__call__", typeClass, (self, args, kwargs) =>
-                self is PyClass cls ? cls.TypeCall(args, kwargs) : self.Call(args, kwargs));
+                ((PyType)self).TypeCall(args, kwargs));
 
             // tp_flags as far as Python can see them: Py_TPFLAGS_HEAPTYPE, _BASETYPE, _IS_ABSTRACT.
             foreach (var (name, read) in new (string, Func<TypeLayout, int>)[]

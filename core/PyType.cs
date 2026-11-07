@@ -1061,7 +1061,10 @@ namespace SharpPy
         public override bool IsCallable() => true;
 
         // type 호출 - 인스턴스 생성 또는 타입 조회
-        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null) => TypeCall(args, kwargs);
+
+        /// <summary>type_call, the tp_call of type: what calling any type does after a metaclass's own __call__.</summary>
+        internal PyObject TypeCall(PyObject[] args, PyDict kwargs)
         {
             if (Layout.NoInstances)
                 throw PyTypeError.Create($"cannot create '{FullName}' instances");
