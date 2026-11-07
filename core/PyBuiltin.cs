@@ -613,63 +613,26 @@ namespace SharpPy
 
             var seq = args[0];
 
-            // CPython: dict is not a sequence but provides dict.__reversed__ (keys).
-            if (seq is PyDict dict)
-            {
-                // CPython: dict.__reversed__ yields keys in reverse as a dict_keyiterator.
-                var keys = dict.Keys().Items;
-                var keyList = new PyList((PyObject[])keys.Clone());
-                return new PyReversedIterator(keyList, keys.Length, "dict_reversekeyiterator");
-            }
-
-            var revDesc = seq.GetPyType()?.LookupSpecial("__reversed__");
+            // _PyObject_LookupSpecial(seq, "__reversed__"): None means not reversible.
+            var revDesc = seq.GetPyType().LookupSpecial("__reversed__");
+            if (revDesc == PyNone.Instance)
+                throw PyTypeError.Create($"'{seq.GetTypeName()}' object is not reversible");
             if (revDesc != null)
-            {
                 return seq.CallSpecial(revDesc);
-            }
 
-            if (!HasGetItem(seq))
+            // PySequence_Check: sq_item, which no dict has.
+            if (seq is PyDict || seq.GetPyType().LookupSpecial("__getitem__") == null)
                 throw PyTypeError.Create($"'{seq.GetTypeName()}' object is not reversible");
 
-            if (!TrySequenceLength(seq, out long length))
+            // PySequence_Size: the type's sq_length.
+            if (!seq.HasTypeSlot("__len__"))
                 throw PyTypeError.Create($"object of type '{seq.GetTypeName()}' has no len()");
+            long length = seq.Size();
 
-            // CPython names reversed() by source: list_reverseiterator, range_iterator,
-            // else the generic reversed object.
-            string revName = seq is PyList ? "list_reverseiterator"
-                          : seq is PyRange ? "range_iterator"
-                          : "reversed";
-            var reversed = new PyReversedIterator(seq, length, revName);
+            var reversed = new PyReversedIterator(seq, length);
             if (!ReferenceEquals(type, PyType.ReversedType))
                 reversed.SetCustomType(type);
             return reversed;
-        }
-
-        private static bool HasGetItem(PyObject obj)
-        {
-            if (obj is PyList or PyTuple or PyString or PyRange or PyBytes or PyByteArray)
-                return true;
-            return obj.GetPyType()?.LookupSpecial("__getitem__") != null;
-        }
-
-        private static bool TrySequenceLength(PyObject obj, out long length)
-        {
-            length = 0;
-            switch (obj)
-            {
-                case PyList pl: length = pl.Length(); return true;
-                case PyTuple pt: length = pt.Items.Length; return true;
-                case PyString ps: length = ps.Length(); return true;
-                case PyRange pr:
-                    unchecked { length = (long)pr.LengthUnsigned(); }
-                    return true;
-                case PyBytes pb: length = pb.Length(); return true;
-                case PyByteArray pba: length = pba.Length(); return true;
-            }
-            if (!obj.HasTypeSlot("__len__"))
-                return false;
-            length = obj.Size();
-            return true;
         }
 
         private static PyObject CallSum(PyObject[] args, PyDict kwargs = null)

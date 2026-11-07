@@ -3185,28 +3185,6 @@ namespace SharpPy
             return PyBool.FromBool(Value.Length > 0);
         }
         
-        /// <summary>
-        /// CPython 호환: PyString을 PyList로 변환 (각 문자를 PyString 요소로)
-        /// </summary>
-        public override PyList AsList()
-        {
-            // Performance: Eliminated LINQ (.Select + .ToList) - manual character conversion + Cache.
-            // It has to step by characters: list('a\U00010000b') has three elements, not four.
-            var items = new PyObject[Length()];
-            int n = 0;
-            if (!HasPairs)
-            {
-                for (int i = 0; i < Value.Length; i++)
-                    items[n++] = StringCache.GetOrCreate(Value[i].ToString());
-            }
-            else
-            {
-                for (int i = 0; i < Value.Length; i += PairWidth(Value, i))
-                    items[n++] = StringCache.GetOrCreate(Value.Substring(i, PairWidth(Value, i)));
-            }
-            return ListCache.Create(items);
-        }
-
         #endregion
 
         #region Encoding

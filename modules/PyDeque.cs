@@ -277,15 +277,8 @@ namespace SharpPy.Modules
                 State++;
         }
 
-        // The items in order, for PySequence_List(deque).
-        private PyList AsList()
-        {
-            var list = new PyList();
-            var it = new DequeIterator(this);
-            while (it.TryNext(out var item))
-                list.Append(item);
-            return list;
-        }
+        // PySequence_List(deque): through the type's __iter__, a subclass's own included.
+        private PyList AsList() => PyList.FromIterable(this);
 
         // finalize_iterator around a loop over iternext
         private static IEnumerable<PyObject> Drain(PyObject iterator)

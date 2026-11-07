@@ -43,14 +43,6 @@ namespace SharpPy
         public override int ToHash() => _kind == DictViewKind.Values ? base.ToHash()
             : throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
 
-        // Internal snapshot helpers keep existing interop callers unchanged.
-        public override PyList AsList() => _kind switch
-        {
-            DictViewKind.Keys => _dictionary.Keys(),
-            DictViewKind.Values => _dictionary.Values(),
-            _ => _dictionary.Items()
-        };
-        public override PyTuple AsTuple() => new PyTuple(AsList().Items);
         protected internal override PyObject Iter() => _kind switch
         {
             DictViewKind.Keys => new PyDictKeyIterator(_dictionary),

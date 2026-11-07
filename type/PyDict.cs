@@ -1148,31 +1148,6 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: PyDict를 PyList로 변환 (키 목록)
-        /// </summary>
-        public override PyList AsList()
-        {
-            // CPython list(dict) 동작: 딕셔너리의 키들을 리스트로 변환
-            return Keys();
-        }
-        
-        /// <summary>
-        /// CPython 호환: PyDict를 PyTuple로 변환 (키 목록)
-        /// Python 3.7+: 삽입 순서 보장
-        /// </summary>
-        public override PyTuple AsTuple()
-        {
-            // CPython tuple(dict) 동작: 딕셔너리의 키들을 튜플로 변환 (삽입 순서 보장)
-            // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
-            var keysArray = new PyObject[_keys.Count];
-            for (int i = 0; i < _keys.Count; i++)
-            {
-                keysArray[i] = _keys[i];
-            }
-            return TupleCache.GetOrCreate(keysArray);
-        }
-        
-        /// <summary>
         /// CPython 호환: PyDict를 PyBool로 변환
         /// </summary>
         public override PyBool AsBool()

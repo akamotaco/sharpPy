@@ -221,7 +221,8 @@ namespace SharpPy
         {
             if (_index < 0 || _typeName.StartsWith("dict_", StringComparison.Ordinal))
                 return new PyInt(_index + 1);
-            return new PyInt(_index + 1 > _seq.Length() ? 0 : _index + 1);
+            long size = _seq is PyList list && _typeName == "list_reverseiterator" ? list.RawCount() : _seq.Length();
+            return new PyInt(_index + 1 > size ? 0 : _index + 1);
         }
 
         protected override string ReduceBuiltin => _typeName.StartsWith("dict_", StringComparison.Ordinal) ? "iter" : "reversed";
@@ -277,6 +278,14 @@ namespace SharpPy
             // reversed_next, listreviter_next: an index the sequence no longer has ends the iteration.
             if (_index >= 0)
             {
+                // listreviter_next reads the list's own items, whatever __getitem__ a subclass has.
+                if (_seq is PyList list && _typeName == "list_reverseiterator")
+                {
+                    if (_index < list.RawCount())
+                        return list.RawGet((int)_index--);
+                    _index = -1;
+                    throw PyStopIteration.Create();
+                }
                 try
                 {
                     var item = _seq.GetItem(new PyInt(_index));

@@ -118,7 +118,7 @@ namespace SharpPy
         protected internal override PyString Str() => ToRepr();
 
         // set_repr: the bare {...} only for an exact set, otherwise Py_TYPE(so)->tp_name({...}).
-        protected internal override PyString Repr() => Repr(GetTypeName(), exactType: !HasCustomType);
+        protected internal override PyString Repr() => SetRepr(this, _items.Count, exactSet: !HasCustomType);
 
         /// <summary>
         /// CPython Objects/setobject.c:507 set_repr formats with Py_TYPE(so)-&gt;tp_name, which is why
@@ -130,29 +130,21 @@ namespace SharpPy
         /// frozenset also takes the prefixed branch and prints frozenset({1, 2}).
         /// A subclass of set therefore needs the same code with its own name, not a second repr.
         /// </summary>
-        internal PyString Repr(string typeName, bool exactType)
+        internal static PyString SetRepr(PyObject so, int used, bool exactSet)
         {
-            if (!PyReprGuard.Enter(this)) return new PyString(typeName + "(...)");
+            string typeName = so.GetTypeName();
+            if (used == 0) return new PyString(typeName + "()");
+            if (!PyReprGuard.Enter(so)) return new PyString(typeName + "(...)");
             try
             {
-                if (_items.Count == 0) return StringCache.GetOrCreate(typeName + "()");
-
-                // Performance: Eliminated LINQ (Select) - use StringBuilder
-                bool prefix = !exactType;
-                var sb = new System.Text.StringBuilder(prefix ? typeName + "({" : "{");
-                bool first = true;
-                foreach (var item in _items)
-                {
-                    if (!first) sb.Append(", ");
-                    sb.Append(item.ToRepr().Value);
-                    first = false;
-                }
-                sb.Append(prefix ? "})" : "}");
-                return StringCache.GetOrCreate(sb.ToString());
+                // PySequence_List(so), its repr without the brackets.
+                string listRepr = PyList.FromIterable(so).ToRepr().Value;
+                string body = listRepr.Substring(1, listRepr.Length - 2);
+                return new PyString(exactSet ? "{" + body + "}" : typeName + "({" + body + "})");
             }
             finally
             {
-                PyReprGuard.Leave(this);
+                PyReprGuard.Leave(so);
             }
         }
 
@@ -245,7 +237,7 @@ namespace SharpPy
             if (other is PySet set) { _items.Merge(set._items); return PyNone.Instance; }
             if (other is PyFrozenSet frozen) { _items.Merge((PySetStorage)frozen.Items); return PyNone.Instance; }
             if (IsExactDict(other)) { _items.Merge(StorageOf((PyDict)other)); return PyNone.Instance; }
-            var items = GetIterableItems(other);
+            var items = IterableItems(other);
             foreach (var item in items)
             {
                 _items.Add(item);
@@ -553,28 +545,9 @@ namespace SharpPy
                 PySet set => set._items,
                 PyFrozenSet frozenSet => (PySetStorage)frozenSet.Items,
                 PyDict dict when IsExactDict(dict) => StorageOf(dict),
-                _ => new PySetStorage(GetIterableItems(obj))
+                _ => new PySetStorage(IterableItems(obj))
             };
         }
-
-        private IEnumerable<PyObject> GetIterableItems(PyObject obj)
-        {
-            // Performance: Eliminated LINQ (Select) - manual conversion for string
-            return obj switch
-            {
-                PyList list => list.Items,
-                PyTuple tuple => tuple.Items,
-                PyString str => ConvertStringToCharArray(str.Value),
-                PySet set => set._items,
-                PyFrozenSet frozenSet => frozenSet.Items,
-                _ => IterableItems(obj)
-            };
-        }
-
-        // set('a\U00010000b') has three members: iterating a str yields characters, so this defers
-        // to the one coordinate-aware splitter instead of looping over UTF-16 units.
-        private static IEnumerable<PyObject> ConvertStringToCharArray(string str) =>
-            PyString.Characters(str);
 
         #endregion
 
@@ -660,32 +633,7 @@ namespace SharpPy
         // set_repr is shared with set (see PySet.Repr): the prefix is always present because
         // PySet_CheckExact() is false for a frozenset, giving frozenset({1, 2}) and frozenset().
         // The name is Py_TYPE(so)->tp_name, a subclass's own.
-        protected internal override PyString Repr() => Repr(GetTypeName());
-
-        internal PyString Repr(string typeName)
-        {
-            if (!PyReprGuard.Enter(this)) return new PyString(typeName + "(...)");
-            try
-            {
-                if (_items.Count == 0) return StringCache.GetOrCreate(typeName + "()");
-
-                // Performance: Eliminated LINQ (Select) - use StringBuilder
-                var sb = new System.Text.StringBuilder(typeName).Append("({");
-                bool first = true;
-                foreach (var item in _items)
-                {
-                    if (!first) sb.Append(", ");
-                    sb.Append(item.ToRepr().Value);
-                    first = false;
-                }
-                sb.Append("})");
-                return StringCache.GetOrCreate(sb.ToString());
-            }
-            finally
-            {
-                PyReprGuard.Leave(this);
-            }
-        }
+        protected internal override PyString Repr() => PySet.SetRepr(this, _items.Count, exactSet: false);
 
         #endregion
 
