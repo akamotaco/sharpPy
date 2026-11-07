@@ -636,24 +636,8 @@ namespace SharpPy.Modules
                 return obj.GetBuffer(0);  // 0 = PyBUF_FULL_RO
             }
 
-            // Check if object has __buffer__ method
-            try
-            {
-                var bufferMethod = obj.GetAttribute("__buffer__");
-                if (bufferMethod != null && bufferMethod != PyNone.Instance)
-                {
-                    var result = bufferMethod.Call(Array.Empty<PyObject>(), null);
-                    if (result is PyMemoryView memView)
-                    {
-                        return memView;
-                    }
-                    throw PyTypeError.Create($"__buffer__ returned non-memoryview (type {result.GetTypeName()})");
-                }
-            }
-            catch (Exception ex) when (ex.Message.Contains("AttributeError") || ex.Message.Contains("has no attribute"))
-            {
-                // __buffer__ doesn't exist, continue with error
-            }
+            if (PyMemoryView.FromBufferSlot(obj, PyMemoryView.FullReadOnly) is { } exported)
+                return exported;
 
             throw PyTypeError.Create($"memoryview: a bytes-like object is required, not '{obj.GetTypeName()}'");
         }

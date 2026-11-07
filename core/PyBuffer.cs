@@ -38,6 +38,22 @@ namespace SharpPy
     /// </summary>
     public class PyMemoryView : PyObject
     {
+        /// <summary>PyBUF_FULL_RO, what memoryview() and bytes() ask a buffer for.</summary>
+        internal const int FullReadOnly = 0x11C;
+
+        /// <summary>
+        /// slot_bf_getbuffer (Objects/typeobject.c): a class written in Python exports a buffer
+        /// through __buffer__(flags), found on the type, which must answer a memoryview. Null when
+        /// the type has no __buffer__.
+        /// </summary>
+        internal static PyMemoryView FromBufferSlot(PyObject value, int flags)
+        {
+            if (value.LookupSpecialMethodUncached("__buffer__") is not PyObject method)
+                return null;
+            return value.BindSpecialMethod(method).Call(new PyObject[] { new PyInt(flags) }, null) as PyMemoryView
+                ?? throw PyTypeError.Create("__buffer__ returned non-memoryview object");
+        }
+
         // Either the exporting bytearray or an immutable-size byte[] buffer.
         // A null reference marks a released view and drops the backing storage.
         private object _data;

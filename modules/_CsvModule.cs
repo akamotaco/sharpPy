@@ -212,8 +212,9 @@ namespace SharpPy.Modules
         {
             if (args.Length < 1) throw PyTypeError.Create("writer() requires a file object");
             var fileobj = args[0];
-            try { fileobj.GetAttribute("write"); }
-            catch { throw PyTypeError.Create("argument 1 must have a \"write\" method"); }
+            // csv_writer: PyObject_GetAttr(output_file, "write"); only its absence is this TypeError.
+            if (fileobj.LookupAttribute("write") == null)
+                throw PyTypeError.Create("argument 1 must have a \"write\" method");
             var dialect = ParseDialect(args, kwargs);
             return new PyWriter(fileobj, dialect);
         }

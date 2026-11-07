@@ -36,8 +36,8 @@ namespace SharpPy
             var data = PyBytes.BufferOrNull(value);
             if (data != null)
                 return data;
-            if (value.LookupSpecialMethodUncached("__buffer__") is PyObject method)
-                return ((PyMemoryView)value.BindSpecialMethod(method).Call(new PyObject[] { new PyInt(0) }, null)).Data;
+            if (PyMemoryView.FromBufferSlot(value, 0) is { } exported)
+                return exported.Data;
             if (value is PyString || !value.SupportsBuffer())
                 return null;
             return value.GetBuffer(0).Data;
@@ -577,7 +577,12 @@ namespace SharpPy
             var result = new List<byte>();
             for (int i = 0; i < items.Length; i++)
             {
-                var part = Buffer(items[i]) ?? throw PyTypeError.Create($"sequence item {i}: expected a bytes-like object, {items[i].GetTypeName()} found");
+                // bytes_join: a failing PyObject_GetBuffer is reported as this item's TypeError.
+                byte[] part;
+                try { part = Buffer(items[i]); }
+                catch (PythonException) { part = null; }
+                if (part == null)
+                    throw PyTypeError.Create($"sequence item {i}: expected a bytes-like object, {items[i].GetTypeName()} found");
                 if (i != 0)
                     result.AddRange(separator);
                 result.AddRange(part);
