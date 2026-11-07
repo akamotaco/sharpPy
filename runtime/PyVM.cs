@@ -763,28 +763,9 @@ namespace SharpPy
             if ((Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0)
                 return GetOptimizedLocals();
 
-            var localsDict = new Dictionary<string, PyObject>();
-
-            // Add variables from LocalsPlus array
-            for (int i = 0; i < LocalsPlus.Length && i < Code.VarNames.Count; i++)
-            {
-                var value = LocalsPlus[i];
-                if (value != null && value != PyNull.Instance)
-                {
-                    localsDict[Code.VarNames[i]] = value;
-                }
-            }
-
-            // Add variables from LocalScope if exists
-            if (LocalScope != null)
-            {
-                foreach (var kvp in LocalScope.Variables)
-                {
-                    localsDict[kvp.Key] = kvp.Value;
-                }
-            }
-
-            return new PyDict(localsDict);
+            // A frame without a mapping of its own has its globals as its locals (module code,
+            // exec in the globals): f_locals is that very dict.
+            return PyGlobalsDict.DictOf(Globals);
         }
 
         /// <summary>GETLOCAL(oparg) of a *_DEREF instruction: the cell MAKE_CELL or COPY_FREE_VARS put there.</summary>
@@ -4753,199 +4734,113 @@ namespace SharpPy
                     }
                     var module = frame.ValueStack.Peek(); // Don't pop yet, needed for multiple imports
 
-                    // CPython 3.12: Handle "from module import *"
-                    // When itemName is "*", import all public names from module
-                    if (itemName == "*")
+                    // Normal case: import specific name
+                    // CPython 3.12: Python/ceval.c:2530-2560 (import_from)
+                    PyObject importedItem = null;
+
+                    // Step 1: Try to get attribute from module object
+                    // CPython 3.12: Python/ceval.c:2535-2537 (_PyObject_LookupAttr)
+                    try
                     {
-                        // Get __all__ attribute if it exists, otherwise use all non-private attributes
-                        PyObject allAttr = null;
+                        importedItem = module.GetAttribute(itemName);
+                    }
+                    catch
+                    {
+                        // Attribute not found, continue to fallback
+                    }
+
+                    if (importedItem == null)
+                    {
+                        // Step 2: Fallback for circular imports / submodule import
+                        // CPython 3.12: Python/ceval.c:2538-2560
+                        // Try to read submodule directly from sys.modules, or import it
                         try
                         {
-                            allAttr = module.GetAttribute("__all__");
+                            // Get package name from module.__name__
+                            // CPython 3.12: Python/ceval.c:2541
+                            var pkgName = module.GetAttribute("__name__");
+                            if (pkgName is PyString pkgNameStr)
+                            {
+                                // Construct full module name: package.name
+                                // CPython 3.12: Python/ceval.c:2549
+                                string fullModuleName = $"{pkgNameStr.Value}.{itemName}";
+
+                                // Try to get from sys.modules ONLY
+                                // CPython 3.12: Python/ceval.c:2554 (PyImport_GetModule)
+                                // IMPORTANT: Do NOT import if not found - this is intentional!
+                                // The submodule should have been imported by IMPORT_NAME's fromlist handling.
+                                // If it's not in sys.modules, this is a circular import or the module doesn't exist.
+                                if (PyImportSystem.TryGetModule(fullModuleName, out var subModule))
+                                {
+                                    importedItem = subModule;
+                                }
+                                // If not found in sys.modules, importedItem remains null
+                                // and we'll raise an error below
+                            }
                         }
                         catch
                         {
-                            // __all__ doesn't exist, will use dir() instead
+                            // Fallback also failed
                         }
-
-                        List<string> namesToImport = new List<string>();
-
-                        if (allAttr != null)
-                        {
-                            // Use __all__ to determine what to import
-                            if (allAttr is PyList allList)
-                            {
-                                foreach (var item in allList.Items)
-                                {
-                                    if (item is PyString nameStr)
-                                    {
-                                        namesToImport.Add(nameStr.Value);
-                                    }
-                                }
-                            }
-                            else if (allAttr is PyTuple allTuple)
-                            {
-                                foreach (var item in allTuple.Items)
-                                {
-                                    if (item is PyString nameStr)
-                                    {
-                                        namesToImport.Add(nameStr.Value);
-                                    }
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // No __all__, import all non-private names
-                            if (module is PyModule pyModule)
-                            {
-                                foreach (var key in pyModule.ModuleDict.Keys)
-                                {
-                                    if (!key.StartsWith("_", StringComparison.Ordinal))
-                                    {
-                                        namesToImport.Add(key);
-                                    }
-                                }
-                            }
-                        }
-
-                        // Import each name into the current scope
-                        // CPython: This is handled by IMPORT_STAR bytecode, but we handle it here
-                        foreach (var importName in namesToImport)
-                        {
-                            try
-                            {
-                                var importValue = module.GetAttribute(importName);
-                                // Store in current frame's local scope
-                                if (frame.LocalScope != null)
-                                {
-                                    frame.LocalScope.Variables[importName] = importValue;
-                                }
-                                else
-                                {
-                                    // Fallback: use global scope
-                                    frame.ScopeChain.GlobalScope.SetVariable(importName, importValue);
-                                }
-                            }
-                            catch
-                            {
-                                // Skip attributes that can't be imported
-                            }
-                        }
-
-                        // Push a dummy value to satisfy stack expectations
-                        // This will be handled by subsequent IMPORT_STAR or POP_TOP
-                        frame.ValueStack.Push(PyNone.Instance);
                     }
-                    else
-                    {
-                        // Normal case: import specific name
-                        // CPython 3.12: Python/ceval.c:2530-2560 (import_from)
-                        PyObject importedItem = null;
 
-                        // Step 1: Try to get attribute from module object
-                        // CPython 3.12: Python/ceval.c:2535-2537 (_PyObject_LookupAttr)
+                    if (importedItem == null)
+                    {
+                        // Generate error message similar to CPython
+                        // CPython 3.12: Python/ceval.c:2561-2579
+                        string pkgModuleName = "unknown";
                         try
                         {
-                            importedItem = module.GetAttribute(itemName);
-                        }
-                        catch
-                        {
-                            // Attribute not found, continue to fallback
-                        }
-
-                        if (importedItem == null)
-                        {
-                            // Step 2: Fallback for circular imports / submodule import
-                            // CPython 3.12: Python/ceval.c:2538-2560
-                            // Try to read submodule directly from sys.modules, or import it
-                            try
+                            var nameAttr = module.GetAttribute("__name__");
+                            if (nameAttr is PyString nameStr)
                             {
-                                // Get package name from module.__name__
-                                // CPython 3.12: Python/ceval.c:2541
-                                var pkgName = module.GetAttribute("__name__");
-                                if (pkgName is PyString pkgNameStr)
-                                {
-                                    // Construct full module name: package.name
-                                    // CPython 3.12: Python/ceval.c:2549
-                                    string fullModuleName = $"{pkgNameStr.Value}.{itemName}";
-
-                                    // Try to get from sys.modules ONLY
-                                    // CPython 3.12: Python/ceval.c:2554 (PyImport_GetModule)
-                                    // IMPORTANT: Do NOT import if not found - this is intentional!
-                                    // The submodule should have been imported by IMPORT_NAME's fromlist handling.
-                                    // If it's not in sys.modules, this is a circular import or the module doesn't exist.
-                                    if (PyImportSystem.TryGetModule(fullModuleName, out var subModule))
-                                    {
-                                        importedItem = subModule;
-                                    }
-                                    // If not found in sys.modules, importedItem remains null
-                                    // and we'll raise an error below
-                                }
-                            }
-                            catch
-                            {
-                                // Fallback also failed
+                                pkgModuleName = nameStr.Value;
                             }
                         }
+                        catch { }
 
-                        if (importedItem == null)
+                        // CPython 3.12 import_from() raises ImportError, not AttributeError:
+                        //   cannot import name 'NOPE' from 'os' (C:\...\Lib\os.py)
+                        //   cannot import name 'NOPE' from 'sys' (unknown location)
+                        // The parenthesised part is __spec__.origin when there is one.
+                        // This is what makes io.py's
+                        //   try: from _io import _WindowsConsoleIO
+                        //   except ImportError: pass
+                        // work at all.
+                        string origin = "unknown location";
+                        try
                         {
-                            // Generate error message similar to CPython
-                            // CPython 3.12: Python/ceval.c:2561-2579
-                            string pkgModuleName = "unknown";
+                            var spec = module.GetAttribute("__spec__");
+                            if (spec != null && !(spec is PyNone))
+                            {
+                                var specOrigin = spec.GetAttribute("origin");
+                                if (specOrigin is PyString specOriginStr && specOriginStr.Value.Length > 0)
+                                    origin = specOriginStr.Value;
+                            }
+                        }
+                        catch { }
+
+                        if (origin == "unknown location")
+                        {
+                            // CPython reads __spec__.origin, which for a source module is its
+                            // file path; SharpPy modules carry __file__ without always having a
+                            // spec, so read the same value from there before giving up.
                             try
                             {
-                                var nameAttr = module.GetAttribute("__name__");
-                                if (nameAttr is PyString nameStr)
-                                {
-                                    pkgModuleName = nameStr.Value;
-                                }
+                                var fileAttr = module.GetAttribute("__file__");
+                                // A builtin module has none, and that is "unknown location".
+                                if (fileAttr is PyString fileStr && fileStr.Value.Length > 0)
+                                    origin = fileStr.Value;
                             }
                             catch { }
-
-                            // CPython 3.12 import_from() raises ImportError, not AttributeError:
-                            //   cannot import name 'NOPE' from 'os' (C:\...\Lib\os.py)
-                            //   cannot import name 'NOPE' from 'sys' (unknown location)
-                            // The parenthesised part is __spec__.origin when there is one.
-                            // This is what makes io.py's
-                            //   try: from _io import _WindowsConsoleIO
-                            //   except ImportError: pass
-                            // work at all.
-                            string origin = "unknown location";
-                            try
-                            {
-                                var spec = module.GetAttribute("__spec__");
-                                if (spec != null && !(spec is PyNone))
-                                {
-                                    var specOrigin = spec.GetAttribute("origin");
-                                    if (specOrigin is PyString specOriginStr && specOriginStr.Value.Length > 0)
-                                        origin = specOriginStr.Value;
-                                }
-                            }
-                            catch { }
-
-                            if (origin == "unknown location")
-                            {
-                                // CPython reads __spec__.origin, which for a source module is its
-                                // file path; SharpPy modules carry __file__ without always having a
-                                // spec, so read the same value from there before giving up.
-                                try
-                                {
-                                    var fileAttr = module.GetAttribute("__file__");
-                                    // A builtin module has none, and that is "unknown location".
-                                    if (fileAttr is PyString fileStr && fileStr.Value.Length > 0)
-                                        origin = fileStr.Value;
-                                }
-                                catch { }
-                            }
-
-                            throw PyImportError.Create(
-                                $"cannot import name '{itemName}' from '{pkgModuleName}' ({origin})");
                         }
 
-                        frame.ValueStack.Push(importedItem);
+                        throw PyImportError.Create(
+                            $"cannot import name '{itemName}' from '{pkgModuleName}' ({origin})");
                     }
+
+                    frame.ValueStack.Push(importedItem);
+                
                     break;
 
                 // PEP 709 Comprehension Optimization - VM 구현
@@ -6153,118 +6048,37 @@ namespace SharpPy
         /// </summary>
         private PyObject ImportStar(PyObject module)
         {
-            // CPython: import_all_from(tstate, locals, from)
-            var currentFrame = PyVM.CurrentFrame;
-            if (currentFrame == null)
+            // import_all_from (Python/ceval.c): __all__, else the keys of __dict__ without the
+            // underscored ones; each name is read with getattr and stored in the frame's locals.
+            var frame = PyVM.CurrentFrame ?? throw new InvalidOperationException("No current frame during 'import *'");
+            PyObject all = module.LookupAttribute("__all__");
+            bool skipLeadingUnderscores = false;
+            if (all == null)
             {
-                throw new InvalidOperationException("No current frame during 'import *'");
+                var dict = module.LookupAttribute("__dict__")
+                    ?? throw PyImportError.Create("from-import-* object has no __dict__ and no __all__");
+                all = dict.GetAttribute("keys").Call(Array.Empty<PyObject>(), null);
+                skipLeadingUnderscores = true;
             }
-
-            // Get the locals scope from current frame
-            var locals = currentFrame.ScopeChain.CurrentScope;
-            if (locals == null)
+            foreach (var name in PySet.IterableItems(all))
             {
-                throw new InvalidOperationException("no locals found during 'import *'");
-            }
-
-            // CPython: Check for __all__ attribute first
-            PyObject all = null;
-            bool skipUnderscores = false;
-
-            // Try to get __all__
-            bool hasAll = false;
-            try
-            {
-                all = module.GetAttribute("__all__");
-                hasAll = true;
-            }
-            catch
-            {
-                // No __all__, will try __dict__
-            }
-
-            if (!hasAll)
-            {
-                // No __all__, use __dict__ keys instead
-                try
+                if (name is not PyString text)
                 {
-                    var dict = module.GetAttribute("__dict__");
-                    if (dict is PyDict pyDict)
-                    {
-                        all = pyDict.Keys();
-                        skipUnderscores = true;
-                    }
-                    else
-                    {
-                        throw PyImportError.Create("from-import-* object has no __dict__ and no __all__");
-                    }
+                    var moduleName = module.GetAttribute("__name__");
+                    if (moduleName is not PyString modName)
+                        throw PyTypeError.Create($"module __name__ must be a string, not {moduleName.GetTypeName()}");
+                    throw PyTypeError.Create(skipLeadingUnderscores
+                        ? $"Key in {modName.Value}.__dict__ must be str, not {name.GetTypeName()}"
+                        : $"Item in {modName.Value}.__all__ must be str, not {name.GetTypeName()}");
                 }
-                catch
-                {
-                    throw PyImportError.Create("from-import-* object has no __dict__ and no __all__");
-                }
+                if (skipLeadingUnderscores && text.Value.StartsWith("_", StringComparison.Ordinal))
+                    continue;
+                var value = module.GetAttribute(text.Value);
+                if (frame.ClassLocalsDict != null)
+                    frame.ClassLocalsDict.SetItem(text, value);
+                else
+                    frame.ScopeChain.GlobalScope.SetVariable(text.Value, value);
             }
-
-            // Import each name
-            if (all is PyList list)
-            {
-                foreach (var item in list.Items)
-                {
-                    if (item is PyString nameStr)
-                    {
-                        var name = nameStr.Value;
-
-                        // Skip names starting with underscore if using __dict__
-                        if (skipUnderscores && name.StartsWith("_", StringComparison.Ordinal))
-                        {
-                            continue;
-                        }
-
-                        // Get attribute from module
-                        try
-                        {
-                            var value = module.GetAttribute(name);
-                            // Set in local scope
-                            locals.SetVariable(name, value);
-                        }
-                        catch
-                        {
-                            // CPython: If attribute doesn't exist, skip it
-                            continue;
-                        }
-                    }
-                }
-            }
-            else if (all is PyTuple tuple)
-            {
-                foreach (var item in tuple.Items)
-                {
-                    if (item is PyString nameStr)
-                    {
-                        var name = nameStr.Value;
-
-                        // Skip names starting with underscore if using __dict__
-                        if (skipUnderscores && name.StartsWith("_", StringComparison.Ordinal))
-                        {
-                            continue;
-                        }
-
-                        // Get attribute from module
-                        try
-                        {
-                            var value = module.GetAttribute(name);
-                            // Set in local scope
-                            locals.SetVariable(name, value);
-                        }
-                        catch
-                        {
-                            // CPython: If attribute doesn't exist, skip it
-                            continue;
-                        }
-                    }
-                }
-            }
-
             return PyNone.Instance;
         }
 
