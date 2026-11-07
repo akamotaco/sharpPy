@@ -151,7 +151,7 @@ namespace SharpPy
             long found = Find(text, name, args, forward);
             if (found == -1)
                 throw PyValueError.Create("subsection not found");
-            return new PyInt(found);
+            return PyInt.From(found);
         }
 
         private static PyObject Count(byte[] text, PyObject[] args)
@@ -163,9 +163,9 @@ namespace SharpPy
             Adjust(ref start, ref end, text.Length);
             long length = end - start;
             if (length < 0)
-                return new PyInt(0);
+                return PyInt.From(0);
             if (sub.Length == 0)
-                return new PyInt(length + 1);
+                return PyInt.From(length + 1);
             long count = 0;
             var range = text.AsSpan((int)start, (int)length);
             while (true)
@@ -176,7 +176,7 @@ namespace SharpPy
                 count++;
                 range = range.Slice(found + sub.Length);
             }
-            return new PyInt(count);
+            return PyInt.From(count);
         }
 
         // tailmatch
@@ -375,9 +375,9 @@ namespace SharpPy
             int found = forward ? PyBytes.IndexOfBytes(text, sep) : PyBytes.LastIndexOfBytes(text, sep);
             if (found < 0)
                 return forward
-                    ? new PyTuple(new[] { ReturnSelf(self, text), New(self, new byte[0]), New(self, new byte[0]) })
-                    : new PyTuple(new[] { New(self, new byte[0]), New(self, new byte[0]), ReturnSelf(self, text) });
-            return new PyTuple(new[] { Piece(self, text, 0, found), New(self, sep), Piece(self, text, found + sep.Length, text.Length) });
+                    ? PyTuple.From(new[] { ReturnSelf(self, text), New(self, new byte[0]), New(self, new byte[0]) })
+                    : PyTuple.From(new[] { New(self, new byte[0]), New(self, new byte[0]), ReturnSelf(self, text) });
+            return PyTuple.From(new[] { Piece(self, text, 0, found), New(self, sep), Piece(self, text, found + sep.Length, text.Length) });
         }
 
         // do_strip and do_xstrip
@@ -817,7 +817,7 @@ namespace SharpPy
             {
                 // The list may change while __index__ runs.
                 for (int i = 0; i < list.Length(); i++)
-                    result.Add(ByteValue(list.GetItem(new PyInt(i)), range));
+                    result.Add(ByteValue(list.GetItem(PyInt.From(i)), range));
                 return result.ToArray();
             }
             if (source is PyTuple tuple && ReferenceEquals(tuple.GetPyType(), PyType.TupleType))
@@ -1040,13 +1040,13 @@ namespace SharpPy
             PyObject[] arguments = text.Length == 0 ? Array.Empty<PyObject>() : protocol < 3
                 ? new PyObject[] { PyString.From(Encoding.Latin1.GetString(text)), PyString.From("latin-1") }
                 : new PyObject[] { PyBytes.From(text) };
-            return new PyTuple(new[] { self.GetPyType(), new PyTuple(arguments), state });
+            return PyTuple.From(new[] { self.GetPyType(), PyTuple.From(arguments), state });
         }
 
         internal static void InstallByteArray(PyType type)
         {
             type.TypeDict["__hash__"] = PyNone.Instance;
-            Zero(type, "__alloc__", self => new PyInt(((PyByteArray)self).Allocated));
+            Zero(type, "__alloc__", self => PyInt.From(((PyByteArray)self).Allocated));
             Zero(type, "__reduce__", self => ReduceEx(self, 2));
             Def(type, "__reduce_ex__", (self, args, kwargs) => ReduceEx(self, args.Length > 0 ? AsSsize(args[0]) : 3));
             One(type, "__mod__", (self, other) => self.Modulo(other));
@@ -1055,7 +1055,7 @@ namespace SharpPy
 
         internal static void InstallBytes(PyType type)
         {
-            Zero(type, "__getnewargs__", self => new PyTuple(new PyObject[] { PyBytes.From(Self(self)) }));
+            Zero(type, "__getnewargs__", self => PyTuple.From(new PyObject[] { PyBytes.From(Self(self)) }));
             Zero(type, "__bytes__", self => ReferenceEquals(self.GetPyType(), PyType.BytesType) ? self : PyBytes.From(Self(self)));
             One(type, "__mod__", (self, other) => self.Modulo(other));
             One(type, "__rmod__", (self, other) => PyNotImplemented.Instance);
@@ -1063,8 +1063,8 @@ namespace SharpPy
 
         internal static void Install(PyType type)
         {
-            Def(type, "find", (self, args, kwargs) => new PyInt(Find(Self(self), "find", args, true)));
-            Def(type, "rfind", (self, args, kwargs) => new PyInt(Find(Self(self), "rfind", args, false)));
+            Def(type, "find", (self, args, kwargs) => PyInt.From(Find(Self(self), "find", args, true)));
+            Def(type, "rfind", (self, args, kwargs) => PyInt.From(Find(Self(self), "rfind", args, false)));
             Def(type, "index", (self, args, kwargs) => Index(Self(self), "index", args, true));
             Def(type, "rindex", (self, args, kwargs) => Index(Self(self), "rindex", args, false));
             Def(type, "count", (self, args, kwargs) => Count(Self(self), args));

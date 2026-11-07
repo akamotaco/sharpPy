@@ -152,8 +152,8 @@ namespace SharpPy.Modules
             }
         }
 
-        private static PyObject Long(long value) => new PyInt(value);
-        private static PyObject ULong(ulong value) => new PyInt(value);
+        private static PyObject Long(long value) => PyInt.From(value);
+        private static PyObject ULong(ulong value) => PyInt.From(value);
 
         private static long ReadNative(ReadOnlySpan<byte> p, int size)
         {
@@ -714,7 +714,7 @@ namespace SharpPy.Modules
                     res += code.Size;
                 }
             }
-            return new PyTuple(result);
+            return PyTuple.From(result);
         }
 
         // s_pack_internal
@@ -958,7 +958,7 @@ namespace SharpPy.Modules
             }, minArgs: 0, maxArgs: int.MaxValue, acceptsKwargs: true);
             PyArgs.Define(type, "__sizeof__", PyCall.NoArgs, (self, args) => ((StructObject)self).SizeOf());
             type.TypeDict["format"] = new PyGetSetDescriptor("format", type, self => ((StructObject)self).FormatString());
-            type.TypeDict["size"] = new PyGetSetDescriptor("size", type, self => new PyInt(((StructObject)self).Size));
+            type.TypeDict["size"] = new PyGetSetDescriptor("size", type, self => PyInt.From(((StructObject)self).Size));
             if (PyDocs.Lookup("_struct.Struct") is { } doc)
                 type.TypeDict["__doc__"] = PyDocs.DocFromInternal("Struct", doc);
             return type;
@@ -1021,7 +1021,7 @@ namespace SharpPy.Modules
             d["calcsize"] = new PyBuiltinFunction("calcsize", (args, kwargs) =>
             {
                 PyArgs.One("calcsize", args, kwargs);
-                return new PyInt(CachedStruct(args[0]).Size);
+                return PyInt.From(CachedStruct(args[0]).Size);
             });
             d["iter_unpack"] = new PyBuiltinFunction("iter_unpack", (args, kwargs) =>
             {
@@ -1115,7 +1115,7 @@ namespace SharpPy.Modules
                     break;
                 size += FormatCodeSize;
             }
-            return new PyInt(size);
+            return PyInt.From(size);
         }
     }
 
@@ -1138,7 +1138,7 @@ namespace SharpPy.Modules
 
         // unpackiter_len
         internal override PyObject RemainingHint() =>
-            new PyInt(_so == null ? 0 : (_buf.ByteLength - _index) / _so.Size);
+            PyInt.From(_so == null ? 0 : (_buf.ByteLength - _index) / _so.Size);
 
         // unpackiter_iternext
         protected internal override PyObject IterNext()

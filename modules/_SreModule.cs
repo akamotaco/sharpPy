@@ -27,10 +27,10 @@ namespace SharpPy.Modules
             }
 
             var module = new PyModule("_sre", "<_sre C module>");
-            module.ModuleDict["MAGIC"] = new PyInt(20221023);
-            module.ModuleDict["CODESIZE"] = new PyInt(4);
-            module.ModuleDict["MAXREPEAT"] = new PyInt(4294967295);
-            module.ModuleDict["MAXGROUPS"] = new PyInt(1073741823);
+            module.ModuleDict["MAGIC"] = PyInt.From(20221023);
+            module.ModuleDict["CODESIZE"] = PyInt.From(4);
+            module.ModuleDict["MAXREPEAT"] = PyInt.From(4294967295);
+            module.ModuleDict["MAXGROUPS"] = PyInt.From(1073741823);
             module.ModuleDict["compile"] = new PyBuiltinFunction("compile", Compile);
             module.ModuleDict["template"] = new PyBuiltinFunction("template", Template);
             module.ModuleDict["ascii_iscased"] = new PyBuiltinFunction("ascii_iscased", AsciiIscased);
@@ -111,8 +111,8 @@ namespace SharpPy.Modules
             // CPython: sre_lower_ascii(character)
             // ASCII lowercase: if ch is 'A'-'Z', return 'a'-'z', otherwise return ch
             if (ch >= 'A' && ch <= 'Z')
-                return new PyInt(ch + ('a' - 'A'));
-            return new PyInt(ch);
+                return PyInt.From(ch + ('a' - 'A'));
+            return PyInt.From(ch);
         }
 
         /// <summary>
@@ -130,7 +130,7 @@ namespace SharpPy.Modules
             // Use C# char.ToLowerInvariant for Unicode case mapping
             char c = (char)ch;
             char lower = char.ToLowerInvariant(c);
-            return new PyInt((int)lower);
+            return PyInt.From((int)lower);
         }
     }
 }

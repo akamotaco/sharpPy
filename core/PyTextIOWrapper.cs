@@ -126,7 +126,7 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
         flag <<= 1;
         if (_pendingCR)
             flag |= 1;
-        return new PyTuple(new[] { buffer, new PyInt(flag) });
+        return PyTuple.From(new[] { buffer, PyInt.From(flag) });
     }
 
     private PyObject SetState(PyObject state)
@@ -141,7 +141,7 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
         flag >>= 1;
         if (Decoder is PyNone)
             return PyNone.Instance;
-        return Decoder.GetAttribute("setstate").Call(new PyObject[] { new PyTuple(new[] { tuple.Items[0], new PyInt(flag) }) }, null);
+        return Decoder.GetAttribute("setstate").Call(new PyObject[] { PyTuple.From(new[] { tuple.Items[0], PyInt.From(flag) }) }, null);
     }
 
     private PyObject Reset()
@@ -161,10 +161,10 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
             SeenCR => S("\r"),
             SeenLF => S("\n"),
             SeenCRLF => S("\r\n"),
-            SeenCR | SeenLF => new PyTuple(new[] { S("\r"), S("\n") }),
-            SeenCR | SeenCRLF => new PyTuple(new[] { S("\r"), S("\r\n") }),
-            SeenLF | SeenCRLF => new PyTuple(new[] { S("\n"), S("\r\n") }),
-            SeenAll => new PyTuple(new[] { S("\r"), S("\n"), S("\r\n") }),
+            SeenCR | SeenLF => PyTuple.From(new[] { S("\r"), S("\n") }),
+            SeenCR | SeenCRLF => PyTuple.From(new[] { S("\r"), S("\r\n") }),
+            SeenLF | SeenCRLF => PyTuple.From(new[] { S("\n"), S("\r\n") }),
+            SeenAll => PyTuple.From(new[] { S("\r"), S("\n"), S("\r\n") }),
             _ => PyNone.Instance,
         };
     }
@@ -400,10 +400,10 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             return;
         _encodingStartOfStream = true;
         var cookie = Call(_buffer, "tell");
-        if (!PyObject.CompareBool(cookie, new PyInt(0), PyObject.CompareOp.EQ))
+        if (!PyObject.CompareBool(cookie, PyInt.From(0), PyObject.CompareOp.EQ))
         {
             _encodingStartOfStream = false;
-            Call(_encoder, "setstate", new PyInt(0));
+            Call(_encoder, "setstate", PyInt.From(0));
         }
     }
 
@@ -615,7 +615,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         }
         if (_decoder != null)
             Call(_decoder, "reset");
-        return new PyInt(textLength);
+        return PyInt.From(textLength);
     }
 
     private void SetDecodedChars(string chars)
@@ -666,7 +666,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         }
         if (sizeHint > 0)
             sizeHint = (long)(Math.Max(_b2cratio, 1.0) * sizeHint);
-        var input = Call(_buffer, _hasRead1 ? "read1" : "read", new PyInt(Math.Max(_chunkSize, sizeHint)));
+        var input = Call(_buffer, _hasRead1 ? "read1" : "read", PyInt.From(Math.Max(_chunkSize, sizeHint)));
         var inputBytes = BytesMethods.Buffer(input)
             ?? throw PyTypeError.Create($"underlying {(_hasRead1 ? "read1" : "read")}() should have returned a bytes-like object, not '{input.GetTypeName()}'");
         int nbytes = inputBytes.Length;
@@ -683,7 +683,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             var next = new byte[previous.Length + nbytes];
             Array.Copy(previous, next, previous.Length);
             Array.Copy(inputBytes, 0, next, previous.Length, nbytes);
-            _snapshot = new PyTuple(new[] { decFlags, PyBytes.From(next) });
+            _snapshot = PyTuple.From(new[] { decFlags, PyBytes.From(next) });
         }
         return !eof;
     }
@@ -864,7 +864,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         BitConverter.GetBytes(cookie.BytesToFeed).CopyTo(buffer, 12);
         BitConverter.GetBytes(cookie.CharsToSkip).CopyTo(buffer, 16);
         buffer[20] = (byte)(cookie.NeedEof ? 1 : 0);
-        return new PyInt(new BigInteger(buffer, isUnsigned: true, isBigEndian: false));
+        return PyInt.From(new BigInteger(buffer, isUnsigned: true, isBigEndian: false));
     }
 
     private void DecoderSetState(Cookie cookie)
@@ -872,7 +872,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         if (cookie.StartPos == 0 && cookie.DecFlags == 0)
             Call(_decoder, "reset");
         else
-            Call(_decoder, "setstate", new PyTuple(new PyObject[] { PyBytes.From(Array.Empty<byte>()), new PyInt(cookie.DecFlags) }));
+            Call(_decoder, "setstate", PyTuple.From(new PyObject[] { PyBytes.From(Array.Empty<byte>()), PyInt.From(cookie.DecFlags) }));
     }
 
     private void EncoderReset(bool startOfStream)
@@ -884,7 +884,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         }
         else
         {
-            Call(_encoder, "setstate", new PyInt(0));
+            Call(_encoder, "setstate", PyInt.From(0));
             _encodingStartOfStream = false;
         }
     }
@@ -896,7 +896,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         CheckClosed();
         if (!_seekable)
             throw Unsupported("underlying stream is not seekable");
-        var zero = new PyInt(0);
+        var zero = PyInt.From(0);
         switch (whence)
         {
             case 1:
@@ -913,7 +913,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
                 _snapshot = null;
                 if (_decoder != null)
                     Call(_decoder, "reset");
-                var result = Call(_buffer, "seek", zero, new PyInt(2));
+                var result = Call(_buffer, "seek", zero, PyInt.From(2));
                 if (_encoder != null)
                     EncoderReset(PyObject.CompareBool(result, zero, PyObject.CompareOp.EQ));
                 return result;
@@ -927,17 +927,17 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             throw PyValueError.Create($"negative seek position {cookieObject.ToRepr().Value}");
         Call(this, "flush");
         var cookie = ParseCookie(cookieObject);
-        Call(_buffer, "seek", new PyInt(cookie.StartPos));
+        Call(_buffer, "seek", PyInt.From(cookie.StartPos));
         SetDecodedChars(null);
         _snapshot = null;
         if (_decoder != null)
             DecoderSetState(cookie);
         if (cookie.CharsToSkip != 0)
         {
-            var input = Call(_buffer, "read", new PyInt(cookie.BytesToFeed));
+            var input = Call(_buffer, "read", PyInt.From(cookie.BytesToFeed));
             if (input is not PyBytes)
                 throw PyTypeError.Create($"underlying read() should have returned a bytes object, not '{input.GetTypeName()}'");
-            _snapshot = new PyTuple(new[] { new PyInt(cookie.DecFlags), input });
+            _snapshot = PyTuple.From(new[] { PyInt.From(cookie.DecFlags), input });
             string decoded = PyNewlineDecoder.CheckDecoded(Call(_decoder, "decode", input, PyBool.FromBool(cookie.NeedEof)));
             SetDecodedChars(decoded);
             if (PyString.CodePointCount(decoded) < cookie.CharsToSkip)
@@ -946,7 +946,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             _usedUnits = UnitsAfter(0, cookie.CharsToSkip);
         }
         else
-            _snapshot = new PyTuple(new PyObject[] { new PyInt(cookie.DecFlags), PyBytes.From(Array.Empty<byte>()) });
+            _snapshot = PyTuple.From(new PyObject[] { PyInt.From(cookie.DecFlags), PyBytes.From(Array.Empty<byte>()) });
         if (_encoder != null)
             EncoderReset(cookie.StartPos == 0 && cookie.DecFlags == 0);
         return cookieObject;
@@ -1255,7 +1255,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         {
             var wrapper = (PyTextIOWrapper)self;
             wrapper.CheckAttached();
-            return new PyInt(wrapper._chunkSize);
+            return PyInt.From(wrapper._chunkSize);
         }, (self, value) =>
         {
             var wrapper = (PyTextIOWrapper)self;

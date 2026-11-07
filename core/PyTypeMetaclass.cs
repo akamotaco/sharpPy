@@ -154,7 +154,7 @@ namespace SharpPy
                 ("__basicsize__", layout => layout.BasicSize), ("__itemsize__", layout => layout.ItemSize),
                 ("__dictoffset__", layout => layout.DictOffset), ("__weakrefoffset__", layout => layout.WeakOffset),
             })
-                typeClass.ClassDict[name] = new PyMemberDescriptor(name, typeClass, self => new PyInt(read(((PyType)self).Layout)), readOnly: true);
+                typeClass.ClassDict[name] = new PyMemberDescriptor(name, typeClass, self => PyInt.From(read(((PyType)self).Layout)), readOnly: true);
 
             typeClass.ClassDict["__flags__"] = new PyGetSetDescriptor("__flags__", typeClass, self =>
             {
@@ -166,7 +166,7 @@ namespace SharpPy
                     if (cls.ClassDict.TryGetValue("__abstractmethods__", out var abstractMethods) && abstractMethods.IsTrue())
                         flags |= 1L << 20;
                 }
-                return new PyInt(flags);
+                return PyInt.From(flags);
             });
 
             // type___subclasses___impl

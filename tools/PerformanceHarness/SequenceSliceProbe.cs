@@ -8,7 +8,7 @@ internal static class SequenceSliceProbe
         var results = new List<object>();
         foreach (int size in new[] { 16, 1024 })
         {
-            var items = Enumerable.Repeat<PyObject>(SmallIntCache.GetOrCreate(7), size).ToArray();
+            var items = Enumerable.Repeat<PyObject>(PyInt.From(7), size).ToArray();
             var bytes = Enumerable.Repeat((byte)97, size).ToArray();
             foreach (PyObject source in new PyObject[] { new PyBytes(bytes), new PyByteArray(bytes),
                 new PyString(new string('a', size)), new PyList(items), new PyTuple(items) })

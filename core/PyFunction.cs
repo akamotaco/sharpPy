@@ -58,7 +58,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         CodeObject = codeObject;
 
         if (TypeParams != null && TypeParams.Count > 0)
-            _typeParams = TupleCache.GetOrCreate(TypeParams.ToArray());
+            _typeParams = PyTuple.From(TypeParams.ToArray());
 
         // CPython 호환: function type descriptor 초기화
         InitializeFunctionDescriptors();
@@ -273,7 +273,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
                 {
                     var cells = new PyObject[func.Closure.Length];
                     Array.Copy(func.Closure, cells, cells.Length);
-                    func._closureTuple = new PyTuple(cells);
+                    func._closureTuple = PyTuple.From(cells);
                     func._closureSource = func.Closure;
                 }
                 return func._closureTuple;

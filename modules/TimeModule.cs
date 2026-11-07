@@ -52,7 +52,7 @@ namespace SharpPy
                 Function("tzset", TzSet);
             InitTimezone();
             SetAttribute("struct_time", StructTimeType);
-            SetAttribute("_STRUCT_TM_ITEMS", new PyInt(11));
+            SetAttribute("_STRUCT_TM_ITEMS", PyInt.From(11));
         }
 
         private void Function(string name, Func<PyObject[], PyDict, PyObject> body) =>
@@ -108,7 +108,7 @@ namespace SharpPy
         private static Exception FromErrno(int errno)
         {
             string message = errno == CTimeRuntime.EINVAL ? "Invalid argument" : "Value too large for defined data type";
-            return new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(errno), PyString.From(message) }, null));
+            return new PythonException(PyOSError.FromArguments(new PyObject[] { PyInt.From(errno), PyString.From(message) }, null));
         }
 
         // _PyTime_gmtime
@@ -132,9 +132,9 @@ namespace SharpPy
         // tmtotuple
         private static PyObject ToTuple(in CTm p, string zone, long gmtoff) => new PyStructSequence(StructTimeType, new PyObject[]
         {
-            new PyInt(p.Year + 1900L), new PyInt(p.Mon + 1), new PyInt(p.Mday), new PyInt(p.Hour), new PyInt(p.Min),
-            new PyInt(p.Sec), new PyInt((p.Wday + 6) % 7), new PyInt(p.Yday + 1), new PyInt(p.Isdst),
-            PyString.From(zone), new PyInt(gmtoff),
+            PyInt.From(p.Year + 1900L), PyInt.From(p.Mon + 1), PyInt.From(p.Mday), PyInt.From(p.Hour), PyInt.From(p.Min),
+            PyInt.From(p.Sec), PyInt.From((p.Wday + 6) % 7), PyInt.From(p.Yday + 1), PyInt.From(p.Isdst),
+            PyString.From(zone), PyInt.From(gmtoff),
         });
 
         // parse_time_t_args
@@ -387,10 +387,10 @@ namespace SharpPy
         // init_timezone with HAVE_DECL_TZNAME: _timezone, no altzone, _daylight, and the names.
         private void InitTimezone()
         {
-            SetAttribute("timezone", new PyInt(CTimeRuntime.Timezone));
-            SetAttribute("altzone", new PyInt(CTimeRuntime.Timezone - 3600));
-            SetAttribute("daylight", new PyInt(CTimeRuntime.Daylight));
-            SetAttribute("tzname", new PyTuple(new PyObject[]
+            SetAttribute("timezone", PyInt.From(CTimeRuntime.Timezone));
+            SetAttribute("altzone", PyInt.From(CTimeRuntime.Timezone - 3600));
+            SetAttribute("daylight", PyInt.From(CTimeRuntime.Daylight));
+            SetAttribute("tzname", PyTuple.From(new PyObject[]
             {
                 PyString.From(CTimeRuntime.TzName[0]), PyString.From(CTimeRuntime.TzName[1]),
             }));

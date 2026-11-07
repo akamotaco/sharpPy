@@ -50,7 +50,7 @@ namespace SharpPy
         {
             if (value.LookupSpecialMethodUncached("__buffer__") is not PyObject method)
                 return null;
-            return value.BindSpecialMethod(method).Call(new PyObject[] { new PyInt(flags) }, null) as PyMemoryView
+            return value.BindSpecialMethod(method).Call(new PyObject[] { PyInt.From(flags) }, null) as PyMemoryView
                 ?? throw PyTypeError.Create("__buffer__ returned non-memoryview object");
         }
 
@@ -250,7 +250,7 @@ namespace SharpPy
                     if (self is not PyMemoryView view)
                         throw PyTypeError.Create($"descriptor '__len__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
                     if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
-                    return SmallIntCache.GetOrCreate((int)view.Len());
+                    return PyInt.From((int)view.Len());
                 }, minArgs: 0, maxArgs: 0);
 
             // CPython memoryview is iterable and yields one element per position
@@ -403,20 +403,20 @@ namespace SharpPy
             switch (_fmt)
             {
                 case "":
-                case "B": return SmallIntCache.GetOrCreate(b0);
-                case "b": return SmallIntCache.GetOrCreate((sbyte)b0);
+                case "B": return PyInt.From(b0);
+                case "b": return PyInt.From((sbyte)b0);
                 case "c": return PyBytes.From(new[] { b0 });
-                case "H": return SmallIntCache.GetOrCreate((uint)(b0 | (ReadByte(storageByte + 1) << 8)));
-                case "h": return SmallIntCache.GetOrCreate((short)(b0 | (ReadByte(storageByte + 1) << 8)));
+                case "H": return PyInt.From((uint)(b0 | (ReadByte(storageByte + 1) << 8)));
+                case "h": return PyInt.From((short)(b0 | (ReadByte(storageByte + 1) << 8)));
                 case "I":
-                case "L": return SmallIntCache.GetOrCreate((uint)(b0 | (ReadByte(storageByte + 1) << 8) | (ReadByte(storageByte + 2) << 16) | (ReadByte(storageByte + 3) << 24)));
+                case "L": return PyInt.From((uint)(b0 | (ReadByte(storageByte + 1) << 8) | (ReadByte(storageByte + 2) << 16) | (ReadByte(storageByte + 3) << 24)));
                 case "i":
-                case "l": return SmallIntCache.GetOrCreate(b0 | (ReadByte(storageByte + 1) << 8) | (ReadByte(storageByte + 2) << 16) | (ReadByte(storageByte + 3) << 24));
-                case "Q": { ulong v = 0; for (int k = 0; k < 8; k++) v |= (ulong)ReadByte(storageByte + k) << (8 * k); return new PyInt(unchecked((long)v)); }
-                case "q": { long v = 0; for (int k = 0; k < 8; k++) v |= (long)ReadByte(storageByte + k) << (8 * k); return new PyInt(v); }
+                case "l": return PyInt.From(b0 | (ReadByte(storageByte + 1) << 8) | (ReadByte(storageByte + 2) << 16) | (ReadByte(storageByte + 3) << 24));
+                case "Q": { ulong v = 0; for (int k = 0; k < 8; k++) v |= (ulong)ReadByte(storageByte + k) << (8 * k); return PyInt.From(unchecked((long)v)); }
+                case "q": { long v = 0; for (int k = 0; k < 8; k++) v |= (long)ReadByte(storageByte + k) << (8 * k); return PyInt.From(v); }
                 case "f": { uint u = 0; for (int k = 0; k < 4; k++) u |= (uint)ReadByte(storageByte + k) << (8 * k); return new PyFloat(BitConverter.ToSingle(BitConverter.GetBytes(u), 0)); }
                 case "d": { ulong u = 0; for (int k = 0; k < 8; k++) u |= (ulong)ReadByte(storageByte + k) << (8 * k); return new PyFloat(BitConverter.ToDouble(BitConverter.GetBytes(u), 0)); }
-                default: return SmallIntCache.GetOrCreate(b0);
+                default: return PyInt.From(b0);
             }
         }
 
@@ -681,11 +681,11 @@ namespace SharpPy
             {
                 CheckReleased();
                 if (_shape == null)
-                    return new PyTuple(SmallIntCache.GetOrCreate((long)_stride));
+                    return PyTuple.From(PyInt.From((long)_stride));
                 var parts = new PyObject[_shape.Length];
                 for (int k = 0; k < _shape.Length; k++)
-                    parts[k] = SmallIntCache.GetOrCreate(_estr[k] * _stride);
-                return new PyTuple(parts);
+                    parts[k] = PyInt.From(_estr[k] * _stride);
+                return PyTuple.From(parts);
             }
             if (name == "c_contiguous" || name == "contiguous")
             {
@@ -721,19 +721,19 @@ namespace SharpPy
             }
             if (name == "itemsize")
             {
-                return SmallIntCache.GetOrCreate(ItemSize);
+                return PyInt.From(ItemSize);
             }
             if (name == "format") { CheckReleased(); return PyString.From(_fmt); }
-            if (name == "nbytes") { CheckReleased(); return SmallIntCache.GetOrCreate((long)_length * _itemsize); }
-            if (name == "ndim") { CheckReleased(); return SmallIntCache.GetOrCreate(_shape == null ? 1 : _shape.Length); }
+            if (name == "nbytes") { CheckReleased(); return PyInt.From((long)_length * _itemsize); }
+            if (name == "ndim") { CheckReleased(); return PyInt.From(_shape == null ? 1 : _shape.Length); }
             if (name == "shape")
             {
                 CheckReleased();
                 if (_shape == null)
-                    return new PyTuple(new PyObject[] { SmallIntCache.GetOrCreate(_length) });
+                    return PyTuple.From(new PyObject[] { PyInt.From(_length) });
                 var sh = new PyObject[_shape.Length];
-                for (int k = 0; k < _shape.Length; k++) sh[k] = SmallIntCache.GetOrCreate(_shape[k]);
-                return new PyTuple(sh);
+                for (int k = 0; k < _shape.Length; k++) sh[k] = PyInt.From(_shape[k]);
+                return PyTuple.From(sh);
             }
             throw PyAttributeError.Create(name);
         }
@@ -770,7 +770,7 @@ namespace SharpPy
             {
                 if (ndIdx.Items.Length != _shape.Length)
                     throw PyNotImplementedError.Create("sub-views are not implemented");
-                index = SmallIntCache.GetOrCreate(NdFlat(ndIdx.Items));
+                index = PyInt.From(NdFlat(ndIdx.Items));
             }
             if (_readonly)
                 throw PyTypeError.Create("cannot modify read-only memory");

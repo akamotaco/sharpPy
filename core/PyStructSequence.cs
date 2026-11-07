@@ -36,10 +36,10 @@ namespace SharpPy
             // initialize_structseq_dict
             if (module != null && module != "sys")
                 TypeDict["__module__"] = PyString.From(module);
-            TypeDict["n_sequence_fields"] = new PyInt(Visible);
-            TypeDict["n_fields"] = new PyInt(fields.Length);
-            TypeDict["n_unnamed_fields"] = new PyInt(fields.Length - members.Count);
-            TypeDict["__match_args__"] = new PyTuple(matchArgs.ToArray());
+            TypeDict["n_sequence_fields"] = PyInt.From(Visible);
+            TypeDict["n_fields"] = PyInt.From(fields.Length);
+            TypeDict["n_unnamed_fields"] = PyInt.From(fields.Length - members.Count);
+            TypeDict["__match_args__"] = PyTuple.From(matchArgs.ToArray());
             TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", this, (self, args, kwargs) => self.Repr());
             TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", this, (self, args, kwargs) => ((PyStructSequence)self).Reduce());
             if (Layout.NoInstances)
@@ -150,7 +150,7 @@ namespace SharpPy
             int unnamed = _type.Fields.Length - _type.Members.Length;
             for (int i = _type.Visible; i < _type.Fields.Length; i++)
                 hidden.SetItem(PyString.From(_type.Members[i - unnamed]), AllFields[i]);
-            return new PyTuple(new PyObject[] { _type, new PyTuple(new PyObject[] { new PyTuple(Items), hidden }) });
+            return PyTuple.From(new PyObject[] { _type, PyTuple.From(new PyObject[] { PyTuple.From(Items), hidden }) });
         }
     }
 }

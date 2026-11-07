@@ -19,7 +19,7 @@ namespace SharpPy
             if (type != null && !ReferenceEquals(type, PyType.GenericAliasType)) SetCustomType(type);
             _starred = starred;
             Origin = origin;
-            Args = args as PyTuple ?? new PyTuple(new[] { args });
+            Args = args as PyTuple ?? PyTuple.From(new[] { args });
         }
 
         public override PyType GetPyType() => _customType ?? PyType.GenericAliasType;
@@ -60,12 +60,12 @@ namespace SharpPy
 
         internal static PyObject GetItemSlot(PyObject self, PyObject item) => ((PyGenericAlias)self).GaGetItem(item);
 
-        internal static PyObject MroEntries(PyObject self) => new PyTuple(new[] { ((PyGenericAlias)self).Origin });
+        internal static PyObject MroEntries(PyObject self) => PyTuple.From(new[] { ((PyGenericAlias)self).Origin });
 
         internal static PyObject Reduce(PyObject self)
         {
             var alias = (PyGenericAlias)self;
-            return new PyTuple(new PyObject[] { alias.GetPyType(), new PyTuple(new[] { alias.Origin, alias.Args }) });
+            return PyTuple.From(new PyObject[] { alias.GetPyType(), PyTuple.From(new[] { alias.Origin, alias.Args }) });
         }
 
         // attr_exceptions and ga_getattro: what is not the alias's own goes to the origin.
@@ -114,7 +114,7 @@ namespace SharpPy
                     foreach (var t2 in subparams.Items)
                         Add(t2);
             }
-            return new PyTuple(parameters.ToArray());
+            return PyTuple.From(parameters.ToArray());
         }
 
         // _is_unpacked_typevartuple
@@ -153,7 +153,7 @@ namespace SharpPy
                 }
                 newitems.Add(part);
             }
-            return new PyTuple(newitems.ToArray());
+            return PyTuple.From(newitems.ToArray());
         }
 
         private static int TupleIndex(PyObject[] self, PyObject item)
@@ -186,7 +186,7 @@ namespace SharpPy
                     }
                     subargs.Add(arg);
                 }
-                return obj.GetItem(new PyTuple(subargs.ToArray()));
+                return obj.GetItem(PyTuple.From(subargs.ToArray()));
             }
             return obj;
         }
@@ -202,7 +202,7 @@ namespace SharpPy
             {
                 var prepare = LookupAttr(param, "__typing_prepare_subst__");
                 if (prepare != null && prepare is not PyNone)
-                    item = prepare.Call(new[] { self, item is PyTuple ? item : new PyTuple(new[] { item }) }, null);
+                    item = prepare.Call(new[] { self, item is PyTuple ? item : PyTuple.From(new[] { item }) }, null);
             }
             var argitems = item is PyTuple tuple ? tuple.Items : new[] { item };
             int nitems = argitems.Length;
@@ -228,7 +228,7 @@ namespace SharpPy
                 else
                     newargs.Add(arg);
             }
-            return new PyTuple(newargs.ToArray());
+            return PyTuple.From(newargs.ToArray());
         }
 
         // ga_getitem

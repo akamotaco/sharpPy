@@ -22,7 +22,7 @@ namespace SharpPy.Modules
                         throw PyTypeError.Create($"{name} expected {count} arguments, got {args.Length}");
                     return body(args);
                 });
-            Function("get_cache_token", 0, args => new PyInt((long)_invalidationCounter));
+            Function("get_cache_token", 0, args => PyInt.From((long)_invalidationCounter));
             Function("_abc_init", 1, args => Init(args[0]));
             Function("_abc_register", 2, args => Register(args[0], args[1]));
             Function("_abc_instancecheck", 2, args => InstanceCheck(args[0], args[1]));
@@ -30,9 +30,9 @@ namespace SharpPy.Modules
             Function("_get_dump", 1, args =>
             {
                 var impl = Impl(args[0]);
-                return new PyTuple(new PyObject[]
+                return PyTuple.From(new PyObject[]
                 {
-                    Copy(impl.Registry), Copy(impl.Cache), Copy(impl.NegativeCache), new PyInt((long)impl.NegativeVersion),
+                    Copy(impl.Registry), Copy(impl.Cache), Copy(impl.NegativeCache), PyInt.From((long)impl.NegativeVersion),
                 });
             });
             Function("_reset_registry", 1, args =>

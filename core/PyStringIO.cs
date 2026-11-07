@@ -220,7 +220,7 @@ public class PyStringIO : PyIOBaseInstance
             Resize(size);
             _size = (int)size;
         }
-        return new PyInt(size);
+        return PyInt.From(size);
     }
 
     private PyObject Seek(long pos, int whence)
@@ -238,7 +238,7 @@ public class PyStringIO : PyIOBaseInstance
         else if (whence == 2)
             pos = _size;
         _pos = pos;
-        return new PyInt(_pos);
+        return PyInt.From(_pos);
     }
 
     private PyObject Write(PyObject value)
@@ -251,7 +251,7 @@ public class PyStringIO : PyIOBaseInstance
         int size = PyString.CodePointCount(text);
         if (size > 0)
             WriteStr(text);
-        return new PyInt(size);
+        return PyInt.From(size);
     }
 
     private PyObject Close()
@@ -318,7 +318,7 @@ public class PyStringIO : PyIOBaseInstance
     {
         var value = PyString.From(GetValue());
         PyObject dict = ObjectDict(false) is { } own ? own.Copy() : PyNone.Instance;
-        return new PyTuple(new PyObject[] { value, _readnl == null ? PyNone.Instance : PyString.From(_readnl), new PyInt(_pos), dict });
+        return PyTuple.From(new PyObject[] { value, _readnl == null ? PyNone.Instance : PyString.From(_readnl), PyInt.From(_pos), dict });
     }
 
     private static string TypeName(PyObject self) =>
@@ -385,7 +385,7 @@ public class PyStringIO : PyIOBaseInstance
         {
             self.CheckInitialized();
             self.CheckClosed();
-            return new PyInt(self._pos);
+            return PyInt.From(self._pos);
         });
         Def("truncate", PyCall.Fast, (self, args) => self.Truncate(PyArgs.OptionalSsize(Arg(args, 0), self._pos)), 0, 1);
         Def("seek", PyCall.Fast, (self, args) =>

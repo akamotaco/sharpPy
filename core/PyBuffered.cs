@@ -154,7 +154,7 @@ public sealed class PyBuffered : PyIOBaseInstance
     // _buffered_raw_seek
     private long BufferedRawSeek(long target, int whence)
     {
-        long n = Offset(Call(_s.Raw, "seek", new PyInt(target), new PyInt(whence)));
+        long n = Offset(Call(_s.Raw, "seek", PyInt.From(target), PyInt.From(whence)));
         if (n < 0)
             throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From($"Raw stream returned invalid position {n}") }, null));
         _s.AbsPos = n;
@@ -252,12 +252,12 @@ public sealed class PyBuffered : PyIOBaseInstance
         PyObject result;
         if (_s.Raw is PyFileIO && ReferenceEquals(target, _s.Buffer))
         {
-            var view = new PyMemoryView(target, false).GetItem(new PySlice(new PyInt(offset), new PyInt(offset + length), PyNone.Instance));
+            var view = new PyMemoryView(target, false).GetItem(new PySlice(PyInt.From(offset), PyInt.From(offset + length), PyNone.Instance));
             result = Call(_s.Raw, "readinto", view);
         }
         else
         {
-            var view = new PyMemoryView(target, false).GetItem(new PySlice(new PyInt(offset), new PyInt(offset + length), PyNone.Instance));
+            var view = new PyMemoryView(target, false).GetItem(new PySlice(PyInt.From(offset), PyInt.From(offset + length), PyNone.Instance));
             result = Call(_s.Raw, "readinto", view);
         }
         if (result is PyNone)
@@ -442,7 +442,7 @@ public sealed class PyBuffered : PyIOBaseInstance
     // _bufferedwriter_raw_write: -2 when the raw stream would block.
     private long RawWrite(byte[] source, long offset, long length)
     {
-        var view = new PyMemoryView(source, true).GetItem(new PySlice(new PyInt(offset), new PyInt(offset + length), PyNone.Instance));
+        var view = new PyMemoryView(source, true).GetItem(new PySlice(PyInt.From(offset), PyInt.From(offset + length), PyNone.Instance));
         var result = Call(_s.Raw, "write", view);
         if (result is PyNone)
             return -2;
@@ -459,7 +459,7 @@ public sealed class PyBuffered : PyIOBaseInstance
 
     private static PythonException BlockingError(long written) => new PythonException(PyType.BlockingIOErrorType.Call(new PyObject[]
     {
-        new PyInt(11), PyString.From("write could not complete without blocking"), new PyInt(written),
+        PyInt.From(11), PyString.From("write could not complete without blocking"), PyInt.From(written),
     }, null) as PyBaseException ?? throw PyRuntimeError.Create("BlockingIOError"));
 
     // _bufferedwriter_flush_unlocked
@@ -527,7 +527,7 @@ public sealed class PyBuffered : PyIOBaseInstance
                 AdjustPosition(_s.Pos + data.Length);
                 if (_s.Pos > _s.WriteEnd)
                     _s.WriteEnd = _s.Pos;
-                return new PyInt(data.Length);
+                return PyInt.From(data.Length);
             }
             try
             {
@@ -549,7 +549,7 @@ public sealed class PyBuffered : PyIOBaseInstance
                     Array.Copy(data, 0, _s.Buffer, _s.WriteEnd, data.Length);
                     _s.WriteEnd += data.Length;
                     _s.Pos += data.Length;
-                    return new PyInt(data.Length);
+                    return PyInt.From(data.Length);
                 }
                 Array.Copy(data, 0, _s.Buffer, _s.WriteEnd, avail);
                 _s.WriteEnd += avail;
@@ -593,7 +593,7 @@ public sealed class PyBuffered : PyIOBaseInstance
             _s.WriteEnd = remaining;
             AdjustPosition(remaining);
             _s.RawPos = 0;
-            return new PyInt(written);
+            return PyInt.From(written);
         });
     }
 
@@ -683,7 +683,7 @@ public sealed class PyBuffered : PyIOBaseInstance
         PyObject Copy(long count)
         {
             bytes.WriteContiguous(target.AsSpan(0, (int)count));
-            return new PyInt(count);
+            return PyInt.From(count);
         }
         if (n > 0)
         {
@@ -805,7 +805,7 @@ public sealed class PyBuffered : PyIOBaseInstance
     {
         CheckInitialized();
         long position = BufferedRawTell() - RawOffset;
-        return new PyInt(position < 0 ? 0 : position);
+        return PyInt.From(position < 0 ? 0 : position);
     }
 
     // _io__Buffered_seek_impl
@@ -827,7 +827,7 @@ public sealed class PyBuffered : PyIOBaseInstance
                 if (offset >= -_s.Pos && offset <= avail)
                 {
                     _s.Pos += offset;
-                    return new PyInt(Math.Max(0, current - avail + offset));
+                    return PyInt.From(Math.Max(0, current - avail + offset));
                 }
             }
         }
@@ -841,7 +841,7 @@ public sealed class PyBuffered : PyIOBaseInstance
             _s.RawPos = -1;
             if (_s.Readable)
                 ResetReadBuffer();
-            return new PyInt(n);
+            return PyInt.From(n);
         });
     }
 
@@ -1023,7 +1023,7 @@ public sealed class PyBuffered : PyIOBaseInstance
         Method("seek", (self, args) => self.Seek(args), 1, 2);
         Method("tell", (self, args) => self.Tell());
         Method("truncate", (self, args) => self.Truncate(args), 0, 1);
-        Method("__sizeof__", (self, args) => new PyInt(64 + (self._s.Buffer?.Length ?? 0)));
+        Method("__sizeof__", (self, args) => PyInt.From(64 + (self._s.Buffer?.Length ?? 0)));
         foreach (var refuse in new[] { "__reduce__", "__reduce_ex__" })
             type.TypeDict[refuse] = new PyMethodDescriptor(refuse, type, (self, args, kwargs) =>
                 throw PyTypeError.Create($"cannot pickle '{self.GetPyType().Name}' instances"));
@@ -1110,7 +1110,7 @@ public sealed class PyBufferedRWPair : PyIOBaseInstance
                 throw PyUnsupportedOperation.Create("File or stream is not readable.");
             if (!ReferenceEquals(args[1].GetAttribute("writable").Call(Array.Empty<PyObject>(), null), PyBool.True))
                 throw PyUnsupportedOperation.Create("File or stream is not writable.");
-            var size = args.Length > 2 ? args[2] : new PyInt(PyBuffered.DefaultBufferSize);
+            var size = args.Length > 2 ? args[2] : PyInt.From(PyBuffered.DefaultBufferSize);
             pair._reader = PyBuffered.ReaderType.Call(new[] { args[0], size }, null);
             pair._writer = PyBuffered.WriterType.Call(new[] { args[1], size }, null);
             return PyNone.Instance;

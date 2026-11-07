@@ -12,12 +12,12 @@ namespace SharpPy.Modules
         internal static PyModule CreateCsvModule()
         {
             var module = new PyModule("_csv");
-            module.ModuleDict["QUOTE_MINIMAL"] = new PyInt(0);
-            module.ModuleDict["QUOTE_ALL"] = new PyInt(1);
-            module.ModuleDict["QUOTE_NONNUMERIC"] = new PyInt(2);
-            module.ModuleDict["QUOTE_NONE"] = new PyInt(3);
-            module.ModuleDict["QUOTE_STRINGS"] = new PyInt(4);
-            module.ModuleDict["QUOTE_NOTNULL"] = new PyInt(5);
+            module.ModuleDict["QUOTE_MINIMAL"] = PyInt.From(0);
+            module.ModuleDict["QUOTE_ALL"] = PyInt.From(1);
+            module.ModuleDict["QUOTE_NONNUMERIC"] = PyInt.From(2);
+            module.ModuleDict["QUOTE_NONE"] = PyInt.From(3);
+            module.ModuleDict["QUOTE_STRINGS"] = PyInt.From(4);
+            module.ModuleDict["QUOTE_NOTNULL"] = PyInt.From(5);
             module.ModuleDict["__version__"] = PyString.From("1.0");
             module.ModuleDict["Error"] = ErrorType;
             module.ModuleDict["Dialect"] = DialectType;
@@ -62,7 +62,7 @@ namespace SharpPy.Modules
             d.EscapeChar = PyNone.Instance;
             d.LineTerminator = PyString.From("\r\n");
             d.QuoteChar = PyString.From("\"");
-            d.Quoting = new PyInt(0);
+            d.Quoting = PyInt.From(0);
             d.SkipInitialSpace = PyBool.FromBool(false);
             d.Strict = PyBool.FromBool(false);
 
@@ -143,7 +143,7 @@ namespace SharpPy.Modules
         {
             int q = (int)val.ToInt();
             if (q < 0 || q > 5) throw PyTypeError.Create("bad \"quoting\" value");
-            return new PyInt(q);
+            return PyInt.From(q);
         }
 
         private static void ValidateDialect(PyDialect d)
@@ -173,7 +173,7 @@ namespace SharpPy.Modules
             d.EscapeChar = PyNone.Instance;
             d.LineTerminator = PyString.From("\r\n");
             d.QuoteChar = PyString.From("\"");
-            d.Quoting = new PyInt(0);
+            d.Quoting = PyInt.From(0);
             d.SkipInitialSpace = PyBool.FromBool(false);
             d.Strict = PyBool.FromBool(false);
 
@@ -269,7 +269,7 @@ namespace SharpPy.Modules
                 if (val < 1) throw PyValueError.Create("field size limit must be >= 1");
                 _fieldSizeLimit = (int)val;
             }
-            return new PyInt(old);
+            return PyInt.From(old);
         }
 
         // --- PyDialect ---
@@ -280,7 +280,7 @@ namespace SharpPy.Modules
             public PyObject EscapeChar = PyNone.Instance;
             public PyObject LineTerminator = PyString.From("\r\n");
             public PyObject QuoteChar = PyString.From("\"");
-            public PyObject Quoting = new PyInt(0);
+            public PyObject Quoting = PyInt.From(0);
             public PyObject SkipInitialSpace = PyBool.FromBool(false);
             public PyObject Strict = PyBool.FromBool(false);
 
@@ -604,7 +604,7 @@ namespace SharpPy.Modules
             t.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", t, (self, args, kwargs) => self.Iter());
             t.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", t, (self, args, kwargs) => self.IterNext());
             t.TypeDict["dialect"] = new PyGetSetDescriptor("dialect", t, self => ((PyReader)self)._dialect);
-            t.TypeDict["line_num"] = new PyGetSetDescriptor("line_num", t, self => new PyInt(((PyReader)self)._lineNum));
+            t.TypeDict["line_num"] = new PyGetSetDescriptor("line_num", t, self => PyInt.From(((PyReader)self)._lineNum));
             return t;
         }
 

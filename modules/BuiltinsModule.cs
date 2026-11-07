@@ -257,7 +257,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"len() takes exactly one argument ({args.Length} given)");
 
-            return new PyInt(args[0].Size());
+            return PyInt.From(args[0].Size());
         }
 
         /// <summary>
@@ -319,7 +319,7 @@ namespace SharpPy.Modules
         private static bool IsExactType(PyObject cls) => cls is PyType && ReferenceEquals(cls.GetPyType(), PyType.TypeType);
 
         // _PyUnion_Check, then _Py_union_args
-        private static PyObject UnionArgs(PyObject cls) => cls is SharpPy.PyUnionType union ? new PyTuple(union.Args) : cls;
+        private static PyObject UnionArgs(PyObject cls) => cls is SharpPy.PyUnionType union ? PyTuple.From(union.Args) : cls;
 
         /// <summary>object_recursive_isinstance (Objects/abstract.c of CPython v3.12.15).</summary>
         private static bool ObjectRecursiveIsInstance(PyObject inst, PyObject cls)

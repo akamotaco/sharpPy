@@ -106,19 +106,19 @@ namespace SharpPy.Modules
             module.ModuleDict["get_debug"] = new PyBuiltinFunction("get_debug", a =>
             {
                 NoArgs(a, "get_debug");
-                return new PyInt(_debug);
+                return PyInt.From(_debug);
             });
 
             module.ModuleDict["get_count"] = new PyBuiltinFunction("get_count", a =>
             {
                 NoArgs(a, "get_count");
-                return new PyTuple(new PyInt(0), new PyInt(0), new PyInt(0));
+                return PyTuple.From(PyInt.From(0), PyInt.From(0), PyInt.From(0));
             });
             module.ModuleDict["get_threshold"] = new PyBuiltinFunction("get_threshold", a =>
             {
                 NoArgs(a, "get_threshold");
-                return new PyTuple(
-                    new PyInt(_threshold0), new PyInt(_threshold1), new PyInt(_threshold2));
+                return PyTuple.From(
+                    PyInt.From(_threshold0), PyInt.From(_threshold1), PyInt.From(_threshold2));
             });
             module.ModuleDict["set_threshold"] = new PyBuiltinFunction("set_threshold", a =>
             {
@@ -163,7 +163,7 @@ namespace SharpPy.Modules
                 // because this pass already made one.
                 PyResourceBus.ReleaseUnreferenced(forceCollection: false);
                 InvokeCallbacks("stop", generation);
-                return new PyInt(0);
+                return PyInt.From(0);
             });
 
             module.ModuleDict["get_objects"] = new PyBuiltinFunction("get_objects", a =>
@@ -221,9 +221,9 @@ namespace SharpPy.Modules
                 for (int i = 0; i < Generations; i++)
                 {
                     var entry = new PyDict();
-                    entry.SetItem(PyString.From("collected"), new PyInt(0));
-                    entry.SetItem(PyString.From("collections"), new PyInt(0));
-                    entry.SetItem(PyString.From("uncollectable"), new PyInt(0));
+                    entry.SetItem(PyString.From("collected"), PyInt.From(0));
+                    entry.SetItem(PyString.From("collections"), PyInt.From(0));
+                    entry.SetItem(PyString.From("uncollectable"), PyInt.From(0));
                     stats.Add(entry);
                 }
                 return new PyList(stats);
@@ -242,18 +242,18 @@ namespace SharpPy.Modules
             module.ModuleDict["get_freeze_count"] = new PyBuiltinFunction("get_freeze_count", a =>
             {
                 NoArgs(a, "get_freeze_count");
-                return new PyInt(0);
+                return PyInt.From(0);
             });
 
             module.ModuleDict["garbage"] = Garbage;
             module.ModuleDict["callbacks"] = Callbacks;
 
             // Measured flag values in CPython 3.12.15 (gc.DEBUG_*).
-            module.ModuleDict["DEBUG_STATS"] = new PyInt(1);
-            module.ModuleDict["DEBUG_COLLECTABLE"] = new PyInt(2);
-            module.ModuleDict["DEBUG_UNCOLLECTABLE"] = new PyInt(4);
-            module.ModuleDict["DEBUG_SAVEALL"] = new PyInt(32);
-            module.ModuleDict["DEBUG_LEAK"] = new PyInt(38);
+            module.ModuleDict["DEBUG_STATS"] = PyInt.From(1);
+            module.ModuleDict["DEBUG_COLLECTABLE"] = PyInt.From(2);
+            module.ModuleDict["DEBUG_UNCOLLECTABLE"] = PyInt.From(4);
+            module.ModuleDict["DEBUG_SAVEALL"] = PyInt.From(32);
+            module.ModuleDict["DEBUG_LEAK"] = PyInt.From(38);
 
             return module;
         }
@@ -338,7 +338,7 @@ namespace SharpPy.Modules
             {
                 case PyList list:
                     // Measured: get_referents([3, 4]) is [4, 3]. A list is traversed backwards.
-                    for (int i = list.Length() - 1; i >= 0; i--) into.Add(list.GetItem(new PyInt(i)));
+                    for (int i = list.Length() - 1; i >= 0; i--) into.Add(list.GetItem(PyInt.From(i)));
                     break;
                 case PyDict dict:
                     if (dict.InternalDict != null)
@@ -373,11 +373,11 @@ namespace SharpPy.Modules
             if (Callbacks.Length() == 0) return;
             var snapshot = new PyObject[Callbacks.Length()];
             for (int i = 0; i < snapshot.Length; i++)
-                snapshot[i] = Callbacks.GetItem(new PyInt(i));
+                snapshot[i] = Callbacks.GetItem(PyInt.From(i));
             var info = new PyDict();
-            info.SetItem(PyString.From("collected"), new PyInt(0));
-            info.SetItem(PyString.From("generation"), new PyInt(generation));
-            info.SetItem(PyString.From("uncollectable"), new PyInt(0));
+            info.SetItem(PyString.From("collected"), PyInt.From(0));
+            info.SetItem(PyString.From("generation"), PyInt.From(generation));
+            info.SetItem(PyString.From("uncollectable"), PyInt.From(0));
             foreach (var callback in snapshot)
             {
                 if (callback == null || callback is PyNone) continue;

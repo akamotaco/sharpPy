@@ -12,7 +12,7 @@ namespace SharpPy
                 type.TypeDict["__iter__"] = new PyMethodDescriptor("__iter__", type,
                     (self, args, kwargs) => ((PyDictView)self).Iter(), minArgs: 0, maxArgs: 0);
                 type.TypeDict["__len__"] = new PyMethodDescriptor("__len__", type,
-                    (self, args, kwargs) => new PyInt(((PyDictView)self).Len()), minArgs: 0, maxArgs: 0);
+                    (self, args, kwargs) => PyInt.From(((PyDictView)self).Len()), minArgs: 0, maxArgs: 0);
                 type.TypeDict["__contains__"] = new PyMethodDescriptor("__contains__", type,
                     (self, args, kwargs) => ((PyDictView)self).ContainsItem(args[0]), minArgs: 1, maxArgs: 1);
                 type.TypeDict["mapping"] = new PyGetSetDescriptor("mapping", type,

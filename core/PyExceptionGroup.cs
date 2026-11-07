@@ -43,7 +43,7 @@ namespace SharpPy
         {
             Exc = excs;
             Msg = callArgs[0];
-            Excs = new PyTuple(excs);
+            Excs = PyTuple.From(excs);
         }
 
         public override PyType GetPyType() => _customType ?? PyType.BaseExceptionGroupType;
@@ -84,7 +84,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"split expected 1 argument, got {args.Length}");
             Matcher matcher = Matcher.From(args[0]);
             SplitResult matched = SplitRecursive(this, matcher, constructRest: true);
-            return new PyTuple(new PyObject[]
+            return PyTuple.From(new PyObject[]
             {
                 matched.Match ?? PyNone.Instance,
                 matched.Rest ?? PyNone.Instance,
@@ -315,7 +315,7 @@ namespace SharpPy
             if (value is PyBytes bytes)
             {
                 var ints = new PyObject[bytes.Value.Length];
-                for (int i = 0; i < ints.Length; i++) ints[i] = new PyInt(bytes.Value[i]);
+                for (int i = 0; i < ints.Length; i++) ints[i] = PyInt.From(bytes.Value[i]);
                 return ints;
             }
 

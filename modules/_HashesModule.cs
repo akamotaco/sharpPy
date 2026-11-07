@@ -438,8 +438,8 @@ namespace SharpPy.Modules {
             }, 0, 0);
 
             HashType.TypeDict["name"] = new PyGetSetDescriptor("name", HashType, self => PyString.From(((PyHash)self).Name));
-            HashType.TypeDict["digest_size"] = new PyGetSetDescriptor("digest_size", HashType, self => new PyInt(((PyHash)self).DigestSize));
-            HashType.TypeDict["block_size"] = new PyGetSetDescriptor("block_size", HashType, self => new PyInt(((PyHash)self).BlockSize));
+            HashType.TypeDict["digest_size"] = new PyGetSetDescriptor("digest_size", HashType, self => PyInt.From(((PyHash)self).DigestSize));
+            HashType.TypeDict["block_size"] = new PyGetSetDescriptor("block_size", HashType, self => PyInt.From(((PyHash)self).BlockSize));
 
             module.ModuleDict["md5"] = MakeHashConstructor("md5");
             module.ModuleDict["sha1"] = MakeHashConstructor("sha1");

@@ -135,7 +135,7 @@ namespace SharpPy.Modules
             if (_object == null || otherKey._object == null)
                 throw PyAttributeError.Create("object");
             var result = _cmpFunc.Call(new[] { _object, otherKey._object }, null);
-            return Compare(result, new PyInt(0), op);
+            return Compare(result, PyInt.From(0), op);
         }
     }
 }

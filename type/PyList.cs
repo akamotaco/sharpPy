@@ -184,7 +184,7 @@ namespace SharpPy
                         if (stop < 0) { stop += n; if (stop < 0) stop = 0; }
                         else if (stop > n) stop = n;
                     }
-                    return new PyInt(list.Index(args[0], start, stop));
+                    return PyInt.From(list.Index(args[0], start, stop));
                 },
                 minArgs: 1, maxArgs: 3
             );
@@ -197,7 +197,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"count() takes exactly one argument ({args.Length} given)");
                     var list = GetListStorage(self);
                     var count = list.Count(args[0]);
-                    return new PyInt(count);
+                    return PyInt.From(count);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -240,7 +240,7 @@ namespace SharpPy
                     // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
                     var copy = new PyObject[list._items.Count];
                     list._items.CopyTo(copy, 0);
-                    return ListCache.Create(copy);
+                    return new PyList(copy);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -317,7 +317,7 @@ namespace SharpPy
                         throw PyTypeError.Create("__len__() takes no arguments");
 
                     var list = GetListStorage(self);
-                    return new PyInt(list.RawCount());
+                    return PyInt.From(list.RawCount());
                 },
                 minArgs: 0,
                 maxArgs: 0
@@ -982,7 +982,7 @@ namespace SharpPy
             // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var copy = new PyObject[_items.Count];
             _items.CopyTo(copy, 0);
-            return ListCache.Create(copy);
+            return new PyList(copy);
         }
         
         /// <summary>
@@ -995,7 +995,7 @@ namespace SharpPy
             // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var items = new PyObject[_items.Count];
             _items.CopyTo(items, 0);
-            return TupleCache.GetOrCreate(items);
+            return PyTuple.From(items);
         }
         
         /// <summary>
@@ -1056,7 +1056,7 @@ namespace SharpPy
             _items.CopyTo(newItems, 0);
             otherList._items.CopyTo(newItems, _items.Count);
 
-            return ListCache.Create(newItems);
+            return new PyList(newItems);
         }
 
         // CPython 3.12: list.__mul__ and list.__rmul__ - Repeat list n times
@@ -1071,7 +1071,7 @@ namespace SharpPy
             long n = PyAllocation.IndexSized(pyInt.Value);
             int itemCount = _items.Count;
             if (itemCount == 0 || n <= 0)
-                return ListCache.Create(new PyObject[0]);
+                return new PyList(new PyObject[0]);
             var newItems = new PyObject[PyAllocation.RepeatedItems(itemCount, n)];
 
             for (int i = 0; i < n; i++)
@@ -1079,7 +1079,7 @@ namespace SharpPy
                 _items.CopyTo(newItems, i * itemCount);
             }
 
-            return ListCache.Create(newItems);
+            return new PyList(newItems);
         }
 
         /// <summary>

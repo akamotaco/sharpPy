@@ -678,7 +678,7 @@ namespace SharpPy
             }
             if (keys == null)
                 return 0;
-            ADDOP_LOAD_CONST(loc, new PyTuple(keys.ToArray()));
+            ADDOP_LOAD_CONST(loc, PyTuple.From(keys.ToArray()));
             ADDOP_I(loc, ByteCodeOp.BUILD_CONST_KEY_MAP, keys.Count);
             return 1;
         }

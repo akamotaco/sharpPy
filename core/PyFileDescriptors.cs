@@ -15,7 +15,7 @@ namespace SharpPy
         private static readonly Dictionary<int, Stream> Table = new();
 
         private static PythonException BadDescriptor() =>
-            new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(9), PyString.From("Bad file descriptor") }, null));
+            new PythonException(PyOSError.FromArguments(new PyObject[] { PyInt.From(9), PyString.From("Bad file descriptor") }, null));
 
         // _open_osfhandle: the lowest number that is free.
         /// <summary>

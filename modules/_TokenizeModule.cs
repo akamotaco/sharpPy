@@ -149,11 +149,11 @@ namespace SharpPy.Modules
 
                 if (type == PyToken.Type.ENDMARKER)
                     _done = true;
-                return new PyTuple(new PyObject[]
+                return PyTuple.From(new PyObject[]
                 {
-                    new PyInt((int)type), PyString.From(text),
-                    new PyTuple(new PyObject[] { new PyInt(lineno), new PyInt(column) }),
-                    new PyTuple(new PyObject[] { new PyInt(endLineno), new PyInt(endColumn) }),
+                    PyInt.From((int)type), PyString.From(text),
+                    PyTuple.From(new PyObject[] { PyInt.From(lineno), PyInt.From(column) }),
+                    PyTuple.From(new PyObject[] { PyInt.From(endLineno), PyInt.From(endColumn) }),
                     PyString.From(line),
                 });
             }

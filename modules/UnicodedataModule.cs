@@ -249,10 +249,10 @@ namespace SharpPy.Modules
             Text1(module, "bidirectional", code => PyString.From(Property("bidirectional").At(code)));
             Text1(module, "east_asian_width", code => PyString.From(Property("east_asian_width").At(code)));
             Text1(module, "decomposition", code => PyString.From(Property("decomposition").At(code)));
-            Text1(module, "combining", code => new PyInt(Combining(code)));
-            Text1(module, "mirrored", code => new PyInt(Property("mirrored").At(code) == "1" ? 1 : 0));
-            Number(module, "decimal", "not a decimal", found => new PyInt(int.Parse(found, CultureInfo.InvariantCulture)));
-            Number(module, "digit", "not a digit", found => new PyInt(int.Parse(found, CultureInfo.InvariantCulture)));
+            Text1(module, "combining", code => PyInt.From(Combining(code)));
+            Text1(module, "mirrored", code => PyInt.From(Property("mirrored").At(code) == "1" ? 1 : 0));
+            Number(module, "decimal", "not a decimal", found => PyInt.From(int.Parse(found, CultureInfo.InvariantCulture)));
+            Number(module, "digit", "not a digit", found => PyInt.From(int.Parse(found, CultureInfo.InvariantCulture)));
             Number(module, "numeric", "not a numeric character", found => new PyFloat(double.Parse(found, CultureInfo.InvariantCulture)));
             module.ModuleDict["normalize"] = new PyBuiltinFunction("normalize", args => TwoArguments("normalize", args,
                 (form, input) => PyString.From(Normalize(form, input, "normalize"))));

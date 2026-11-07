@@ -52,8 +52,8 @@ public sealed class PyFileIO : PyIOBaseInstance
             _ => error.Message,
         };
         var args = filename == null
-            ? new PyObject[] { new PyInt(errno), PyString.From(message) }
-            : new PyObject[] { new PyInt(errno), PyString.From(message), filename };
+            ? new PyObject[] { PyInt.From(errno), PyString.From(message) }
+            : new PyObject[] { PyInt.From(errno), PyString.From(message), filename };
         return new PythonException(PyOSError.FromArguments(args, null));
     }
 
@@ -186,7 +186,7 @@ public sealed class PyFileIO : PyIOBaseInstance
                 }
                 else
                 {
-                    var result = opener.Call(new[] { nameobj, new PyInt(flags) }, null);
+                    var result = opener.Call(new[] { nameobj, PyInt.From(flags) }, null);
                     if (!PyInt.LongCheck(result))
                         throw PyTypeError.Create("expected integer from opener");
                     Fd = PyObject.TryGetIndex(result).ToInt();
@@ -248,8 +248,8 @@ public sealed class PyFileIO : PyIOBaseInstance
             if (_seekable < 0)
                 _seekable = 0;
             if (suppressPipeError)
-                return new PyInt(0);
-            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(29), PyString.From("Invalid seek") }, null));
+                return PyInt.From(0);
+            throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyInt.From(29), PyString.From("Invalid seek") }, null));
         }
         long result;
         try
@@ -260,11 +260,11 @@ public sealed class PyFileIO : PyIOBaseInstance
         {
             if (_seekable < 0)
                 _seekable = 1;
-            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(22), PyString.From("Invalid argument") }, null));
+            throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyInt.From(22), PyString.From("Invalid argument") }, null));
         }
         if (_seekable < 0)
             _seekable = 1;
-        return new PyInt(result);
+        return PyInt.From(result);
     }
 
     private static long Offset(PyObject value)
@@ -415,7 +415,7 @@ public sealed class PyFileIO : PyIOBaseInstance
                 var data = new byte[length];
                 int n = self.ReadInto(data, 0, length);
                 bytes.WriteContiguous(data.AsSpan(0, n));
-                return new PyInt(n);
+                return PyInt.From(n);
             }
             finally
             {
@@ -442,7 +442,7 @@ public sealed class PyFileIO : PyIOBaseInstance
             {
                 throw OSErrorOf(error);
             }
-            return new PyInt(data.Length);
+            return PyInt.From(data.Length);
         }, 1, 1);
         Method(type, "seek", (self, args) =>
         {
@@ -508,7 +508,7 @@ public sealed class PyFileIO : PyIOBaseInstance
         Method(type, "fileno", (self, args) =>
         {
             self.CheckOpen();
-            return new PyInt(self.Fd);
+            return PyInt.From(self.Fd);
         });
         Method(type, "readable", (self, args) =>
         {
@@ -546,7 +546,7 @@ public sealed class PyFileIO : PyIOBaseInstance
         Method(type, "_dealloc_warn", (self, args) =>
         {
             if (self.Fd >= 0 && self._closefd)
-                PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[] { PyString.From($"unclosed file {args[0].ToRepr().Value}"), PyType.ResourceWarningType, new PyInt(1) }, PyDictOf("source", args[0]));
+                PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[] { PyString.From($"unclosed file {args[0].ToRepr().Value}"), PyType.ResourceWarningType, PyInt.From(1) }, PyDictOf("source", args[0]));
             return PyNone.Instance;
         }, 1, 1);
         Method(type, "__getstate__", (self, args) => throw PyTypeError.Create($"cannot pickle '{self.GetPyType().FullName}' instances"));
@@ -554,7 +554,7 @@ public sealed class PyFileIO : PyIOBaseInstance
         type.TypeDict["closed"] = new PyGetSetDescriptor("closed", type, self => PyBool.FromBool(Self(self, "closed").Fd < 0));
         type.TypeDict["closefd"] = new PyGetSetDescriptor("closefd", type, self => PyBool.FromBool(Self(self, "closefd")._closefd));
         type.TypeDict["mode"] = new PyGetSetDescriptor("mode", type, self => PyString.From(Self(self, "mode").ModeString()));
-        type.TypeDict["_blksize"] = new PyMemberDescriptor("_blksize", type, self => new PyInt(Self(self, "_blksize")._blksize));
+        type.TypeDict["_blksize"] = new PyMemberDescriptor("_blksize", type, self => PyInt.From(Self(self, "_blksize")._blksize));
         type.TypeDict["_finalizing"] = new PyMemberDescriptor("_finalizing", type, self => PyBool.FromBool(Self(self, "_finalizing")._finalizing),
             (self, value) => Self(self, "_finalizing")._finalizing = value.IsTrue());
         return type;

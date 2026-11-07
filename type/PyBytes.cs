@@ -571,7 +571,7 @@ namespace SharpPy
             var items = new PyObject[Value.Length];
             for (int i = 0; i < Value.Length; i++)
             {
-                items[i] = new PyInt(Value[i]);
+                items[i] = PyInt.From(Value[i]);
             }
             return new PyListIterator(new PyList(items), "bytes_iterator", this);
         }
@@ -1167,7 +1167,7 @@ namespace SharpPy
                 if (idx < 0 || idx >= Value.Length)
                     throw PyIndexError.Create("index out of range");
 
-                return new PyInt(Value[(int)idx]);
+                return PyInt.From(Value[(int)idx]);
             }
             else if (index is PySlice slice)
             {

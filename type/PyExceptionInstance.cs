@@ -38,8 +38,8 @@ internal static class PyExceptionSlots
     }
 
     private static PyObject ReduceValue(PyObject self, PyObject args, PyObject state) => state == null
-        ? new PyTuple(new[] { self.GetPyType(), args })
-        : new PyTuple(new[] { self.GetPyType(), args, state });
+        ? PyTuple.From(new[] { self.GetPyType(), args })
+        : PyTuple.From(new[] { self.GetPyType(), args, state });
 
     // ImportError_getstate and AttributeError_getstate: the dict with the fields put in it.
     private static PyObject StateWith(PyObject self, params string[] fields)
@@ -89,8 +89,8 @@ internal static class PyExceptionSlots
             {
                 var filename2 = self.GetAttribute("filename2");
                 arguments = filename2 is PyNone
-                    ? new PyTuple(new[] { arguments.Items[0], arguments.Items[1], filename })
-                    : new PyTuple(new[] { arguments.Items[0], arguments.Items[1], filename, PyNone.Instance, filename2 });
+                    ? PyTuple.From(new[] { arguments.Items[0], arguments.Items[1], filename })
+                    : PyTuple.From(new[] { arguments.Items[0], arguments.Items[1], filename, PyNone.Instance, filename2 });
             }
             return ReduceValue(self, arguments, StateOf(self));
         });
@@ -144,7 +144,7 @@ internal static class PyExceptionSlots
         var namespaceDict = new PyDict();
         namespaceDict.SetItem(PyString.From("__module__"), PyString.From(module));
         return (PyType)PyType.TypeType.Call(
-            new PyObject[] { PyString.From(name), new PyTuple(new PyObject[] { baseType }), namespaceDict }, null);
+            new PyObject[] { PyString.From(name), PyTuple.From(new PyObject[] { baseType }), namespaceDict }, null);
     }
 
     /// <summary>PyErr_SetString for such a class.</summary>

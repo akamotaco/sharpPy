@@ -54,10 +54,10 @@ namespace SharpPy
             if (ReferenceEquals(type, PyType.MethodDescriptorType) || ReferenceEquals(type, PyType.MemberDescriptorType)
                 || ReferenceEquals(type, PyType.WrapperDescriptorType))
                 type.TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", type, (self, args, kwargs) =>
-                    new PyTuple(new PyObject[]
+                    PyTuple.From(new PyObject[]
                     {
                         PyImportSystem.Import("builtins").GetAttribute("getattr"),
-                        new PyTuple(new PyObject[] { Of(self).DescrType, PyString.From(Of(self).DescrName) }),
+                        PyTuple.From(new PyObject[] { Of(self).DescrType, PyString.From(Of(self).DescrName) }),
                     }), 0, 0);
         }
     }
@@ -85,10 +85,10 @@ namespace SharpPy
             type.TypeDict["__self__"] = new PyMemberDescriptor("__self__", type, self => Of(self).WrapperSelf, readOnly: true);
             // wrapper_reduce: getattr(self, name).
             type.TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", type, (self, args, kwargs) =>
-                new PyTuple(new PyObject[]
+                PyTuple.From(new PyObject[]
                 {
                     PyImportSystem.Import("builtins").GetAttribute("getattr"),
-                    new PyTuple(new PyObject[] { Of(self).WrapperSelf, PyString.From(Of(self).WrapperDescr.DescrName) }),
+                    PyTuple.From(new PyObject[] { Of(self).WrapperSelf, PyString.From(Of(self).WrapperDescr.DescrName) }),
                 }), 0, 0);
         }
     }
@@ -131,7 +131,7 @@ namespace SharpPy
             if (bound == null || bound is PyModule)
                 return PyString.From(function.MethodName);
             var getattr = PyImportSystem.Import("builtins").GetAttribute("getattr");
-            return new PyTuple(new PyObject[] { getattr, new PyTuple(new PyObject[] { bound, PyString.From(function.MethodName) }) });
+            return PyTuple.From(new PyObject[] { getattr, PyTuple.From(new PyObject[] { bound, PyString.From(function.MethodName) }) });
         }
 
         internal static void Install()

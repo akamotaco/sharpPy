@@ -114,12 +114,12 @@ namespace SharpPy
                 ADDOP_I(loc, ByteCodeOp.COPY, 1);
                 if (i < star)
                 {
-                    ADDOP_LOAD_CONST(loc, new PyInt(i));
+                    ADDOP_LOAD_CONST(loc, PyInt.From(i));
                 }
                 else
                 {
                     ADDOP(loc, ByteCodeOp.GET_LEN);
-                    ADDOP_LOAD_CONST(loc, new PyInt(size - i));
+                    ADDOP_LOAD_CONST(loc, PyInt.From(size - i));
                     ADDOP_BINARY(loc, GeneratedSub.Instance, false);
                 }
                 ADDOP(loc, ByteCodeOp.BINARY_SUBSCR);
@@ -190,7 +190,7 @@ namespace SharpPy
             var attrNames = new PyObject[nattrs];
             for (int i = 0; i < nattrs; i++)
                 attrNames[i] = PyString.From(((GeneratedIdentifier)kwdAttrs[i]).Value);
-            ADDOP_LOAD_CONST(at, new PyTuple(attrNames));
+            ADDOP_LOAD_CONST(at, PyTuple.From(attrNames));
             ADDOP_I(at, ByteCodeOp.MATCH_CLASS, nargs);
             ADDOP_I(at, ByteCodeOp.COPY, 1);
             ADDOP_LOAD_CONST(at, PyNone.Instance);
@@ -234,7 +234,7 @@ namespace SharpPy
             if (size != 0)
             {
                 ADDOP(at, ByteCodeOp.GET_LEN);
-                ADDOP_LOAD_CONST(at, new PyInt(size));
+                ADDOP_LOAD_CONST(at, PyInt.From(size));
                 ADDOP_COMPARE(at, GeneratedGtE.Instance);
                 JumpToFailPop(at, pc, ByteCodeOp.POP_JUMP_IF_FALSE);
             }
@@ -396,14 +396,14 @@ namespace SharpPy
             if (star < 0)
             {
                 ADDOP(at, ByteCodeOp.GET_LEN);
-                ADDOP_LOAD_CONST(at, new PyInt(size));
+                ADDOP_LOAD_CONST(at, PyInt.From(size));
                 ADDOP_COMPARE(at, GeneratedEq.Instance);
                 JumpToFailPop(at, pc, ByteCodeOp.POP_JUMP_IF_FALSE);
             }
             else if (size > 1)
             {
                 ADDOP(at, ByteCodeOp.GET_LEN);
-                ADDOP_LOAD_CONST(at, new PyInt(size - 1));
+                ADDOP_LOAD_CONST(at, PyInt.From(size - 1));
                 ADDOP_COMPARE(at, GeneratedGtE.Instance);
                 JumpToFailPop(at, pc, ByteCodeOp.POP_JUMP_IF_FALSE);
             }

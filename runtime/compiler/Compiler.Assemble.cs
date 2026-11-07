@@ -35,7 +35,7 @@ namespace SharpPy
         // PyErr_WarnExplicitObject
         internal static void WarnExplicit(string category, string message, string filename, int lineno) =>
             PyImportSystem.Import("warnings").GetAttribute("warn_explicit").Call(
-                new PyObject[] { PyString.From(message), PyImportSystem.Import("builtins").GetAttribute(category), PyString.From(filename), new PyInt(Math.Max(lineno, 1)) }, null);
+                new PyObject[] { PyString.From(message), PyImportSystem.Import("builtins").GetAttribute(category), PyString.From(filename), PyInt.From(Math.Max(lineno, 1)) }, null);
 
         // compiler_warn
         private void Warn(Loc loc, string message)

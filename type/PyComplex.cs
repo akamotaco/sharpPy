@@ -87,7 +87,7 @@ namespace SharpPy
                             $"complex.__getnewargs__() takes no arguments ({args.Length} given)");
                     if (self is not PyComplex cx)
                         throw WrongComplexSelf("__getnewargs__", self);
-                    return new PyTuple(new PyFloat(cx.Real), new PyFloat(cx.Imag));
+                    return PyTuple.From(new PyFloat(cx.Real), new PyFloat(cx.Imag));
                 },
                 minArgs: 0, maxArgs: 0);
         }
@@ -447,7 +447,7 @@ namespace SharpPy
             if (Real > int.MaxValue || Real < int.MinValue)
                 throw PyOverflowError.Create("int too big to convert to int");
             
-            return new PyInt((int)Real);
+            return PyInt.From((int)Real);
         }
 
         #endregion

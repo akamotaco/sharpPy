@@ -215,7 +215,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
             var data = BufferArgument(args, name);
             string decoded = PyStringNewArguments.DecodeBytes(data, codec, ErrorsOf(args, 1));
-            return new PyTuple(new PyObject[] { PyString.From(decoded), new PyInt(data.Length) });
+            return PyTuple.From(new PyObject[] { PyString.From(decoded), PyInt.From(data.Length) });
         }
 
         // utf_8_decode(data, errors=None, final=False): what the decoder consumed.
@@ -226,7 +226,7 @@ namespace SharpPy.Modules
             var data = BufferArgument(args, name);
             bool final = args.Length > 2 && args[2].IsTrue();
             string decoded = PyBytes.DecodeUtf8(data, ErrorsOf(args, 1), final, out int consumed);
-            return new PyTuple(new PyObject[] { PyString.From(decoded), new PyInt(consumed) });
+            return PyTuple.From(new PyObject[] { PyString.From(decoded), PyInt.From(consumed) });
         }
 
         // utf_16/utf_32 (_le, _be, _ex) decoding: the byte order given, or the mark's when it is 0.
@@ -247,7 +247,7 @@ namespace SharpPy.Modules
             int order = args.Length > 2 ? args[2].ToInt() : 0;
             bool final = args.Length > 3 && args[3].IsTrue();
             var (text, consumed, found) = DecodedUtfWide(data, ErrorsOf(args, 1), order, final, width);
-            return new PyTuple(new PyObject[] { text, new PyInt(consumed), new PyInt(found) });
+            return PyTuple.From(new PyObject[] { text, PyInt.From(consumed), PyInt.From(found) });
         }
 
         private static PyObject DecodedFixed(PyObject[] args, string name, int width, int order)
@@ -257,7 +257,7 @@ namespace SharpPy.Modules
             var data = BufferArgument(args, name);
             bool final = args.Length > 2 && args[2].IsTrue();
             var (text, consumed, _) = DecodedUtfWide(data, ErrorsOf(args, 1), order, final, width);
-            return new PyTuple(new PyObject[] { text, new PyInt(consumed) });
+            return PyTuple.From(new PyObject[] { text, PyInt.From(consumed) });
         }
 
         private static PyObject Encoded(PyObject[] args, string codec, string name)
@@ -270,7 +270,7 @@ namespace SharpPy.Modules
             if (!(args[0] is PyString pyStr))
                 throw PyTypeError.Create($"{name}() argument 1 must be str, not {args[0].GetTypeName()}");
             string errors = args.Length > 1 && args[1] is PyString errorName ? errorName.Value : null;
-            return new PyTuple(new PyObject[] { pyStr.Encode(codec, errors), new PyInt(pyStr.CodePointLength()) });
+            return PyTuple.From(new PyObject[] { pyStr.Encode(codec, errors), PyInt.From(pyStr.CodePointLength()) });
         }
 
         // UTF-8 encoding - CPython 3.12: Modules/_codecsmodule.c:488-520
@@ -410,7 +410,7 @@ namespace SharpPy.Modules
             obj is PyString text ? text.Value
                 : throw PyTypeError.Create($"{name}() argument 1 must be str, not {obj.GetTypeName()}");
 
-        private static PyObject Result(PyObject value, int consumed) => new PyTuple(new[] { value, new PyInt(consumed) });
+        private static PyObject Result(PyObject value, int consumed) => PyTuple.From(new[] { value, PyInt.From(consumed) });
 
         // PyUnicode_DecodeCharmap: a str maps by index, U+FFFE is undefined; anything else by lookup
         private static PyObject PyCharmapDecode(PyObject[] args, PyDict kwargs = null)
@@ -434,7 +434,7 @@ namespace SharpPy.Modules
                     PyObject item = null;
                     try
                     {
-                        item = mapping.GetItem(new PyInt(data[i]));
+                        item = mapping.GetItem(PyInt.From(data[i]));
                     }
                     catch (PythonException error) when (error.PyException is SharpPy.PyLookupError)
                     {
@@ -495,7 +495,7 @@ namespace SharpPy.Modules
                 PyObject item;
                 try
                 {
-                    item = mapping.GetItem(new PyInt(cp));
+                    item = mapping.GetItem(PyInt.From(cp));
                 }
                 catch (PythonException error) when (error.PyException is SharpPy.PyLookupError)
                 {
@@ -547,7 +547,7 @@ namespace SharpPy.Modules
             {
                 int cp = PyString.CodePointAt(table, i, out int width);
                 if (cp != 0xFFFE)
-                    map.SetItem(new PyInt(cp), new PyInt(index));
+                    map.SetItem(PyInt.From(cp), PyInt.From(index));
                 i += width;
             }
             return map;

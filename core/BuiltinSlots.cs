@@ -62,15 +62,15 @@ namespace SharpPy
             Method(PyType.EllipsisType, "__reduce__", (self, args) => PyString.From("Ellipsis"));
             Method(PyNotImplemented.Instance.GetPyType(), "__reduce__", (self, args) => PyString.From("NotImplemented"));
             // range_reduce, slice_reduce
-            Method(PyType.RangeType, "__reduce__", (self, args) => new PyTuple(new PyObject[]
+            Method(PyType.RangeType, "__reduce__", (self, args) => PyTuple.From(new PyObject[]
             {
                 PyType.RangeType,
-                new PyTuple(new[] { self.GetAttribute("start"), self.GetAttribute("stop"), self.GetAttribute("step") }),
+                PyTuple.From(new[] { self.GetAttribute("start"), self.GetAttribute("stop"), self.GetAttribute("step") }),
             }));
-            Method(PyType.SliceType, "__reduce__", (self, args) => new PyTuple(new PyObject[]
+            Method(PyType.SliceType, "__reduce__", (self, args) => PyTuple.From(new PyObject[]
             {
                 PyType.SliceType,
-                new PyTuple(new[] { self.GetAttribute("start"), self.GetAttribute("stop"), self.GetAttribute("step") }),
+                PyTuple.From(new[] { self.GetAttribute("start"), self.GetAttribute("stop"), self.GetAttribute("step") }),
             }));
             Slot(PyType.GenericAliasType, "__repr__", (self, args) => PyGenericAlias.Repr(self));
             Slot(PyType.GenericAliasType, "__getitem__", (self, args) => PyGenericAlias.GetItemSlot(self, args[0]));
@@ -157,7 +157,7 @@ namespace SharpPy
 
         private static void InstallObject()
         {
-            Method(PyType.ObjectType, "__sizeof__", (self, args) => new PyInt(16));
+            Method(PyType.ObjectType, "__sizeof__", (self, args) => PyInt.From(16));
             // object_subclasshook: METH_CLASS|METH_VARARGS, NotImplemented whatever it is given.
             PyType.ObjectType.TypeDict["__subclasshook__"] = new PyClassMethodDescriptor("__subclasshook__", PyType.ObjectType,
                 new PyBuiltinFunction("__subclasshook__", (args, kwargs) => PyNotImplemented.Instance));
@@ -252,12 +252,12 @@ namespace SharpPy
             })
                 Slot(PyType.BoolType, $"__r{name}__", (self, args) => args[0] is PyInt or PyBool ? operation(args[0], self) : PyNotImplemented.Instance);
             Slot(PyNotImplemented.Instance.GetPyType(), "__bool__", (self, args) => PyBool.FromBool(self.Bool()));
-            Method(PyType.BytesType, "__getnewargs__", (self, args) => new PyTuple(new[] { self }));
+            Method(PyType.BytesType, "__getnewargs__", (self, args) => PyTuple.From(new[] { self }));
             Slot(PyType.BytesType, "__mod__", (self, args) => self.Modulo(args[0]));
             Slot(PyType.BytesType, "__rmod__", (self, args) => args[0] is PyBytes format ? format.Modulo(self) : PyNotImplemented.Instance);
 
             var array = PyType.BytearrayType;
-            Slot(array, "__len__", (self, args) => new PyInt(self.Len()));
+            Slot(array, "__len__", (self, args) => PyInt.From(self.Len()));
             Slot(array, "__iadd__", (self, args) => ((PyByteArray)self).InPlaceConcat(args[0]));
             Slot(array, "__imul__", (self, args) => ((PyByteArray)self).InPlaceRepeat(args[0]));
             Slot(array, "__contains__", (self, args) => self.ContainsItem(args[0]));
@@ -286,7 +286,7 @@ namespace SharpPy
                 SetOperator(type, "sub", (a, b) => a.Subtract(b));
                 SetOperator(type, "xor", (a, b) => a.BitwiseXor(b));
             }
-            Slot(PyType.FrozenSetType, "__len__", (self, args) => new PyInt((self as PyFrozenSet).Len()));
+            Slot(PyType.FrozenSetType, "__len__", (self, args) => PyInt.From((self as PyFrozenSet).Len()));
             Slot(PyType.FrozenSetType, "__contains__", (self, args) => (self as PyFrozenSet).ContainsItem(args[0]));
             Slot(PyType.FrozenSetType, "__iter__", (self, args) => (self as PyFrozenSet).Iter());
 
@@ -302,11 +302,11 @@ namespace SharpPy
             MethodO(PyType.RangeType, "count", (self, args) =>
             {
                 if (args[0] is PyInt or PyBool && args[0] is not PyIntSubclass)
-                    return new PyInt(self.Contains(args[0]).Value ? 1 : 0);
+                    return PyInt.From(self.Contains(args[0]).Value ? 1 : 0);
                 long count = 0;
                 foreach (var item in PySet.IterableItems(self))
                     if (PyList.AreEqual(item, args[0])) count++;
-                return new PyInt(count);
+                return PyInt.From(count);
             });
             MethodO(PyType.RangeType, "index", (self, args) =>
             {
@@ -315,17 +315,17 @@ namespace SharpPy
                 {
                     if (!self.Contains(args[0]).Value) throw PyValueError.Create($"{args[0].ToRepr().Value} is not in range");
                     var value = args[0] is PyBool truth ? (truth.Value ? BigInteger.One : BigInteger.Zero) : ((PyInt)args[0]).Value;
-                    return new PyInt((value - range.Start) / range.Step);
+                    return PyInt.From((value - range.Start) / range.Step);
                 }
                 long index = 0;
                 foreach (var item in PySet.IterableItems(self))
                 {
-                    if (PyList.AreEqual(item, args[0])) return new PyInt(index);
+                    if (PyList.AreEqual(item, args[0])) return PyInt.From(index);
                     index++;
                 }
                 throw PyValueError.Create("sequence.index(x): x not in sequence");
             });
-            Method(PyType.RangeType, "__reversed__", (self, args) => self.GetItem(new PySlice(PyNone.Instance, PyNone.Instance, new PyInt(-1))).GetIterator());
+            Method(PyType.RangeType, "__reversed__", (self, args) => self.GetItem(new PySlice(PyNone.Instance, PyNone.Instance, PyInt.From(-1))).GetIterator());
 
             foreach (var generic in new[] { PyType.BaseExceptionGroupType, PyType.GetIteratorType("enumerate"), PyType.MappingProxyType, PyType.WeakRefType })
                 if (!generic.TypeDict.ContainsKey("__class_getitem__"))
@@ -381,7 +381,7 @@ namespace SharpPy
 
         private static void InstallIterators()
         {
-            foreach (var iterable in new PyObject[] { new PyList(), new PyTuple(), PyString.From(""), new PyRange(0L) })
+            foreach (var iterable in new PyObject[] { new PyList(), PyTuple.From(), PyString.From(""), new PyRange(0L) })
                 Method(iterable.GetIterator().GetPyType(), "__length_hint__", (self, args) => ((PyIterator)self).RemainingHint());
         }
     }

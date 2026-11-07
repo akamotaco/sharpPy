@@ -35,7 +35,7 @@ namespace SharpPy.Modules
             Method(ContextType, "__new__", (cls, args, kwargs) => new PyContext(Empty));
             Method(ContextType, "run", ContextRun, 1, int.MaxValue, acceptsKwargs: true);
             Method(ContextType, "copy", (self, args, kwargs) => new PyContext(((PyContext)self).Vars), 0, 0);
-            Method(ContextType, "__len__", (self, args, kwargs) => new PyInt(((PyContext)self).Vars.Count), 0, 0);
+            Method(ContextType, "__len__", (self, args, kwargs) => PyInt.From(((PyContext)self).Vars.Count), 0, 0);
             Method(ContextType, "__contains__", (self, args, kwargs) =>
                 PyBool.FromBool(((PyContext)self).Vars.ContainsKey(CheckVar(args[0]))), 1, 1);
             Method(ContextType, "__getitem__", (self, args, kwargs) =>
@@ -56,7 +56,7 @@ namespace SharpPy.Modules
             Method(ContextType, "items", (self, args, kwargs) =>
             {
                 var items = new PyList();
-                foreach (var pair in ((PyContext)self).Vars) items.Append(new PyTuple(new[] { pair.Key, pair.Value }));
+                foreach (var pair in ((PyContext)self).Vars) items.Append(PyTuple.From(new[] { pair.Key, pair.Value }));
                 return IterOf(items);
             }, 0, 0);
 

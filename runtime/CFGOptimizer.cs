@@ -318,7 +318,7 @@ namespace SharpPy
             var items = new PyObject[n];
             for (int i = 0; i < n; i++)
                 items[i] = _constants[code[start + i].Argument];
-            int index = _addConstant(new PyTuple(items));
+            int index = _addConstant(PyTuple.From(items));
             for (int i = 0; i < n; i++)
                 code[start + i] = SetOp(code[start + i], ByteCodeOp.NOP);
             code[start + n] = SetOp(code[start + n], ByteCodeOp.LOAD_CONST, index);

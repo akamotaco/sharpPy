@@ -146,9 +146,9 @@ namespace SharpPy.Modules
         {
             var s = StateOf(self);
             var items = new PyObject[N + 1];
-            for (int i = 0; i < N; i++) items[i] = new PyInt(s.Words[i]);
-            items[N] = new PyInt(s.Index);
-            return new PyTuple(items);
+            for (int i = 0; i < N; i++) items[i] = PyInt.From(s.Words[i]);
+            items[N] = PyInt.From(s.Index);
+            return PyTuple.From(items);
         }
 
         private static PyObject SetStateMethod(PyObject self, PyObject[] args)
@@ -202,9 +202,9 @@ namespace SharpPy.Modules
             int k = PyArgs.Int(args[0]);
             if (k < 0)
                 throw PyValueError.Create("number of bits must be >= 0");
-            if (k == 0) return new PyInt(0);
+            if (k == 0) return PyInt.From(0);
             var s = StateOf(self);
-            if (k <= 32) return new PyInt(Next(s) >> (32 - k));
+            if (k <= 32) return PyInt.From(Next(s) >> (32 - k));
             BigInteger result = 0;
             int shift = 0;
             for (int left = k; left > 0; left -= 32, shift += 32)
@@ -213,7 +213,7 @@ namespace SharpPy.Modules
                 if (left < 32) word >>= 32 - left;
                 result |= (BigInteger)word << shift;
             }
-            return new PyInt(result);
+            return PyInt.From(result);
         }
     }
 }

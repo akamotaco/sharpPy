@@ -45,10 +45,10 @@ namespace SharpPy
                     o.SetAttribute("returns", Convert(n.Returns));
                     o.SetAttribute("type_comment", Str(n.TypeComment));
                     o.SetAttribute("type_params", Seq(n.TypeParams));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedAsyncFunctionDef n:
@@ -61,10 +61,10 @@ namespace SharpPy
                     o.SetAttribute("returns", Convert(n.Returns));
                     o.SetAttribute("type_comment", Str(n.TypeComment));
                     o.SetAttribute("type_params", Seq(n.TypeParams));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedClassDef n:
@@ -76,30 +76,30 @@ namespace SharpPy
                     o.SetAttribute("body", Seq(n.Body));
                     o.SetAttribute("decorator_list", Seq(n.DecoratorList));
                     o.SetAttribute("type_params", Seq(n.TypeParams));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedReturn n:
                 {
                     var o = New("Return");
                     o.SetAttribute("value", Convert(n.Value));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedDelete n:
                 {
                     var o = New("Delete");
                     o.SetAttribute("targets", Seq(n.Targets));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedAssign n:
@@ -108,10 +108,10 @@ namespace SharpPy
                     o.SetAttribute("targets", Seq(n.Targets));
                     o.SetAttribute("value", Convert(n.Value));
                     o.SetAttribute("type_comment", Str(n.TypeComment));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedTypeAlias n:
@@ -120,10 +120,10 @@ namespace SharpPy
                     o.SetAttribute("name", Convert(n.Name));
                     o.SetAttribute("type_params", Seq(n.TypeParams));
                     o.SetAttribute("value", Convert(n.Value));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedAugAssign n:
@@ -132,10 +132,10 @@ namespace SharpPy
                     o.SetAttribute("target", Convert(n.Target));
                     o.SetAttribute("op", Convert(n.Op));
                     o.SetAttribute("value", Convert(n.Value));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedAnnAssign n:
@@ -145,10 +145,10 @@ namespace SharpPy
                     o.SetAttribute("annotation", Convert(n.Annotation));
                     o.SetAttribute("value", Convert(n.Value));
                     o.SetAttribute("simple", Int(n.Simple));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedFor n:
@@ -159,10 +159,10 @@ namespace SharpPy
                     o.SetAttribute("body", Seq(n.Body));
                     o.SetAttribute("orelse", Seq(n.Orelse));
                     o.SetAttribute("type_comment", Str(n.TypeComment));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedAsyncFor n:
@@ -173,10 +173,10 @@ namespace SharpPy
                     o.SetAttribute("body", Seq(n.Body));
                     o.SetAttribute("orelse", Seq(n.Orelse));
                     o.SetAttribute("type_comment", Str(n.TypeComment));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedWhile n:
@@ -185,10 +185,10 @@ namespace SharpPy
                     o.SetAttribute("test", Convert(n.Test));
                     o.SetAttribute("body", Seq(n.Body));
                     o.SetAttribute("orelse", Seq(n.Orelse));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedIf n:
@@ -197,10 +197,10 @@ namespace SharpPy
                     o.SetAttribute("test", Convert(n.Test));
                     o.SetAttribute("body", Seq(n.Body));
                     o.SetAttribute("orelse", Seq(n.Orelse));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedWith n:
@@ -209,10 +209,10 @@ namespace SharpPy
                     o.SetAttribute("items", Seq(n.Items));
                     o.SetAttribute("body", Seq(n.Body));
                     o.SetAttribute("type_comment", Str(n.TypeComment));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedAsyncWith n:
@@ -221,10 +221,10 @@ namespace SharpPy
                     o.SetAttribute("items", Seq(n.Items));
                     o.SetAttribute("body", Seq(n.Body));
                     o.SetAttribute("type_comment", Str(n.TypeComment));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedMatch n:
@@ -232,10 +232,10 @@ namespace SharpPy
                     var o = New("Match");
                     o.SetAttribute("subject", Convert(n.Subject));
                     o.SetAttribute("cases", Seq(n.Cases));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedRaise n:
@@ -243,10 +243,10 @@ namespace SharpPy
                     var o = New("Raise");
                     o.SetAttribute("exc", Convert(n.Exc));
                     o.SetAttribute("cause", Convert(n.Cause));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedTry n:
@@ -256,10 +256,10 @@ namespace SharpPy
                     o.SetAttribute("handlers", Seq(n.Handlers));
                     o.SetAttribute("orelse", Seq(n.Orelse));
                     o.SetAttribute("finalbody", Seq(n.Finalbody));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedTryStar n:
@@ -269,10 +269,10 @@ namespace SharpPy
                     o.SetAttribute("handlers", Seq(n.Handlers));
                     o.SetAttribute("orelse", Seq(n.Orelse));
                     o.SetAttribute("finalbody", Seq(n.Finalbody));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedAssert n:
@@ -280,20 +280,20 @@ namespace SharpPy
                     var o = New("Assert");
                     o.SetAttribute("test", Convert(n.Test));
                     o.SetAttribute("msg", Convert(n.Msg));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedImport n:
                 {
                     var o = New("Import");
                     o.SetAttribute("names", Seq(n.Names));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedImportFrom n:
@@ -302,67 +302,67 @@ namespace SharpPy
                     o.SetAttribute("module", Identifier(n.Module));
                     o.SetAttribute("names", Seq(n.Names));
                     o.SetAttribute("level", Int(n.Level));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedGlobal n:
                 {
                     var o = New("Global");
                     o.SetAttribute("names", Seq(n.Names, item => Identifier((GeneratedIdentifier)item)));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedNonlocal n:
                 {
                     var o = New("Nonlocal");
                     o.SetAttribute("names", Seq(n.Names, item => Identifier((GeneratedIdentifier)item)));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedExprStmt n:
                 {
                     var o = New("Expr");
                     o.SetAttribute("value", Convert(n.Value));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedPass n:
                 {
                     var o = New("Pass");
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedBreak n:
                 {
                     var o = New("Break");
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedContinue n:
                 {
                     var o = New("Continue");
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedBoolOp n:
@@ -370,10 +370,10 @@ namespace SharpPy
                     var o = New("BoolOp");
                     o.SetAttribute("op", Convert(n.Op));
                     o.SetAttribute("values", Seq(n.Values));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedNamedExpr n:
@@ -381,10 +381,10 @@ namespace SharpPy
                     var o = New("NamedExpr");
                     o.SetAttribute("target", Convert(n.Target));
                     o.SetAttribute("value", Convert(n.Value));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedBinOp n:
@@ -393,10 +393,10 @@ namespace SharpPy
                     o.SetAttribute("left", Convert(n.Left));
                     o.SetAttribute("op", Convert(n.Op));
                     o.SetAttribute("right", Convert(n.Right));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedUnaryOp n:
@@ -404,10 +404,10 @@ namespace SharpPy
                     var o = New("UnaryOp");
                     o.SetAttribute("op", Convert(n.Op));
                     o.SetAttribute("operand", Convert(n.Operand));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedLambda n:
@@ -415,10 +415,10 @@ namespace SharpPy
                     var o = New("Lambda");
                     o.SetAttribute("args", Convert(n.Args));
                     o.SetAttribute("body", Convert(n.Body));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedIfExp n:
@@ -427,10 +427,10 @@ namespace SharpPy
                     o.SetAttribute("test", Convert(n.Test));
                     o.SetAttribute("body", Convert(n.Body));
                     o.SetAttribute("orelse", Convert(n.Orelse));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedDict n:
@@ -438,20 +438,20 @@ namespace SharpPy
                     var o = New("Dict");
                     o.SetAttribute("keys", Seq(n.Keys));
                     o.SetAttribute("values", Seq(n.Values));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedSet n:
                 {
                     var o = New("Set");
                     o.SetAttribute("elts", Seq(n.Elts));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedListComp n:
@@ -459,10 +459,10 @@ namespace SharpPy
                     var o = New("ListComp");
                     o.SetAttribute("elt", Convert(n.Elt));
                     o.SetAttribute("generators", Seq(n.Generators));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedSetComp n:
@@ -470,10 +470,10 @@ namespace SharpPy
                     var o = New("SetComp");
                     o.SetAttribute("elt", Convert(n.Elt));
                     o.SetAttribute("generators", Seq(n.Generators));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedDictComp n:
@@ -482,10 +482,10 @@ namespace SharpPy
                     o.SetAttribute("key", Convert(n.Key));
                     o.SetAttribute("value", Convert(n.Value));
                     o.SetAttribute("generators", Seq(n.Generators));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedGeneratorExp n:
@@ -493,40 +493,40 @@ namespace SharpPy
                     var o = New("GeneratorExp");
                     o.SetAttribute("elt", Convert(n.Elt));
                     o.SetAttribute("generators", Seq(n.Generators));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedAwait n:
                 {
                     var o = New("Await");
                     o.SetAttribute("value", Convert(n.Value));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedYield n:
                 {
                     var o = New("Yield");
                     o.SetAttribute("value", Convert(n.Value));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedYieldFrom n:
                 {
                     var o = New("YieldFrom");
                     o.SetAttribute("value", Convert(n.Value));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedCompare n:
@@ -535,10 +535,10 @@ namespace SharpPy
                     o.SetAttribute("left", Convert(n.Left));
                     o.SetAttribute("ops", Seq(n.Ops));
                     o.SetAttribute("comparators", Seq(n.Comparators));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedCall n:
@@ -547,10 +547,10 @@ namespace SharpPy
                     o.SetAttribute("func", Convert(n.Func));
                     o.SetAttribute("args", Seq(n.Args));
                     o.SetAttribute("keywords", Seq(n.Keywords));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedFormattedValue n:
@@ -559,20 +559,20 @@ namespace SharpPy
                     o.SetAttribute("value", Convert(n.Value));
                     o.SetAttribute("conversion", Int(n.Conversion));
                     o.SetAttribute("format_spec", Convert(n.FormatSpec));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedJoinedStr n:
                 {
                     var o = New("JoinedStr");
                     o.SetAttribute("values", Seq(n.Values));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedConstant n:
@@ -580,10 +580,10 @@ namespace SharpPy
                     var o = New("Constant");
                     o.SetAttribute("value", ConstantObject(n.Value));
                     o.SetAttribute("kind", Str(n.Kind));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedAttribute n:
@@ -592,10 +592,10 @@ namespace SharpPy
                     o.SetAttribute("value", Convert(n.Value));
                     o.SetAttribute("attr", Identifier(n.Attr));
                     o.SetAttribute("ctx", Convert(n.Ctx));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedSubscript n:
@@ -604,10 +604,10 @@ namespace SharpPy
                     o.SetAttribute("value", Convert(n.Value));
                     o.SetAttribute("slice", Convert(n.Slice));
                     o.SetAttribute("ctx", Convert(n.Ctx));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedStarred n:
@@ -615,10 +615,10 @@ namespace SharpPy
                     var o = New("Starred");
                     o.SetAttribute("value", Convert(n.Value));
                     o.SetAttribute("ctx", Convert(n.Ctx));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedName n:
@@ -626,10 +626,10 @@ namespace SharpPy
                     var o = New("Name");
                     o.SetAttribute("id", Identifier(n.Id));
                     o.SetAttribute("ctx", Convert(n.Ctx));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedList n:
@@ -637,10 +637,10 @@ namespace SharpPy
                     var o = New("List");
                     o.SetAttribute("elts", Seq(n.Elts));
                     o.SetAttribute("ctx", Convert(n.Ctx));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedTuple n:
@@ -648,10 +648,10 @@ namespace SharpPy
                     var o = New("Tuple");
                     o.SetAttribute("elts", Seq(n.Elts));
                     o.SetAttribute("ctx", Convert(n.Ctx));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedSlice n:
@@ -660,10 +660,10 @@ namespace SharpPy
                     o.SetAttribute("lower", Convert(n.Lower));
                     o.SetAttribute("upper", Convert(n.Upper));
                     o.SetAttribute("step", Convert(n.Step));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedLoad:
@@ -745,10 +745,10 @@ namespace SharpPy
                     o.SetAttribute("type", Convert(n.Type));
                     o.SetAttribute("name", Identifier(n.Name));
                     o.SetAttribute("body", Seq(n.Body));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedArguments n:
@@ -769,10 +769,10 @@ namespace SharpPy
                     o.SetAttribute("arg", Identifier(n.Arg));
                     o.SetAttribute("annotation", Convert(n.Annotation));
                     o.SetAttribute("type_comment", Str(n.TypeComment));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedKeyword n:
@@ -780,10 +780,10 @@ namespace SharpPy
                     var o = New("keyword");
                     o.SetAttribute("arg", Identifier(n.Arg));
                     o.SetAttribute("value", Convert(n.Value));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedAlias n:
@@ -791,10 +791,10 @@ namespace SharpPy
                     var o = New("alias");
                     o.SetAttribute("name", Identifier(n.Name));
                     o.SetAttribute("asname", Identifier(n.Asname));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedWithitem n:
@@ -816,30 +816,30 @@ namespace SharpPy
                 {
                     var o = New("MatchValue");
                     o.SetAttribute("value", Convert(n.Value));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedMatchSingleton n:
                 {
                     var o = New("MatchSingleton");
                     o.SetAttribute("value", ConstantObject(n.Value));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedMatchSequence n:
                 {
                     var o = New("MatchSequence");
                     o.SetAttribute("patterns", Seq(n.Patterns));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedMatchMapping n:
@@ -848,10 +848,10 @@ namespace SharpPy
                     o.SetAttribute("keys", Seq(n.Keys));
                     o.SetAttribute("patterns", Seq(n.Patterns));
                     o.SetAttribute("rest", Identifier(n.Rest));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedMatchClass n:
@@ -861,20 +861,20 @@ namespace SharpPy
                     o.SetAttribute("patterns", Seq(n.Patterns));
                     o.SetAttribute("kwd_attrs", Seq(n.KwdAttrs, item => Identifier((GeneratedIdentifier)item)));
                     o.SetAttribute("kwd_patterns", Seq(n.KwdPatterns));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedMatchStar n:
                 {
                     var o = New("MatchStar");
                     o.SetAttribute("name", Identifier(n.Name));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedMatchAs n:
@@ -882,20 +882,20 @@ namespace SharpPy
                     var o = New("MatchAs");
                     o.SetAttribute("pattern", Convert(n.Pattern));
                     o.SetAttribute("name", Identifier(n.Name));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedMatchOr n:
                 {
                     var o = New("MatchOr");
                     o.SetAttribute("patterns", Seq(n.Patterns));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedTypeIgnoreNode n:
@@ -910,30 +910,30 @@ namespace SharpPy
                     var o = New("TypeVar");
                     o.SetAttribute("name", Identifier(n.Name));
                     o.SetAttribute("bound", Convert(n.Bound));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedParamSpec n:
                 {
                     var o = New("ParamSpec");
                     o.SetAttribute("name", Identifier(n.Name));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
                 case GeneratedTypeVarTuple n:
                 {
                     var o = New("TypeVarTuple");
                     o.SetAttribute("name", Identifier(n.Name));
-                    o.SetAttribute("lineno", new PyInt(n.LineNo));
-                    o.SetAttribute("col_offset", new PyInt(n.ColOffset));
-                    o.SetAttribute("end_lineno", new PyInt(n.EndLineNo));
-                    o.SetAttribute("end_col_offset", new PyInt(n.EndColOffset));
+                    o.SetAttribute("lineno", PyInt.From(n.LineNo));
+                    o.SetAttribute("col_offset", PyInt.From(n.ColOffset));
+                    o.SetAttribute("end_lineno", PyInt.From(n.EndLineNo));
+                    o.SetAttribute("end_col_offset", PyInt.From(n.EndColOffset));
                     return o;
                 }
             }

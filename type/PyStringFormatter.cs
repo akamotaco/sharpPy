@@ -129,7 +129,7 @@ internal static class PyStringFormatter
                 if (p == start) throw PyValueError.Create("Empty attribute in format string");
                 string key = field.Substring(start, p++ - start);
                 index = Index(key);
-                value = value.GetItem(index < 0 ? PyString.From(key) : new PyInt(index));
+                value = value.GetItem(index < 0 ? PyString.From(key) : PyInt.From(index));
             }
             else throw PyValueError.Create("Only '.' or '[' may follow ']' in format field specifier");
         }

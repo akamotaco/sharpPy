@@ -16,12 +16,12 @@ namespace SharpPy.Modules
         {
             var module = new PyModule("zlib");
             module.ModuleDict["error"] = ErrorType;
-            module.ModuleDict["MAX_WBITS"] = new PyInt(15);
-            module.ModuleDict["DEFLATED"] = new PyInt(8);
-            module.ModuleDict["DEF_MEM_LEVEL"] = new PyInt(8);
-            module.ModuleDict["Z_DEFAULT_COMPRESSION"] = new PyInt(-1);
-            module.ModuleDict["Z_BEST_SPEED"] = new PyInt(1);
-            module.ModuleDict["Z_BEST_COMPRESSION"] = new PyInt(9);
+            module.ModuleDict["MAX_WBITS"] = PyInt.From(15);
+            module.ModuleDict["DEFLATED"] = PyInt.From(8);
+            module.ModuleDict["DEF_MEM_LEVEL"] = PyInt.From(8);
+            module.ModuleDict["Z_DEFAULT_COMPRESSION"] = PyInt.From(-1);
+            module.ModuleDict["Z_BEST_SPEED"] = PyInt.From(1);
+            module.ModuleDict["Z_BEST_COMPRESSION"] = PyInt.From(9);
             module.ModuleDict["compress"] = new PyBuiltinFunction("compress", (args, kwargs) =>
             {
                 int level = args.Length > 1 ? args[1].ToInt()
@@ -60,7 +60,7 @@ namespace SharpPy.Modules
                     low = (low + b) % 65521;
                     high = (high + low) % 65521;
                 }
-                return new PyInt((long)((high << 16) | low));
+                return PyInt.From((long)((high << 16) | low));
             });
             module.ModuleDict["crc32"] = PyImportSystem.Import("binascii").GetAttribute("crc32");
             return module;

@@ -368,7 +368,7 @@ namespace SharpPy
                 if (idx < 0 || idx >= _bytes.Count)
                     throw PyIndexError.Create("bytearray index out of range");
 
-                return new PyInt(_bytes[(int)idx]);
+                return PyInt.From(_bytes[(int)idx]);
             }
             else if (index is PySlice slice)
             {
@@ -786,7 +786,7 @@ namespace SharpPy
 
             byte value = _bytes[index];
             _bytes.RemoveAt(index);
-            return new PyInt(value);
+            return PyInt.From(value);
         }
 
         public void Clear()
@@ -957,16 +957,16 @@ namespace SharpPy
                 throw PyStopIteration.Create();
             }
 
-            var value = _bytearray.GetItem(new PyInt(_index));
+            var value = _bytearray.GetItem(PyInt.From(_index));
             _index++;
             return value;
         }
 
-        internal override PyObject RemainingHint() => new PyInt(_bytearray == null ? 0 : Math.Max(0, _bytearray.Length() - _index));
+        internal override PyObject RemainingHint() => PyInt.From(_bytearray == null ? 0 : Math.Max(0, _bytearray.Length() - _index));
 
         internal override PyObject Reduce() => _bytearray != null
             ? ReduceIter(_bytearray, _index)
-            : ReduceExhausted(new PyTuple(new PyObject[0]));
+            : ReduceExhausted(PyTuple.From(new PyObject[0]));
 
         internal override void SetState(PyObject state)
         {

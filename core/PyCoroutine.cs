@@ -158,13 +158,13 @@ namespace SharpPy.Core
             PyObject frame = PyVM.CurrentFrame;
             while (frame is PyFrame current && entries.Count < OriginDepth)
             {
-                entries.Add(new PyTuple(new PyObject[]
+                entries.Add(PyTuple.From(new PyObject[]
                 {
                     PyString.From(current.Code.FileName), current.GetAttribute("f_lineno"), PyString.From(current.Code.Name),
                 }));
                 frame = current.GetAttribute("f_back");
             }
-            return new PyTuple(entries.ToArray());
+            return PyTuple.From(entries.ToArray());
         }
 
         // _PyGen_Finalize: a coroutine that never ran says so, one that did is closed.

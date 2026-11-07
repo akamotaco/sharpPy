@@ -24,7 +24,7 @@ namespace SharpPy
         // union_getitem
         internal PyObject Subscript(PyObject item)
         {
-            var arguments = new PyTuple(Args);
+            var arguments = PyTuple.From(Args);
             var parameters = PyGenericAlias.MakeParameters(arguments);
             var replaced = PyGenericAlias.SubsParameters(this, arguments, parameters, item);
             var result = replaced.Items.Length == 0 ? null : replaced.Items[0];

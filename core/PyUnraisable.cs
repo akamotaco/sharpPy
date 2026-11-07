@@ -12,9 +12,9 @@ namespace SharpPy
         {
             public HookArgsType() : base("UnraisableHookArgs", new[] { PyType.TupleType })
             {
-                TypeDict["n_fields"] = new PyInt(5);
-                TypeDict["n_sequence_fields"] = new PyInt(5);
-                TypeDict["n_unnamed_fields"] = new PyInt(0);
+                TypeDict["n_fields"] = PyInt.From(5);
+                TypeDict["n_sequence_fields"] = PyInt.From(5);
+                TypeDict["n_unnamed_fields"] = PyInt.From(0);
                 for (int i = 0; i < Fields.Length; i++)
                 {
                     int index = i;

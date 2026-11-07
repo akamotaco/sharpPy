@@ -11,7 +11,7 @@ namespace SharpPy
         internal bool IsExact => GetType() == typeof(PyTuple);
 
         // What the slots of tuple read: the items, not the methods of a subclass.
-        internal PyTuple Stored => IsExact ? this : new PyTuple(Items);
+        internal PyTuple Stored => IsExact ? this : PyTuple.From(Items);
 
         /// <summary>
         /// A subclass of tuple/bytes resolves the slot through its own type: a declared dunder wins
@@ -40,7 +40,7 @@ namespace SharpPy
                     throw PyTypeError.Create($"descriptor '__len__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
                 if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                 if (kwargs != null && kwargs.Length() != 0) throw PyTypeError.Create("wrapper __len__() takes no keyword arguments");
-                return new PyInt(tuple.Items.Length);
+                return PyInt.From(tuple.Items.Length);
             });
 
             // CPython materialises tuple's sequence/iteration slots in tp_dict so
@@ -70,7 +70,7 @@ namespace SharpPy
 
             tupleType.TypeDict["__getnewargs__"] = new PyMethodDescriptor(
                 "__getnewargs__", tupleType,
-                (self, args, kwargs) => new PyTuple(new PyObject[] { self }),
+                (self, args, kwargs) => PyTuple.From(new PyObject[] { self }),
                 minArgs: 0, maxArgs: 0);
 
             // CPython 3.12: Objects/tupleobject.c:488-502 - tuple_index
@@ -178,7 +178,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"descriptor '__mul__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
 
                     // wrap_indexargfunc: the count is PyNumber_AsSsize_t(arg, PyExc_OverflowError).
-                    return tuple.Multiply(new PyInt(PyArgs.IndexSsize(args[0])));
+                    return tuple.Multiply(PyInt.From(PyArgs.IndexSsize(args[0])));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -193,7 +193,7 @@ namespace SharpPy
                     if (self is not PyTuple tuple)
                         throw PyTypeError.Create($"descriptor '__rmul__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
 
-                    return tuple.Multiply(new PyInt(PyArgs.IndexSsize(args[0])));
+                    return tuple.Multiply(PyInt.From(PyArgs.IndexSsize(args[0])));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -360,7 +360,7 @@ namespace SharpPy
                 var result = new PyObject[Items.Length + otherTuple.Items.Length];
                 Array.Copy(Items, 0, result, 0, Items.Length);
                 Array.Copy(otherTuple.Items, 0, result, Items.Length, otherTuple.Items.Length);
-                return TupleCache.GetOrCreate(result);
+                return PyTuple.From(result);
             }
 
             throw PyTypeError.Create($"can only concatenate tuple (not \"{other.GetTypeName()}\") to tuple");
@@ -387,7 +387,7 @@ namespace SharpPy
                 {
                     Array.Copy(Items, 0, result, i * Items.Length, Items.Length);
                 }
-                return TupleCache.GetOrCreate(result);
+                return PyTuple.From(result);
             }
 
             throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'");
@@ -441,7 +441,7 @@ namespace SharpPy
             {
                 var contiguous = new PyObject[Math.Max(0, stop - start)];
                 Array.Copy(Items, start, contiguous, 0, contiguous.Length);
-                return TupleCache.GetOrCreate(contiguous);
+                return PyTuple.From(contiguous);
             }
 
             var result = new System.Collections.Generic.List<PyObject>();
@@ -467,7 +467,7 @@ namespace SharpPy
             // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var resultArray = new PyObject[result.Count];
             result.CopyTo(resultArray, 0);
-            return TupleCache.GetOrCreate(resultArray);
+            return PyTuple.From(resultArray);
         }
 
         /// <summary>
@@ -501,7 +501,7 @@ namespace SharpPy
             for (long i = start; i < actualStop; i++)
             {
                 if (CompareBool(Items[(int)i], value, CompareOp.EQ))
-                    return new PyInt(i);
+                    return PyInt.From(i);
             }
             
             // CPython tupleindex_impl: static message (Objects/tupleobject.c).
@@ -520,7 +520,7 @@ namespace SharpPy
                 if (CompareBool(Items[i], value, CompareOp.EQ))
                     count++;
             }
-            return new PyInt(count);
+            return PyInt.From(count);
         }
 
         #endregion
@@ -549,6 +549,14 @@ namespace SharpPy
         /// second competing empty tuple, so identity checks below the corrected id() came apart.
         /// </summary>
         public static readonly PyTuple Empty = new PyTuple();
+
+        /// <summary>
+        /// The one way the interpreter makes an exact tuple, as PyTuple_New is CPython's: the empty
+        /// tuple is tuple_get_empty's one object, any other is a new tuple (no other is shared).
+        /// The public constructor stays for host code.
+        /// </summary>
+        public static PyTuple From(params PyObject[] items) =>
+            items == null || items.Length == 0 ? Empty : new PyTuple(items);
 
         #endregion
 
@@ -595,7 +603,7 @@ namespace SharpPy
             // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var copy = new PyObject[Items.Length];
             Array.Copy(Items, copy, Items.Length);
-            return TupleCache.GetOrCreate(copy);
+            return PyTuple.From(copy);
         }
         
         /// <summary>
@@ -605,7 +613,7 @@ namespace SharpPy
         {
             if (!IsExact) return base.AsList();
             // CPython list(tuple) 동작: 튜플 요소들을 리스트로 변환
-            return ListCache.Create(Items);
+            return new PyList(Items);
         }
         
         /// <summary>

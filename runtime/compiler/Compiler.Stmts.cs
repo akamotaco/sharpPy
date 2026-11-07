@@ -329,7 +329,7 @@ namespace SharpPy
             for (int i = 0; i < Len(s.Names); i++)
             {
                 var alias = (GeneratedAlias)s.Names[i];
-                ADDOP_LOAD_CONST(loc, new PyInt(0));
+                ADDOP_LOAD_CONST(loc, PyInt.From(0));
                 ADDOP_LOAD_CONST(loc, PyNone.Instance);
                 AddopName(loc, ByteCodeOp.IMPORT_NAME, _u.Names, alias.Name.Value);
 
@@ -352,7 +352,7 @@ namespace SharpPy
         {
             int n = Len(s.Names);
             var loc = LOC(s);
-            ADDOP_LOAD_CONST(loc, new PyInt(s.Level ?? 0));
+            ADDOP_LOAD_CONST(loc, PyInt.From(s.Level ?? 0));
 
             var names = new PyObject[n];
             for (int i = 0; i < n; i++)
@@ -362,7 +362,7 @@ namespace SharpPy
                 (loc.Line == _future.LastLine && loc.Col > _future.LastColumn);
             if (afterFuture && s.Module?.Value == "__future__")
                 throw Error(loc, "from __future__ imports must occur at the beginning of the file");
-            ADDOP_LOAD_CONST(loc, new PyTuple(names));
+            ADDOP_LOAD_CONST(loc, PyTuple.From(names));
 
             AddopName(loc, ByteCodeOp.IMPORT_NAME, _u.Names, s.Module?.Value ?? "");
             for (int i = 0; i < n; i++)
@@ -710,7 +710,7 @@ namespace SharpPy
                 var items = new PyObject[n];
                 for (int i = 0; i < n; i++)
                     items[i] = ConstantValue(((GeneratedConstant)elts[i]).Value);
-                PyObject folded = new PyTuple(items);
+                PyObject folded = PyTuple.From(items);
                 if (tuple && pushed == 0)
                 {
                     ADDOP_LOAD_CONST(loc, folded);
@@ -848,7 +848,7 @@ namespace SharpPy
                 var keys = new PyObject[n];
                 for (int i = begin; i < end; i++)
                     keys[i - begin] = ConstantValue(((GeneratedConstant)e.Keys[i]).Value);
-                ADDOP_LOAD_CONST(loc, new PyTuple(keys));
+                ADDOP_LOAD_CONST(loc, PyTuple.From(keys));
                 ADDOP_I(loc, ByteCodeOp.BUILD_CONST_KEY_MAP, n);
                 return;
             }

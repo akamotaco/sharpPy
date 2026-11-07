@@ -101,8 +101,8 @@ namespace SharpPy
                 i += length;
             }
             if (i < 0 && s.GetPyType().LookupSpecial(slot) is not PyFunction)
-                return new PyInt(length < 0 ? s.Size() : length);
-            return new PyInt(i);
+                return PyInt.From(length < 0 ? s.Size() : length);
+            return PyInt.From(i);
         }
 
         private static bool IsMappingOnly(PyObject s) => s is PyDict || s.GetPyType().IsSubclassOf(PyType.DictType);

@@ -621,7 +621,7 @@ namespace SharpPy
             var iterable = args[0];
             var start = args.Length > 1
                 ? args[1]
-                : PyObject.KwValue(kwargs, "start") ?? new PyInt(0);
+                : PyObject.KwValue(kwargs, "start") ?? PyInt.From(0);
             // builtin_sum_impl
             if (start is PyString)
                 throw PyTypeError.Create("sum() can't sum strings [use ''.join(seq) instead]");
@@ -901,7 +901,7 @@ namespace SharpPy
 
             // Not GetHashCode: a value-based hash makes two distinct objects share an id, which is
             // the identity observable (core/PyObjectId.cs).
-            return new PyInt(PyObjectId.Of(args[0]));
+            return PyInt.From(PyObjectId.Of(args[0]));
         }
 
         private static PyObject CallHash(PyObject[] args, PyDict kwargs = null)
@@ -912,7 +912,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"hash() takes exactly one argument ({args.Length} given)");
 
             long hash = args[0].GetPythonHash();
-            return SmallIntCache.GetOrCreate(hash);
+            return PyInt.From(hash);
         }
 
         // === 타입 변환 함수들 ===
@@ -958,7 +958,7 @@ namespace SharpPy
                     else
                         throw PyTypeError.Create($"{entry.Key.ToRepr().Value} is an invalid keyword argument for complex()");
                 }
-            r ??= new PyInt(0);
+            r ??= PyInt.From(0);
 
             if (r.GetType() == typeof(PyComplex) && i == null)
                 return r;
@@ -1526,14 +1526,14 @@ namespace SharpPy
             var text = args[0] as PyString;
             if (text != null && text.CodePointLength() == 1)
             {
-                return new PyInt(text.CodePointAt(0));
+                return PyInt.From(text.CodePointAt(0));
             }
             // builtin_ord
             if (args[0] is PyBytes or PyByteArray)
             {
                 var data = BytesMethods.Buffer(args[0]);
                 if (data.Length == 1)
-                    return new PyInt(data[0]);
+                    return PyInt.From(data[0]);
                 throw PyTypeError.Create($"ord() expected a character, but string of length {data.Length} found");
             }
             if (text == null)
@@ -1608,7 +1608,7 @@ namespace SharpPy
         {
             original = null;
             List<PyObject> updated = null;
-            var given = new PyTuple(args[2..]);
+            var given = PyTuple.From(args[2..]);
             for (int i = 2; i < args.Length; i++)
             {
                 var entry = args[i];
@@ -1649,7 +1649,7 @@ namespace SharpPy
                 throw PyTypeError.Create("__build_class__: name is not a string");
             args = UpdateBases(args, out var originalBases);
             var name = args[1];
-            var bases = new PyTuple(args[2..]);
+            var bases = PyTuple.From(args[2..]);
 
             PyDict classKeywords = null;
             PyObject metaclass = null;

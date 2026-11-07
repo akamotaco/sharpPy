@@ -76,17 +76,17 @@ namespace SharpPy.Modules
             switch (info.Size)
             {
                 case 1:
-                    if (info.IsSigned) return new PyInt((long)(sbyte)span[0]);
-                    return new PyInt((long)span[0]);
+                    if (info.IsSigned) return PyInt.From((long)(sbyte)span[0]);
+                    return PyInt.From((long)span[0]);
                 case 2:
-                    if (info.IsSigned) return new PyInt((long)BinaryPrimitives.ReadInt16LittleEndian(span));
-                    return new PyInt((long)BinaryPrimitives.ReadUInt16LittleEndian(span));
+                    if (info.IsSigned) return PyInt.From((long)BinaryPrimitives.ReadInt16LittleEndian(span));
+                    return PyInt.From((long)BinaryPrimitives.ReadUInt16LittleEndian(span));
                 case 4:
-                    if (info.IsSigned) return new PyInt((long)BinaryPrimitives.ReadInt32LittleEndian(span));
-                    return new PyInt((long)BinaryPrimitives.ReadUInt32LittleEndian(span));
+                    if (info.IsSigned) return PyInt.From((long)BinaryPrimitives.ReadInt32LittleEndian(span));
+                    return PyInt.From((long)BinaryPrimitives.ReadUInt32LittleEndian(span));
                 case 8:
-                    if (info.IsSigned) return new PyInt(BinaryPrimitives.ReadInt64LittleEndian(span));
-                    return new PyInt(new BigInteger(BinaryPrimitives.ReadUInt64LittleEndian(span)));
+                    if (info.IsSigned) return PyInt.From(BinaryPrimitives.ReadInt64LittleEndian(span));
+                    return PyInt.From(new BigInteger(BinaryPrimitives.ReadUInt64LittleEndian(span)));
                 default:
                     throw new InvalidOperationException();
             }
@@ -583,7 +583,7 @@ namespace SharpPy.Modules
                 for (long i = start; i < stop; i++)
                 {
                     if (PyObject.CompareBool(ReadItem(_buffer, (int)i, _typecode), x, PyObject.CompareOp.EQ))
-                        return new PyInt(i);
+                        return PyInt.From(i);
                 }
                 throw PyValueError.Create("array.index(x): x not in array");
             }
@@ -596,7 +596,7 @@ namespace SharpPy.Modules
                     if (PyObject.CompareBool(ReadItem(_buffer, i, _typecode), value, PyObject.CompareOp.EQ))
                         c++;
                 }
-                return new PyInt(c);
+                return PyInt.From(c);
             }
 
             internal void Reverse()
@@ -696,7 +696,7 @@ namespace SharpPy.Modules
 
             internal PyTuple BufferInfo()
             {
-                return new PyTuple(new PyObject[] { new PyInt(0), new PyInt(_count) });
+                return PyTuple.From(new PyObject[] { PyInt.From(0), PyInt.From(_count) });
             }
 
             internal PyArray Copy()
@@ -725,16 +725,16 @@ namespace SharpPy.Modules
             {
                 PyObject state = HasCustomType ? GetAttribute("__dict__") : PyNone.Instance;
                 if (protocol < 3)
-                    return new PyTuple(new PyObject[]
+                    return PyTuple.From(new PyObject[]
                     {
                         GetPyType(),
-                        new PyTuple(new PyObject[] { PyString.From(_typecode.ToString()), ToList() }),
+                        PyTuple.From(new PyObject[] { PyString.From(_typecode.ToString()), ToList() }),
                         state,
                     });
-                return new PyTuple(new PyObject[]
+                return PyTuple.From(new PyObject[]
                 {
                     Reconstructor,
-                    new PyTuple(new PyObject[] { GetPyType(), PyString.From(_typecode.ToString()), new PyInt(MachineFormat()), ToBytes() }),
+                    PyTuple.From(new PyObject[] { GetPyType(), PyString.From(_typecode.ToString()), PyInt.From(MachineFormat()), ToBytes() }),
                     state,
                 });
             }
@@ -771,14 +771,14 @@ namespace SharpPy.Modules
                         cell[i] = data[offset + (bigEndian ? size - 1 - i : i)];
                     return code switch
                     {
-                        0 => new PyInt(cell[0]),
-                        1 => new PyInt((sbyte)cell[0]),
-                        2 or 3 => new PyInt(BitConverter.ToUInt16(cell)),
-                        4 or 5 => new PyInt(BitConverter.ToInt16(cell)),
-                        6 or 7 => new PyInt(BitConverter.ToUInt32(cell)),
-                        8 or 9 => new PyInt(BitConverter.ToInt32(cell)),
-                        10 or 11 => new PyInt((System.Numerics.BigInteger)BitConverter.ToUInt64(cell)),
-                        12 or 13 => new PyInt(BitConverter.ToInt64(cell)),
+                        0 => PyInt.From(cell[0]),
+                        1 => PyInt.From((sbyte)cell[0]),
+                        2 or 3 => PyInt.From(BitConverter.ToUInt16(cell)),
+                        4 or 5 => PyInt.From(BitConverter.ToInt16(cell)),
+                        6 or 7 => PyInt.From(BitConverter.ToUInt32(cell)),
+                        8 or 9 => PyInt.From(BitConverter.ToInt32(cell)),
+                        10 or 11 => PyInt.From((System.Numerics.BigInteger)BitConverter.ToUInt64(cell)),
+                        12 or 13 => PyInt.From(BitConverter.ToInt64(cell)),
                         14 or 15 => new PyFloat(BitConverter.ToSingle(cell)),
                         16 or 17 => new PyFloat(BitConverter.ToDouble(cell)),
                         18 or 19 => PyString.From(((char)BitConverter.ToUInt16(cell)).ToString()),
@@ -1041,7 +1041,7 @@ namespace SharpPy.Modules
 
             type.TypeDict["__len__"] = new PyWrapperDescriptor("__len__", type, (self, args, kwargs) =>
             {
-                return new PyInt(((PyArray)self).Len());
+                return PyInt.From(((PyArray)self).Len());
             });
 
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) =>
@@ -1078,7 +1078,7 @@ namespace SharpPy.Modules
 
             type.TypeDict["itemsize"] = new PyGetSetDescriptor("itemsize", type, self =>
             {
-                return new PyInt(((PyArray)self).ItemSize);
+                return PyInt.From(((PyArray)self).ItemSize);
             });
 
             type.TypeDict["__hash__"] = PyNone.Instance;

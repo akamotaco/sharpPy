@@ -50,10 +50,10 @@ namespace SharpPy.Modules
             Method(type, "clear", PyCall.NoArgs, (d, args) => { d.Clear(); return PyNone.Instance; });
             Method(type, "__copy__", PyCall.NoArgs, (d, args) => d.Copy());
             Method(type, "copy", PyCall.NoArgs, (d, args) => d.Copy());
-            Method(type, "count", PyCall.One, (d, args) => new PyInt(d.Count(args[0])));
+            Method(type, "count", PyCall.One, (d, args) => PyInt.From(d.Count(args[0])));
             Method(type, "extend", PyCall.One, (d, args) => { d.Extend(args[0]); return PyNone.Instance; });
             Method(type, "extendleft", PyCall.One, (d, args) => { d.ExtendLeft(args[0]); return PyNone.Instance; });
-            Fast(type, "index", (d, args) => new PyInt(d.Index(args)));
+            Fast(type, "index", (d, args) => PyInt.From(d.Index(args)));
             Fast(type, "insert", (d, args) => { d.Insert(args); return PyNone.Instance; });
             Method(type, "pop", PyCall.NoArgs, (d, args) => d.Pop());
             Method(type, "popleft", PyCall.NoArgs, (d, args) => d.PopLeft());
@@ -68,16 +68,16 @@ namespace SharpPy.Modules
                 d.Rotate(n);
                 return PyNone.Instance;
             });
-            Method(type, "__sizeof__", PyCall.NoArgs, (d, args) => new PyInt(d.SizeOf()));
+            Method(type, "__sizeof__", PyCall.NoArgs, (d, args) => PyInt.From(d.SizeOf()));
             type.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(type);
             type.TypeDict["maxlen"] = new PyGetSetDescriptor("maxlen", type,
-                self => Self(self).MaxLen < 0 ? PyNone.Instance : new PyInt(Self(self).MaxLen));
+                self => Self(self).MaxLen < 0 ? PyNone.Instance : PyInt.From(Self(self).MaxLen));
             type.TypeDict["__hash__"] = PyNone.Instance;
             TypeTables.Repr(type);
             TypeTables.Compared(type);
 
             // The sequence slots and the wrappers add_operators makes of them.
-            type.TypeDict["__len__"] = new PyWrapperDescriptor("__len__", type, (self, args, kwargs) => new PyInt(Self(self).Size));
+            type.TypeDict["__len__"] = new PyWrapperDescriptor("__len__", type, (self, args, kwargs) => PyInt.From(Self(self).Size));
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => new PyDeque.DequeIterator(Self(self)));
             type.TypeDict["__contains__"] = new PyWrapperDescriptor("__contains__", type, (self, args, kwargs) => PyBool.FromBool(Self(self).DequeContains(args[0])));
             type.TypeDict["__getitem__"] = new PyWrapperDescriptor("__getitem__", type, (self, args, kwargs) => Self(self).MpSubscript(args[0]));
@@ -116,7 +116,7 @@ namespace SharpPy.Modules
             type.TypeDict["__module__"] = PyString.From("collections");
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
             type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.IterNext());
-            PyArgs.Define(type, "__length_hint__", PyCall.NoArgs, (self, args) => new PyInt(((PyDeque.DequeIterator)self).Counter));
+            PyArgs.Define(type, "__length_hint__", PyCall.NoArgs, (self, args) => PyInt.From(((PyDeque.DequeIterator)self).Counter));
             PyArgs.Define(type, "__reduce__", PyCall.NoArgs, (self, args) => ((PyDeque.DequeIterator)self).Reduce());
             // dequeiter_new: "O!|n", then as many items consumed as the index says.
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
@@ -361,7 +361,7 @@ namespace SharpPy.Modules
             }
             var result = MaxLen < 0
                 ? GetPyType().Call(new PyObject[] { this }, null)
-                : GetPyType().Call(new PyObject[] { this, new PyInt(MaxLen) }, null);
+                : GetPyType().Call(new PyObject[] { this, PyInt.From(MaxLen) }, null);
             if (result is not PyDeque)
                 throw PyTypeError.Create($"{GetPyType().FullName}() must return a deque, not {result.GetTypeName()}");
             return result;
@@ -813,8 +813,8 @@ namespace SharpPy.Modules
             var it = GetIterator();
             var args = MaxLen < 0
                 ? PyTuple.Empty
-                : new PyTuple(new PyObject[] { PyTuple.Empty, new PyInt(MaxLen) });
-            return new PyTuple(new PyObject[] { GetPyType(), args, state, it });
+                : PyTuple.From(new PyObject[] { PyTuple.Empty, PyInt.From(MaxLen) });
+            return PyTuple.From(new PyObject[] { GetPyType(), args, state, it });
         }
 
         // deque_init: "|OO:deque" with iterable and maxlen; PyLong_AsSsize_t takes only an int.
@@ -1015,12 +1015,12 @@ namespace SharpPy.Modules
 
             protected internal override PyObject IterNext() => TryNext(out var item) ? item : throw PyStopIteration.Create();
 
-            internal override PyObject RemainingHint() => new PyInt(Counter);
+            internal override PyObject RemainingHint() => PyInt.From(Counter);
 
             // dequeiter_reduce
-            internal override PyObject Reduce() => new PyTuple(new PyObject[]
+            internal override PyObject Reduce() => PyTuple.From(new PyObject[]
             {
-                GetPyType(), new PyTuple(new PyObject[] { _deque, new PyInt(_deque.Size - Counter) }),
+                GetPyType(), PyTuple.From(new PyObject[] { _deque, PyInt.From(_deque.Size - Counter) }),
             });
         }
     }

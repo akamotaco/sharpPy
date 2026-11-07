@@ -44,9 +44,9 @@ namespace SharpPy.Modules
 
             module.ModuleDict["allocate_lock"] = new PyBuiltinFunction("allocate_lock", _ => new PyLock(lockType));
             module.ModuleDict["allocate"] = new PyBuiltinFunction("allocate", _ => new PyLock(lockType));
-            module.ModuleDict["get_ident"] = new PyBuiltinFunction("get_ident", _ => new PyInt(Environment.CurrentManagedThreadId));
-            module.ModuleDict["get_native_id"] = new PyBuiltinFunction("get_native_id", _ => new PyInt(Environment.CurrentManagedThreadId));
-            module.ModuleDict["_count"] = new PyBuiltinFunction("_count", _ => new PyInt(_running));
+            module.ModuleDict["get_ident"] = new PyBuiltinFunction("get_ident", _ => PyInt.From(Environment.CurrentManagedThreadId));
+            module.ModuleDict["get_native_id"] = new PyBuiltinFunction("get_native_id", _ => PyInt.From(Environment.CurrentManagedThreadId));
+            module.ModuleDict["_count"] = new PyBuiltinFunction("_count", _ => PyInt.From(_running));
             module.ModuleDict["stack_size"] = new PyBuiltinFunction("stack_size", StackSize);
             module.ModuleDict["interrupt_main"] = new PyBuiltinFunction("interrupt_main", InterruptMain);
             module.ModuleDict["exit"] = new PyBuiltinFunction("exit", _ => throw new PythonException(new PySystemExit()));
@@ -102,7 +102,7 @@ namespace SharpPy.Modules
                     throw PyValueError.Create("size not valid: " + size.Value + " bytes");
                 _stackBytes = (int)size.Value;
             }
-            return new PyInt(old);
+            return PyInt.From(old);
         }
 
         // thread_PyThread_start_new_thread
@@ -134,7 +134,7 @@ namespace SharpPy.Modules
                 System.Threading.Interlocked.Decrement(ref _running);
                 throw PyRuntimeError.Create("can't start new thread");
             }
-            return new PyInt(thread.ManagedThreadId);
+            return PyInt.From(thread.ManagedThreadId);
         }
 
         // thread_run
@@ -298,7 +298,7 @@ namespace SharpPy.Modules
             var rlock = (PyRLock)self;
             if (rlock.Count == 0)
                 throw PyRuntimeError.Create("cannot release un-acquired lock");
-            var saved = new PyTuple(new PyObject[] { new PyInt(rlock.Count), new PyInt(rlock.Owner) });
+            var saved = PyTuple.From(new PyObject[] { PyInt.From(rlock.Count), PyInt.From(rlock.Owner) });
             rlock.Count = 0;
             rlock.Owner = -1;
             rlock.Lock.Release();
@@ -318,7 +318,7 @@ namespace SharpPy.Modules
         }
 
         private static PyObject RLockRecursionCount(PyObject self, PyObject[] args, PyDict kwargs) =>
-            new PyInt(((PyRLock)self).Owner == Environment.CurrentManagedThreadId ? ((PyRLock)self).Count : 0);
+            PyInt.From(((PyRLock)self).Owner == Environment.CurrentManagedThreadId ? ((PyRLock)self).Count : 0);
     }
 
     // Lock_Type and RLock_Type have tp_weaklistoffset.

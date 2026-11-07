@@ -416,7 +416,7 @@ namespace SharpPy
                 "__sizeof__", dictType,
                 (self, args, kwargs) => {
                     PyType.RefuseExtra(dictType, "__sizeof__", args);
-                    return new PyInt(DictSizeInBytes(
+                    return PyInt.From(DictSizeInBytes(
                         ((PyDict)PyType.NeedStorage(self, "__sizeof__", "dict",
                             (self as PyDict))).Length()));
                 },
@@ -715,7 +715,7 @@ namespace SharpPy
             var value = _dict.StoredValue(lastKey);
             _dict.Remove(lastKey, out _, out _, knownHash: true);
             RemoveOrderedKeyAt(_keys.Count - 1, trimTail: true);
-            return TupleCache.CreatePair(lastKey, value);
+            return PyTuple.From(lastKey, value);
         }
 
         /// <summary>
@@ -905,7 +905,7 @@ namespace SharpPy
             {
                 keysArray[i] = _keys[i];
             }
-            return ListCache.Create(keysArray);
+            return new PyList(keysArray);
         }
 
         /// <summary>
@@ -921,7 +921,7 @@ namespace SharpPy
             {
                 values[i] = _dict.StoredValue(_keys[i]);
             }
-            return ListCache.Create(values);
+            return new PyList(values);
         }
 
         /// <summary>
@@ -935,9 +935,9 @@ namespace SharpPy
             var items = new PyObject[_keys.Count];
             for (int i = 0; i < _keys.Count; i++)
             {
-                items[i] = TupleCache.CreatePair(_keys[i], _dict.StoredValue(_keys[i]));
+                items[i] = PyTuple.From(_keys[i], _dict.StoredValue(_keys[i]));
             }
-            return ListCache.Create(items);
+            return new PyList(items);
         }
 
         #endregion

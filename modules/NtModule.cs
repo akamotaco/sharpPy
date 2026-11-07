@@ -27,10 +27,10 @@ namespace SharpPy.Modules
             var module = new PyModule(moduleName);
 
             // Constants - File access modes (CPython: posixmodule.c line 14000+)
-            module.ModuleDict["F_OK"] = new PyInt(0);  // File exists
-            module.ModuleDict["R_OK"] = new PyInt(4);  // Read permission
-            module.ModuleDict["W_OK"] = new PyInt(2);  // Write permission
-            module.ModuleDict["X_OK"] = new PyInt(1);  // Execute permission
+            module.ModuleDict["F_OK"] = PyInt.From(0);  // File exists
+            module.ModuleDict["R_OK"] = PyInt.From(4);  // Read permission
+            module.ModuleDict["W_OK"] = PyInt.From(2);  // Write permission
+            module.ModuleDict["X_OK"] = PyInt.From(1);  // Execute permission
 
             // Core functions (CPython: posixmodule.c)
             // os.py reads which functions take dir_fd and the like from here.
@@ -41,7 +41,7 @@ namespace SharpPy.Modules
                 ("O_TRUNC", 512), ("O_EXCL", 1024), ("O_SHORT_LIVED", 4096), ("O_TEXT", 16384),
                 ("O_BINARY", 32768), ("TMP_MAX", 2147483647),
             })
-                module.ModuleDict[name] = new PyInt(value);
+                module.ModuleDict[name] = PyInt.From(value);
             module.ModuleDict["_have_functions"] = new PyList(new List<PyObject>
             {
                 PyString.From("HAVE_FTRUNCATE"), PyString.From("HAVE_LSTAT"), PyString.From("MS_WINDOWS"),
@@ -53,7 +53,7 @@ namespace SharpPy.Modules
             {
                 if (Console.IsOutputRedirected)
                     throw PyOSError.Create("[Errno 25] Inappropriate ioctl for device");
-                return new PyStructSequence(terminalSize, new PyObject[] { new PyInt(Console.WindowWidth), new PyInt(Console.WindowHeight) });
+                return new PyStructSequence(terminalSize, new PyObject[] { PyInt.From(Console.WindowWidth), PyInt.From(Console.WindowHeight) });
             });
             var timesResult = new PyStructSequenceType("nt", "times_result", new[] { "user", "system", "children_user", "children_system", "elapsed" });
             module.ModuleDict["times_result"] = timesResult;
@@ -73,16 +73,16 @@ namespace SharpPy.Modules
             module.ModuleDict["chmod"] = new PyBuiltinFunction("chmod", Chmod);
             module.ModuleDict["utime"] = new PyBuiltinFunction("utime", Utime);
             module.ModuleDict["strerror"] = new PyBuiltinFunction("strerror", Strerror);
-            module.ModuleDict["cpu_count"] = new PyBuiltinFunction("cpu_count", args => new PyInt(Environment.ProcessorCount));
+            module.ModuleDict["cpu_count"] = new PyBuiltinFunction("cpu_count", args => PyInt.From(Environment.ProcessorCount));
             module.ModuleDict["_exit"] = new PyBuiltinFunction("_exit", args =>
             {
                 Environment.Exit(args[0].ToInt());
                 return PyNone.Instance;
             });
-            module.ModuleDict["waitstatus_to_exitcode"] = new PyBuiltinFunction("waitstatus_to_exitcode", args => new PyInt(args[0].ToInt() >> 8));
+            module.ModuleDict["waitstatus_to_exitcode"] = new PyBuiltinFunction("waitstatus_to_exitcode", args => PyInt.From(args[0].ToInt() >> 8));
             // No child process is ever started here.
             module.ModuleDict["waitpid"] = new PyBuiltinFunction("waitpid", args =>
-                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(10), PyString.From("No child processes") }, null)));
+                throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyInt.From(10), PyString.From("No child processes") }, null)));
             module.ModuleDict["system"] = new PyBuiltinFunction("system", ShellCommand);
             module.ModuleDict["pipe"] = new PyBuiltinFunction("pipe", Pipe);
             module.ModuleDict["open"] = new PyBuiltinFunction("open", Open);
@@ -450,7 +450,7 @@ namespace SharpPy.Modules
         {
             var server = new System.IO.Pipes.AnonymousPipeServerStream(System.IO.Pipes.PipeDirection.Out);
             var client = new System.IO.Pipes.AnonymousPipeClientStream(System.IO.Pipes.PipeDirection.In, server.ClientSafePipeHandle);
-            return new PyTuple(new PyObject[] { new PyInt(PyFileDescriptors.Add(client)), new PyInt(PyFileDescriptors.Add(server)) });
+            return PyTuple.From(new PyObject[] { PyInt.From(PyFileDescriptors.Add(client)), PyInt.From(PyFileDescriptors.Add(server)) });
         }
 
         // os_open_impl
@@ -461,7 +461,7 @@ namespace SharpPy.Modules
             string path = PathOf(args[0]);
             try
             {
-                return new PyInt(PyFileDescriptors.Open(path, Descriptor(args[1])));
+                return PyInt.From(PyFileDescriptors.Open(path, Descriptor(args[1])));
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException)
             {
@@ -480,7 +480,7 @@ namespace SharpPy.Modules
         {
             int length = Descriptor(args[1]);
             if (length < 0)
-                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(22), PyString.From("Invalid argument") }, null));
+                throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyInt.From(22), PyString.From("Invalid argument") }, null));
             var buffer = new byte[length];
             var stream = PyFileDescriptors.Get(Descriptor(args[0]));
             int count = 0;
@@ -500,7 +500,7 @@ namespace SharpPy.Modules
                 stream.Write(data, 0, data.Length);
                 stream.Flush();
             });
-            return new PyInt(data.Length);
+            return PyInt.From(data.Length);
         }
 
         private static PyObject Lseek(PyObject[] args)
@@ -509,8 +509,8 @@ namespace SharpPy.Modules
             var stream = PyFileDescriptors.Get(Descriptor(args[0]));
             // lseek on a console or a pipe: ESPIPE
             if (!stream.CanSeek)
-                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(29), PyString.From("Illegal seek") }, null));
-            return new PyInt(stream.Seek((long)PyObject.TryGetIndex(args[1]).Value, origin));
+                throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyInt.From(29), PyString.From("Illegal seek") }, null));
+            return PyInt.From(stream.Seek((long)PyObject.TryGetIndex(args[1]).Value, origin));
         }
 
         private static PyObject Fsync(PyObject[] args)
@@ -558,7 +558,7 @@ namespace SharpPy.Modules
                 return new PyStatResult(0x1000, 0, 0);
             if (stream.CanSeek)
                 return new PyStatResult(0x8000 | 0x1A4, stream.Length, 0);
-            throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(9), PyString.From("Bad file descriptor") }, null));
+            throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyInt.From(9), PyString.From("Bad file descriptor") }, null));
         }
 
         // Host-shaped error text: Windows CPython uses "[WinError n] <localized>",
@@ -727,14 +727,14 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"unsetenv() takes exactly one argument ({args.Length} given)");
             string key = args[0] is PyString ps ? ps.Value : args[0].ToClrString();
             System.Environment.SetEnvironmentVariable(key, null);
-            return new PyInt(0);
+            return PyInt.From(0);
         }
 
         private static PyObject Getpid(PyObject[] args)
         {
             if (args.Length != 0)
                 throw PyTypeError.Create($"getpid() takes no arguments ({args.Length} given)");
-            return new PyInt(System.Diagnostics.Process.GetCurrentProcess().Id);
+            return PyInt.From(System.Diagnostics.Process.GetCurrentProcess().Id);
         }
 
         // os_system_impl: the command as the shell gets it. Where no shell can start, -1 as system() says.
@@ -759,11 +759,11 @@ namespace SharpPy.Modules
             {
                 using var process = System.Diagnostics.Process.Start(start);
                 PyGil.AllowThreads(() => process.WaitForExit());
-                return new PyInt(OperatingSystem.IsWindows() ? process.ExitCode : process.ExitCode << 8);
+                return PyInt.From(OperatingSystem.IsWindows() ? process.ExitCode : process.ExitCode << 8);
             }
             catch (Exception error) when (error is System.ComponentModel.Win32Exception or PlatformNotSupportedException)
             {
-                return new PyInt(-1);
+                return PyInt.From(-1);
             }
         }
 
@@ -866,16 +866,16 @@ namespace SharpPy.Modules
 
         private static PyObject[] Values(int mode, long size, double atime, double mtime, double ctime)
         {
-            PyObject Whole(double seconds) => new PyInt((long)Math.Floor(seconds));
-            PyObject Nanoseconds(double seconds) => new PyInt((System.Numerics.BigInteger)(seconds * 1e9));
+            PyObject Whole(double seconds) => PyInt.From((long)Math.Floor(seconds));
+            PyObject Nanoseconds(double seconds) => PyInt.From((System.Numerics.BigInteger)(seconds * 1e9));
             var values = new List<PyObject>
             {
-                new PyInt(mode), new PyInt(0), new PyInt(0), new PyInt(1), new PyInt(0), new PyInt(0), new PyInt(size),
+                PyInt.From(mode), PyInt.From(0), PyInt.From(0), PyInt.From(1), PyInt.From(0), PyInt.From(0), PyInt.From(size),
                 Whole(atime), Whole(mtime), Whole(ctime), new PyFloat(atime), new PyFloat(mtime), new PyFloat(ctime),
                 Nanoseconds(atime), Nanoseconds(mtime), Nanoseconds(ctime),
             };
             foreach (var name in Extra)
-                values.Add(new PyInt(0));
+                values.Add(PyInt.From(0));
             return values.ToArray();
         }
 

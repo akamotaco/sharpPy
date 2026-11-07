@@ -240,7 +240,7 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     // CPython float_hash keeps the invariant hash(2.0) == hash(2).
-                    return new PyInt(double.IsNaN(hashTarget.Value) ? self.ToHash() : hashTarget.PythonHash());
+                    return PyInt.From(double.IsNaN(hashTarget.Value) ? self.ToHash() : hashTarget.PythonHash());
                 });
 
             // CPython 3.12: Objects/floatobject.c:1420-1430 - float_is_integer
@@ -302,7 +302,7 @@ namespace SharpPy
                     if (exponent == 0) exponent++;
                     else fraction |= 1L << 52;
                     exponent -= 1075;
-                    if (fraction == 0) return TupleCache.CreatePair(new PyInt(0), new PyInt(1));
+                    if (fraction == 0) return PyTuple.From(PyInt.From(0), PyInt.From(1));
                     int zeros = System.Numerics.BitOperations.TrailingZeroCount(fraction);
                     fraction >>= zeros;
                     exponent += zeros;
@@ -310,7 +310,7 @@ namespace SharpPy
                     var denominator = System.Numerics.BigInteger.One;
                     if (exponent > 0) numerator <<= exponent;
                     else denominator <<= -exponent;
-                    return TupleCache.CreatePair(new PyInt(numerator), new PyInt(denominator));
+                    return PyTuple.From(PyInt.From(numerator), PyInt.From(denominator));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -410,7 +410,7 @@ namespace SharpPy
                             $"float.__getnewargs__() takes no arguments ({args.Length} given)");
                     if (!PyFloat.TryFloatSelf(self, out var floatValue))
                         throw PyFloat.WrongFloatSelf("__getnewargs__", self);
-                    return new PyTuple(new PyFloat(floatValue.Value));
+                    return PyTuple.From(new PyFloat(floatValue.Value));
                 },
                 minArgs: 0, maxArgs: 0);
 
@@ -799,7 +799,7 @@ namespace SharpPy
 
             // CPython: Objects/floatobject.c:721-722
             FloatDivMod(leftValue, rightValue, out double floordiv, out double mod);
-            return new PyTuple(new PyFloat(floordiv), new PyFloat(mod));
+            return PyTuple.From(new PyFloat(floordiv), new PyFloat(mod));
         }
 
         /// <summary>
@@ -896,7 +896,7 @@ namespace SharpPy
                 throw PyValueError.Create("cannot convert float NaN to integer");
             if (double.IsInfinity(value))
                 throw PyOverflowError.Create("cannot convert float infinity to integer");
-            return new PyInt(new System.Numerics.BigInteger(value));
+            return PyInt.From(new System.Numerics.BigInteger(value));
         }
 
         public PyObject Floor()
@@ -945,7 +945,7 @@ namespace SharpPy
             if (value == 1.0) return new PyFloat(negate ? -1.0 : 1.0);
             double result = Math.Pow(value, exponent);
             if (double.IsInfinity(result))
-                throw new PythonException(new PyOverflowError(new PyObject[] { new PyInt(34), PyString.From("Result too large") }, null));
+                throw new PythonException(new PyOverflowError(new PyObject[] { PyInt.From(34), PyString.From("Result too large") }, null));
             return new PyFloat(negate ? -result : result);
         }
 
@@ -1027,7 +1027,7 @@ namespace SharpPy
         /// CPython 호환: PyFloat를 PyInt로 변환
         /// </summary>
         // float___trunc___impl, nb_int: arbitrary precision, toward zero.
-        protected internal override PyObject NbInt() => new PyInt(PyInt.FloatToIntegral(Value));
+        protected internal override PyObject NbInt() => PyInt.From(PyInt.FloatToIntegral(Value));
         
         /// <summary>
         /// CPython 호환: PyFloat를 PyBool로 변환

@@ -55,7 +55,7 @@ namespace SharpPy
 
         private static PyObject Str(string? text) => text == null ? PyNone.Instance : PyString.From(text);
 
-        private static PyObject Int(int? value) => value == null ? PyNone.Instance : new PyInt(value.Value);
+        private static PyObject Int(int? value) => value == null ? PyNone.Instance : PyInt.From(value.Value);
 
         private static PyObject ConstantObject(GeneratedPyConstant value) => AstOptimizer.Value(value);
 
@@ -144,7 +144,7 @@ namespace SharpPy
             if (value is not PyList list)
                 throw PyTypeError.Create($"field must be a list, not a {value?.GetTypeName()}");
             for (int i = 0; i < list.Length(); i++)
-                seq.Add(ToNode(list.GetItem(new PyInt(i))));
+                seq.Add(ToNode(list.GetItem(PyInt.From(i))));
             return seq;
         }
 
@@ -153,7 +153,7 @@ namespace SharpPy
             if (value is not PyList list)
                 throw PyTypeError.Create($"field must be a list, not a {value?.GetTypeName()}");
             for (int i = 0; i < list.Length(); i++)
-                seq.Add(ToIdentifier(list.GetItem(new PyInt(i))));
+                seq.Add(ToIdentifier(list.GetItem(PyInt.From(i))));
             return seq;
         }
 

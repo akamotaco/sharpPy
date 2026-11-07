@@ -18,32 +18,32 @@ namespace SharpPy.Modules
             var module = new PyModule("_testcapi");
             var d = module.ModuleDict;
             // PyInit__testcapi: the limits of <limits.h> and <float.h>. A C long is 32 bits on Windows.
-            d["CHAR_MAX"] = new PyInt(127);
-            d["CHAR_MIN"] = new PyInt(-128);
-            d["UCHAR_MAX"] = new PyInt(255);
-            d["SHRT_MAX"] = new PyInt(short.MaxValue);
-            d["SHRT_MIN"] = new PyInt(short.MinValue);
-            d["USHRT_MAX"] = new PyInt(ushort.MaxValue);
-            d["INT_MAX"] = new PyInt(int.MaxValue);
-            d["INT_MIN"] = new PyInt(int.MinValue);
-            d["UINT_MAX"] = new PyInt(uint.MaxValue);
-            d["LONG_MAX"] = new PyInt(Windows ? int.MaxValue : long.MaxValue);
-            d["LONG_MIN"] = new PyInt(Windows ? int.MinValue : long.MinValue);
-            d["ULONG_MAX"] = new PyInt(Windows ? (BigInteger)uint.MaxValue : ulong.MaxValue);
-            d["LLONG_MAX"] = new PyInt(long.MaxValue);
-            d["LLONG_MIN"] = new PyInt(long.MinValue);
-            d["ULLONG_MAX"] = new PyInt(ulong.MaxValue);
-            d["PY_SSIZE_T_MAX"] = new PyInt(long.MaxValue);
-            d["PY_SSIZE_T_MIN"] = new PyInt(long.MinValue);
-            d["SIZE_MAX"] = new PyInt(ulong.MaxValue);
+            d["CHAR_MAX"] = PyInt.From(127);
+            d["CHAR_MIN"] = PyInt.From(-128);
+            d["UCHAR_MAX"] = PyInt.From(255);
+            d["SHRT_MAX"] = PyInt.From(short.MaxValue);
+            d["SHRT_MIN"] = PyInt.From(short.MinValue);
+            d["USHRT_MAX"] = PyInt.From(ushort.MaxValue);
+            d["INT_MAX"] = PyInt.From(int.MaxValue);
+            d["INT_MIN"] = PyInt.From(int.MinValue);
+            d["UINT_MAX"] = PyInt.From(uint.MaxValue);
+            d["LONG_MAX"] = PyInt.From(Windows ? int.MaxValue : long.MaxValue);
+            d["LONG_MIN"] = PyInt.From(Windows ? int.MinValue : long.MinValue);
+            d["ULONG_MAX"] = PyInt.From(Windows ? (BigInteger)uint.MaxValue : ulong.MaxValue);
+            d["LLONG_MAX"] = PyInt.From(long.MaxValue);
+            d["LLONG_MIN"] = PyInt.From(long.MinValue);
+            d["ULLONG_MAX"] = PyInt.From(ulong.MaxValue);
+            d["PY_SSIZE_T_MAX"] = PyInt.From(long.MaxValue);
+            d["PY_SSIZE_T_MIN"] = PyInt.From(long.MinValue);
+            d["SIZE_MAX"] = PyInt.From(ulong.MaxValue);
             d["FLT_MAX"] = new PyFloat(float.MaxValue);
             d["FLT_MIN"] = new PyFloat(1.1754943508222875e-38);
             d["DBL_MAX"] = new PyFloat(double.MaxValue);
             d["DBL_MIN"] = new PyFloat(2.2250738585072014e-308);
-            d["SIZEOF_VOID_P"] = new PyInt(IntPtr.Size);
-            d["SIZEOF_TIME_T"] = new PyInt(8);
-            d["SIZEOF_WCHAR_T"] = new PyInt(Windows ? 2 : 4);
-            d["SIZEOF_PID_T"] = new PyInt(4);
+            d["SIZEOF_VOID_P"] = PyInt.From(IntPtr.Size);
+            d["SIZEOF_TIME_T"] = PyInt.From(8);
+            d["SIZEOF_WCHAR_T"] = PyInt.From(Windows ? 2 : 4);
+            d["SIZEOF_PID_T"] = PyInt.From(4);
 
             Add(d, "PyTime_FromSeconds", args =>
             {
@@ -109,7 +109,7 @@ namespace SharpPy.Modules
             {
                 Parse("pytime_object_to_time_t", args, 2);
                 var round = Rounding(args[1]);
-                return new PyInt(PyTime.ObjectToTimeT(args[0], round));
+                return PyInt.From(PyTime.ObjectToTimeT(args[0], round));
             });
             Add(d, "pytime_object_to_timeval", args =>
             {
@@ -137,13 +137,13 @@ namespace SharpPy.Modules
                 Parse("sequence_setitem", args, 3);
                 long i = PyArgs.Ssize(args[1]);
                 PyAbstract.SequenceSetItem(Nullable(args[0]), i, Nullable(args[2]));
-                return new PyInt(0);
+                return PyInt.From(0);
             });
             Add(d, "sequence_delitem", args =>
             {
                 Parse("sequence_delitem", args, 2);
                 PyAbstract.SequenceDelItem(Nullable(args[0]), PyArgs.Ssize(args[1]));
-                return new PyInt(0);
+                return PyInt.From(0);
             });
 
             // The meth_* functions: a module-level one has the module as its self.
@@ -216,21 +216,21 @@ namespace SharpPy.Modules
                     // cfunction_call: the ml_name alone.
                     if (keywords)
                         throw PyTypeError.Create($"{kind}() takes no keyword arguments");
-                    return new PyTuple(new[] { self, new PyTuple(args) });
+                    return PyTuple.From(new[] { self, PyTuple.From(args) });
                 case "meth_varargs_keywords":
-                    return new PyTuple(new[] { self, new PyTuple(args), keywords ? kwargs.Copy() : PyNone.Instance });
+                    return PyTuple.From(new[] { self, PyTuple.From(args), keywords ? kwargs.Copy() : PyNone.Instance });
                 case "meth_o":
                     PyArgs.One(funcstr, args, kwargs);
-                    return new PyTuple(new[] { self, args[0] });
+                    return PyTuple.From(new[] { self, args[0] });
                 case "meth_noargs":
                     PyArgs.NoArgs(funcstr, args, kwargs);
                     return self;
                 case "meth_fastcall":
                     PyArgs.NoKeywords(funcstr, kwargs);
-                    return new PyTuple(new[] { self, new PyTuple(args) });
+                    return PyTuple.From(new[] { self, PyTuple.From(args) });
                 default:
                     // meth_fastcall_keywords: PyObject_Vectorcall(dict, ..., kwnames) makes the dict.
-                    return new PyTuple(new[] { self, new PyTuple(args), keywords ? kwargs.Copy() : new PyDict() });
+                    return PyTuple.From(new[] { self, PyTuple.From(args), keywords ? kwargs.Copy() : new PyDict() });
             }
         }
 
@@ -288,6 +288,6 @@ namespace SharpPy.Modules
         }
 
         // Py_BuildValue("Nl", ...)
-        private static PyObject Pair(long first, long second) => new PyTuple(new PyObject[] { new PyInt(first), new PyInt(second) });
+        private static PyObject Pair(long first, long second) => PyTuple.From(new PyObject[] { PyInt.From(first), PyInt.From(second) });
     }
 }

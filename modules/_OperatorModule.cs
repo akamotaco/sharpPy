@@ -335,7 +335,7 @@ namespace SharpPy.Modules
                     count++;
             }
 
-            return new PyInt(count);
+            return PyInt.From(count);
         }
 
         private static PyObject DelItem(PyObject[] args)
@@ -376,7 +376,7 @@ namespace SharpPy.Modules
                     throw PyValueError.Create("sequence.index(x): x not in sequence");
                 }
                 if (PyObject.CompareBool(item, args[1], PyObject.CompareOp.EQ))
-                    return new PyInt(index);
+                    return PyInt.From(index);
                 index++;
             }
         }
@@ -411,7 +411,7 @@ namespace SharpPy.Modules
                     throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
                 }
             }
-            return SmallIntCache.GetOrCreate(args[0].LengthHint(defaultValue));
+            return PyInt.From(args[0].LengthHint(defaultValue));
         }
 
         #endregion

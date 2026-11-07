@@ -118,9 +118,9 @@ namespace SharpPy
             int boolAsInt = Value ? 1 : 0;
             return other switch
             {
-                PyBool otherBool => SmallIntCache.GetOrCreate(boolAsInt + (otherBool.Value ? 1 : 0)),
-                PyInt otherInt => new PyInt(boolAsInt + otherInt.Value),
-                PyFloat otherFloat => FloatCache.GetOrCreate(boolAsInt + otherFloat.Value),
+                PyBool otherBool => PyInt.From(boolAsInt + (otherBool.Value ? 1 : 0)),
+                PyInt otherInt => PyInt.From(boolAsInt + otherInt.Value),
+                PyFloat otherFloat => new PyFloat(boolAsInt + otherFloat.Value),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -131,9 +131,9 @@ namespace SharpPy
             int boolAsInt = Value ? 1 : 0;
             return other switch
             {
-                PyBool otherBool => SmallIntCache.GetOrCreate(boolAsInt - (otherBool.Value ? 1 : 0)),
-                PyInt otherInt => new PyInt(boolAsInt - otherInt.Value),
-                PyFloat otherFloat => FloatCache.GetOrCreate(boolAsInt - otherFloat.Value),
+                PyBool otherBool => PyInt.From(boolAsInt - (otherBool.Value ? 1 : 0)),
+                PyInt otherInt => PyInt.From(boolAsInt - otherInt.Value),
+                PyFloat otherFloat => new PyFloat(boolAsInt - otherFloat.Value),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -144,9 +144,9 @@ namespace SharpPy
             int boolAsInt = Value ? 1 : 0;
             return other switch
             {
-                PyBool otherBool => SmallIntCache.GetOrCreate(boolAsInt * (otherBool.Value ? 1 : 0)),
-                PyInt otherInt => new PyInt(boolAsInt * otherInt.Value),
-                PyFloat otherFloat => FloatCache.GetOrCreate(boolAsInt * otherFloat.Value),
+                PyBool otherBool => PyInt.From(boolAsInt * (otherBool.Value ? 1 : 0)),
+                PyInt otherInt => PyInt.From(boolAsInt * otherInt.Value),
+                PyFloat otherFloat => new PyFloat(boolAsInt * otherFloat.Value),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -166,7 +166,7 @@ namespace SharpPy
             if (otherValue == 0.0)
                 throw PyZeroDivisionError.Create("division by zero");
 
-            return FloatCache.GetOrCreate(boolAsDouble / otherValue);
+            return new PyFloat(boolAsDouble / otherValue);
         }
 
         public override PyObject FloorDivide(PyObject other)
@@ -177,7 +177,7 @@ namespace SharpPy
             {
                 if (!otherBool.Value)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return SmallIntCache.GetOrCreate(boolAsInt);
+                return PyInt.From(boolAsInt);
             }
 
             if (other is PyInt otherInt)
@@ -185,14 +185,14 @@ namespace SharpPy
                 // CPython 3.12: Objects/longobject.c:2453-2494 - long_div
                 if (otherInt.Value == 0)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return new PyInt(boolAsInt / otherInt.Value);
+                return PyInt.From(boolAsInt / otherInt.Value);
             }
 
             if (other is PyFloat otherFloat)
             {
                 if (otherFloat.Value == 0.0)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return FloatCache.GetOrCreate(Math.Floor(boolAsInt / otherFloat.Value));
+                return new PyFloat(Math.Floor(boolAsInt / otherFloat.Value));
             }
             
             throw PyTypeError.Create($"unsupported operand type(s) for //: 'bool' and '{other.GetTypeName()}'");
@@ -206,7 +206,7 @@ namespace SharpPy
             {
                 if (!otherBool.Value)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return SmallIntCache.Zero; // 1 % 1 = 0, 0 % 1 = 0
+                return PyInt.Zero; // 1 % 1 = 0, 0 % 1 = 0
             }
 
             if (other is PyInt otherInt)
@@ -214,14 +214,14 @@ namespace SharpPy
                 // CPython 3.12: Objects/longobject.c:2496-2531 - long_mod
                 if (otherInt.Value == 0)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return new PyInt(boolAsInt % otherInt.Value);
+                return PyInt.From(boolAsInt % otherInt.Value);
             }
 
             if (other is PyFloat otherFloat)
             {
                 if (otherFloat.Value == 0.0)
                     throw PyZeroDivisionError.Create("float modulo");
-                return FloatCache.GetOrCreate(boolAsInt % otherFloat.Value);
+                return new PyFloat(boolAsInt % otherFloat.Value);
             }
 
             throw PyTypeError.Create($"unsupported operand type(s) for %: 'bool' and '{other.GetTypeName()}'");
@@ -234,15 +234,15 @@ namespace SharpPy
             if (other is PyBool otherBool)
             {
                 int otherAsInt = otherBool.Value ? 1 : 0;
-                return SmallIntCache.GetOrCreate((int)Math.Pow(boolAsInt, otherAsInt));
+                return PyInt.From((int)Math.Pow(boolAsInt, otherAsInt));
             }
 
             if (other is PyInt otherInt)
             {
                 // CPython 3.12: Objects/longobject.c:4319-4538 - long_pow
                 if (otherInt.Value < 0)
-                    return FloatCache.GetOrCreate(Math.Pow(boolAsInt, (double)otherInt.Value));
-                return new PyInt(BigInteger.Pow(boolAsInt, (int)otherInt.Value));
+                    return new PyFloat(Math.Pow(boolAsInt, (double)otherInt.Value));
+                return PyInt.From(BigInteger.Pow(boolAsInt, (int)otherInt.Value));
             }
             
             throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): 'bool' and '{other.GetTypeName()}'");
@@ -259,7 +259,7 @@ namespace SharpPy
             return other switch
             {
                 PyBool otherBool => PyBool.FromBool(Value && otherBool.Value),
-                PyInt otherInt => new PyInt(boolAsInt & otherInt.Value),
+                PyInt otherInt => PyInt.From(boolAsInt & otherInt.Value),
                 _ => PyNotImplemented.Instance,
             };
         }
@@ -271,7 +271,7 @@ namespace SharpPy
             return other switch
             {
                 PyBool otherBool => PyBool.FromBool(Value || otherBool.Value),
-                PyInt otherInt => new PyInt(boolAsInt | otherInt.Value),
+                PyInt otherInt => PyInt.From(boolAsInt | otherInt.Value),
                 _ => PyNotImplemented.Instance,
             };
         }
@@ -283,7 +283,7 @@ namespace SharpPy
             return other switch
             {
                 PyBool otherBool => PyBool.FromBool(Value ^ otherBool.Value),
-                PyInt otherInt => new PyInt(boolAsInt ^ otherInt.Value),
+                PyInt otherInt => PyInt.From(boolAsInt ^ otherInt.Value),
                 _ => PyNotImplemented.Instance,
             };
         }
@@ -292,14 +292,14 @@ namespace SharpPy
 
         #region Unary Operations
 
-        protected internal override PyObject NbNegative() => Value ? SmallIntCache.MinusOne : SmallIntCache.Zero;
-        protected internal override PyObject NbPositive() => Value ? SmallIntCache.One : SmallIntCache.Zero;
-        public PyObject Absolute() => Value ? SmallIntCache.One : SmallIntCache.Zero;
+        protected internal override PyObject NbNegative() => Value ? PyInt.MinusOne : PyInt.Zero;
+        protected internal override PyObject NbPositive() => Value ? PyInt.One : PyInt.Zero;
+        public PyObject Absolute() => Value ? PyInt.One : PyInt.Zero;
         // bool_invert
         protected internal override PyObject NbInvert()
         {
             PyWarnings.Deprecated("Bitwise inversion '~' on bool is deprecated and will be removed in Python 3.16. This returns the bitwise inversion of the underlying int object and is usually not what you expect from negating a bool. Use the 'not' operator for boolean negation or ~int(x) if you really want the bitwise inversion of the underlying int.");
-            return SmallIntCache.GetOrCreate(Value ? -2 : -1); // ~True = -2, ~False = -1;
+            return PyInt.From(Value ? -2 : -1); // ~True = -2, ~False = -1;
         }
 
         #endregion
@@ -336,15 +336,15 @@ namespace SharpPy
         /// CPython 호환: PyBool을 PyInt로 변환
         /// </summary>
         // bool inherits long_abs.
-        protected internal override PyObject NbAbsolute() => Value ? SmallIntCache.One : SmallIntCache.Zero;
+        protected internal override PyObject NbAbsolute() => Value ? PyInt.One : PyInt.Zero;
 
         // bool inherits long_long, which copies a strict subclass into an exact int.
-        protected internal override PyObject NbInt() => Value ? SmallIntCache.One : SmallIntCache.Zero;
+        protected internal override PyObject NbInt() => Value ? PyInt.One : PyInt.Zero;
 
         /// <summary>
         /// CPython 호환: PyBool을 PyFloat로 변환
         /// </summary>
-        protected internal override PyObject NbFloat() => Value ? FloatCache.One : FloatCache.Zero;
+        protected internal override PyObject NbFloat() => Value ? new PyFloat(1.0) : new PyFloat(0.0);
         
         /// <summary>
         /// CPython 호환: PyBool을 PyString으로 변환

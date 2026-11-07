@@ -35,7 +35,7 @@ namespace SharpPy
             GeneratedPyConstantObject o => o.Value,
             GeneratedPyConstantNone => PyNone.Instance,
             GeneratedPyConstantBool b => b.Value ? PyBool.True : PyBool.False,
-            GeneratedPyConstantInt i => new PyInt(i.Value),
+            GeneratedPyConstantInt i => PyInt.From(i.Value),
             GeneratedPyConstantFloat f => new PyFloat(f.Value),
             GeneratedPyConstantString s => PyString.From(s.Value),
             GeneratedPyConstantBytes bytes => PyBytes.From(bytes.Value),
@@ -137,7 +137,7 @@ namespace SharpPy
             if (node.Ctx is not GeneratedLoad)
                 return node;
             var values = ConstantValues(node.Elts);
-            return values == null ? node : MakeConst(node, new PyTuple(values));
+            return values == null ? node : MakeConst(node, PyTuple.From(values));
         }
 
         private static long CheckComplexity(PyObject obj, long limit)
@@ -431,7 +431,7 @@ namespace SharpPy
                     return node;
                 var values = ConstantValues(list.Elts);
                 if (values != null)
-                    return MakeConst(node, new PyTuple(values));
+                    return MakeConst(node, PyTuple.From(values));
                 return Located(new GeneratedTuple { Elts = list.Elts, Ctx = list.Ctx }, node);
             }
             if (node is GeneratedSet set)

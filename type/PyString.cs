@@ -623,7 +623,7 @@ namespace SharpPy
                         }
                     }
 
-                    return new PyInt(selfStr.Value.Length);
+                    return PyInt.From(selfStr.Value.Length);
                 });
 
             // CPython 3.12: str.__dict__['__str__'] is a slot wrapper; unicode_tp_str
@@ -662,7 +662,7 @@ namespace SharpPy
             // str subclass) from this tuple, so a subclass needs the value, not the wrapper.
             strType.TypeDict["__getnewargs__"] = new PyMethodDescriptor(
                 "__getnewargs__", strType,
-                (self, args, kwargs) => new PyTuple(new PyObject[]
+                (self, args, kwargs) => PyTuple.From(new PyObject[]
                 {
                     PyString.From(((PyString)self).Value)
                 }),
@@ -779,7 +779,7 @@ namespace SharpPy
                     if (sub.Value.Length == 0)
                     {
                         int boundaries = win.End - win.Start + 1;
-                        return new PyInt(boundaries < 0 ? 0 : boundaries);
+                        return PyInt.From(boundaries < 0 ? 0 : boundaries);
                     }
 
                     int count = 0;
@@ -799,7 +799,7 @@ namespace SharpPy
                             pos = foundIndex + 1;
                         }
                     }
-                    return new PyInt(count);
+                    return PyInt.From(count);
                 },
                 minArgs: 1, maxArgs: 3
             );
@@ -1177,9 +1177,9 @@ namespace SharpPy
 
                     int index = str.Value.IndexOf(sep.Value, StringComparison.Ordinal);
                     if (index == -1)
-                        return new PyTuple(new PyObject[] { str, PyString.From(""), PyString.From("") });
+                        return PyTuple.From(new PyObject[] { str, PyString.From(""), PyString.From("") });
 
-                    return new PyTuple(new PyObject[] {
+                    return PyTuple.From(new PyObject[] {
                         PyString.From(str.Value.Substring(0, index)),
                         sep,
                         PyString.From(str.Value.Substring(index + sep.Value.Length))
@@ -1205,9 +1205,9 @@ namespace SharpPy
 
                     int index = str.Value.LastIndexOf(sep.Value, StringComparison.Ordinal);
                     if (index == -1)
-                        return new PyTuple(new PyObject[] { PyString.From(""), PyString.From(""), str });
+                        return PyTuple.From(new PyObject[] { PyString.From(""), PyString.From(""), str });
 
-                    return new PyTuple(new PyObject[] {
+                    return PyTuple.From(new PyObject[] {
                         PyString.From(str.Value.Substring(0, index)),
                         sep,
                         PyString.From(str.Value.Substring(index + sep.Value.Length))
@@ -1420,7 +1420,7 @@ namespace SharpPy
                                     throw PyValueError.Create("string keys in translate table must be of length 1");
 
                                 int codepoint = keyStr.Value[0];
-                                table.SetItem(new PyInt(codepoint), value);
+                                table.SetItem(PyInt.From(codepoint), value);
                             }
                             else if (key is PyInt)
                             {
@@ -1446,7 +1446,7 @@ namespace SharpPy
                         {
                             int fromChar = x.Value[i];
                             int toChar = y.Value[i];
-                            table.SetItem(new PyInt(fromChar), new PyInt(toChar));
+                            table.SetItem(PyInt.From(fromChar), PyInt.From(toChar));
                         }
 
                         // If z is provided, map those characters to None (delete)
@@ -1457,7 +1457,7 @@ namespace SharpPy
 
                             foreach (char c in z.Value)
                             {
-                                table.SetItem(new PyInt(c), PyNone.Instance);
+                                table.SetItem(PyInt.From(c), PyNone.Instance);
                             }
                         }
                     }
@@ -1490,7 +1490,7 @@ namespace SharpPy
 
                     foreach (char c in str.Value)
                     {
-                        var key = new PyInt(c);
+                        var key = PyInt.From(c);
                         if (table.Contains(key).Value)
                         {
                             var value = table.GetItem(key);
@@ -1976,7 +1976,7 @@ namespace SharpPy
             {
                 // The empty pattern matches at the first position of the window going forward and
                 // at the last one going backward ('abc'.find('', 1) -> 1, 'abc'.rfind('', 0, 2) -> 2).
-                return new PyInt(backward ? UnitToCodePoint(text, win.UnitEnd)
+                return PyInt.From(backward ? UnitToCodePoint(text, win.UnitEnd)
                                           : UnitToCodePoint(text, win.UnitStart));
             }
 
@@ -2003,7 +2003,7 @@ namespace SharpPy
                 }
             }
 
-            return found == -1 ? NotFound(raiseWhenMissing) : new PyInt(UnitToCodePoint(text, found));
+            return found == -1 ? NotFound(raiseWhenMissing) : PyInt.From(UnitToCodePoint(text, found));
         }
 
         /// <summary>
@@ -2019,7 +2019,7 @@ namespace SharpPy
         {
             if (raiseWhenMissing)
                 throw PyValueError.Create("substring not found");
-            return new PyInt(-1);
+            return PyInt.From(-1);
         }
 
         /// <summary>
@@ -3085,14 +3085,14 @@ namespace SharpPy
 
             // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_find
             // If start >= end, return -1 (empty string search)
-            if (start >= actualEnd) return new PyInt(-1);
+            if (start >= actualEnd) return PyInt.From(-1);
 
             var searchIn = start == 0 && actualEnd == Value.Length
                 ? Value
                 : Value.Substring(start, actualEnd - start);
 
             var index = searchIn.IndexOf(sub, StringComparison.Ordinal);
-            return new PyInt(index == -1 ? -1 : index + start);
+            return PyInt.From(index == -1 ? -1 : index + start);
         }
 
         public PyInt Index(string sub, int start = 0, int? end = null)
@@ -3105,7 +3105,7 @@ namespace SharpPy
 
         public PyInt Count(string sub)
         {
-            if (string.IsNullOrEmpty(sub)) return new PyInt(Value.Length + 1);
+            if (string.IsNullOrEmpty(sub)) return PyInt.From(Value.Length + 1);
             
             int count = 0;
             int index = 0;
@@ -3114,7 +3114,7 @@ namespace SharpPy
                 count++;
                 index += sub.Length;
             }
-            return new PyInt(count);
+            return PyInt.From(count);
         }
 
         public PyBool StartsWith(string prefix) => PyBool.FromBool(Value.StartsWith(prefix, StringComparison.Ordinal));
@@ -3694,7 +3694,7 @@ namespace SharpPy
 
         private PyObject CountOccurrences(string text, string sub)
         {
-            if (string.IsNullOrEmpty(sub)) return new PyInt(0);
+            if (string.IsNullOrEmpty(sub)) return PyInt.From(0);
             
             int count = 0;
             int index = 0;
@@ -3705,7 +3705,7 @@ namespace SharpPy
                 index += sub.Length;
             }
             
-            return new PyInt(count);
+            return PyInt.From(count);
         }
 
         internal PyObject IsIdentifier(PyObject[] args)

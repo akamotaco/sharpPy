@@ -168,7 +168,7 @@ namespace SharpPy
             else if (obj is PyByteArray ba) data = ba.ToByteArrayCopy();
             else throw PyTypeError.Create($"decode() argument must be bytes, not {obj.GetTypeName()}");
             string decoded = PyStringNewArguments.DecodeBytes(data, encoding, errors);
-            return new PyTuple(new PyObject[] { PyString.From(decoded), new PyInt(data.Length) });
+            return PyTuple.From(new PyObject[] { PyString.From(decoded), PyInt.From(data.Length) });
         }
 
         /// <summary>The _codecs entry point a text codec reports itself as, for its argcheck text.</summary>

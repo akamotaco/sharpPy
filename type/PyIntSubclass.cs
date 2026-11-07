@@ -36,7 +36,7 @@ namespace SharpPy
         #region Get Underlying Int Value
 
         /// <summary>_PyLong_Copy: the exact int of the value.</summary>
-        public PyInt GetIntValue() => new PyInt(Value);
+        public PyInt GetIntValue() => PyInt.From(Value);
 
         // long_long: the exact int of the value.
         protected internal override PyObject NbInt() => GetIntValue();

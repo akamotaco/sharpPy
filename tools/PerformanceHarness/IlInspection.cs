@@ -84,7 +84,7 @@ internal static class IlInspection
     {
         const int iterations = 10000;
         var seed = new PyInt(1);
-        _ = SmallIntCache.GetOrCreate(1); // Exclude first-time descriptor/cache initialization.
+        _ = PyInt.From(1); // Exclude first-time descriptor/cache initialization.
         var references = new PyObject[iterations];
         var boxes = new object[iterations];
         long start = GC.GetAllocatedBytesForCurrentThread();
@@ -100,7 +100,7 @@ internal static class IlInspection
         for (int i = 0; i < iterations; i++) references[i] = new PyInt(i);
         long wrapperBytes = GC.GetAllocatedBytesForCurrentThread() - start;
         start = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < iterations; i++) references[i] = SmallIntCache.GetOrCreate(i % 257);
+        for (int i = 0; i < iterations; i++) references[i] = PyInt.From(i % 257);
         long cachedBytes = GC.GetAllocatedBytesForCurrentThread() - start;
         start = GC.GetAllocatedBytesForCurrentThread();
         for (int i = 0; i < iterations; i++) boxes[i] = i;

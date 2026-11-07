@@ -193,8 +193,8 @@ namespace SharpPy.Modules
             };
             foreach (var (name, code) in table)
             {
-                module.ModuleDict[name] = new PyInt(code);
-                errorcode.SetItem(new PyInt(code), PyString.From(name));
+                module.ModuleDict[name] = PyInt.From(code);
+                errorcode.SetItem(PyInt.From(code), PyString.From(name));
             }
             module.ModuleDict["errorcode"] = errorcode;
             return module;

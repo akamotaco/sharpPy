@@ -56,7 +56,7 @@ namespace SharpPy
         internal static void Hashed(params PyType[] types)
         {
             foreach (var type in types)
-                Wrapper(type, "__hash__", (self, args) => new PyInt(self.Hash()));
+                Wrapper(type, "__hash__", (self, args) => PyInt.From(self.Hash()));
         }
 
         // A type that sets tp_getattro to PyObject_GenericGetAttr has the wrapper in its own dict.
@@ -213,8 +213,8 @@ namespace SharpPy
                 GetSets<PyObject>(type, (self, name) => PyDocs.PlainDoc(self), "__doc__");
             Members<PyGenericAlias>(PyType.GenericAliasType, Field, "__origin__", "__args__", "__unpacked__");
             GetSets<PyGenericAlias>(PyType.GenericAliasType, Field, "__parameters__", "__typing_unpacked_tuple_args__");
-            Members<PyUnionType>(PyType.UnionType, (self, name) => new PyTuple(self.Args), "__args__");
-            GetSets<PyUnionType>(PyType.UnionType, (self, name) => PyGenericAlias.MakeParameters(new PyTuple(self.Args)), "__parameters__");
+            Members<PyUnionType>(PyType.UnionType, (self, name) => PyTuple.From(self.Args), "__args__");
+            GetSets<PyUnionType>(PyType.UnionType, (self, name) => PyGenericAlias.MakeParameters(PyTuple.From(self.Args)), "__parameters__");
             Wrapper(PyType.UnionType, "__getitem__", (self, args) => ((PyUnionType)self).Subscript(args[0]));
             Repr(PyType.UnionType);
             // ga_repr itself: the virtual ToRepr of a subclass instance comes back here through __repr__.

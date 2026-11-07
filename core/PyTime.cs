@@ -248,7 +248,7 @@ namespace SharpPy
         }
 
         // _PyTime_AsNanosecondsObject
-        internal static PyObject AsNanosecondsObject(long t) => new PyInt(t);
+        internal static PyObject AsNanosecondsObject(long t) => PyInt.From(t);
 
         // pytime_divide_round_up
         private static long DivideRoundUp(long t, long k)

@@ -10,7 +10,7 @@ internal static class FrameAllocationProbes
         var empty = (PyFunction)interpreter.GetGlobalVariable("empty");
         var add = (PyFunction)interpreter.GetGlobalVariable("add");
         var noArgs = Array.Empty<PyObject>();
-        var twoArgs = new PyObject[] { SmallIntCache.One, new PyInt(2) };
+        var twoArgs = new PyObject[] { PyInt.One, new PyInt(2) };
         for (int i = 0; i < 10; i++) { empty.Call(noArgs, null); add.Call(twoArgs, null); }
         var globals = empty.GlobalsDict;
         var results = new List<object>();

@@ -19,8 +19,8 @@ namespace SharpPy.Modules
                 PyFileDescriptors.Get(args[0].ToInt());
                 int mode = args[1].ToInt();
                 if (mode != O_TEXT && mode != O_BINARY)
-                    throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(22), PyString.From("Invalid argument") }, null));
-                return new PyInt(O_BINARY);
+                    throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyInt.From(22), PyString.From("Invalid argument") }, null));
+                return PyInt.From(O_BINARY);
             });
             // The handle of a descriptor is the descriptor: there is no Win32 handle under a .NET stream.
             module.ModuleDict["get_osfhandle"] = new PyBuiltinFunction("get_osfhandle", args =>
@@ -28,7 +28,7 @@ namespace SharpPy.Modules
                 if (args.Length != 1)
                     throw PyTypeError.Create($"get_osfhandle() takes exactly one argument ({args.Length} given)");
                 PyFileDescriptors.Get(args[0].ToInt());
-                return new PyInt(args[0].ToInt());
+                return PyInt.From(args[0].ToInt());
             });
             return module;
         }

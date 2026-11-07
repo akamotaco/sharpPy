@@ -25,7 +25,7 @@ namespace SharpPy.Modules
         internal static PyModule CreateMarshalModule()
         {
             var module = new PyModule("marshal");
-            module.ModuleDict["version"] = new PyInt(Version);
+            module.ModuleDict["version"] = PyInt.From(Version);
             module.ModuleDict["dumps"] = new PyBuiltinFunction("dumps", Dumps);
             module.ModuleDict["loads"] = new PyBuiltinFunction("loads", Loads);
             module.ModuleDict["dump"] = new PyBuiltinFunction("dump", Dump);
@@ -91,7 +91,7 @@ namespace SharpPy.Modules
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"load() takes exactly one argument ({args.Length} given)");
-            var data = args[0].GetAttribute("read").Call(new PyObject[] { new PyInt(0) }, null);
+            var data = args[0].GetAttribute("read").Call(new PyObject[] { PyInt.From(0) }, null);
             if (data is not PyBytes)
                 throw PyTypeError.Create($"file.read() returned not bytes but {data.GetTypeName()}");
             return new Reader(args[0]).ReadObject();
@@ -259,7 +259,7 @@ namespace SharpPy.Modules
                 var items = new List<PyObject>();
                 foreach (var name in names)
                     items.Add(PySysFunction.Intern(PyString.From(name)));
-                return new PyTuple(items.ToArray());
+                return PyTuple.From(items.ToArray());
             }
 
             private void Code(PyCodeObject code, byte flag)
@@ -275,7 +275,7 @@ namespace SharpPy.Modules
                 Long(code.StackSize);
                 Long(code.Flags);
                 Object(PyBytes.From(code.Tables.Code));
-                Object(new PyTuple(code.Constants.ToArray()));
+                Object(PyTuple.From(code.Constants.ToArray()));
                 Object(InternedNames(code.Names));
                 Object(InternedNames(names));
                 Object(PyBytes.From((byte[])kinds.Clone()));
@@ -567,9 +567,9 @@ namespace SharpPy.Modules
                     case '.': return PyEllipsis.Instance;
                     case 'F': return PyBool.False;
                     case 'T': return PyBool.True;
-                    case 'i': return Keep(new PyInt(Long()), flagged);
-                    case 'I': return Keep(new PyInt(Long64()), flagged);
-                    case 'l': return Keep(new PyInt(LongInteger()), flagged);
+                    case 'i': return Keep(PyInt.From(Long()), flagged);
+                    case 'I': return Keep(PyInt.From(Long64()), flagged);
+                    case 'l': return Keep(PyInt.From(LongInteger()), flagged);
                     case 'f': return Keep(new PyFloat(FloatText()), flagged);
                     case 'g': return Keep(new PyFloat(Double()), flagged);
                     case 'x':
@@ -707,7 +707,7 @@ namespace SharpPy.Modules
                 // R_REF before the items: an item may refer back to the tuple.
                 var items = new PyObject[size];
                 Array.Fill(items, PyNone.Instance);
-                var tuple = new PyTuple(items);
+                var tuple = PyTuple.From(items);
                 Keep(tuple, flagged);
                 for (int i = 0; i < size; i++)
                     items[i] = Required("tuple");

@@ -37,12 +37,12 @@ namespace SharpPy
         protected virtual string ReduceBuiltin => "iter";
 
         // (iter, (sequence,), index)
-        protected static PyObject ReduceIter(PyObject sequence, long index) => new PyTuple(new PyObject[]
-            { Builtin("iter"), new PyTuple(new[] { sequence }), new PyInt(index) });
+        protected static PyObject ReduceIter(PyObject sequence, long index) => PyTuple.From(new PyObject[]
+            { Builtin("iter"), PyTuple.From(new[] { sequence }), PyInt.From(index) });
 
         // (iter, (empty,)): what an exhausted iterator pickles as
-        protected static PyObject ReduceExhausted(PyObject empty) => new PyTuple(new PyObject[]
-            { Builtin("iter"), new PyTuple(new[] { empty }) });
+        protected static PyObject ReduceExhausted(PyObject empty) => PyTuple.From(new PyObject[]
+            { Builtin("iter"), PyTuple.From(new[] { empty }) });
 
         protected static System.Numerics.BigInteger IndexValue(PyObject state) =>
             (PyObject.TryGetIndex(state) ?? throw PyTypeError.Create("an integer is required")).Value;
@@ -273,7 +273,7 @@ namespace SharpPy
 
         // Reused for bytes_iterator / reversed-key iteration, so the reported type
         // name is parameterised (default list_iterator).
-        internal override PyObject RemainingHint() => new PyInt(_exhausted ? 0 : Math.Max(0, _list.RawCount() - _index));
+        internal override PyObject RemainingHint() => PyInt.From(_exhausted ? 0 : Math.Max(0, _list.RawCount() - _index));
 
         private bool _exhausted;
         private readonly PyObject _origin;
@@ -290,7 +290,7 @@ namespace SharpPy
                 return ReduceExhausted(new PyList(left.ToArray()));
             }
             if (_exhausted)
-                return ReduceExhausted(_origin != null ? new PyTuple(new PyObject[0]) : new PyList());
+                return ReduceExhausted(_origin != null ? PyTuple.From(new PyObject[0]) : new PyList());
             return ReduceIter(_origin ?? _list, _index);
         }
 
@@ -351,10 +351,10 @@ namespace SharpPy
 
     public class PyTupleIterator : PyIterator
     {
-        internal override PyObject RemainingHint() => new PyInt(Math.Max(0, _tuple.Items.Length - _index));
+        internal override PyObject RemainingHint() => PyInt.From(Math.Max(0, _tuple.Items.Length - _index));
 
         internal override PyObject Reduce() =>
-            _index < _tuple.Items.Length ? ReduceIter(_tuple, _index) : ReduceExhausted(new PyTuple(new PyObject[0]));
+            _index < _tuple.Items.Length ? ReduceIter(_tuple, _index) : ReduceExhausted(PyTuple.From(new PyObject[0]));
 
         internal override void SetState(PyObject state)
         {
@@ -414,7 +414,7 @@ namespace SharpPy
             return count;
         }
 
-        internal override PyObject RemainingHint() => new PyInt(Characters(_string.Length) - Characters(_index));
+        internal override PyObject RemainingHint() => PyInt.From(Characters(_string.Length) - Characters(_index));
 
         internal override PyObject Reduce() =>
             _index < _string.Length ? ReduceIter(PyString.From(_string), Characters(_index)) : ReduceExhausted(PyString.From(""));
@@ -461,14 +461,14 @@ namespace SharpPy
     /// </summary>
     public class PyRangeIterator : PyIterator
     {
-        internal override PyObject RemainingHint() => new PyInt((System.Numerics.BigInteger)_remaining);
+        internal override PyObject RemainingHint() => PyInt.From((System.Numerics.BigInteger)_remaining);
 
         // rangeiter_reduce
         internal override PyObject Reduce()
         {
             var stop = (System.Numerics.BigInteger)_current + (System.Numerics.BigInteger)_remaining * _step;
-            var range = PyType.RangeType.Call(new PyObject[] { new PyInt(_current), new PyInt(stop), new PyInt(_step) }, null);
-            return new PyTuple(new PyObject[] { Builtin("iter"), new PyTuple(new[] { range }), PyNone.Instance });
+            var range = PyType.RangeType.Call(new PyObject[] { PyInt.From(_current), PyInt.From(stop), PyInt.From(_step) }, null);
+            return PyTuple.From(new PyObject[] { Builtin("iter"), PyTuple.From(new[] { range }), PyNone.Instance });
         }
 
         // rangeiter_setstate
@@ -499,7 +499,7 @@ namespace SharpPy
             if (_remaining == 0)
                 throw PyStopIteration.Create();
             
-            var result = new PyInt(_current);
+            var result = PyInt.From(_current);
             _current = unchecked(_current + _step);
             _remaining--;
             return result;
@@ -554,7 +554,7 @@ namespace SharpPy
             return _enumerator.Current;
         }
 
-        internal override PyObject RemainingHint() => new PyInt(_left);
+        internal override PyObject RemainingHint() => PyInt.From(_left);
 
         // setiter_reduce: a list of what is left
         internal override PyObject Reduce()
@@ -620,7 +620,7 @@ namespace SharpPy
 
         // dictiter_len: nothing is left once the dict is gone or no longer the size it was.
         internal override PyObject RemainingHint() =>
-            new PyInt(_finished || _sizeFailed || _dictionary.Length() != _initialSize ? 0 : _remaining);
+            PyInt.From(_finished || _sizeFailed || _dictionary.Length() != _initialSize ? 0 : _remaining);
 
         // dictiter_reduce: a list of what is left
         internal override PyObject Reduce()
@@ -671,8 +671,8 @@ namespace SharpPy
     {
         public PyDictItemIterator(PyDict dict) : base(dict) { }
         protected override PyObject Project(PyObject key, PyDict dictionary) =>
-            TupleCache.CreatePair(key, dictionary.InternalDict.StoredValue(key));
-        protected override PyObject ProjectEntry(PyObject key, PyObject value) => TupleCache.CreatePair(key, value);
+            PyTuple.From(key, dictionary.InternalDict.StoredValue(key));
+        protected override PyObject ProjectEntry(PyObject key, PyObject value) => PyTuple.From(key, value);
         protected override string IteratorName => "dict_itemiterator";
     }
 
@@ -688,7 +688,7 @@ namespace SharpPy
         internal override PyObject RemainingHint()
         {
             if (_sequence == null)
-                return new PyInt(0);
+                return PyInt.From(0);
             long size;
             try
             {
@@ -698,12 +698,12 @@ namespace SharpPy
             {
                 return PyNotImplemented.Instance;
             }
-            return new PyInt(Math.Max(0, size - _index));
+            return PyInt.From(Math.Max(0, size - _index));
         }
 
         // iter_reduce
         internal override PyObject Reduce() =>
-            _sequence != null ? ReduceIter(_sequence, _index) : ReduceExhausted(new PyTuple(new PyObject[0]));
+            _sequence != null ? ReduceIter(_sequence, _index) : ReduceExhausted(PyTuple.From(new PyObject[0]));
 
         // iter_setstate
         internal override void SetState(PyObject state)
@@ -725,8 +725,8 @@ namespace SharpPy
             {
                 var method = _sequence.LookupSpecialMethodUncached("__getitem__");
                 var result = method != null
-                    ? _sequence.BindSpecialMethod(method).Call(new PyObject[] { new PyInt(_index) }, null)
-                    : _sequence.GetItem(new PyInt(_index));
+                    ? _sequence.BindSpecialMethod(method).Call(new PyObject[] { PyInt.From(_index) }, null)
+                    : _sequence.GetItem(PyInt.From(_index));
                 _index++;
                 return result;
             }
@@ -767,8 +767,8 @@ namespace SharpPy
         private System.Numerics.BigInteger _index;
 
         // enum_reduce
-        internal override PyObject Reduce() => new PyTuple(new PyObject[]
-            { GetPyType(), new PyTuple(new PyObject[] { _iterator, new PyInt(_index) }) });
+        internal override PyObject Reduce() => PyTuple.From(new PyObject[]
+            { GetPyType(), PyTuple.From(new PyObject[] { _iterator, PyInt.From(_index) }) });
 
         public PyEnumerateIterator(PyObject iterable, System.Numerics.BigInteger start = default)
         {
@@ -780,7 +780,7 @@ namespace SharpPy
         protected internal override PyObject IterNext()
         {
             var item = _iterator.Next();
-            var result = new PyTuple(new PyInt(_index), item);
+            var result = PyTuple.From(PyInt.From(_index), item);
             _index++;
             return result;
         }

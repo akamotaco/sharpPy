@@ -32,7 +32,7 @@ namespace SharpPy.Modules
         };
 
         private static PythonException Invalid() => new PythonException(
-            PyOSError.FromArguments(new PyObject[] { new PyInt(22), PyString.From("Windows Error 0x80041010") }, null));
+            PyOSError.FromArguments(new PyObject[] { PyInt.From(22), PyString.From("Windows Error 0x80041010") }, null));
 
         internal static PyModule CreateModule()
         {

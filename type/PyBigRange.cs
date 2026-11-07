@@ -46,12 +46,12 @@ namespace SharpPy
             if (_step.Sign > 0)
             {
                 for (BigInteger value = _start; value < _stop; value += _step)
-                    yield return new PyInt(value);
+                    yield return PyInt.From(value);
             }
             else
             {
                 for (BigInteger value = _start; value > _stop; value += _step)
-                    yield return new PyInt(value);
+                    yield return PyInt.From(value);
             }
         }
 
@@ -72,7 +72,7 @@ namespace SharpPy
             protected internal override PyObject IterNext()
             {
                 if (_remaining.IsZero) throw PyStopIteration.Create();
-                var result = new PyInt(_current);
+                var result = PyInt.From(_current);
                 _remaining--;
                 if (!_remaining.IsZero) _current += _step;
                 return result;
@@ -80,14 +80,14 @@ namespace SharpPy
 
             protected override string IteratorName => "longrange_iterator";
 
-            internal override PyObject RemainingHint() => new PyInt(_remaining);
+            internal override PyObject RemainingHint() => PyInt.From(_remaining);
 
             // longrangeiter_reduce
             internal override PyObject Reduce()
             {
                 var stop = _current + _remaining * _step;
-                var range = PyType.RangeType.Call(new PyObject[] { new PyInt(_current), new PyInt(stop), new PyInt(_step) }, null);
-                return new PyTuple(new PyObject[] { Builtin("iter"), new PyTuple(new[] { range }), PyNone.Instance });
+                var range = PyType.RangeType.Call(new PyObject[] { PyInt.From(_current), PyInt.From(stop), PyInt.From(_step) }, null);
+                return PyTuple.From(new PyObject[] { Builtin("iter"), PyTuple.From(new[] { range }), PyNone.Instance });
             }
 
             // longrangeiter_setstate

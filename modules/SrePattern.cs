@@ -206,7 +206,7 @@ namespace SharpPy.Modules
                 {
                     var items = new PyObject[Groups];
                     for (int i = 0; i < Groups; i++) items[i] = GroupSlice(text, state, i + 1, true);
-                    result.Append(new PyTuple(items));
+                    result.Append(PyTuple.From(items));
                 }
                 state.MustAdvance = state.Ptr == state.Start;
                 state.Start = state.Ptr;
@@ -349,7 +349,7 @@ namespace SharpPy.Modules
                     return new PyBuiltinFunction("subn", (a, k) =>
                     {
                         var (result, count) = Substitute(a, k);
-                        return new PyTuple(new[] { result, new PyInt(count) });
+                        return PyTuple.From(new[] { result, PyInt.From(count) });
                     });
                 case "scanner":
                     return new PyBuiltinFunction("scanner", Scanner);
@@ -359,9 +359,9 @@ namespace SharpPy.Modules
                 case "pattern":
                     return Pattern;
                 case "flags":
-                    return new PyInt(Flags);
+                    return PyInt.From(Flags);
                 case "groups":
-                    return new PyInt(Groups);
+                    return PyInt.From(Groups);
                 case "groupindex":
                 {
                     var names = new Dictionary<string, PyObject>();
@@ -464,7 +464,7 @@ namespace SharpPy.Modules
             if (args.Length == 1) return GetItem(args[0]);
             var items = new PyObject[args.Length];
             for (int i = 0; i < args.Length; i++) items[i] = GetItem(args[i]);
-            return new PyTuple(items);
+            return PyTuple.From(items);
         }
 
         private static PyObject Default(PyObject[] args, PyDict kwargs)
@@ -478,7 +478,7 @@ namespace SharpPy.Modules
             var fallback = Default(args, kwargs);
             var items = new PyObject[_pattern.Groups];
             for (int i = 0; i < items.Length; i++) items[i] = GroupValue(i + 1, fallback);
-            return new PyTuple(items);
+            return PyTuple.From(items);
         }
 
         private PyObject GroupDict(PyObject[] args, PyDict kwargs)
@@ -504,12 +504,12 @@ namespace SharpPy.Modules
                 case "groupdict":
                     return new PyBuiltinFunction("groupdict", GroupDict);
                 case "start":
-                    return new PyBuiltinFunction("start", a => new PyInt(Boundary(a, 0)));
+                    return new PyBuiltinFunction("start", a => PyInt.From(Boundary(a, 0)));
                 case "end":
-                    return new PyBuiltinFunction("end", a => new PyInt(Boundary(a, 1)));
+                    return new PyBuiltinFunction("end", a => PyInt.From(Boundary(a, 1)));
                 case "span":
                     return new PyBuiltinFunction("span", a =>
-                        new PyTuple(new PyObject[] { new PyInt(Boundary(a, 0)), new PyInt(Boundary(a, 1)) }));
+                        PyTuple.From(new PyObject[] { PyInt.From(Boundary(a, 0)), PyInt.From(Boundary(a, 1)) }));
                 case "expand":
                     return new PyBuiltinFunction("expand", (a, k) =>
                     {
@@ -525,11 +525,11 @@ namespace SharpPy.Modules
                 case "string":
                     return _text.Source;
                 case "pos":
-                    return new PyInt(_pos);
+                    return PyInt.From(_pos);
                 case "endpos":
-                    return new PyInt(_endPos);
+                    return PyInt.From(_endPos);
                 case "lastindex":
-                    return _lastIndex > 0 ? new PyInt(_lastIndex) : PyNone.Instance;
+                    return _lastIndex > 0 ? PyInt.From(_lastIndex) : PyNone.Instance;
                 case "lastgroup":
                     return _lastIndex > 0 && _lastIndex < _pattern.IndexGroup.Length
                         ? _pattern.IndexGroup[_lastIndex] : PyNone.Instance;
@@ -537,8 +537,8 @@ namespace SharpPy.Modules
                 {
                     var spans = new PyObject[_pattern.Groups + 1];
                     for (int i = 0; i < spans.Length; i++)
-                        spans[i] = new PyTuple(new PyObject[] { new PyInt(_marks[i * 2]), new PyInt(_marks[i * 2 + 1]) });
-                    return new PyTuple(spans);
+                        spans[i] = PyTuple.From(new PyObject[] { PyInt.From(_marks[i * 2]), PyInt.From(_marks[i * 2 + 1]) });
+                    return PyTuple.From(spans);
                 }
             }
             return base.TpGetattro(name);

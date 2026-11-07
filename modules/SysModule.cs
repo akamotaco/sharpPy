@@ -37,7 +37,7 @@ namespace SharpPy.Modules
             {
                 var kwargs = new PyDict();
                 kwargs.SetItem(PyString.From("closefd"), PyBool.False);
-                var buffer = IoModule.Open(new PyObject[] { new PyInt(fd), PyString.From(write ? "wb" : "rb"), new PyInt(-1) }, kwargs);
+                var buffer = IoModule.Open(new PyObject[] { PyInt.From(fd), PyString.From(write ? "wb" : "rb"), PyInt.From(-1) }, kwargs);
                 var raw = buffer.GetAttribute("raw");
                 raw.SetAttribute("name", PyString.From(name));
                 bool isatty = raw.GetAttribute("isatty").Call(Array.Empty<PyObject>(), null).IsTrue();
@@ -114,7 +114,7 @@ namespace SharpPy.Modules
             // sys.path - 모듈 검색 경로 리스트
             var sysPath = CreateSysPath();
             module.ModuleDict["get_coroutine_origin_tracking_depth"] = new PyBuiltinFunction("get_coroutine_origin_tracking_depth",
-                args => new PyInt(SharpPy.Core.PyCoroutine.OriginDepth));
+                args => PyInt.From(SharpPy.Core.PyCoroutine.OriginDepth));
             module.ModuleDict["set_coroutine_origin_tracking_depth"] = new PyBuiltinFunction("set_coroutine_origin_tracking_depth", args =>
             {
                 int depth = PyObject.TryGetIndex(args[0])?.ToInt() ?? throw PyTypeError.Create(
@@ -146,19 +146,19 @@ namespace SharpPy.Modules
             module.ModuleDict["byteorder"] = PyString.From(BitConverter.IsLittleEndian ? "little" : "big");
 
             // 최대 정수 크기 (int 범위로 제한)
-            module.ModuleDict["maxsize"] = new PyInt((long)nint.MaxValue);
+            module.ModuleDict["maxsize"] = PyInt.From((long)nint.MaxValue);
             module.ModuleDict["float_info"] = FloatInfo();
             module.ModuleDict["int_info"] = new PyStructSequence(new PyStructSequenceType("sys", "int_info", new[]
             {
                 "bits_per_digit", "sizeof_digit", "default_max_str_digits", "str_digits_check_threshold",
-            }), new PyObject[] { new PyInt(30), new PyInt(4), new PyInt(4300), new PyInt(640) });
+            }), new PyObject[] { PyInt.From(30), PyInt.From(4), PyInt.From(4300), PyInt.From(640) });
             module.ModuleDict["hash_info"] = new PyStructSequence(new PyStructSequenceType("sys", "hash_info", new[]
             {
                 "width", "modulus", "inf", "nan", "imag", "algorithm", "hash_bits", "seed_bits", "cutoff",
             }), new PyObject[]
             {
-                new PyInt(64), new PyInt((1L << 61) - 1), new PyInt(314159), new PyInt(0), new PyInt(1000003),
-                PyString.From("siphash13"), new PyInt(64), new PyInt(128), new PyInt(0),
+                PyInt.From(64), PyInt.From((1L << 61) - 1), PyInt.From(314159), PyInt.From(0), PyInt.From(1000003),
+                PyString.From("siphash13"), PyInt.From(64), PyInt.From(128), PyInt.From(0),
             });
             bool windows = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
             // PyThread_GetInfo
@@ -167,12 +167,12 @@ namespace SharpPy.Modules
             module.ModuleDict["meta_path"] = new PyList(new PyObject[] { PyImportSystem.BuiltinFinder, PyImportSystem.PathFinder });
             module.ModuleDict["path_hooks"] = new PyList();
             module.ModuleDict["path_importer_cache"] = new PyDict();
-            module.ModuleDict["hexversion"] = new PyInt(HexVersion);
-            module.ModuleDict["api_version"] = new PyInt(1013);
+            module.ModuleDict["hexversion"] = PyInt.From(HexVersion);
+            module.ModuleDict["api_version"] = PyInt.From(1013);
             module.ModuleDict["copyright"] = PyString.From("Copyright (c) 2001-2026 Python Software Foundation.\nAll Rights Reserved.");
             module.ModuleDict["pycache_prefix"] = PyNone.Instance;
             module.ModuleDict["dont_write_bytecode"] = PyBool.FromBool(!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PYTHONDONTWRITEBYTECODE")));
-            module.ModuleDict["_git"] = new PyTuple(new PyObject[] { PyString.From("SharpPy"), PyString.From(""), PyString.From("") });
+            module.ModuleDict["_git"] = PyTuple.From(new PyObject[] { PyString.From("SharpPy"), PyString.From(""), PyString.From("") });
             module.ModuleDict["_xoptions"] = new PyDict();
             module.ModuleDict["_home"] = PyNone.Instance;
             module.ModuleDict["_vpath"] = PyString.From("");
@@ -226,7 +226,7 @@ namespace SharpPy.Modules
             // CPython 3.12: sys.builtin_module_names (tuple of builtin C module names)
             module.ModuleDict["builtin_module_names"] = CreateBuiltinModuleNames();
             module.ModuleDict["float_repr_style"] = PyString.From("short");
-            module.ModuleDict["maxunicode"] = new PyInt(0x10FFFF);
+            module.ModuleDict["maxunicode"] = PyInt.From(0x10FFFF);
 
             // CPython 3.12: sys.implementation (namespace with interpreter details)
             module.ModuleDict["implementation"] = CreateImplementation();
@@ -318,7 +318,7 @@ namespace SharpPy.Modules
                 PyString.From("_bisect"),
                 PyString.From(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "nt" : "posix"),
             };
-            return new PyTuple(names.ToArray());
+            return PyTuple.From(names.ToArray());
         }
 
         private static PyObject CreateImplementation()
@@ -330,7 +330,7 @@ namespace SharpPy.Modules
             // Observable parity with the reference CPython 3.12.15 runtime.
             kwargs.SetItem(PyString.From("name"), PyString.From("cpython"));
             kwargs.SetItem(PyString.From("version"), CreateVersionInfo());
-            kwargs.SetItem(PyString.From("hexversion"), new PyInt(HexVersion));
+            kwargs.SetItem(PyString.From("hexversion"), PyInt.From(HexVersion));
             // Its own tag, so a cache SharpPy writes never takes the name of one CPython reads.
             kwargs.SetItem(PyString.From("cache_tag"), PyString.From(PyBytecodeCache.Tag));
 
@@ -403,7 +403,7 @@ namespace SharpPy.Modules
 
         private static PyObject CreateVersionInfo() => new PyStructSequence(VersionInfoType, new PyObject[]
         {
-            new PyInt(3), new PyInt(12), new PyInt(15), PyString.From("final"), new PyInt(0),
+            PyInt.From(3), PyInt.From(12), PyInt.From(15), PyString.From("final"), PyInt.From(0),
         });
 
         // PyFloat_GetInfo
@@ -412,8 +412,8 @@ namespace SharpPy.Modules
             "max", "max_exp", "max_10_exp", "min", "min_exp", "min_10_exp", "dig", "mant_dig", "epsilon", "radix", "rounds",
         }), new PyObject[]
         {
-            new PyFloat(double.MaxValue), new PyInt(1024), new PyInt(308), new PyFloat(2.2250738585072014e-308), new PyInt(-1021),
-            new PyInt(-307), new PyInt(15), new PyInt(53), new PyFloat(2.220446049250313e-16), new PyInt(2), new PyInt(1),
+            new PyFloat(double.MaxValue), PyInt.From(1024), PyInt.From(308), new PyFloat(2.2250738585072014e-308), PyInt.From(-1021),
+            PyInt.From(-307), PyInt.From(15), PyInt.From(53), new PyFloat(2.220446049250313e-16), PyInt.From(2), PyInt.From(1),
         });
 
         // make_flags. SharpPy starts one way, so these are what that way would have set.
@@ -427,7 +427,7 @@ namespace SharpPy.Modules
             };
             var values = new PyObject[fields.Length];
             for (int i = 0; i < fields.Length; i++)
-                values[i] = new PyInt(fields[i] switch
+                values[i] = PyInt.From(fields[i] switch
                 {
                     "dont_write_bytecode" => string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PYTHONDONTWRITEBYTECODE")) ? 0 : 1,
                     "no_site" or "hash_randomization" => 1,
@@ -479,7 +479,7 @@ namespace SharpPy.Modules
             PyGil.ForAllThreads(state =>
             {
                 if (state.Frames.Count > 0)
-                    result.SetItem(new PyInt(state.Ident), state.Frames.Peek());
+                    result.SetItem(PyInt.From(state.Ident), state.Frames.Peek());
             });
             return result;
         }
@@ -513,9 +513,9 @@ namespace SharpPy.Modules
             var version = Environment.OSVersion.Version;
             return new PyStructSequence(WindowsVersionType, new PyObject[]
             {
-                new PyInt(version.Major), new PyInt(version.Minor), new PyInt(version.Build), new PyInt(2),
-                PyString.From(Environment.OSVersion.ServicePack), new PyInt(0), new PyInt(0), new PyInt(0x100), new PyInt(1),
-                new PyTuple(new PyObject[] { new PyInt(version.Major), new PyInt(version.Minor), new PyInt(version.Build) }),
+                PyInt.From(version.Major), PyInt.From(version.Minor), PyInt.From(version.Build), PyInt.From(2),
+                PyString.From(Environment.OSVersion.ServicePack), PyInt.From(0), PyInt.From(0), PyInt.From(0x100), PyInt.From(1),
+                PyTuple.From(new PyObject[] { PyInt.From(version.Major), PyInt.From(version.Minor), PyInt.From(version.Build) }),
             });
         }
 
@@ -546,7 +546,7 @@ namespace SharpPy.Modules
                     if (kwargs != null && kwargs.Length() != 0)
                         throw PyTypeError.Create("sys.get_int_max_str_digits() takes no keyword arguments");
                     if (args.Length != 0) throw PyTypeError.Create($"sys.get_int_max_str_digits() takes no arguments ({args.Length} given)");
-                    return new PyInt(PyVM.Instance.IntMaxStrDigits);
+                    return PyInt.From(PyVM.Instance.IntMaxStrDigits);
                 }
                 int count = args.Length + (kwargs?.Length() ?? 0);
                 if (count > 1) throw PyTypeError.Create($"set_int_max_str_digits() takes at most 1 argument ({count} given)");
@@ -642,7 +642,7 @@ namespace SharpPy.Modules
             var obj = args[0];
             var declared = obj.LookupUserSpecial("__sizeof__");
             if (declared != null)
-                return new PyInt(((PyInt)obj.CallSpecial(declared)).Value + 16);
+                return PyInt.From(((PyInt)obj.CallSpecial(declared)).Value + 16);
 
             // 간단한 크기 추정
             int size = obj switch
@@ -657,7 +657,7 @@ namespace SharpPy.Modules
                 _ => 64 // 기본 객체 크기
             };
 
-            return new PyInt(size);
+            return PyInt.From(size);
         }
 
         private PyObject CallGetRefCount(PyObject[] args)
@@ -666,7 +666,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"getrefcount() takes exactly one argument ({args.Length} given)");
 
             // C#에서는 참조 카운팅을 직접 구현하지 않으므로 더미 값 반환
-            return new PyInt(1);
+            return PyInt.From(1);
         }
 
         /// <summary>
@@ -687,7 +687,7 @@ namespace SharpPy.Modules
             {
                 // CPython 3.12: Python/sysmodule.c:903-905
                 // No exception: return (None, None, None)
-                return new PyTuple(PyNone.Instance, PyNone.Instance, PyNone.Instance);
+                return PyTuple.From(PyNone.Instance, PyNone.Instance, PyNone.Instance);
             }
 
             // CPython 3.12: Python/sysmodule.c:907-913
@@ -702,7 +702,7 @@ namespace SharpPy.Modules
                 excTraceback = exception.__traceback__;
             }
 
-            return new PyTuple(excType, excValue, excTraceback);
+            return PyTuple.From(excType, excValue, excTraceback);
         }
 
         // CPython 3.12: Python/sysmodule.c sys.getrecursionlimit / sys.setrecursionlimit.
@@ -760,7 +760,7 @@ namespace SharpPy.Modules
         {
             if (args.Length != 0)
                 throw PyTypeError.Create($"getrecursionlimit() takes no arguments ({args.Length} given)");
-            return new PyInt(RecursionLimitValue);
+            return PyInt.From(RecursionLimitValue);
         }
 
         private PyObject CallSetRecursionLimit(PyObject[] args)

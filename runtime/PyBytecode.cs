@@ -830,25 +830,25 @@ namespace SharpPy
             return name switch
             {
                 "replace" => new PyBuiltinFunction("replace", Replace),
-                "co_flags" => new PyInt(Flags),
+                "co_flags" => PyInt.From(Flags),
                 // SharpPy keeps unique internal lambda names (<lambda_N>) for the
                 // call-error mapping; CPython's co_name is the bare "<lambda>".
                 "co_name" => PyString.From(PyFrame.BindErrorName(Name)),
                 "co_qualname" => PyString.From(PyFrame.BindErrorName(DisplayQualName)),
                 // CPython co_argcount counts positional-only + positional-or-keyword
                 // only; SharpPy stores non-variadic totals, so subtract kwonly.
-                "co_argcount" => new PyInt(Math.Max(0, ArgCount - KwonlyArgCount)),
-                "co_posonlyargcount" => new PyInt(PosonlyArgCount),
-                "co_kwonlyargcount" => new PyInt(KwonlyArgCount),
-                "co_varnames" => new PyTuple(VarNames.Select(n => PyString.From(n) as PyObject).ToArray()),
-                "co_names" => new PyTuple(Names.Select(n => PyString.From(n) as PyObject).ToArray()),
-                "co_consts" => new PyTuple(Constants.ToArray()),
-                "co_freevars" => new PyTuple(FreeVars.Select(n => PyString.From(n) as PyObject).ToArray()),
-                "co_cellvars" => new PyTuple(CellVars.Select(n => PyString.From(n) as PyObject).ToArray()),
+                "co_argcount" => PyInt.From(Math.Max(0, ArgCount - KwonlyArgCount)),
+                "co_posonlyargcount" => PyInt.From(PosonlyArgCount),
+                "co_kwonlyargcount" => PyInt.From(KwonlyArgCount),
+                "co_varnames" => PyTuple.From(VarNames.Select(n => PyString.From(n) as PyObject).ToArray()),
+                "co_names" => PyTuple.From(Names.Select(n => PyString.From(n) as PyObject).ToArray()),
+                "co_consts" => PyTuple.From(Constants.ToArray()),
+                "co_freevars" => PyTuple.From(FreeVars.Select(n => PyString.From(n) as PyObject).ToArray()),
+                "co_cellvars" => PyTuple.From(CellVars.Select(n => PyString.From(n) as PyObject).ToArray()),
                 "co_filename" => PyString.From(FileName ?? "<unknown>"),
-                "co_firstlineno" => new PyInt(GetFirstLineNo()),
-                "co_nlocals" => new PyInt(VarNames.Count),
-                "co_stacksize" => new PyInt(StackSize),
+                "co_firstlineno" => PyInt.From(GetFirstLineNo()),
+                "co_nlocals" => PyInt.From(VarNames.Count),
+                "co_stacksize" => PyInt.From(StackSize),
                 "co_code" => PyBytes.From(Tables.Code),
                 "_co_code_adaptive" => PyBytes.From(Tables.Code),
                 "co_linetable" => PyBytes.From(Tables.LineTable),
@@ -886,10 +886,10 @@ namespace SharpPy
         // positionsiter_next
         private PyObject CoPositionsMethod(PyObject[] args)
         {
-            static PyObject Value(int number) => number < 0 ? PyNone.Instance : new PyInt(number);
+            static PyObject Value(int number) => number < 0 ? PyNone.Instance : PyInt.From(number);
             var positions = new List<PyObject>();
             foreach (var position in LocationTable.Read(Tables.LineTable, GetFirstLineNo()))
-                positions.Add(new PyTuple(new[] { Value(position.Line), Value(position.EndLine), Value(position.Column), Value(position.EndColumn) }));
+                positions.Add(PyTuple.From(new[] { Value(position.Line), Value(position.EndLine), Value(position.Column), Value(position.EndColumn) }));
             return new PyList(positions.ToArray()).GetIterator();
         }
 
@@ -908,10 +908,10 @@ namespace SharpPy
                 int end = start + 1;
                 while (end < positions.Count && positions[end].Line == positions[start].Line)
                     end++;
-                ranges.Add(new PyTuple(new PyObject[]
+                ranges.Add(PyTuple.From(new PyObject[]
                 {
-                    new PyInt(start * 2), new PyInt(end * 2),
-                    positions[start].Line < 0 ? PyNone.Instance : new PyInt(positions[start].Line),
+                    PyInt.From(start * 2), PyInt.From(end * 2),
+                    positions[start].Line < 0 ? PyNone.Instance : PyInt.From(positions[start].Line),
                 }));
                 start = end;
             }

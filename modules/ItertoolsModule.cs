@@ -175,7 +175,7 @@ namespace SharpPy.Modules
         internal static T StateItem<T>(PyObject[] items, int index, string expected) where T : PyObject =>
             items[index] as T ?? throw PyTypeError.Create($"argument {index + 1} must be {expected}, not {items[index].GetPyType().Name}");
 
-        internal static PyTuple Pack(params PyObject[] items) => new PyTuple(items);
+        internal static PyTuple Pack(params PyObject[] items) => PyTuple.From(items);
 
         static ItertoolsModule()
         {
@@ -329,7 +329,7 @@ namespace SharpPy.Modules
                 _it = null;
                 throw ItertoolsModule.Stop();
             }
-            return new PyTuple(items.ToArray());
+            return PyTuple.From(items.ToArray());
         }
     }
 
@@ -655,7 +655,7 @@ namespace SharpPy.Modules
 
         // tee_reduce
         internal PyObject Reduce() => ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyTuple.Empty),
-            ItertoolsModule.Pack(_dataobj, new PyInt(_index)));
+            ItertoolsModule.Pack(_dataobj, PyInt.From(_index)));
 
         // tee_setstate: "O!i" with the teedataobject type.
         internal void SetState(PyObject state)
@@ -678,7 +678,7 @@ namespace SharpPy.Modules
                 throw PyMemoryError.Create();
             var result = new PyObject[n];
             if (n == 0)
-                return new PyTuple(result);
+                return PyTuple.From(result);
             var it = iterable.GetIterator();
             var to = FromIterable(it);
             result[0] = to;
@@ -687,7 +687,7 @@ namespace SharpPy.Modules
                 to = to.Copy();
                 result[i] = to;
             }
-            return new PyTuple(result);
+            return PyTuple.From(result);
         }
     }
 
@@ -743,7 +743,7 @@ namespace SharpPy.Modules
             {
                 var it = _saved.GetIterator();
                 if (_index != 0)
-                    it.GetAttribute("__setstate__").Call(new PyObject[] { new PyInt(_index) }, null);
+                    it.GetAttribute("__setstate__").Call(new PyObject[] { PyInt.From(_index) }, null);
                 return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(it), ItertoolsModule.Pack(_saved, PyBool.True));
             }
             return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_it),
@@ -800,7 +800,7 @@ namespace SharpPy.Modules
             }
         }
 
-        internal PyObject Reduce() => ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_func, _it), new PyInt(_start));
+        internal PyObject Reduce() => ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_func, _it), PyInt.From(_start));
 
         internal void SetState(PyObject state) => _start = state.IsTrue() ? 1 : 0;
     }
@@ -839,7 +839,7 @@ namespace SharpPy.Modules
             throw ItertoolsModule.Stop();
         }
 
-        internal PyObject Reduce() => ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_func, _it), new PyInt(_stop));
+        internal PyObject Reduce() => ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_func, _it), PyInt.From(_stop));
 
         internal void SetState(PyObject state) => _stop = state.IsTrue() ? 1 : 0;
     }
@@ -935,11 +935,11 @@ namespace SharpPy.Modules
             if (_it == null)
             {
                 var emptyIt = new PyList().GetIterator();
-                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(emptyIt, new PyInt(0)), new PyInt(0));
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(emptyIt, PyInt.From(0)), PyInt.From(0));
             }
-            PyObject stop = _stop == -1 ? PyNone.Instance : new PyInt(_stop);
+            PyObject stop = _stop == -1 ? PyNone.Instance : PyInt.From(_stop);
             return ItertoolsModule.Pack(GetPyType(),
-                ItertoolsModule.Pack(_it, new PyInt(_next), stop, new PyInt(_step)), new PyInt(_cnt));
+                ItertoolsModule.Pack(_it, PyInt.From(_next), stop, PyInt.From(_step)), PyInt.From(_cnt));
         }
 
         internal void SetState(PyObject state) => _cnt = ItertoolsModule.AsSsize(state);
@@ -991,7 +991,7 @@ namespace SharpPy.Modules
         internal static PyObject New(PyType type, PyObject[] args, PyDict kwargs)
         {
             ItertoolsModule.NoKeywords(type, ItertoolsModule.ChainType, "chain", kwargs);
-            var source = new PyTuple(args).GetIterator();
+            var source = PyTuple.From(args).GetIterator();
             return new ChainObject(type, source);
         }
 
@@ -1113,7 +1113,7 @@ namespace SharpPy.Modules
             {
                 var pool = args[i] is PyTuple exact && exact.GetType() == typeof(PyTuple) && !exact.HasCustomType
                     ? exact
-                    : new PyTuple(ItertoolsModule.SequenceTuple(args[i]));
+                    : PyTuple.From(ItertoolsModule.SequenceTuple(args[i]));
                 poolObjects[i] = pool;
                 pools[i] = pool.Items;
             }
@@ -1122,11 +1122,11 @@ namespace SharpPy.Modules
                 poolObjects[i] = poolObjects[i - nargs];
                 pools[i] = pools[i - nargs];
             }
-            return new ProductObject(type, pools, new PyTuple(poolObjects), indices);
+            return new ProductObject(type, pools, PyTuple.From(poolObjects), indices);
         }
 
         // product_sizeof
-        internal PyObject SizeOf() => new PyInt(ObjectSize(BasicSize) + (long)_pools.Length * sizeof(long));
+        internal PyObject SizeOf() => PyInt.From(ObjectSize(BasicSize) + (long)_pools.Length * sizeof(long));
 
         // product_next: the result is a fresh tuple each time, the one CPython reuses when no one
         // else holds it is never visible as the same object here.
@@ -1176,7 +1176,7 @@ namespace SharpPy.Modules
                 if (i < 0)
                     return Empty();
             }
-            return new PyTuple((PyObject[])_result.Clone());
+            return PyTuple.From((PyObject[])_result.Clone());
         }
 
         private PyObject Empty()
@@ -1195,8 +1195,8 @@ namespace SharpPy.Modules
             // the indices for setstate, which also say that the iterator has started
             var indices = new PyObject[_pools.Length];
             for (int i = 0; i < indices.Length; i++)
-                indices[i] = new PyInt(_indices[i]);
-            return ItertoolsModule.Pack(GetPyType(), _poolsTuple, new PyTuple(indices));
+                indices[i] = PyInt.From(_indices[i]);
+            return ItertoolsModule.Pack(GetPyType(), _poolsTuple, PyTuple.From(indices));
         }
 
         // product_setstate
@@ -1252,7 +1252,7 @@ namespace SharpPy.Modules
         {
             var fast = PyArgs.Unpack("combinations", args, kwargs, new[] { "iterable", "r" }, 0, 2, 2);
             long r = PyArgs.Ssize(fast[1]);
-            var pool = new PyTuple(ItertoolsModule.SequenceTuple(fast[0]));
+            var pool = PyTuple.From(ItertoolsModule.SequenceTuple(fast[0]));
             if (r < 0)
                 throw PyValueError.Create("r must be non-negative");
             var indices = ItertoolsModule.Indices(r);
@@ -1261,7 +1261,7 @@ namespace SharpPy.Modules
             return new CombinationsObject(type, pool, indices, r);
         }
 
-        internal PyObject SizeOf() => new PyInt(ObjectSize(BasicSize) + _r * sizeof(long));
+        internal PyObject SizeOf() => PyInt.From(ObjectSize(BasicSize) + _r * sizeof(long));
 
         // combinations_next
         protected internal override PyObject IterNext()
@@ -1304,20 +1304,20 @@ namespace SharpPy.Modules
                 for (; i < r; i++)
                     result[i] = pool[indices[i]];
             }
-            return new PyTuple((PyObject[])_result.Clone());
+            return PyTuple.From((PyObject[])_result.Clone());
         }
 
         // combinations_reduce
         internal PyObject Reduce()
         {
             if (_result == null)
-                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, new PyInt(_r)));
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, PyInt.From(_r)));
             if (_stopped)
-                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyTuple.Empty, new PyInt(_r)));
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyTuple.Empty, PyInt.From(_r)));
             var indices = new PyObject[_r];
             for (long i = 0; i < _r; i++)
-                indices[i] = new PyInt(_indices[i]);
-            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, new PyInt(_r)), new PyTuple(indices));
+                indices[i] = PyInt.From(_indices[i]);
+            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, PyInt.From(_r)), PyTuple.From(indices));
         }
 
         // combinations_setstate
@@ -1368,14 +1368,14 @@ namespace SharpPy.Modules
         {
             var fast = PyArgs.Unpack("combinations_with_replacement", args, kwargs, new[] { "iterable", "r" }, 0, 2, 2);
             long r = PyArgs.Ssize(fast[1]);
-            var pool = new PyTuple(ItertoolsModule.SequenceTuple(fast[0]));
+            var pool = PyTuple.From(ItertoolsModule.SequenceTuple(fast[0]));
             if (r < 0)
                 throw PyValueError.Create("r must be non-negative");
             var indices = ItertoolsModule.Indices(r);
             return new CwrObject(type, pool, indices, r);
         }
 
-        internal PyObject SizeOf() => new PyInt(ObjectSize(BasicSize) + _r * sizeof(long));
+        internal PyObject SizeOf() => PyInt.From(ObjectSize(BasicSize) + _r * sizeof(long));
 
         // cwr_next
         protected internal override PyObject IterNext()
@@ -1420,20 +1420,20 @@ namespace SharpPy.Modules
                     result[i] = elem;
                 }
             }
-            return new PyTuple((PyObject[])_result.Clone());
+            return PyTuple.From((PyObject[])_result.Clone());
         }
 
         // cwr_reduce
         internal PyObject Reduce()
         {
             if (_result == null)
-                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, new PyInt(_r)));
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, PyInt.From(_r)));
             if (_stopped)
-                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyTuple.Empty, new PyInt(_r)));
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyTuple.Empty, PyInt.From(_r)));
             var indices = new PyObject[_r];
             for (long i = 0; i < _r; i++)
-                indices[i] = new PyInt(_indices[i]);
-            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, new PyInt(_r)), new PyTuple(indices));
+                indices[i] = PyInt.From(_indices[i]);
+            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, PyInt.From(_r)), PyTuple.From(indices));
         }
 
         // cwr_setstate
@@ -1485,7 +1485,7 @@ namespace SharpPy.Modules
         {
             var fast = PyArgs.Unpack("permutations", args, kwargs, new[] { "iterable", "r" }, 0, 1, 2);
             var robj = fast[1] ?? PyNone.Instance;
-            var pool = new PyTuple(ItertoolsModule.SequenceTuple(fast[0]));
+            var pool = PyTuple.From(ItertoolsModule.SequenceTuple(fast[0]));
             long n = pool.Items.Length;
             long r = n;
             if (robj is not PyNone)
@@ -1505,7 +1505,7 @@ namespace SharpPy.Modules
             return new PermutationsObject(type, pool, indices, cycles, r);
         }
 
-        internal PyObject SizeOf() => new PyInt(ObjectSize(BasicSize) + (long)_pool.Items.Length * sizeof(long) + _r * sizeof(long));
+        internal PyObject SizeOf() => PyInt.From(ObjectSize(BasicSize) + (long)_pool.Items.Length * sizeof(long) + _r * sizeof(long));
 
         // permutations_next
         protected internal override PyObject IterNext()
@@ -1567,26 +1567,26 @@ namespace SharpPy.Modules
                     throw ItertoolsModule.Stop();
                 }
             }
-            return new PyTuple((PyObject[])_result.Clone());
+            return PyTuple.From((PyObject[])_result.Clone());
         }
 
         // permutations_reduce
         internal PyObject Reduce()
         {
             if (_result == null)
-                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, new PyInt(_r)));
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, PyInt.From(_r)));
             if (_stopped)
-                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyTuple.Empty, new PyInt(_r)));
+                return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyTuple.Empty, PyInt.From(_r)));
             // the indices and cycles for setstate
             long n = _pool.Items.Length;
             var indices = new PyObject[n];
             for (long i = 0; i < n; i++)
-                indices[i] = new PyInt(_indices[i]);
+                indices[i] = PyInt.From(_indices[i]);
             var cycles = new PyObject[_r];
             for (long i = 0; i < _r; i++)
-                cycles[i] = new PyInt(_cycles[i]);
-            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, new PyInt(_r)),
-                ItertoolsModule.Pack(new PyTuple(indices), new PyTuple(cycles)));
+                cycles[i] = PyInt.From(_cycles[i]);
+            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_pool, PyInt.From(_r)),
+                ItertoolsModule.Pack(PyTuple.From(indices), PyTuple.From(cycles)));
         }
 
         // permutations_setstate: "O!O!", two tuples.
@@ -1684,7 +1684,7 @@ namespace SharpPy.Modules
             {
                 var it = ItertoolsModule.ChainType.Call(new PyObject[] { ItertoolsModule.Pack(_total), _it }, null);
                 it = GetPyType().Call(new[] { it, binop }, null);
-                return ItertoolsModule.Pack(ItertoolsModule.ISliceType, ItertoolsModule.Pack(it, new PyInt(1), PyNone.Instance));
+                return ItertoolsModule.Pack(ItertoolsModule.ISliceType, ItertoolsModule.Pack(it, PyInt.From(1), PyNone.Instance));
             }
             return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_it, binop), _total ?? PyNone.Instance);
         }
@@ -1806,9 +1806,9 @@ namespace SharpPy.Modules
                 }
             }
             else
-                longCnt = SmallIntCache.Zero;
+                longCnt = PyInt.Zero;
             // If not specified, step defaults to 1
-            longStep ??= SmallIntCache.One;
+            longStep ??= PyInt.One;
             // Fast mode only works when the step is 1
             if (fastMode)
             {
@@ -1829,12 +1829,12 @@ namespace SharpPy.Modules
             if (_cnt == long.MaxValue)
             {
                 // Switch to slow_mode
-                var longCnt = _longCnt ?? new PyInt(long.MaxValue);
+                var longCnt = _longCnt ?? PyInt.From(long.MaxValue);
                 var steppedUp = PyVM.Instance.ExecuteBinaryOpType(longCnt, _longStep, BinaryOpType.ADD);
                 _longCnt = steppedUp;
                 return longCnt;
             }
-            return new PyInt(_cnt++);
+            return PyInt.From(_cnt++);
         }
 
         // count_repr
@@ -1855,7 +1855,7 @@ namespace SharpPy.Modules
         {
             if (_cnt == long.MaxValue)
                 return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_longCnt, _longStep));
-            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(new PyInt(_cnt)));
+            return ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(PyInt.From(_cnt)));
         }
     }
 
@@ -1901,11 +1901,11 @@ namespace SharpPy.Modules
             : PyString.From($"{ShortTypeName}({_element.ToRepr().Value}, {_cnt})");
 
         // repeat_len
-        internal override PyObject RemainingHint() => _cnt == -1 ? throw PyTypeError.Create("len() of unsized object") : new PyInt(_cnt);
+        internal override PyObject RemainingHint() => _cnt == -1 ? throw PyTypeError.Create("len() of unsized object") : PyInt.From(_cnt);
 
         // repeat_reduce: a new repeat with the object and what is left of the count.
         internal PyObject Reduce() => _cnt >= 0
-            ? ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_element, new PyInt(_cnt)))
+            ? ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_element, PyInt.From(_cnt)))
             : ItertoolsModule.Pack(GetPyType(), ItertoolsModule.Pack(_element));
     }
 
@@ -1979,7 +1979,7 @@ namespace SharpPy.Modules
                 }
                 result[i] = item;
             }
-            return new PyTuple(result);
+            return PyTuple.From(result);
         }
 
         // zip_longest_reduce: empty tuples for the inputs that are done, then setstate with the fillvalue.
@@ -1988,7 +1988,7 @@ namespace SharpPy.Modules
             var args = new PyObject[_ittuple.Length];
             for (int i = 0; i < args.Length; i++)
                 args[i] = _ittuple[i] ?? PyTuple.Empty;
-            return ItertoolsModule.Pack(GetPyType(), new PyTuple(args), _fillvalue);
+            return ItertoolsModule.Pack(GetPyType(), PyTuple.From(args), _fillvalue);
         }
 
         internal void SetState(PyObject state) => _fillvalue = state;

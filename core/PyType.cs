@@ -1493,10 +1493,10 @@ namespace SharpPy
         {
             var itemList = new PyList(items);
             var state = GetState(self);
-            return new PyTuple(new PyObject[]
+            return PyTuple.From(new PyObject[]
             {
                 self.GetPyType(),
-                new PyTuple(new PyObject[] { itemList }),
+                PyTuple.From(new PyObject[] { itemList }),
                 state
             });
         }
@@ -1656,7 +1656,7 @@ namespace SharpPy
                 var value = AttributeOrNull(self, ((PyString)name).Value);
                 if (value != null) slots.SetItem(name, value);
             }
-            return slots.Length() == 0 ? state : new PyTuple(new[] { state, slots });
+            return slots.Length() == 0 ? state : PyTuple.From(new[] { state, slots });
         }
 
         /// <summary>_common_reduce: protocol 2 and up is reduce_newobj; below that, copyreg._reduce_ex.</summary>
@@ -1667,7 +1667,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"cannot pickle '{self.GetPyType().FullName}' object");
             var copyreg = PyImportSystem.Import("copyreg");
             if (protocol < 2)
-                return copyreg.GetAttribute("_reduce_ex").Call(new[] { self, new PyInt(protocol) }, null);
+                return copyreg.GetAttribute("_reduce_ex").Call(new[] { self, PyInt.From(protocol) }, null);
 
             var type = self.GetPyType();
             var arguments = new List<PyObject> { type };
@@ -1712,7 +1712,7 @@ namespace SharpPy
             PyObject listItems = type.IsSubclassOf(ListType) ? self.GetIterator() : PyNone.Instance;
             PyObject dictItems = type.IsSubclassOf(DictType)
                 ? self.GetAttribute("items").Call(Array.Empty<PyObject>(), null).GetIterator() : PyNone.Instance;
-            return new PyTuple(new[] { factory, new PyTuple(arguments.ToArray()), state, listItems, dictItems });
+            return PyTuple.From(new[] { factory, PyTuple.From(arguments.ToArray()), state, listItems, dictItems });
         }
 
         /// <summary>tp_repr of the containers as a slot wrapper: dict.__repr__(self) is the base's text whatever
@@ -2204,7 +2204,7 @@ namespace SharpPy
                         {
                             basesArray[i] = type.BaseTypes[i];
                         }
-                        type._cachedBasesTuple = new PyTuple(basesArray);
+                        type._cachedBasesTuple = PyTuple.From(basesArray);
                     }
                     return type._cachedBasesTuple;
                 },
@@ -2245,7 +2245,7 @@ namespace SharpPy
                         {
                             mroArray[i] = type.MRO[i];
                         }
-                        type._cachedMroTuple = new PyTuple(mroArray);
+                        type._cachedMroTuple = PyTuple.From(mroArray);
                     }
                     return type._cachedMroTuple;
                 }
@@ -2417,7 +2417,7 @@ namespace SharpPy
         private void InitializeSetTypeDescriptors()
         {
             TypeDict["__len__"] = new PyWrapperDescriptor("__len__", this, (self, args, kwargs) =>
-                new PyInt((self as PySet).Items.Count()));
+                PyInt.From((self as PySet).Items.Count()));
             TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", this, (self, args, kwargs) =>
                 (self as PySet).Iter());
             TypeDict["__contains__"] = new PyWrapperDescriptor("__contains__", this, (self, args, kwargs) =>
@@ -2840,7 +2840,7 @@ namespace SharpPy
                 "__sizeof__", PyType.SetType,
                 (self, args, kwargs) => {
                     RefuseExtra(PyType.SetType, "__sizeof__", args);
-                    return new PyInt(SetSizeInBytes(CountItems(PySet.IterableItems(
+                    return PyInt.From(SetSizeInBytes(CountItems(PySet.IterableItems(
                         NeedStorage(self, "__sizeof__", "set", (self as PySet))))));
                 },
                 minArgs: 0, maxArgs: 0);
@@ -2857,7 +2857,7 @@ namespace SharpPy
                 "__sizeof__", frozensetType,
                 (self, args, kwargs) => {
                     RefuseExtra(PyType.FrozenSetType, "__sizeof__", args);
-                    return new PyInt(SetSizeInBytes(CountItems(PySet.IterableItems(
+                    return PyInt.From(SetSizeInBytes(CountItems(PySet.IterableItems(
                         NeedStorage(self, "__sizeof__", "frozenset",
                             (self as PyFrozenSet))))));
                 },
@@ -2953,7 +2953,7 @@ namespace SharpPy
                     if (cls == PyType.TupleType)
                     {
                         if (iterable == null)
-                            return new PyTuple();
+                            return PyTuple.From();
                         // PySequence_Tuple: an exact tuple is its own result.
                         return iterable is PyTuple { IsExact: true } same ? same : iterable.AsTuple();
                     }
@@ -3280,7 +3280,7 @@ namespace SharpPy
 
                     // Return the length of the underlying mapping
                     // Use InternalCount to avoid recursion (don't call Length() which looks up __len__)
-                    return new PyInt(mappingProxy.InternalCount);
+                    return PyInt.From(mappingProxy.InternalCount);
                 },
                 minArgs: 0,
                 maxArgs: 0
@@ -3377,7 +3377,7 @@ namespace SharpPy
                 var parts = state is PyDict dict && dict.Length() > 0
                     ? new PyObject[] { self.GetPyType(), PyExceptionSlots.ArgsTuple(self), state }
                     : new PyObject[] { self.GetPyType(), PyExceptionSlots.ArgsTuple(self) };
-                return new PyTuple(parts);
+                return PyTuple.From(parts);
             }, 0, 0);
             TypeDict["__setstate__"] = new PyMethodDescriptor("__setstate__", this, (self, args, kwargs) =>
             {

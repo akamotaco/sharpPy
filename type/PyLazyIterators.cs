@@ -23,7 +23,7 @@ namespace SharpPy
             var args = new PyObject[_iterators.Length + 1];
             args[0] = _func;
             Array.Copy(_iterators, 0, args, 1, _iterators.Length);
-            return new PyTuple(new PyObject[] { PyType.MapType, new PyTuple(args) });
+            return PyTuple.From(new PyObject[] { PyType.MapType, PyTuple.From(args) });
         }
 
         public PyMapIterator(PyObject func, PyObject[] iterators)
@@ -61,8 +61,8 @@ namespace SharpPy
 
         // zip_reduce
         internal override PyObject Reduce() => _strict
-            ? new PyTuple(new PyObject[] { PyType.ZipType, new PyTuple(_iterators), PyBool.True })
-            : new PyTuple(new PyObject[] { PyType.ZipType, new PyTuple(_iterators) });
+            ? PyTuple.From(new PyObject[] { PyType.ZipType, PyTuple.From(_iterators), PyBool.True })
+            : PyTuple.From(new PyObject[] { PyType.ZipType, PyTuple.From(_iterators) });
         public PyZipIterator(PyObject[] iterators, bool strict)
         {
             _iterators = iterators;
@@ -89,7 +89,7 @@ namespace SharpPy
                     throw PyStopIteration.Create();
                 }
             }
-            return new PyTuple(items);
+            return PyTuple.From(items);
         }
 
         // zip_next "check:": iterator i ran out first; the ones before it gave a value this round.
@@ -126,8 +126,8 @@ namespace SharpPy
         private readonly PyObject _iterator;
 
         // filter_reduce
-        internal override PyObject Reduce() => new PyTuple(new PyObject[]
-            { PyType.FilterType, new PyTuple(new[] { _func, _iterator }) });
+        internal override PyObject Reduce() => PyTuple.From(new PyObject[]
+            { PyType.FilterType, PyTuple.From(new[] { _func, _iterator }) });
 
         public PyFilterIterator(PyObject func, PyObject iterator)
         {
@@ -168,8 +168,8 @@ namespace SharpPy
 
         // calliter_reduce
         internal override PyObject Reduce() => _done
-            ? ReduceExhausted(new PyTuple(new PyObject[0]))
-            : new PyTuple(new PyObject[] { Builtin("iter"), new PyTuple(new[] { _callable, _sentinel }) });
+            ? ReduceExhausted(PyTuple.From(new PyObject[0]))
+            : PyTuple.From(new PyObject[] { Builtin("iter"), PyTuple.From(new[] { _callable, _sentinel }) });
 
         public PyCallableIterator(PyObject callable, PyObject sentinel)
         {
@@ -220,9 +220,9 @@ namespace SharpPy
         internal override PyObject RemainingHint()
         {
             if (_index < 0 || _typeName.StartsWith("dict_", StringComparison.Ordinal))
-                return new PyInt(_index + 1);
+                return PyInt.From(_index + 1);
             long size = _seq is PyList list && _typeName == "list_reverseiterator" ? list.RawCount() : _seq.Length();
-            return new PyInt(_index + 1 > size ? 0 : _index + 1);
+            return PyInt.From(_index + 1 > size ? 0 : _index + 1);
         }
 
         protected override string ReduceBuiltin => _typeName.StartsWith("dict_", StringComparison.Ordinal) ? "iter" : "reversed";
@@ -234,23 +234,23 @@ namespace SharpPy
             {
                 var left = new List<PyObject>();
                 for (long i = _index; i >= 0; i--)
-                    left.Add(_seq.GetItem(new PyInt(i)));
+                    left.Add(_seq.GetItem(PyInt.From(i)));
                 return ReduceExhausted(new PyList(left.ToArray()));
             }
             if (_seq is PyRange range && _typeName == "range_iterator")
                 return ((PyIterator)PyType.RangeType.Call(new PyObject[]
                 {
-                    _index >= 0 ? _seq.GetItem(new PyInt(_index)) : new PyInt(0),
-                    range.GetItem(new PyInt(0)).Subtract(range.GetAttribute("step")),
-                    new PyInt(0).Subtract(range.GetAttribute("step")),
+                    _index >= 0 ? _seq.GetItem(PyInt.From(_index)) : PyInt.From(0),
+                    range.GetItem(PyInt.From(0)).Subtract(range.GetAttribute("step")),
+                    PyInt.From(0).Subtract(range.GetAttribute("step")),
                 }, null).GetIterator()).Reduce();
             if (_index < 0)
-                return new PyTuple(new PyObject[]
+                return PyTuple.From(new PyObject[]
                 {
                     Builtin("reversed"),
-                    new PyTuple(new PyObject[] { _seq is PyList ? new PyList() : new PyTuple(new PyObject[0]) }),
+                    PyTuple.From(new PyObject[] { _seq is PyList ? new PyList() : PyTuple.From(new PyObject[0]) }),
                 });
-            return new PyTuple(new PyObject[] { Builtin("reversed"), new PyTuple(new[] { _seq }), new PyInt(_index) });
+            return PyTuple.From(new PyObject[] { Builtin("reversed"), PyTuple.From(new[] { _seq }), PyInt.From(_index) });
         }
 
         internal override void SetState(PyObject state)
@@ -288,7 +288,7 @@ namespace SharpPy
                 }
                 try
                 {
-                    var item = _seq.GetItem(new PyInt(_index));
+                    var item = _seq.GetItem(PyInt.From(_index));
                     _index--;
                     return item;
                 }

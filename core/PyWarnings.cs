@@ -8,7 +8,7 @@ namespace SharpPy
 
         // PyErr_WarnEx through Lib/warnings.py: stacklevel 1 is the Python frame that called in.
         internal static void Warn(PyType category, string message, int stacklevel) =>
-            PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[] { PyString.From(message), category, new PyInt(stacklevel) }, null);
+            PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[] { PyString.From(message), category, PyInt.From(stacklevel) }, null);
 
         // PyErr_WarnFormat(PyExc_DeprecationWarning, 1, ...)
         internal static void Deprecated(string message)
@@ -29,7 +29,7 @@ namespace SharpPy
                     PyGlobalsDict.Store(globals, "__warningregistry__", registry);
                 }
                 warn.Call(new PyObject[] { PyString.From(message), PyType.DeprecationWarningType,
-                    PyString.From(frame.Code.FileName), new PyInt(line), PyString.From(moduleName), registry,
+                    PyString.From(frame.Code.FileName), PyInt.From(line), PyString.From(moduleName), registry,
                     PyGlobalsDict.For(globals) }, null);
                 return;
             }
@@ -45,10 +45,10 @@ namespace SharpPy
                 if (registry.Get(versionKey) is not PyInt oldVersion || oldVersion.Value != version)
                 {
                     registry.Clear();
-                    registry.SetItem(versionKey, new PyInt(version));
+                    registry.SetItem(versionKey, PyInt.From(version));
                 }
-                var key = new PyTuple(PyString.From(message), PyType.DeprecationWarningType,
-                    new PyInt(line));
+                var key = PyTuple.From(PyString.From(message), PyType.DeprecationWarningType,
+                    PyInt.From(line));
                 if (registry.ContainsKey(key)) return;
                 registry.SetItem(key, PyBool.True);
             }

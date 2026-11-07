@@ -23,11 +23,11 @@ namespace SharpPy.Modules
             var jump = kwargs != null ? PyObject.KwValue(kwargs, "jump") : null;
             int argument = oparg == null || oparg is PyNone ? 0 : oparg.ToInt();
             if (jump == null || jump is PyNone)
-                return new PyInt(System.Math.Max(CFGOptimizer.StackEffect((ByteCodeOp)opcode, argument, true),
+                return PyInt.From(System.Math.Max(CFGOptimizer.StackEffect((ByteCodeOp)opcode, argument, true),
                     CFGOptimizer.StackEffect((ByteCodeOp)opcode, argument, false)));
             if (jump is not PyBool)
                 throw PyValueError.Create("stack_effect: jump must be False, True or None");
-            return new PyInt(CFGOptimizer.StackEffect((ByteCodeOp)opcode, argument, jump.IsTrue()));
+            return PyInt.From(CFGOptimizer.StackEffect((ByteCodeOp)opcode, argument, jump.IsTrue()));
         }
     }
 }

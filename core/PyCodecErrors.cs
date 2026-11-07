@@ -61,7 +61,7 @@ namespace SharpPy
             var handler = LookupError(errors);
             var exc = PyType.UnicodeDecodeErrorType.Call(new PyObject[]
             {
-                PyString.From(encoding), PyBytes.From(input), new PyInt(start), new PyInt(end), PyString.From(reason),
+                PyString.From(encoding), PyBytes.From(input), PyInt.From(start), PyInt.From(end), PyString.From(reason),
             }, null);
             var answer = handler.Call(new[] { exc }, null);
             if (answer is not PyTuple { Items.Length: 2 } pair || pair.Items[0] is not PyString replacement ||
@@ -84,7 +84,7 @@ namespace SharpPy
             var handler = LookupError(errors);
             var exc = PyType.UnicodeEncodeErrorType.Call(new PyObject[]
             {
-                PyString.From(encoding), PyString.From(text), new PyInt(start), new PyInt(end), PyString.From(reason),
+                PyString.From(encoding), PyString.From(text), PyInt.From(start), PyInt.From(end), PyString.From(reason),
             }, null);
             var answer = handler.Call(new[] { exc }, null);
             if (answer is not PyTuple { Items.Length: 2 } pair || pair.Items[0] is not (PyString or PyBytes) ||
@@ -125,7 +125,7 @@ namespace SharpPy
         private static int Field(PyObject exc, string name) => (int)PyArgs.IndexSsize(exc.GetAttribute(name));
 
         private static PyObject Answer(string replacement, int end) =>
-            new PyTuple(new PyObject[] { PyString.From(replacement), new PyInt(end) });
+            PyTuple.From(new PyObject[] { PyString.From(replacement), PyInt.From(end) });
 
         // The characters [start, end) of a str object, as code points.
         private static int[] CodePoints(PyObject exc, int start, int end)
@@ -251,7 +251,7 @@ namespace SharpPy
                 if (cp < 0xDC80 || cp > 0xDCFF) Strict(exc);
                 bytes.Add((byte)(cp - 0xDC00));
             }
-            return new PyTuple(new PyObject[] { PyBytes.From(bytes.ToArray()), new PyInt(end) });
+            return PyTuple.From(new PyObject[] { PyBytes.From(bytes.ToArray()), PyInt.From(end) });
         }
 
         // PyCodec_SurrogatePassErrors, for the UTF-8 codec.
@@ -269,7 +269,7 @@ namespace SharpPy
                     bytes.Add((byte)(0x80 | ((cp >> 6) & 0x3F)));
                     bytes.Add((byte)(0x80 | (cp & 0x3F)));
                 }
-                return new PyTuple(new PyObject[] { PyBytes.From(bytes.ToArray()), new PyInt(end) });
+                return PyTuple.From(new PyObject[] { PyBytes.From(bytes.ToArray()), PyInt.From(end) });
             }
             var data = ((PyBytes)exc.GetAttribute("object")).Value;
             if (start + 2 < data.Length && (data[start] & 0xF0) == 0xE0 && (data[start + 1] & 0xC0) == 0x80 &&

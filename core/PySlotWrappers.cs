@@ -37,7 +37,7 @@ namespace SharpPy
                     continue;
                 var inner = wrapper._implementation;
                 table[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) =>
-                    inner(self, new PyObject[] { new PyInt(PyArgs.IndexSsize(args[0])) }, kwargs))
+                    inner(self, new PyObject[] { PyInt.From(PyArgs.IndexSsize(args[0])) }, kwargs))
                 {
                     CallsVirtual = wrapper.CallsVirtual,
                 };
@@ -106,7 +106,7 @@ namespace SharpPy
                 case "__ge__":
                     return PyNotImplemented.Instance;
                 case "__hash__":
-                    return new PyInt(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(self));
+                    return PyInt.From(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(self));
                 case "__str__":
                     // object_str: repr(self), which __repr__ = object.__str__ brings back here.
                     PyCRecursion.Enter(" while calling a Python object");
@@ -132,12 +132,12 @@ namespace SharpPy
                 case "__gt__":
                 case "__ge__":
                     return value.TpRichCompare(args[0], Comparison(name));
-                case "__hash__": return new PyInt(value.Hash());
+                case "__hash__": return PyInt.From(value.Hash());
                 case "__repr__": return value.Repr();
                 case "__str__": return value.Str();
                 case "__iter__": return value.Iter();
                 case "__next__": return value.IterNext();
-                case "__len__": return value is PyRange range ? new PyInt(range.ClampedLength()) : new PyInt(value.Len());
+                case "__len__": return value is PyRange range ? PyInt.From(range.ClampedLength()) : PyInt.From(value.Len());
                 case "__contains__": return value.ContainsItem(args[0]);
                 case "__getitem__": return value.MpSubscript(args[0]);
                 case "__setitem__":

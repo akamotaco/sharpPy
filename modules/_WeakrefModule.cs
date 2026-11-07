@@ -27,7 +27,7 @@ namespace SharpPy.Modules
             {
                 if (a.Length != 1)
                     throw PyTypeError.Create($"getweakrefcount() takes exactly one argument ({a.Length} given)");
-                return new PyInt(PyFinalizer.WeakReferencesOf(a[0]).Count);
+                return PyInt.From(PyFinalizer.WeakReferencesOf(a[0]).Count);
             });
 
             module.ModuleDict["getweakrefs"] = new PyBuiltinFunction("getweakrefs", a =>
@@ -116,7 +116,7 @@ namespace SharpPy.Modules
             type.TypeDict["__repr__"] = new PyMethodDescriptor("__repr__", type,
                 (self, args, kwargs) => ((PyWeakRef)self).SlotRepr(), 0, 0);
             type.TypeDict["__hash__"] = new PyMethodDescriptor("__hash__", type,
-                (self, args, kwargs) => new PyInt(((PyWeakRef)self).SlotHash()), 0, 0);
+                (self, args, kwargs) => PyInt.From(((PyWeakRef)self).SlotHash()), 0, 0);
             type.TypeDict["__eq__"] = new PyMethodDescriptor("__eq__", type,
                 (self, args, kwargs) => ((PyWeakRef)self).SlotCompare(args[0], PyObject.CompareOp.EQ), 1, 1);
             type.TypeDict["__ne__"] = new PyMethodDescriptor("__ne__", type,

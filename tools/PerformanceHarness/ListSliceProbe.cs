@@ -9,10 +9,10 @@ internal static class ListSliceProbe
         foreach (int size in new[] { 16, 1024 })
         {
             var items = new PyObject[size];
-            Array.Fill(items, SmallIntCache.GetOrCreate(0));
+            Array.Fill(items, PyInt.From(0));
             var target = new PyList(items);
             var values = new PyObject[size / 2];
-            Array.Fill(values, SmallIntCache.GetOrCreate(7));
+            Array.Fill(values, PyInt.From(7));
             var replacement = new PyList(values);
             var slice = new PySlice(new PyInt(0), new PyInt(size), new PyInt(2));
             var zero = new PyInt(0);

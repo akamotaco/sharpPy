@@ -896,7 +896,7 @@ namespace SharpPy
                     break;
                 }
             }
-            return new PyTuple(items.ToArray());
+            return PyTuple.From(items.ToArray());
         }
 
         // CPython PyObject_LengthHint: TypeError from len/call is a fallback,

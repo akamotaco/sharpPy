@@ -429,7 +429,7 @@ namespace SharpPy.Modules
                 throw PyOverflowError.Create("cannot convert float infinity to integer");
             if (double.IsNaN(value))
                 throw PyValueError.Create("cannot convert float NaN to integer");
-            return new PyInt(new BigInteger(value));
+            return PyInt.From(new BigInteger(value));
         }
 
         private static BigInteger Index(PyObject value) =>
@@ -442,7 +442,7 @@ namespace SharpPy.Modules
                 throw PyValueError.Create("factorial() not defined for negative values");
             if (n > int.MaxValue)
                 throw PyOverflowError.Create($"factorial() argument should not exceed {long.MaxValue}");
-            return new PyInt(Product(1, (long)n));
+            return PyInt.From(Product(1, (long)n));
         }
 
         // The product of first..last, halved so that the big multiplications are between like sizes.
@@ -466,7 +466,7 @@ namespace SharpPy.Modules
             var result = BigInteger.Zero;
             foreach (var arg in args)
                 result = BigInteger.GreatestCommonDivisor(result, Index(arg));
-            return new PyInt(result);
+            return PyInt.From(result);
         }
 
         private static PyObject Lcm(PyObject[] args)
@@ -477,7 +477,7 @@ namespace SharpPy.Modules
                 var value = BigInteger.Abs(Index(arg));
                 result = result.IsZero || value.IsZero ? BigInteger.Zero : result / BigInteger.GreatestCommonDivisor(result, value) * value;
             }
-            return new PyInt(result);
+            return PyInt.From(result);
         }
 
         private static PyObject ISqrt(PyObject value)
@@ -486,13 +486,13 @@ namespace SharpPy.Modules
             if (n.Sign < 0)
                 throw PyValueError.Create("isqrt() argument must be nonnegative");
             if (n.IsZero)
-                return new PyInt(0);
+                return PyInt.From(0);
             var x = BigInteger.One << (int)((n.GetBitLength() + 1) / 2);
             while (true)
             {
                 var y = (x + n / x) >> 1;
                 if (y >= x)
-                    return new PyInt(x);
+                    return PyInt.From(x);
                 x = y;
             }
         }
@@ -506,12 +506,12 @@ namespace SharpPy.Modules
             BigInteger n = Index(args[0]), k = Index(args[1]);
             if (n.Sign < 0) throw PyValueError.Create("n must be a non-negative integer");
             if (k.Sign < 0) throw PyValueError.Create("k must be a non-negative integer");
-            if (k > n) return new PyInt(0);
+            if (k > n) return PyInt.From(0);
             if (k > long.MaxValue) throw PyOverflowError.Create($"k must not exceed {long.MaxValue}");
             var result = BigInteger.One;
             for (long i = 0; i < (long)k; i++)
                 result *= n - i;
-            return new PyInt(result);
+            return PyInt.From(result);
         }
 
         private static PyObject Comb(PyObject[] args)
@@ -520,13 +520,13 @@ namespace SharpPy.Modules
             BigInteger n = Index(args[0]), k = Index(args[1]);
             if (n.Sign < 0) throw PyValueError.Create("n must be a non-negative integer");
             if (k.Sign < 0) throw PyValueError.Create("k must be a non-negative integer");
-            if (k > n) return new PyInt(0);
+            if (k > n) return PyInt.From(0);
             k = BigInteger.Min(k, n - k);
             if (k > long.MaxValue) throw PyOverflowError.Create($"min(n - k, k) must not exceed {long.MaxValue}");
             var result = BigInteger.One;
             for (long i = 0; i < (long)k; i++)
                 result = result * (n - i) / (i + 1);
-            return new PyInt(result);
+            return PyInt.From(result);
         }
 
         // math_fsum: Shewchuk partials, with the half-even correction at the end.
@@ -725,7 +725,7 @@ namespace SharpPy.Modules
         {
             Check2("sumprod", args);
             PyObject pIterator = args[0].GetIterator(), qIterator = args[1].GetIterator();
-            PyObject total = new PyInt(0);
+            PyObject total = PyInt.From(0);
             bool intPath = true, intInUse = false, floatPath = true, floatInUse = false;
             var intTotal = BigInteger.Zero;
             var floatTotal = new TripleLength(0, 0, 0);
@@ -747,7 +747,7 @@ namespace SharpPy.Modules
                     intPath = false;
                     if (intInUse)
                     {
-                        total = Add(total, new PyInt(intTotal));
+                        total = Add(total, PyInt.From(intTotal));
                         intInUse = false;
                     }
                 }
@@ -797,7 +797,7 @@ namespace SharpPy.Modules
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"prod() takes exactly 1 positional argument ({args.Length} given)");
-            PyObject result = new PyInt(1);
+            PyObject result = PyInt.From(1);
             if (kwargs != null)
                 foreach (var pair in kwargs.InternalDict)
                 {
@@ -868,9 +868,9 @@ namespace SharpPy.Modules
         private static PyObject FrExp(double x)
         {
             if (double.IsNaN(x) || double.IsInfinity(x) || x == 0.0)
-                return new PyTuple(new PyObject[] { new PyFloat(x), new PyInt(0) });
+                return PyTuple.From(new PyObject[] { new PyFloat(x), PyInt.From(0) });
             int exponent = Math.ILogB(x) + 1;
-            return new PyTuple(new PyObject[] { new PyFloat(Math.ScaleB(x, -exponent)), new PyInt(exponent) });
+            return PyTuple.From(new PyObject[] { new PyFloat(Math.ScaleB(x, -exponent)), PyInt.From(exponent) });
         }
 
         private static PyObject LdExp(PyObject[] args)
@@ -899,11 +899,11 @@ namespace SharpPy.Modules
         private static PyObject ModF(double x)
         {
             if (double.IsInfinity(x))
-                return new PyTuple(new PyObject[] { new PyFloat(Math.CopySign(0.0, x)), new PyFloat(x) });
+                return PyTuple.From(new PyObject[] { new PyFloat(Math.CopySign(0.0, x)), new PyFloat(x) });
             if (double.IsNaN(x))
-                return new PyTuple(new PyObject[] { new PyFloat(x), new PyFloat(x) });
+                return PyTuple.From(new PyObject[] { new PyFloat(x), new PyFloat(x) });
             double whole = Math.Truncate(x);
-            return new PyTuple(new PyObject[] { new PyFloat(Math.CopySign(x - whole, x)), new PyFloat(whole) });
+            return PyTuple.From(new PyObject[] { new PyFloat(Math.CopySign(x - whole, x)), new PyFloat(whole) });
         }
 
         private static double NextToward(double x, double y)

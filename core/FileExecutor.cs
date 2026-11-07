@@ -79,7 +79,7 @@ namespace SharpPy.Core
                     {
                         var directory = IOHelper.GetDirectoryName(IOHelper.GetFullPath(pythonFile));
                         if (searchPath.Length() == 0) searchPath.Append(PyString.From(directory));
-                        else searchPath.SetItem(new PyInt(0), PyString.From(directory));
+                        else searchPath.SetItem(PyInt.From(0), PyString.From(directory));
                     }
                     interpreter.Execute(code, pythonFile, showTokenize, showAst, showBytecode);
                 }

@@ -34,7 +34,7 @@ namespace SharpPy.Modules
             Method("is_symlink", self => PyBool.FromBool(self.IsSymlink()));
             Method("is_junction", self => PyBool.False);
             Method("stat", self => NtModule.StatPath(self._path));
-            Method("inode", self => new PyInt(0));
+            Method("inode", self => PyInt.From(0));
             Method("__fspath__", self => PyString.From(self._path));
             type.TypeDict["name"] = new PyMemberDescriptor("name", type, self => PyString.From(((PyDirEntry)self)._name), readOnly: true);
             type.TypeDict["path"] = new PyMemberDescriptor("path", type, self => PyString.From(((PyDirEntry)self)._path), readOnly: true);

@@ -69,7 +69,7 @@ namespace SharpPy.Modules
             module.ModuleDict["_TextIOBase"] = PyIOBaseSlots.TextIOBaseType;
 
             // Names Lib/io.py re-exports from _io; measured absent from _io before this.
-            module.ModuleDict["DEFAULT_BUFFER_SIZE"] = new PyInt(8192);
+            module.ModuleDict["DEFAULT_BUFFER_SIZE"] = PyInt.From(8192);
             module.ModuleDict["open"] = OpenFunction;
             module.ModuleDict["BlockingIOError"] = PyType.BlockingIOErrorType;
 
@@ -220,7 +220,7 @@ namespace SharpPy.Modules
                     : creating || writing || appending ? PyBuffered.WriterType
                     : reading ? PyBuffered.ReaderType
                     : throw PyValueError.Create($"unknown mode: '{mode}'");
-                var buffer = bufferedClass.Call(new[] { raw, new PyInt(buffering) }, null);
+                var buffer = bufferedClass.Call(new[] { raw, PyInt.From(buffering) }, null);
                 result = buffer;
                 if (binary)
                     return result;

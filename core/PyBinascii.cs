@@ -186,7 +186,7 @@ namespace SharpPy
                     crc ^= b;
                     for (int bit = 0; bit < 8; bit++) crc = (crc >> 1) ^ (0xEDB88320u & (uint)-(int)(crc & 1));
                 }
-                return new PyInt((long)~crc & 0xFFFFFFFFL);
+                return PyInt.From((long)~crc & 0xFFFFFFFFL);
             });
             return module;
         }

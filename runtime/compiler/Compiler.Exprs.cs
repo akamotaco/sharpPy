@@ -316,7 +316,7 @@ namespace SharpPy
                 var keys = new PyObject[n];
                 for (int i = begin; i < end; i++)
                     keys[i - begin] = PyString.From(((GeneratedKeyword)keywords[i]).Arg!.Value);
-                ADDOP_LOAD_CONST(loc, new PyTuple(keys));
+                ADDOP_LOAD_CONST(loc, PyTuple.From(keys));
                 ADDOP_I(loc, ByteCodeOp.BUILD_CONST_KEY_MAP, n);
                 return;
             }
@@ -339,7 +339,7 @@ namespace SharpPy
             var names = new PyObject[nkwelts];
             for (int i = 0; i < nkwelts; i++)
                 names[i] = PyString.From(((GeneratedKeyword)keywords[i]).Arg!.Value);
-            ADDOP_I(loc, ByteCodeOp.KW_NAMES, AddConst(new PyTuple(names)));
+            ADDOP_I(loc, ByteCodeOp.KW_NAMES, AddConst(PyTuple.From(names)));
         }
 
         // compiler_call_helper

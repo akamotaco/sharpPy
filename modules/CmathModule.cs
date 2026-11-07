@@ -238,7 +238,7 @@ namespace SharpPy.Modules
                 double phi = Math.Atan2(z.Imag, z.Real), r = Hypot2(z);
                 if (double.IsInfinity(r) && double.IsFinite(z.Real) && double.IsFinite(z.Imag))
                     throw PyOverflowError.Create("math range error");
-                return new PyTuple(new PyObject[] { new PyFloat(r), new PyFloat(phi) });
+                return PyTuple.From(new PyObject[] { new PyFloat(r), new PyFloat(phi) });
             });
             names["isfinite"] = new PyBuiltinFunction("isfinite", args =>
             {

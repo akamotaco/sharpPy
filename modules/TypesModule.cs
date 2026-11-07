@@ -25,9 +25,9 @@ namespace SharpPy.Modules
             // namespace_members: __dict__ is READONLY.
             TypeDict["__dict__"] = new PyMemberDescriptor("__dict__", this, self => ((PySimpleNamespace)self).Dict, readOnly: true);
             TypeDict["__hash__"] = PyNone.Instance;
-            TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", this, (self, args, kwargs) => new PyTuple(new PyObject[]
+            TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", this, (self, args, kwargs) => PyTuple.From(new PyObject[]
             {
-                self.GetPyType(), new PyTuple(Array.Empty<PyObject>()), ((PySimpleNamespace)self).Dict,
+                self.GetPyType(), PyTuple.From(Array.Empty<PyObject>()), ((PySimpleNamespace)self).Dict,
             }));
             TypeTables.Repr(this);
             TypeTables.Compared(this);

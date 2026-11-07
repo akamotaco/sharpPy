@@ -258,7 +258,7 @@ public static class PyIOBaseSlots
                     long ahead = 1;
                     if (peek != null)
                     {
-                        var readahead = peek.Call(new PyObject[] { new PyInt(1) }, null);
+                        var readahead = peek.Call(new PyObject[] { PyInt.From(1) }, null);
                         if (readahead is not PyBytes peeked)
                             throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From(
                                 $"peek() should have returned a bytes object, not '{readahead.GetTypeName()}'") }, null));
@@ -271,7 +271,7 @@ public static class PyIOBaseSlots
                             ahead = n;
                         }
                     }
-                    var read = CallWith(self, "read", One(new PyInt(ahead)));
+                    var read = CallWith(self, "read", One(PyInt.From(ahead)));
                     if (read is not PyBytes chunk)
                         throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From(
                             $"read() should have returned a bytes object, not '{read.GetTypeName()}'") }, null));
@@ -445,7 +445,7 @@ public static class PyIOBaseSlots
                 bool any = false;
                 while (true)
                 {
-                    var data = CallWith(self, "read", One(new PyInt(8192)));
+                    var data = CallWith(self, "read", One(PyInt.From(8192)));
                     if (data is PyNone)
                     {
                         if (!any)
@@ -479,13 +479,13 @@ public static class PyIOBaseSlots
                     try
                     {
                         int length = view.Length();
-                        var data = CallWith(self, reader, One(new PyInt(length)));
+                        var data = CallWith(self, reader, One(PyInt.From(length)));
                         if (data is not PyBytes bytes)
                             throw PyTypeError.Create("read() should return bytes");
                         if (bytes.Value.Length > length)
                             throw PyValueError.Create($"read() returned too much data: {length} bytes requested, {bytes.Value.Length} returned");
                         view.WriteContiguous(bytes.Value);
-                        return new PyInt(bytes.Value.Length);
+                        return PyInt.From(bytes.Value.Length);
                     }
                     finally
                     {

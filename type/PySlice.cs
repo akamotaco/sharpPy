@@ -64,7 +64,7 @@ namespace SharpPy
         #region Hash and Equality
 
         // slicehash: of the three, and it fails as they do.
-        protected internal override long Hash() => new PyTuple(new[] { Start, Stop, Step }).GetPythonHash();
+        protected internal override long Hash() => PyTuple.From(new[] { Start, Stop, Step }).GetPythonHash();
 
         public override int ToHash() => unchecked((int)GetPythonHash());
 
@@ -96,7 +96,7 @@ namespace SharpPy
             if (length == null)
                 throw PyTypeError.Create($"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
             var (start, stop, step) = slice.ExactIndices(length.Value);
-            return new PyTuple(new PyInt(start), new PyInt(stop), new PyInt(step));
+            return PyTuple.From(PyInt.From(start), PyInt.From(stop), PyInt.From(step));
         }
 
         // CPython _PySlice_GetLongIndices: preserve the step and length exactly.
@@ -351,7 +351,7 @@ namespace SharpPy
     /// </summary>
     public static class SliceExtensions
     {
-        public static PyInt ToPyInt(this int value) => new PyInt(value);
-        public static PyInt ToPyInt(this int? value) => value.HasValue ? new PyInt(value.Value) : null;
+        public static PyInt ToPyInt(this int value) => PyInt.From(value);
+        public static PyInt ToPyInt(this int? value) => value.HasValue ? PyInt.From(value.Value) : null;
     }
 }

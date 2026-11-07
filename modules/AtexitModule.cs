@@ -84,7 +84,7 @@ namespace SharpPy.Modules
             module.ModuleDict["_ncallbacks"] = new PyBuiltinFunction("_ncallbacks", (args, kwargs) =>
             {
                 NoArguments("atexit._ncallbacks", args, kwargs);
-                lock (Callbacks) return new PyInt(Callbacks.Count); // :255
+                lock (Callbacks) return PyInt.From(Callbacks.Count); // :255
             });
 
             module.ModuleDict["_run_exitfuncs"] = new PyBuiltinFunction("_run_exitfuncs", (args, kwargs) =>

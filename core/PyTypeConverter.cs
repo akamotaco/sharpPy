@@ -25,14 +25,14 @@ namespace SharpPy.Core
             {
                 // 기본 타입들
                 bool b => PyBool.FromBool(b),
-                byte b => new PyInt(b),
-                sbyte sb => new PyInt(sb),
-                short s => new PyInt(s),
-                ushort us => new PyInt(us),
-                int i => new PyInt(i),
-                uint ui => new PyInt((int)ui),
-                long l => new PyInt((int)l),
-                ulong ul => new PyInt((int)ul),
+                byte b => PyInt.From(b),
+                sbyte sb => PyInt.From(sb),
+                short s => PyInt.From(s),
+                ushort us => PyInt.From(us),
+                int i => PyInt.From(i),
+                uint ui => PyInt.From((int)ui),
+                long l => PyInt.From((int)l),
+                ulong ul => PyInt.From((int)ul),
                 float f => new PyFloat(f),
                 double d => new PyFloat(d),
                 decimal dec => new PyFloat((double)dec),
@@ -77,7 +77,7 @@ namespace SharpPy.Core
             var items = new List<PyObject>(bytes.Length);
             for (int i = 0; i < bytes.Length; i++)
             {
-                items.Add(new PyInt(bytes[i]));
+                items.Add(PyInt.From(bytes[i]));
             }
             return new PyList(items);
         }
@@ -87,7 +87,7 @@ namespace SharpPy.Core
             var items = new List<PyObject>(ints.Length);
             for (int i = 0; i < ints.Length; i++)
             {
-                items.Add(new PyInt(ints[i]));
+                items.Add(PyInt.From(ints[i]));
             }
             return new PyList(items);
         }
@@ -97,7 +97,7 @@ namespace SharpPy.Core
             var items = new List<PyObject>(longs.Length);
             for (int i = 0; i < longs.Length; i++)
             {
-                items.Add(new PyInt((int)longs[i]));
+                items.Add(PyInt.From((int)longs[i]));
             }
             return new PyList(items);
         }
@@ -137,7 +137,7 @@ namespace SharpPy.Core
             var items = new List<PyObject>(intList.Count);
             for (int i = 0; i < intList.Count; i++)
             {
-                items.Add(new PyInt(intList[i]));
+                items.Add(PyInt.From(intList[i]));
             }
             return new PyList(items);
         }
@@ -147,7 +147,7 @@ namespace SharpPy.Core
             var items = new List<PyObject>(longList.Count);
             for (int i = 0; i < longList.Count; i++)
             {
-                items.Add(new PyInt((int)longList[i]));
+                items.Add(PyInt.From((int)longList[i]));
             }
             return new PyList(items);
         }
@@ -197,7 +197,7 @@ namespace SharpPy.Core
             var pyDict = new Dictionary<string, PyObject>();
             foreach (var kvp in dict)
             {
-                pyDict[kvp.Key] = new PyInt(kvp.Value);
+                pyDict[kvp.Key] = PyInt.From(kvp.Value);
             }
             return new PyDict(pyDict);
         }
@@ -332,7 +332,7 @@ namespace SharpPy.Core
             
             for (int i = 0; i < pyList.Length(); i++)
             {
-                var item = pyList.GetItem(new PyInt(i));
+                var item = pyList.GetItem(PyInt.From(i));
                 var convertedItem = ConvertToType(item, elementType);
                 array.SetValue(convertedItem, i);
             }
@@ -351,7 +351,7 @@ namespace SharpPy.Core
             
             for (int i = 0; i < pyList.Length(); i++)
             {
-                var item = pyList.GetItem(new PyInt(i));
+                var item = pyList.GetItem(PyInt.From(i));
                 var convertedItem = ConvertToType(item, elementType);
                 addMethod.Invoke(listInstance, new[] { convertedItem });
             }

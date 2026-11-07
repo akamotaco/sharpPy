@@ -472,7 +472,7 @@ namespace SharpPy
             // __type_params__ 속성 설정
             if (TypeParams != null && TypeParams.Count > 0)
             {
-                var typeParamsTuple = new PyTuple(TypeParams.ToArray());
+                var typeParamsTuple = PyTuple.From(TypeParams.ToArray());
                 ClassDict["__type_params__"] = typeParamsTuple;
             }
             

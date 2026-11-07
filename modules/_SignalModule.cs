@@ -28,14 +28,14 @@ namespace SharpPy.Modules
         {
             var module = new PyModule("_signal");
             foreach (var (name, number) in Signals)
-                module.ModuleDict[name] = new PyInt(number);
-            module.ModuleDict["SIG_DFL"] = new PyInt(SIG_DFL);
-            module.ModuleDict["SIG_IGN"] = new PyInt(SIG_IGN);
-            module.ModuleDict["NSIG"] = new PyInt(NSIG);
+                module.ModuleDict[name] = PyInt.From(number);
+            module.ModuleDict["SIG_DFL"] = PyInt.From(SIG_DFL);
+            module.ModuleDict["SIG_IGN"] = PyInt.From(SIG_IGN);
+            module.ModuleDict["NSIG"] = PyInt.From(NSIG);
             if (Windows)
             {
-                module.ModuleDict["CTRL_C_EVENT"] = new PyInt(0);
-                module.ModuleDict["CTRL_BREAK_EVENT"] = new PyInt(1);
+                module.ModuleDict["CTRL_C_EVENT"] = PyInt.From(0);
+                module.ModuleDict["CTRL_BREAK_EVENT"] = PyInt.From(1);
             }
             module.ModuleDict["default_int_handler"] = DefaultIntHandler;
             module.ModuleDict["signal"] = new PyBuiltinFunction("signal", Signal);
@@ -50,10 +50,10 @@ namespace SharpPy.Modules
             {
                 var numbers = new List<PyObject>();
                 foreach (var (_, number) in Signals)
-                    numbers.Add(new PyInt(number));
+                    numbers.Add(PyInt.From(number));
                 return new PySet(numbers);
             });
-            module.ModuleDict["set_wakeup_fd"] = new PyBuiltinFunction("set_wakeup_fd", args => new PyInt(-1));
+            module.ModuleDict["set_wakeup_fd"] = new PyBuiltinFunction("set_wakeup_fd", args => PyInt.From(-1));
             return module;
         }
 
@@ -73,7 +73,7 @@ namespace SharpPy.Modules
                 if (Handlers.TryGetValue(number, out var handler))
                     return handler;
             }
-            return number == SIGINT ? DefaultIntHandler : new PyInt(SIG_DFL);
+            return number == SIGINT ? DefaultIntHandler : PyInt.From(SIG_DFL);
         }
 
         // signal_signal_impl
@@ -119,7 +119,7 @@ namespace SharpPy.Modules
                 }
                 var handler = Handler(number);
                 if (handler.IsCallable())
-                    handler.Call(new PyObject[] { new PyInt(number), (PyObject)PyVM.CurrentFrame ?? PyNone.Instance }, null);
+                    handler.Call(new PyObject[] { PyInt.From(number), (PyObject)PyVM.CurrentFrame ?? PyNone.Instance }, null);
             }
         }
     }

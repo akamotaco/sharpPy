@@ -22,7 +22,7 @@ namespace SharpPy
         // range_contains: arithmetic for an exact int or bool, a search for anything else.
         protected internal override PyBool ContainsItem(PyObject item)
         {
-            if (item is PyBool truth) item = new PyInt(truth.Value ? 1 : 0);
+            if (item is PyBool truth) item = PyInt.From(truth.Value ? 1 : 0);
             if (item is PyInt number && item.GetType() == typeof(PyInt))
             {
                 var value = number.Value;
@@ -54,9 +54,9 @@ namespace SharpPy
 
         internal PyObject Read(string name) => name switch
         {
-            "start" => new PyInt(Start),
-            "stop" => new PyInt(Stop),
-            "step" => new PyInt(Step),
+            "start" => PyInt.From(Start),
+            "stop" => PyInt.From(Stop),
+            "step" => PyInt.From(Step),
             _ => base.TpGetattro(name)
         };
 
@@ -102,9 +102,9 @@ namespace SharpPy
         protected internal override long Hash()
         {
             var length = ExactLength;
-            PyObject first = length.IsZero ? PyNone.Instance : new PyInt(Start);
-            PyObject step = length <= BigInteger.One ? PyNone.Instance : new PyInt(Step);
-            return new PyTuple(new[] { new PyInt(length), first, step }).GetPythonHash();
+            PyObject first = length.IsZero ? PyNone.Instance : PyInt.From(Start);
+            PyObject step = length <= BigInteger.One ? PyNone.Instance : PyInt.From(Step);
+            return PyTuple.From(new[] { PyInt.From(length), first, step }).GetPythonHash();
         }
 
         public override int ToHash() => unchecked((int)GetPythonHash());
@@ -193,7 +193,7 @@ namespace SharpPy
             if (index.Sign < 0) index += length;
             if (index.Sign < 0 || index >= length)
                 throw PyIndexError.Create("range object index out of range");
-            return new PyInt(Start + index * Step);
+            return PyInt.From(Start + index * Step);
         }
 
         /// <summary>
@@ -219,7 +219,7 @@ namespace SharpPy
                 throw PyIndexError.Create("range object index out of range");
 
             // The validated element lies between the signed-long endpoints.
-            return new PyInt(unchecked((long)((ulong)NativeStart + position * (ulong)NativeStep)));
+            return PyInt.From(unchecked((long)((ulong)NativeStart + position * (ulong)NativeStep)));
         }
 
         /// <summary>
@@ -228,9 +228,9 @@ namespace SharpPy
         public PyRange GetSlice(long? start = null, long? stop = null, long? step = null)
         {
             return (PyRange)GetItem(new PySlice(
-                start.HasValue ? new PyInt(start.Value) : PyNone.Instance,
-                stop.HasValue ? new PyInt(stop.Value) : PyNone.Instance,
-                step.HasValue ? new PyInt(step.Value) : PyNone.Instance));
+                start.HasValue ? PyInt.From(start.Value) : PyNone.Instance,
+                stop.HasValue ? PyInt.From(stop.Value) : PyNone.Instance,
+                step.HasValue ? PyInt.From(step.Value) : PyNone.Instance));
         }
 
         /// <summary>
@@ -247,7 +247,7 @@ namespace SharpPy
                 throw PyValueError.Create($"{val} is not in range");
             
             var index = (val - Start) / Step;
-            return new PyInt(index);
+            return PyInt.From(index);
         }
 
         /// <summary>
@@ -255,7 +255,7 @@ namespace SharpPy
         /// </summary>
         public PyInt Count(PyObject value)
         {
-            return new PyInt(Contains(value).Value ? 1 : 0);
+            return PyInt.From(Contains(value).Value ? 1 : 0);
         }
 
         #endregion
@@ -271,7 +271,7 @@ namespace SharpPy
             {
                 for (long current = NativeStart; current < NativeStop; current = unchecked(current + NativeStep))
                 {
-                    yield return new PyInt(current);
+                    yield return PyInt.From(current);
                     if (unchecked((ulong)NativeStop - (ulong)current) <= (ulong)NativeStep) yield break;
                 }
             }
@@ -279,7 +279,7 @@ namespace SharpPy
             {
                 for (long current = NativeStart; current > NativeStop; current = unchecked(current + NativeStep))
                 {
-                    yield return new PyInt(current);
+                    yield return PyInt.From(current);
                     if (unchecked((ulong)current - (ulong)NativeStop) <= unchecked(0UL - (ulong)NativeStep)) yield break;
                 }
             }
@@ -310,7 +310,7 @@ namespace SharpPy
             {
                 values.Add(pyInt);
             }
-            return new PyTuple(values.ToArray());
+            return PyTuple.From(values.ToArray());
         }
 
         /// <summary>
@@ -439,9 +439,9 @@ namespace SharpPy
                 throw PyValueError.Create("min() arg is an empty sequence");
 
             if (Step > 0)
-                return new PyInt(Start);
+                return PyInt.From(Start);
             else
-                return new PyInt(Start + (ExactLength - 1) * Step);
+                return PyInt.From(Start + (ExactLength - 1) * Step);
         }
 
         /// <summary>
@@ -453,9 +453,9 @@ namespace SharpPy
                 throw PyValueError.Create("max() arg is an empty sequence");
 
             if (Step > 0)
-                return new PyInt(Start + (ExactLength - 1) * Step);
+                return PyInt.From(Start + (ExactLength - 1) * Step);
             else
-                return new PyInt(Start);
+                return PyInt.From(Start);
         }
 
         #endregion

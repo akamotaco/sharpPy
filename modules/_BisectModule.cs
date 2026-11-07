@@ -17,14 +17,14 @@ namespace SharpPy.Modules
             var d = module.ModuleDict;
             if (PyDocs.Lookup("_bisect.__doc__") is { } doc)
                 d["__doc__"] = PyString.From(doc);
-            d["bisect_right"] = Function("bisect_right", (a, x, lo, hi, key) => new PyInt(BisectRight(a, x, lo, hi, key)));
+            d["bisect_right"] = Function("bisect_right", (a, x, lo, hi, key) => PyInt.From(BisectRight(a, x, lo, hi, key)));
             d["insort_right"] = Function("insort_right", (a, x, lo, hi, key) =>
             {
                 long index = BisectRight(a, key is PyNone ? x : key.Call(new[] { x }, null), lo, hi, key);
                 Insert(a, index, x);
                 return PyNone.Instance;
             });
-            d["bisect_left"] = Function("bisect_left", (a, x, lo, hi, key) => new PyInt(BisectLeft(a, x, lo, hi, key)));
+            d["bisect_left"] = Function("bisect_left", (a, x, lo, hi, key) => PyInt.From(BisectLeft(a, x, lo, hi, key)));
             d["insort_left"] = Function("insort_left", (a, x, lo, hi, key) =>
             {
                 long index = BisectLeft(a, key is PyNone ? x : key.Call(new[] { x }, null), lo, hi, key);
@@ -76,7 +76,7 @@ namespace SharpPy.Modules
         // sq_item(list, mid) and the key function on it.
         private static PyObject Item(PyObject list, long mid, PyObject key)
         {
-            var litem = PyAbstract.GetItem(list, new PyInt(mid));
+            var litem = PyAbstract.GetItem(list, PyInt.From(mid));
             return key is PyNone ? litem : key.Call(new[] { litem }, null);
         }
 
@@ -134,7 +134,7 @@ namespace SharpPy.Modules
             if (a is PyList list && a is not PyListSubclass)
                 list.Insert((int)Math.Min(index, int.MaxValue), x);
             else
-                a.GetAttribute("insert").Call(new PyObject[] { new PyInt(index), x }, null);
+                a.GetAttribute("insert").Call(new PyObject[] { PyInt.From(index), x }, null);
         }
     }
 }

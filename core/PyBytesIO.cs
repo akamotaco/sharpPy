@@ -209,7 +209,7 @@ public class PyBytesIO : PyIOBaseInstance
             }
             view.WriteContiguous(_buf.AsSpan((int)Math.Min(_pos, _buf.Length), (int)len));
             _pos += len;
-            return new PyInt(len);
+            return PyInt.From(len);
         }
         finally
         {
@@ -228,7 +228,7 @@ public class PyBytesIO : PyIOBaseInstance
             _size = (int)size;
             Resize(size);
         }
-        return new PyInt(size);
+        return PyInt.From(size);
     }
 
     private PyObject Seek(long pos, int whence)
@@ -253,7 +253,7 @@ public class PyBytesIO : PyIOBaseInstance
         if (pos < 0)
             pos = 0;
         _pos = pos;
-        return new PyInt(_pos);
+        return PyInt.From(_pos);
     }
 
     // bytesio_iternext
@@ -274,7 +274,7 @@ public class PyBytesIO : PyIOBaseInstance
         var value = GetValue();
         // a copy of the dict, None when there never was one
         PyObject dict = ObjectDict(false) is { } own ? own.Copy() : PyNone.Instance;
-        return new PyTuple(new[] { value, new PyInt(_pos), dict });
+        return PyTuple.From(new[] { value, PyInt.From(_pos), dict });
     }
 
     private static string TypeName(PyObject self) =>
@@ -410,9 +410,9 @@ public class PyBytesIO : PyIOBaseInstance
         Def("tell", PyCall.NoArgs, (self, args) =>
         {
             self.CheckClosed();
-            return new PyInt(self._pos);
+            return PyInt.From(self._pos);
         });
-        Def("write", PyCall.One, (self, args) => new PyInt(self.WriteBytes(args[0])));
+        Def("write", PyCall.One, (self, args) => PyInt.From(self.WriteBytes(args[0])));
         Def("writelines", PyCall.One, (self, args) =>
         {
             self.CheckClosed();
@@ -459,7 +459,7 @@ public class PyBytesIO : PyIOBaseInstance
         Def("__getstate__", PyCall.NoArgs, (self, args) => self.GetState());
         Def("__setstate__", PyCall.One, (self, args) => self.SetState(args[0]));
         Def("__sizeof__", PyCall.NoArgs, (self, args) =>
-            new PyInt(64 + (self._buf != null && !self.Shared ? 33 + self._buf.Length : 0)));
+            PyInt.From(64 + (self._buf != null && !self.Shared ? 33 + self._buf.Length : 0)));
         // tp_iter is PyObject_SelfIter and tp_iternext is bytesio_iternext.
         type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self, 0, 0);
         type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => Self(self, "__next__").IterNext(), 0, 0);

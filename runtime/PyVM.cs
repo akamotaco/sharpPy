@@ -136,7 +136,7 @@ namespace SharpPy
             }
             // kwnames is call metadata, not a Python frame. In particular, creating
             // a holder frame must not push an artificial local scope into parentScope.
-            return new PyFrame(code, finalArgs, parentScope, closure, parentFrame, defaults, kwdefaults, new PyTuple(names));
+            return new PyFrame(code, finalArgs, parentScope, closure, parentFrame, defaults, kwdefaults, PyTuple.From(names));
         }
 
         public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null, PyDict kwdefaults = null, PyTuple keywordNames = null)
@@ -372,7 +372,7 @@ namespace SharpPy
                     {
                         var defaultsArray = new PyObject[code.DefaultValues.Count];
                         code.DefaultValues.CopyTo(defaultsArray, 0);
-                        effectiveDefaults = new PyTuple(defaultsArray);
+                        effectiveDefaults = PyTuple.From(defaultsArray);
                     }
                     int numRequiredParams = regularArgCount - (effectiveDefaults?.Items.Length ?? 0);
 
@@ -514,7 +514,7 @@ namespace SharpPy
                 {
                     Array.Copy(positionalArgs, posArgIndex, extraArgs, 0, extraArgs.Length);
                 }
-                var argsTuple = new PyTuple(extraArgs);
+                var argsTuple = PyTuple.From(extraArgs);
 
                 LocalsPlus[varargsIndex] = argsTuple;
                 RecordParameterInScope(varargsName, argsTuple);
@@ -719,7 +719,7 @@ namespace SharpPy
                 "f_back" => ParentFrame != null ? ParentFrame : PyNone.Instance,
 
                 // f_lineno: current line number in Python source code
-                "f_lineno" => CurrentLineNumber >= 0 ? new PyInt(CurrentLineNumber) : LastInstruction > 0 ? (PyObject)PyNone.Instance : new PyInt(Code.GetFirstLineNo()),
+                "f_lineno" => CurrentLineNumber >= 0 ? PyInt.From(CurrentLineNumber) : LastInstruction > 0 ? (PyObject)PyNone.Instance : PyInt.From(Code.GetFirstLineNo()),
 
                 // f_locals: local namespace dictionary
                 "f_locals" => BuildLocalsDict(),
@@ -734,7 +734,7 @@ namespace SharpPy
                     : PyNone.Instance,
 
                 // f_lasti: instruction index (for traceback)
-                "f_lasti" => new PyInt(LastInstruction * 2),
+                "f_lasti" => PyInt.From(LastInstruction * 2),
 
                 // CPython 3.12: f_trace, f_trace_lines, f_trace_opcodes (not implemented yet)
                 "f_trace" => Trace ?? PyNone.Instance,
@@ -1554,7 +1554,7 @@ namespace SharpPy
             if (exceptionEntry.Lasti)
             {
                 // Push current instruction pointer as lasti (PyLong)
-                var lastiValue = new PyInt(frame.LastInstruction);
+                var lastiValue = PyInt.From(frame.LastInstruction);
                 frame.ValueStack.Push(lastiValue);
                 #if DEBUG_LOG
                 Console.WriteLine($"🔧 Exception handled: pushed lasti={frame.InstructionPointer} to stack");
@@ -1742,7 +1742,7 @@ namespace SharpPy
         private void TraceRaised(PyFrame frame, PythonException raised)
         {
             var value = raised.PyException;
-            TraceEvent(frame, "exception", new PyTuple(new[] { value.GetPyType(), value, value.GetAttribute("__traceback__") }));
+            TraceEvent(frame, "exception", PyTuple.From(new[] { value.GetPyType(), value, value.GetAttribute("__traceback__") }));
         }
 
         private PyFrame ReturnToCaller(PyObject result)
@@ -2101,7 +2101,7 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"  ⚠️ Warning: Expected tuple for defaults, got {defaultsTuple?.GetType()}");
                     #endif
-                    defaults = new PyTuple(new PyObject[0]);
+                    defaults = PyTuple.From(new PyObject[0]);
                 }
             }
 
@@ -2706,13 +2706,13 @@ namespace SharpPy
                 case ByteCodeOp.BINARY_ADD_INT:
                     var rightInt = ((PyInt)frame.ValueStack.Pop()).Value;
                     var leftInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(SmallIntCache.GetOrCreate((long)(leftInt + rightInt)));
+                    frame.ValueStack.Push(PyInt.From((long)(leftInt + rightInt)));
                     break;
 
                 case ByteCodeOp.BINARY_ADD_FLOAT:
                     var rightFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
                     var leftFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(FloatCache.GetOrCreate(leftFloat + rightFloat));
+                    frame.ValueStack.Push(new PyFloat(leftFloat + rightFloat));
                     break;
 
                 case ByteCodeOp.BINARY_ADD_UNICODE:
@@ -2724,13 +2724,13 @@ namespace SharpPy
                 case ByteCodeOp.BINARY_MULTIPLY_INT:
                     var rightMulInt = ((PyInt)frame.ValueStack.Pop()).Value;
                     var leftMulInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(SmallIntCache.GetOrCreate((long)(leftMulInt * rightMulInt)));
+                    frame.ValueStack.Push(PyInt.From((long)(leftMulInt * rightMulInt)));
                     break;
 
                 case ByteCodeOp.BINARY_MULTIPLY_FLOAT:
                     var rightMulFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
                     var leftMulFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(FloatCache.GetOrCreate(leftMulFloat * rightMulFloat));
+                    frame.ValueStack.Push(new PyFloat(leftMulFloat * rightMulFloat));
                     break;
 
                 // ===============================================
@@ -2772,13 +2772,13 @@ namespace SharpPy
                 case ByteCodeOp.CALL_LEN_LIST:
                     var lenList = (PyList)frame.ValueStack.Pop();
                     frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
-                    frame.ValueStack.Push(new PyInt(lenList.Length()));
+                    frame.ValueStack.Push(PyInt.From(lenList.Length()));
                     break;
 
                 case ByteCodeOp.CALL_LEN_STR:
                     var lenStr = (PyString)frame.ValueStack.Pop();
                     frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
-                    frame.ValueStack.Push(new PyInt(lenStr.Value.Length));
+                    frame.ValueStack.Push(PyInt.From(lenStr.Value.Length));
                     break;
 
                 case ByteCodeOp.CALL_FUNCTION_EX:
@@ -3092,7 +3092,7 @@ namespace SharpPy
 
                 case ByteCodeOp.GET_LEN:
                     // PyObject_Length; the subject stays on the stack.
-                    frame.ValueStack.Push(new PyInt(frame.ValueStack.Peek().Length()));
+                    frame.ValueStack.Push(PyInt.From(frame.ValueStack.Peek().Length()));
                     break;
 
                 case ByteCodeOp.MATCH_KEYS:
@@ -3431,7 +3431,7 @@ namespace SharpPy
                     }
                     // One empty tuple, as PyTuple_New hands back tuple_get_empty for size 0
                     // (Objects/tupleobject.c:68-73).
-                    var pyTuple = tupleItems.Length == 0 ? PyTuple.Empty : new PyTuple(tupleItems);
+                    var pyTuple = tupleItems.Length == 0 ? PyTuple.Empty : PyTuple.From(tupleItems);
                     frame.ValueStack.Push(pyTuple);
                     break;
 
@@ -5613,7 +5613,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"can't multiply sequence by non-int of type '{count.GetTypeName()}'");
             var native = sequence;
             // The type's own sq_repeat decides what the size means (OverflowError or MemoryError).
-            return native.Multiply(new PyInt(PyArgs.IndexSsize(count)));
+            return native.Multiply(PyInt.From(PyArgs.IndexSsize(count)));
         }
 
         /// <summary>
@@ -5728,10 +5728,10 @@ namespace SharpPy
                 if (attribute == null) return PyNone.Instance;
                 attributes.Add(attribute);
             }
-            return new PyTuple(attributes.ToArray());
+            return PyTuple.From(attributes.ToArray());
         }
 
-        private static readonly PyObject MatchKeysMissing = new PyTuple(Array.Empty<PyObject>());
+        private static readonly PyObject MatchKeysMissing = PyTuple.From(Array.Empty<PyObject>());
 
         private static PyObject MatchKeys(PyObject subject, PyTuple keys)
         {
@@ -5747,7 +5747,7 @@ namespace SharpPy
                 values[i] = get.Call(new[] { key, MatchKeysMissing }, null);
                 if (ReferenceEquals(values[i], MatchKeysMissing)) return PyNone.Instance;
             }
-            return new PyTuple(values);
+            return PyTuple.From(values);
         }
 
         private PyString ApplyFormatting(PyObject obj, string formatSpec) =>
@@ -5932,7 +5932,7 @@ namespace SharpPy
                     if (arg is PyList list)
                     {
                         // Performance: Eliminated LINQ - PyList.Items is already an array, no copy needed
-                        return new PyTuple(list.Items);
+                        return PyTuple.From(list.Items);
                     }
                     throw PyTypeError.Create($"INTRINSIC_LIST_TO_TUPLE expected list, got {arg.GetTypeName()}");
                 case (int)IntrinsicFunction.INTRINSIC_TYPEVAR:
@@ -6083,7 +6083,7 @@ namespace SharpPy
                 else parameters.Add(parameter);
             }
             return typing.GetAttribute("_generic_class_getitem").Call(
-                new[] { typing.GetAttribute("Generic"), new PyTuple(parameters.ToArray()) }, null);
+                new[] { typing.GetAttribute("Generic"), PyTuple.From(parameters.ToArray()) }, null);
         }
 
         // _Py_make_typealias
@@ -6221,7 +6221,7 @@ namespace SharpPy
                     // naked exception - wrap it, and give the wrapper the traceback of what is
                     // being handled, as CPython builds one from the current frame
                     PyObject wrapped = PyBaseExceptionGroup.Create(
-                        "", new PyTuple(new PyObject[] { excValue }));
+                        "", PyTuple.From(new PyObject[] { excValue }));
                     if (excValue is PyBaseException naked &&
                         wrapped is PyBaseException wrapper)
                         wrapper.__traceback__ = naked.__traceback__;

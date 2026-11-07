@@ -37,7 +37,7 @@ namespace SharpPy.Modules
             type.TypeDict["empty"] = new PyMethodDescriptor("empty", type, (self, args, kwargs) =>
                 PyBool.FromBool(((PySimpleQueue)self).Count == 0), 0, 0);
             type.TypeDict["qsize"] = new PyMethodDescriptor("qsize", type, (self, args, kwargs) =>
-                new PyInt(((PySimpleQueue)self).Count), 0, 0);
+                PyInt.From(((PySimpleQueue)self).Count), 0, 0);
             module.ModuleDict["SimpleQueue"] = type;
             module.ModuleDict["Empty"] = _empty;
             return module;
