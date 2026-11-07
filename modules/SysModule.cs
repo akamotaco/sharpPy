@@ -141,9 +141,9 @@ namespace SharpPy.Modules
             
             // 실행 경로
             module.ModuleDict["executable"] = PyString.From(GetExecutablePath());
-            module.ModuleDict["prefix"] = PyString.From(GetPrefixPath());
+            module.ModuleDict["prefix"] = PyString.From(PrefixPath());
             module.ModuleDict["platlibdir"] = PyString.From("DLLs");
-            module.ModuleDict["exec_prefix"] = PyString.From(GetPrefixPath());
+            module.ModuleDict["exec_prefix"] = PyString.From(PrefixPath());
 
             // 바이트 순서
             module.ModuleDict["byteorder"] = PyString.From(BitConverter.IsLittleEndian ? "little" : "big");
@@ -181,7 +181,8 @@ namespace SharpPy.Modules
             module.ModuleDict["_vpath"] = PyString.From("");
             module.ModuleDict["_framework"] = PyString.From("");
             module.ModuleDict["_base_executable"] = PyString.From(GetExecutablePath());
-            module.ModuleDict["_stdlib_dir"] = PyNone.Instance;
+            // config->stdlib_dir: where getpath found the standard library
+            module.ModuleDict["_stdlib_dir"] = PyString.From(IOHelper.CombinePath(PrefixPath(), "Lib"));
             module.ModuleDict["is_finalizing"] = new PyBuiltinFunction("is_finalizing", args => PyBool.FromBool(PyGil.Finalizing));
             module.ModuleDict["get_asyncgen_hooks"] = new PyBuiltinFunction("get_asyncgen_hooks", args => AsyncgenHooks());
             module.ModuleDict["set_asyncgen_hooks"] = new PyBuiltinFunction("set_asyncgen_hooks", SetAsyncgenHooks);
@@ -211,8 +212,9 @@ namespace SharpPy.Modules
 
             // sys.stdin, stdout and stderr come later, from InitStdStreams (init_sys_streams).
             Current = module;
-            foreach (var prefix in new[] { "prefix", "exec_prefix", "base_prefix", "base_exec_prefix" })
-                module.ModuleDict[prefix] = PyString.From("");
+            // getpath: with no venv, base_prefix and base_exec_prefix are prefix and exec_prefix.
+            foreach (var prefix in new[] { "base_prefix", "base_exec_prefix" })
+                module.ModuleDict[prefix] = PyString.From(PrefixPath());
 
             // sys.argv is a copy of what the host put in PyConfig.argv
             // (Python/sysmodule.c:3612 COPY_LIST("argv", config->argv)). Program.Main fills it for the
@@ -359,7 +361,7 @@ namespace SharpPy.Modules
 #else
             pathList.Add(PyString.From("."));
             var exeDir = IOHelper.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
-            var projectRoot = IOHelper.GetFullPath(IOHelper.CombinePath(exeDir, "..", "..", ".."));
+            var projectRoot = PrefixPath();
 #endif
 
             // getpath.py: PYTHONPATH comes before the standard library.
@@ -533,9 +535,15 @@ namespace SharpPy.Modules
             return Assembly.GetExecutingAssembly().Location;
         }
 
-        private static string GetPrefixPath()
+        // getpath's prefix: the directory whose Lib is the standard library.
+        private static string PrefixPath()
         {
-            return IOHelper.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
+#if GODOT
+            return "res://";
+#else
+            var exeDir = IOHelper.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
+            return IOHelper.GetFullPath(IOHelper.CombinePath(exeDir, "..", "..", ".."));
+#endif
         }
     }
 
