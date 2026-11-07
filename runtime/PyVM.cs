@@ -79,6 +79,8 @@ namespace SharpPy
         // PyCode_Addr2Line(code, lasti): the line of the last instruction, -1 when it has none or
         // nothing has run yet. Computed when asked, as PyFrame_GetLineNumber does.
         internal bool HasRun;
+        // An error an inlined callee left: the caller raises it with its lasti on the CALL's caches.
+        internal bool UnwindingFromCall;
         public int CurrentLineNumber => HasRun ? LineAt(Code, LastInstruction) : -1;
 
         internal static int LineAt(PyCodeObject code, int instruction) =>
@@ -1219,7 +1221,16 @@ namespace SharpPy
             _inlineCall = new PyFrame(code, args, new PyScopeChain(function.GlobalsDict, "<function>"),
                 function.Closure, CurrentFrame, function.GetDefaults(), function.GetKeywordDefaults());
             PyFrame.CallingQualName = null;
+            SkipCallCaches(CurrentFrame);
             return true;
+        }
+
+        // SKIP_OVER(INLINE_CACHE_ENTRIES_CALL) then DISPATCH_INLINED: the caller's prev_instr, so its
+        // f_lasti and tb_lasti while the callee runs, is the last cache entry of the CALL.
+        private static void SkipCallCaches(PyFrame caller)
+        {
+            if (caller != null)
+                caller.LastInstruction += PyAssemble.GetInlineCacheSize(ByteCodeOp.CALL);
         }
 
         private static bool CanInline(PyFunction function)
@@ -1243,6 +1254,7 @@ namespace SharpPy
                 new PyScopeChain(function.GlobalsDict, "<function>"), function.Closure,
                 function.GetDefaults(), function.GetKeywordDefaults(), CurrentFrame);
             PyFrame.CallingQualName = null;
+            SkipCallCaches(CurrentFrame);
             return true;
         }
 
@@ -1355,7 +1367,10 @@ namespace SharpPy
                         extendedArg = 0; // Reset for next instruction
                     }
 
-                    frame.LastInstruction = frame.InstructionPointer;
+                    // exit_unwind into the caller leaves its prev_instr where the call left it.
+                    if (!frame.UnwindingFromCall)
+                        frame.LastInstruction = frame.InstructionPointer;
+                    frame.UnwindingFromCall = false;
 
                     frame.HasRun = true;
                     if ((TraceFunction != null || ProfileFunction != null) && !_tracing)
@@ -1455,6 +1470,7 @@ namespace SharpPy
                             _frameStack.Pop();
                             frame = _frameStack.Peek();
                             frame.PendingException = pyEx;
+                            frame.UnwindingFromCall = true;
                         }
 
                         // This method now outlives the calls it runs, so a handled exception left in the
