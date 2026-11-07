@@ -16,6 +16,9 @@ namespace SharpPy.Modules
     /// </summary>
     public static class SysModule
     {
+        // _PyEval_SetSwitchInterval's microseconds; the default is 5 ms.
+        private static uint _switchMicroseconds = 5000;
+
         /// <summary>The sys module of this interpreter: print reads sys.stdout from it.</summary>
         internal static PyModule Current;
 
@@ -268,13 +271,19 @@ namespace SharpPy.Modules
             module.ModuleDict["getfilesystemencodeerrors"] = new PyBuiltinFunction("getfilesystemencodeerrors", args =>
                 PyString.From(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "surrogatepass" : "surrogateescape"));
             module.ModuleDict["intern"] = new PySysFunction("intern");
-            module.ModuleDict["getswitchinterval"] = new PyBuiltinFunction("getswitchinterval", args => new PyFloat(PyGil.SwitchInterval));
+            // sys_getswitchinterval_impl: 1e-6 * _PyEval_GetSwitchInterval(), the microseconds kept.
+            module.ModuleDict["getswitchinterval"] = new PyBuiltinFunction("getswitchinterval", args => new PyFloat(1e-6 * _switchMicroseconds));
+            // sys_setswitchinterval (METH_O, PyFloat_AsDouble) and _PyEval_SetSwitchInterval, which
+            // keeps (unsigned long)(1e6 * interval), 32 bits here.
             module.ModuleDict["setswitchinterval"] = new PyBuiltinFunction("setswitchinterval", args =>
             {
-                double interval = args[0].AsFloat().Value;
-                if (interval <= 0)
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"sys.setswitchinterval() takes exactly one argument ({args.Length} given)");
+                double interval = args[0] is PyFloat { IsExact: true } exact ? exact.Value : SharpPy.Modules.PyMathFunction.RealNumber(args[0]);
+                if (interval <= 0.0)
                     throw PyValueError.Create("switch interval must be strictly positive");
-                PyGil.SwitchInterval = interval;
+                _switchMicroseconds = unchecked((uint)(ulong)(1e6 * interval));
+                PyGil.SwitchInterval = 1e-6 * _switchMicroseconds;
                 return PyNone.Instance;
             });
             module.ModuleDict["flags"] = Flags();
@@ -783,12 +792,15 @@ namespace SharpPy.Modules
             return PyNone.Instance;
         }
 
+        // sys_intern: METH_O, a str (clinic), and then an exact one (sys_intern_impl).
         private PyObject CallIntern(PyObject[] args)
         {
             if (args.Length != 1)
-                throw PyTypeError.Create($"intern() takes exactly one argument ({args.Length} given)");
+                throw PyTypeError.Create($"sys.intern() takes exactly one argument ({args.Length} given)");
             if (args[0] is not PyString s)
                 throw PyTypeError.Create($"intern() argument must be str, not {args[0].GetTypeName()}");
+            if (!s.IsExact)
+                throw PyTypeError.Create($"can't intern {s.GetPyType().FullName}");
             return Intern(s);
         }
 
