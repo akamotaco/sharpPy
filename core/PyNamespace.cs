@@ -20,7 +20,7 @@ public sealed class PyNamespace : IDictionary<string, PyObject>
     public PyObject this[string key]
     {
         get => TryGetValue(key, out var value) ? value : throw new KeyNotFoundException(key);
-        set { ArgumentNullException.ThrowIfNull(key); Mapping.SetItem(StringCache.GetOrCreate(key), value); }
+        set { ArgumentNullException.ThrowIfNull(key); Mapping.SetItem(PyString.From(key), value); }
     }
     public int Count => GenericKeys ? Mapping.StringKeyCount() : lookup.Count;
     public bool IsReadOnly => false;
@@ -28,7 +28,7 @@ public sealed class PyNamespace : IDictionary<string, PyObject>
     public ICollection<PyObject> Values => values ??= new Projection<PyObject>(this, pair => pair.Value);
     public bool ContainsKey(string key) => TryGetValue(key, out _);
     public bool TryGetValue(string key, out PyObject value) => GenericKeys
-        ? Mapping.TryGetStoredValue(StringCache.GetOrCreate(key), out value) : lookup.TryGetValue(key, out value);
+        ? Mapping.TryGetStoredValue(PyString.From(key), out value) : lookup.TryGetValue(key, out value);
     internal bool TryGetExactString(string key, out PyObject value) => lookup.TryGetValue(key, out value);
     public void Add(string key, PyObject value)
     {

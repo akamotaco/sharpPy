@@ -499,12 +499,12 @@ namespace SharpPy
 
         protected internal override PyString Repr()
         {
-            if (_dict.Count == 0) return StringCache.GetOrCreate("{}");
+            if (_dict.Count == 0) return PyString.From("{}");
 
             // Objects/dictobject.c:2400 dict_repr calls Py_ReprEnter, so a self-containing dict
             // prints {1: {...}} instead of recursing until the process dies.
             if (!PyReprGuard.Enter(this))
-                return StringCache.GetOrCreate("{...}");
+                return PyString.From("{...}");
             try
             {
                 return ToReprContents();
@@ -562,7 +562,7 @@ namespace SharpPy
                 span[pos] = '}';
             });
 
-            return StringCache.GetOrCreate(result);
+            return PyString.From(result);
         }
 
         #endregion
@@ -1224,15 +1224,15 @@ namespace SharpPy
         public PyObject this[string key]
         {
             get => TryGetValue(key, out var value) ? value : throw new KeyNotFoundException(key);
-            set => _dict.SetItem(StringCache.GetOrCreate(key), value);
+            set => _dict.SetItem(PyString.From(key), value);
         }
-        public bool TryGetValue(string key, out PyObject value) => _dict.TryGetStoredValue(StringCache.GetOrCreate(key), out value);
+        public bool TryGetValue(string key, out PyObject value) => _dict.TryGetStoredValue(PyString.From(key), out value);
         public bool ContainsKey(string key) => TryGetValue(key, out _);
         public void Add(string key, PyObject value) => this[key] = value;
         public bool Remove(string key)
         {
             if (!ContainsKey(key)) return false;
-            _dict.DelItem(StringCache.GetOrCreate(key));
+            _dict.DelItem(PyString.From(key));
             return true;
         }
         public void Clear() => _dict.Clear();
@@ -1277,7 +1277,7 @@ namespace SharpPy
         internal static void Store(IDictionary<string, PyObject> variables, string name, PyObject value)
         {
             if (variables is PyNamespace) { variables[name] = value; return; }
-            if (Views.TryGetValue(variables, out var view)) view.SetItem(StringCache.GetOrCreate(name), value);
+            if (Views.TryGetValue(variables, out var view)) view.SetItem(PyString.From(name), value);
             else variables[name] = value;
         }
         /// <summary>Empties a store and the __dict__ view made over it, as Store and Delete keep both.</summary>
@@ -1291,7 +1291,7 @@ namespace SharpPy
         {
             if (variables is PyNamespace) return variables.Remove(name);
             if (!variables.ContainsKey(name)) return false;
-            if (Views.TryGetValue(variables, out var view)) view.DelItem(StringCache.GetOrCreate(name));
+            if (Views.TryGetValue(variables, out var view)) view.DelItem(PyString.From(name));
             else variables.Remove(name);
             return true;
         }
@@ -1505,7 +1505,7 @@ namespace SharpPy
             {
                 foreach (var name in proxy.Keys)
                 {
-                    var key = StringCache.GetOrCreate(name);
+                    var key = PyString.From(name);
                     SetItem(key, proxy.GetItem(key));
                 }
                 return PyNone.Instance;
@@ -1548,7 +1548,7 @@ namespace SharpPy
             if ((int)base.Len() == _globalScopeVariables.Count + _nonStringCount) return;
             foreach (var pair in _globalScopeVariables)
             {
-                var key = StringCache.GetOrCreate(pair.Key);
+                var key = PyString.From(pair.Key);
                 if (!base.ContainsKey(key)) base.MpAssSubscript(key, pair.Value);
             }
         }
@@ -1576,7 +1576,7 @@ namespace SharpPy
         }
         internal bool RemoveName(string name)
         {
-            if (!_dict.Remove(StringCache.GetOrCreate(name), out _, out var stored)) return false;
+            if (!_dict.Remove(PyString.From(name), out _, out var stored)) return false;
             RemoveOrderedKey(stored);
             if (_globalScopeVariables is PyNamespace owned && !owned.GenericKeys) owned.RemoveFromMapping(name);
             return true;

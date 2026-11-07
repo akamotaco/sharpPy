@@ -51,17 +51,19 @@ namespace SharpPy
             }
         }
 
-        internal static string Build(PyObject objectArg, PyObject encodingArg, PyObject errorsArg)
+        // unicode_new_impl: PyObject_Str of the object, the object itself as it comes back, or the
+        // decoded text (from a decoder, through PyString.From).
+        internal static PyString Build(PyObject objectArg, PyObject encodingArg, PyObject errorsArg)
         {
             bool decodingRequested = encodingArg != null || errorsArg != null;
 
             if (!decodingRequested)
             {
                 if (objectArg == null)
-                    return "";
+                    return PyString.Empty;
                 // Measured: str(65) is '65', not 'A' - unicode_new runs PyObject_Str, and chr() is a
                 // different function. An earlier draft here converted ints with chr() and was wrong.
-                return objectArg.ToStr().Value;
+                return objectArg.ToStr();
             }
 
             // With encoding or errors present, CPython never accepts a str and never calls str().
@@ -81,7 +83,7 @@ namespace SharpPy
 
             string encodingName = (encodingArg as PyString)?.Value ?? "utf-8";
             string errorName = (errorsArg as PyString)?.Value;
-            return DecodeBytes(data, encodingName, errorName);
+            return PyString.From(DecodeBytes(data, encodingName, errorName));
         }
 
         /// <summary>
@@ -263,7 +265,7 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.upper() takes no arguments ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "upper");
-                    return PyString.From(PyUnicodeCase.Upper(str.Value));
+                    return PyString.Fresh(PyUnicodeCase.Upper(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -274,7 +276,7 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.lower() takes no arguments ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "lower");
-                    return PyString.From(PyUnicodeCase.Lower(str.Value));
+                    return PyString.Fresh(PyUnicodeCase.Lower(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -296,7 +298,7 @@ namespace SharpPy
                     // CPython 3.12: Objects/unicodeobject.c do_capitalize - the first character goes
                     // through the TITLE mapping (not upper) and the rest through the full lower
                     // mapping, which is why "ǅ".capitalize() keeps ǅ and "ß".capitalize() is "Ss".
-                    return PyString.From(PyUnicodeCase.Capitalize(str.Value));
+                    return PyString.Fresh(PyUnicodeCase.Capitalize(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -313,7 +315,7 @@ namespace SharpPy
                     // keeps the next letter uppercase: "it's a test-case 2nd".title() ->
                     // "It'S A Test-Case 2Nd". System.Globalization.TextInfo.ToTitleCase follows .NET
                     // word-breaking, so the word rule lives in PyUnicodeCase.Title (do_title).
-                    return PyString.From(PyUnicodeCase.Title(str.Value));
+                    return PyString.Fresh(PyUnicodeCase.Title(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -934,7 +936,7 @@ namespace SharpPy
 
                     // do_swapcase decides by the uppercase/lowercase PROPERTIES, and the lowercase
                     // branch needs the sigma context, so it is not a per-char ToLower/ToUpper loop.
-                    return PyString.From(PyUnicodeCase.SwapCase(str.Value));
+                    return PyString.Fresh(PyUnicodeCase.SwapCase(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -948,7 +950,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"str.casefold() takes no arguments ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "casefold");
 
-                    return PyString.From(PyUnicodeCase.CaseFold(str.Value));
+                    return PyString.Fresh(PyUnicodeCase.CaseFold(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -1566,7 +1568,8 @@ namespace SharpPy
                     // through str(), so H(b"ab", "utf8") produced "b'ab'" instead of 'ab'.
                     PyStringNewArguments.Project(args, kwargs, true,
                         out PyObject objectArg, out PyObject encodingArg, out PyObject errorsArg);
-                    string value = PyStringNewArguments.Build(objectArg, encodingArg, errorsArg);
+                    PyString text = PyStringNewArguments.Build(objectArg, encodingArg, errorsArg);
+                    string value = text.Value;
 
                     // CPython: Line 14726-14728
                     // if (unicode != NULL && type != &PyUnicode_Type) {
@@ -1591,8 +1594,8 @@ namespace SharpPy
                     }
                     else
                     {
-                        // Regular str type, return PyString
-                        return PyString.From(value);
+                        // unicode_new_impl: for str itself the result is the object as it came.
+                        return text;
                     }
                 }
             );
@@ -3060,7 +3063,7 @@ namespace SharpPy
                         break;
                     }
                 }
-                return PyString.From(output.ToString());
+                return PyString.Fresh(output.ToString());
             }
             for (long done = 0; done < count; done++)
             {
@@ -3071,7 +3074,7 @@ namespace SharpPy
             }
             if (position == 0) return ResultUnchanged();
             output.Append(Value, position, Value.Length - position);
-            return PyString.From(output.ToString());
+            return PyString.Fresh(output.ToString());
         }
 
         public PyInt Find(string sub, int start = 0, int? end = null)
@@ -3199,7 +3202,7 @@ namespace SharpPy
         {
             // stringlib join: PySequence_Fast consumes the iterable before checking element types.
             PyObject[] values = PyList.SequenceFast(iterable, "can only join an iterable");
-            if (values.Length == 0) return StringCache.GetOrCreate("");
+            if (values.Length == 0) return PyString.From("");
             if (values.Length == 1 && values[0].GetType() == typeof(PyString)) return (PyString)values[0];
             var strings = new string[values.Length];
             for (int i = 0; i < values.Length; i++)
@@ -3212,7 +3215,7 @@ namespace SharpPy
             long size = (long)Value.Length * (strings.Length - 1);
             foreach (var piece in strings) size += piece.Length;
             PyAllocation.StringLength(size);
-            return PyString.From(string.Join(Value, strings));
+            return PyString.Fresh(string.Join(Value, strings));
         }
 
         #endregion
@@ -3650,12 +3653,33 @@ namespace SharpPy
         #region Static Factory Methods
 
         /// <summary>
-        /// The one way the interpreter makes an exact str, as PyUnicode_New and the constructors
-        /// built on it are CPython's: the empty str is always the one object (unicode_get_empty).
+        /// An exact str from finished text, as CPython's constructors that end in unicode_result
+        /// (_PyUnicode_FromUCS1, PyUnicode_Substring, the decoders, the writer): the empty str is
+        /// unicode_get_empty, a single latin-1 character is get_latin1_char's one object.
         /// The public constructor stays for host code; the gate keeps it out of the interpreter.
         /// </summary>
-        public static PyString From(string value) =>
+        public static PyString From(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return Empty;
+            if (value.Length == 1 && value[0] < 256) return Latin1[value[0]];
+            return new PyString(value);
+        }
+
+        /// <summary>
+        /// An exact str written into a fresh PyUnicode_New and returned as it is (case conversion,
+        /// a multi-item join, replace, int to decimal): only the empty str is shared.
+        /// </summary>
+        public static PyString Fresh(string value) =>
             string.IsNullOrEmpty(value) ? Empty : new PyString(value);
+
+        // get_latin1_char's table: the one str of each character below U+0100.
+        private static readonly PyString[] Latin1 = MakeLatin1();
+        private static PyString[] MakeLatin1()
+        {
+            var table = new PyString[256];
+            for (int c = 0; c < 256; c++) table[c] = new PyString(((char)c).ToString());
+            return table;
+        }
 
         #endregion
 

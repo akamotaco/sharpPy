@@ -41,7 +41,7 @@ namespace SharpPy
                     PyGlobalsDict.Store(globals, "__warningregistry__", registryObject);
                 }
                 var registry = (PyDict)registryObject;
-                var versionKey = StringCache.GetOrCreate("version");
+                var versionKey = PyString.From("version");
                 if (registry.Get(versionKey) is not PyInt oldVersion || oldVersion.Value != version)
                 {
                     registry.Clear();

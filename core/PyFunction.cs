@@ -839,7 +839,7 @@ public class PyFunctionSignature
             var missing = new List<string>();
             foreach (var key in typedDict.RequiredKeys)
             {
-                if (!kwargs.InternalDict.ContainsKey(StringCache.GetOrCreate(key)))
+                if (!kwargs.InternalDict.ContainsKey(PyString.From(key)))
                 {
                     missing.Add(key);
                 }

@@ -528,11 +528,32 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// The one way the interpreter makes an exact bytes, as _PyBytes_FromSize is CPython's: the
-        /// empty bytes is always the one object. The public constructor stays for host code.
+        /// An exact bytes from finished data, as PyBytes_FromStringAndSize(str, n) and the bytes
+        /// writer are CPython's: the empty bytes is the one object, so is each single byte
+        /// (the characters[] table). The public constructor stays for host code.
         /// </summary>
-        public static PyBytes From(byte[] value) =>
+        public static PyBytes From(byte[] value)
+        {
+            if (value == null || value.Length == 0) return Empty;
+            if (value.Length == 1) return Characters[value[0]];
+            return new PyBytes(value);
+        }
+
+        /// <summary>
+        /// An exact bytes filled into a fresh PyBytes_FromStringAndSize(NULL, n) and returned as it is
+        /// (case conversion, replace, translate, a tuple or a buffer copied): only the empty bytes is
+        /// shared.
+        /// </summary>
+        public static PyBytes Fresh(byte[] value) =>
             value == null || value.Length == 0 ? Empty : new PyBytes(value);
+
+        private static readonly PyBytes[] Characters = MakeCharacters();
+        private static PyBytes[] MakeCharacters()
+        {
+            var table = new PyBytes[256];
+            for (int b = 0; b < 256; b++) table[b] = new PyBytes(new[] { (byte)b });
+            return table;
+        }
 
         public static readonly PyBytes Empty = new PyBytes(Array.Empty<byte>());
 

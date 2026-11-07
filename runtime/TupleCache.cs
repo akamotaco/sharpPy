@@ -27,7 +27,7 @@ namespace SharpPy
             AddToSingleCache(SmallIntCache.Zero);
             AddToSingleCache(SmallIntCache.One);
             AddToSingleCache(SmallIntCache.MinusOne);
-            AddToSingleCache(StringCache.Empty);
+            AddToSingleCache(PyString.Empty);
         }
 
         private static void AddToSingleCache(PyObject item)

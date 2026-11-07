@@ -24,6 +24,10 @@ namespace SharpPy
         private static PyObject New(PyObject self, byte[] value) =>
             self is PyBytes ? PyBytes.From(value) : new PyByteArray(value);
 
+        // The result of a method that fills a fresh PyBytes_FromStringAndSize(NULL, n).
+        private static PyObject NewFresh(PyObject self, byte[] value) =>
+            self is PyBytes ? PyBytes.Fresh(value) : new PyByteArray(value);
+
         // return_self: bytes is immutable, an exact one comes back as it is.
         private static PyObject ReturnSelf(PyObject self, byte[] value) =>
             self is PyBytes && ReferenceEquals(self.GetPyType(), PyType.BytesType) ? self : New(self, value);
@@ -506,7 +510,7 @@ namespace SharpPy
                     if (i < text.Length)
                         interleaved.Add(text[i]);
                 }
-                return New(self, interleaved.ToArray());
+                return NewFresh(self, interleaved.ToArray());
             }
             if (text.Length == 0)
                 return ReturnSelf(self, text);
@@ -526,7 +530,8 @@ namespace SharpPy
             if (replaced == 0)
                 return ReturnSelf(self, text);
             result.AddRange(text.AsSpan(position).ToArray());
-            return New(self, result.ToArray());
+            // stringlib replace fills a fresh PyBytes_FromStringAndSize(NULL, n).
+            return NewFresh(self, result.ToArray());
         }
 
         // bytes_translate_impl
@@ -562,7 +567,7 @@ namespace SharpPy
                 changed |= mapped != b;
                 result.Add(mapped);
             }
-            return changed || anyDelete && result.Count != text.Length ? New(self, result.ToArray()) : ReturnSelf(self, text);
+            return changed || anyDelete && result.Count != text.Length ? NewFresh(self, result.ToArray()) : ReturnSelf(self, text);
         }
 
         // stringlib_bytes_join
@@ -918,7 +923,11 @@ namespace SharpPy
                 if (count >= 0)
                     return PyBytes.From(new byte[PyAllocation.ArrayLength(count)]);
             }
-            return ReferenceEquals(source.GetPyType(), PyType.BytesType) ? source : PyBytes.From(FromObject(source, "bytes"));
+            if (ReferenceEquals(source.GetPyType(), PyType.BytesType))
+                return source;
+            byte[] made = FromObject(source, "bytes");
+            bool filled = Buffer(source) != null || source is PyTuple && ReferenceEquals(source.GetPyType(), PyType.TupleType);
+            return filled ? PyBytes.Fresh(made) : PyBytes.From(made);
         }
 
         // bytearray___init___impl
@@ -986,7 +995,7 @@ namespace SharpPy
             Zero(type, name, self => BoolResult(test(Self(self))));
 
         private static void Transform(PyType type, string name, Func<byte[], byte[]> transform) =>
-            Zero(type, name, self => New(self, transform(Self(self))));
+            Zero(type, name, self => NewFresh(self, transform(Self(self))));
 
         private static PyObject Named(PyObject[] args, int position, PyDict kwargs, string name) =>
             args.Length > position ? args[position] : kwargs != null ? PyObject.KwValue(kwargs, name) : null;

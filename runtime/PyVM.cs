@@ -2718,7 +2718,7 @@ namespace SharpPy
                 case ByteCodeOp.BINARY_ADD_UNICODE:
                     var rightStr = ((PyString)frame.ValueStack.Pop()).Value;
                     var leftStr = ((PyString)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(StringCache.GetOrCreate(leftStr + rightStr));
+                    frame.ValueStack.Push(PyString.From(leftStr + rightStr));
                     break;
 
                 case ByteCodeOp.BINARY_MULTIPLY_INT:
@@ -4441,7 +4441,7 @@ namespace SharpPy
                             1 => formatValue.ToStr(), // !s
                             2 => formatValue.ToRepr(), // !r
                             3 => PyString.From(PyString.AsciiEscape(formatValue.ToRepr().Value)), // !a
-                            _ => formatValue.Format(StringCache.GetOrCreate(""))
+                            _ => formatValue.Format(PyString.From(""))
                         };
                     }
 
@@ -5751,7 +5751,7 @@ namespace SharpPy
         }
 
         private PyString ApplyFormatting(PyObject obj, string formatSpec) =>
-            obj.Format(StringCache.GetOrCreate(formatSpec));
+            obj.Format(PyString.From(formatSpec));
 
         private PyObject CompareOperation(PyObject left, PyObject right, int compareOp)
         {

@@ -561,12 +561,12 @@ namespace SharpPy
 
         protected internal override PyString Repr()
         {
-            if (_items.Count == 0) return StringCache.GetOrCreate("[]");
+            if (_items.Count == 0) return PyString.From("[]");
 
             // Objects/listobject.c:379 list_repr calls Py_ReprEnter: a list that contains itself
             // prints [1, [...]] instead of recursing forever.
             if (!PyReprGuard.Enter(this))
-                return StringCache.GetOrCreate("[...]");
+                return PyString.From("[...]");
             try
             {
                 return ToReprContents();
@@ -612,7 +612,7 @@ namespace SharpPy
                 span[pos] = ']';
             });
 
-            return StringCache.GetOrCreate(result);
+            return PyString.From(result);
         }
         /// <summary>
         /// list_length (Objects/listobject.c) - the count straight off the layout. Reachable without

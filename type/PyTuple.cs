@@ -224,7 +224,7 @@ namespace SharpPy
 
         protected internal override PyString Repr()
         {
-            if (Items.Length == 0) return StringCache.GetOrCreate("()");
+            if (Items.Length == 0) return PyString.From("()");
 
             // Single element tuple needs trailing comma
             if (Items.Length == 1)
@@ -240,7 +240,7 @@ namespace SharpPy
                     span[singleLength - 2] = ',';
                     span[singleLength - 1] = ')';
                 });
-                return StringCache.GetOrCreate(singleResult);
+                return PyString.From(singleResult);
             }
 
             // Performance: string.Create() - CPython-style single allocation
@@ -276,7 +276,7 @@ namespace SharpPy
                 span[pos] = ')';
             });
 
-            return StringCache.GetOrCreate(result);
+            return PyString.From(result);
         }
 
         public override string ToString() => ToRepr().Value;
