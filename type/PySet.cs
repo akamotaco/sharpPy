@@ -25,9 +25,9 @@ namespace SharpPy
             {
                 return operation(key);
             }
-            catch (PythonException error) when (error.PyException is PyTypeError && PyNativeStorage.ForSet(key) != null)
+            catch (PythonException error) when (error.PyException is PyTypeError && (key as PySet) != null)
             {
-                return operation(new PyFrozenSet(PyNativeStorage.ForSet(key).Items));
+                return operation(new PyFrozenSet((key as PySet).Items));
             }
         }
 

@@ -153,7 +153,7 @@ namespace SharpPy
         // PyObject_GenericSetDict over a dict kept beside the value: its contents become the new dict's.
         private static void ReplaceDict(Dictionary<string, PyObject> instanceDict, PyObject value)
         {
-            var replacement = PyNativeStorage.ForDict(value)
+            var replacement = (value as PyDict)
                 ?? throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
             var copy = new List<KeyValuePair<PyObject, PyObject>>(replacement.InternalDict);
             PyGlobalsDict.Clear(instanceDict);

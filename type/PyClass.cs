@@ -842,7 +842,7 @@ namespace SharpPy
         // PyObject_GenericSetDict: the dict replaces the store itself, a subclass's table included.
         internal void SetDict(PyObject value)
         {
-            _materialized = PyNativeStorage.ForDict(value) ?? throw PyTypeError.Create(
+            _materialized = (value as PyDict) ?? throw PyTypeError.Create(
                 $"__dict__ must be set to a dictionary, not a '{value.GetPyType().Name}'");
             _assignedDict = value;
             _attrs = null;

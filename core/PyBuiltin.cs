@@ -1099,7 +1099,7 @@ namespace SharpPy
             if (globals == null)
                 return (null, locals != null && locals.GetType() != typeof(PyDict) ? locals : null);
             bool plain = globals is PyDict { HasCustomType: false };
-            var storage = PyNativeStorage.ForDict(globals);
+            var storage = (globals as PyDict);
             if (locals != null)
                 return (storage, locals is PyDict { HasCustomType: false } ? null : locals);
             return (storage, plain ? null : globals);

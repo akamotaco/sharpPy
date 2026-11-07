@@ -269,7 +269,7 @@ namespace SharpPy
         }
 
         private static PyObject SetOperand(PyObject value) =>
-            (PyObject)PyNativeStorage.ForSet(value) ?? PyNativeStorage.ForFrozenSet(value);
+            (PyObject)(value as PySet) ?? (value as PyFrozenSet);
 
         private static void SetOperator(PyType type, string name, Func<PyObject, PyObject, PyObject> operation)
         {
@@ -288,14 +288,14 @@ namespace SharpPy
                 SetOperator(type, "sub", (a, b) => a.Subtract(b));
                 SetOperator(type, "xor", (a, b) => a.BitwiseXor(b));
             }
-            Slot(PyType.FrozenSetType, "__len__", (self, args) => new PyInt(PyNativeStorage.ForFrozenSet(self).Len()));
-            Slot(PyType.FrozenSetType, "__contains__", (self, args) => PyNativeStorage.ForFrozenSet(self).ContainsItem(args[0]));
-            Slot(PyType.FrozenSetType, "__iter__", (self, args) => PyNativeStorage.ForFrozenSet(self).Iter());
+            Slot(PyType.FrozenSetType, "__len__", (self, args) => new PyInt((self as PyFrozenSet).Len()));
+            Slot(PyType.FrozenSetType, "__contains__", (self, args) => (self as PyFrozenSet).ContainsItem(args[0]));
+            Slot(PyType.FrozenSetType, "__iter__", (self, args) => (self as PyFrozenSet).Iter());
 
             Method(PyType.DictType, "__reversed__", (self, args) =>
             {
-                var keys = new List<PyObject>(PyNativeStorage.ForDict(self).InternalDict.Count);
-                foreach (var entry in PyNativeStorage.ForDict(self).GetInternalDict()) keys.Add(entry.Key);
+                var keys = new List<PyObject>((self as PyDict).InternalDict.Count);
+                foreach (var entry in (self as PyDict).GetInternalDict()) keys.Add(entry.Key);
                 keys.Reverse();
                 return new PyListIterator(new PyList(keys), "dict_reversekeyiterator");
             });

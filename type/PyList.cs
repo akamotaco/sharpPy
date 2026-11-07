@@ -20,12 +20,6 @@ namespace SharpPy
             if (self is PyList list)
                 return list;
 
-            // A list subclass keeps its value in storage; PyNativeStorage is the one place that
-            // knows how to reach it (no reflection: the getter is a normal API).
-            var subclassStorage = PyNativeStorage.ForList(self);
-            if (subclassStorage != null)
-                return subclassStorage;
-
             throw PyTypeError.Create($"descriptor requires a 'list' object but received a '{self.GetTypeName()}'");
         }
 
@@ -40,10 +34,6 @@ namespace SharpPy
         {
             if (self is PyList list)
                 return list;
-
-            var subclassStorage = PyNativeStorage.ForList(self);
-            if (subclassStorage != null)
-                return subclassStorage;
 
             throw PyTypeError.Create(slotStyleMessage
                 ? $"descriptor '{name}' requires a 'list' object but received a '{self.GetTypeName()}'"

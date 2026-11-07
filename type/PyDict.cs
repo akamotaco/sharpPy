@@ -50,7 +50,7 @@ namespace SharpPy
                     var defaultValue = args.Length == 2 ? args[1] : PyNone.Instance;
 
                     // dict_get reads the table: a subclass's __getitem__ is not involved.
-                    return PyNativeStorage.ForDict(self).Get(key, defaultValue);
+                    return (self as PyDict).Get(key, defaultValue);
                 },
                 minArgs: 1, maxArgs: 2
             );
@@ -154,7 +154,7 @@ namespace SharpPy
 
                     // dict_pop_default works on the storage: it never calls a subclass's __delitem__,
                     // which is how OrderedDict.popitem can use it from inside its own __delitem__.
-                    return PyNativeStorage.ForDict(self).Pop(key, defaultValue);
+                    return (self as PyDict).Pop(key, defaultValue);
                 },
                 minArgs: 1, maxArgs: 2
             );
@@ -167,7 +167,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"popitem() takes no arguments ({args.Length} given)");
-                    if (PyNativeStorage.ForDict(self) is not PyDict dict)
+                    if (self is not PyDict dict)
                         throw PyTypeError.Create($"descriptor 'popitem' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     return dict.PopItem();
@@ -182,7 +182,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
-                    if (PyNativeStorage.ForDict(self) is not PyDict dict)
+                    if (self is not PyDict dict)
                         throw PyTypeError.Create($"descriptor 'clear' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     return dict.Clear();
@@ -418,7 +418,7 @@ namespace SharpPy
                     PyType.RefuseExtra(dictType, "__sizeof__", args);
                     return new PyInt(DictSizeInBytes(
                         ((PyDict)PyType.NeedStorage(self, "__sizeof__", "dict",
-                            PyNativeStorage.ForDict(self))).Length()));
+                            (self as PyDict))).Length()));
                 },
                 minArgs: 0, maxArgs: 0);
         }
