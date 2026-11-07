@@ -1626,11 +1626,10 @@ namespace SharpPy
     /// ob_type set to the subclass (Objects/dictobject.c dict_new), so it is a dict whose
     /// _customType is the class, with the __dict__ a heap type adds.
     /// </summary>
-    public sealed class PyDictSubclass : PyDict, IDictBackedInstance
+    public sealed class PyDictSubclass : PyDict
     {
         public PyDictSubclass(PyClass cls) => SetCustomType(cls);
 
-        public Dictionary<string, PyObject> InstanceDict { get; } = new();
 
     }
 }

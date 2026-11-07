@@ -142,7 +142,7 @@ namespace SharpPy.Modules
     /// leftblock[leftindex] and the last at rightblock[rightindex]; state counts every move of the
     /// indices, which is how iterators and searches see a mutation.
     /// </summary>
-    public sealed class PyDeque : PyObject, IDictBackedInstance
+    public sealed class PyDeque : PyObject
     {
         private const int BLOCKLEN = 64;
         private const int CENTER = (BLOCKLEN - 1) / 2;
@@ -154,8 +154,6 @@ namespace SharpPy.Modules
             internal readonly PyObject[] Data = new PyObject[BLOCKLEN];
         }
 
-        public Dictionary<string, PyObject> InstanceDict { get; } = new Dictionary<string, PyObject>();
-        private readonly PyType _type;
 
         private Block _leftblock;
         private Block _rightblock;
@@ -168,7 +166,7 @@ namespace SharpPy.Modules
         // deque_new
         internal PyDeque(PyType type)
         {
-            _type = type;
+            if (!ReferenceEquals(type, PyDequeModule.DequeType)) SetCustomType(type);
             var b = new Block();
             _leftblock = b;
             _rightblock = b;
@@ -176,10 +174,9 @@ namespace SharpPy.Modules
             _rightindex = CENTER;
         }
 
-        public override PyType GetPyType() => _type;
-        public override string GetTypeName() => _type.FullName;
-
-        // A Python subclass keeps its attributes in InstanceDict, like the other value subclasses.
+        // ob_type: deque, or the Python class that allocated the deque layout.
+        public override PyType GetPyType() => _customType ?? PyDequeModule.DequeType;
+        public override string GetTypeName() => GetPyType().FullName;
 
         private static Exception Mutated() => PyRuntimeError.Create("deque mutated during iteration");
 
@@ -360,7 +357,7 @@ namespace SharpPy.Modules
         // deque_copy: an exact deque is built here, a subclass by calling its type.
         internal PyObject Copy()
         {
-            if (ReferenceEquals(_type, PyDequeModule.DequeType))
+            if (ReferenceEquals(GetPyType(), PyDequeModule.DequeType))
             {
                 var newDeque = new PyDeque(PyDequeModule.DequeType) { MaxLen = MaxLen };
                 if (Size == 1)
@@ -370,10 +367,10 @@ namespace SharpPy.Modules
                 return newDeque;
             }
             var result = MaxLen < 0
-                ? _type.Call(new PyObject[] { this }, null)
-                : _type.Call(new PyObject[] { this, new PyInt(MaxLen) }, null);
+                ? GetPyType().Call(new PyObject[] { this }, null)
+                : GetPyType().Call(new PyObject[] { this, new PyInt(MaxLen) }, null);
             if (result is not PyDeque)
-                throw PyTypeError.Create($"{_type.FullName}() must return a deque, not {result.GetTypeName()}");
+                throw PyTypeError.Create($"{GetPyType().FullName}() must return a deque, not {result.GetTypeName()}");
             return result;
         }
 
@@ -824,7 +821,7 @@ namespace SharpPy.Modules
             var args = MaxLen < 0
                 ? PyTuple.Empty
                 : new PyTuple(new PyObject[] { PyTuple.Empty, new PyInt(MaxLen) });
-            return new PyTuple(new PyObject[] { _type, args, state, it });
+            return new PyTuple(new PyObject[] { GetPyType(), args, state, it });
         }
 
         // deque_init: "|OO:deque" with iterable and maxlen; PyLong_AsSsize_t takes only an int.
@@ -885,7 +882,7 @@ namespace SharpPy.Modules
             try
             {
                 var aslist = AsList();
-                string name = _type.Name;
+                string name = GetPyType().Name;
                 return new PyString(MaxLen >= 0
                     ? $"{name}({aslist.ToRepr().Value}, maxlen={MaxLen})"
                     : $"{name}({aslist.ToRepr().Value})");

@@ -16,14 +16,12 @@ namespace SharpPy
     /// type(x), isinstance() and the subclass's own methods report the subclass. int and str
     /// already had this shape (PyIntSubclass, PyStrSubclass): a float whose _customType is the class.
     /// </summary>
-    public class PyFloatSubclass : PyFloat, IDictBackedInstance
+    public class PyFloatSubclass : PyFloat
     {
         // float_subtype_new: ob_fval copied from the converted temporary, which stays as the exact
         // float float_float answers with.
         private readonly PyFloat _floatValue;
 
-        // float subclasses get an instance __dict__ (tp_alloc with the subclass's basicsize).
-        public Dictionary<string, PyObject> InstanceDict { get; }
 
         public PyFloatSubclass(PyClass cls, double value) : this(cls, new PyFloat(value)) { }
 
@@ -31,7 +29,6 @@ namespace SharpPy
         {
             SetCustomType(cls);
             _floatValue = floatValue;
-            InstanceDict = new Dictionary<string, PyObject>();
         }
 
         public PyFloat GetFloatValue() => _floatValue;
@@ -41,7 +38,7 @@ namespace SharpPy
 
         // An enum member reads _value_ before the class sets it.
         internal override PyObject GenericGetAttr(string name) =>
-            name == "_value_" && !InstanceDict.ContainsKey("_value_")
+            name == "_value_" && !HeapDict.ContainsKey("_value_")
                 ? _floatValue
                 : base.GenericGetAttr(name);
     }

@@ -15,7 +15,7 @@ namespace SharpPy
     /// An int whose ob_type is the subclass: _customType, as for every builtin a Python class
     /// derives from, so the exact-int fast paths (GetType and HasCustomType) pass it by.
     /// </summary>
-    public class PyIntSubclass : PyInt, IDictBackedInstance
+    public class PyIntSubclass : PyInt
     {
         // CPython: Objects/longobject.c:5671-5674
         // newobj->long_value.lv_tag = tmp->long_value.lv_tag;
@@ -24,19 +24,15 @@ namespace SharpPy
         // }
         private readonly PyInt _intValue;
 
-        // CPython: 서브클래스 인스턴스는 __dict__ 슬롯을 가짐
-        public Dictionary<string, PyObject> InstanceDict { get; }
 
         public PyIntSubclass(PyClass cls, long value) : base(value, cls)
         {
             _intValue = new PyInt(value);
-            InstanceDict = new Dictionary<string, PyObject>();
         }
 
         public PyIntSubclass(PyClass cls, PyInt intValue) : base(intValue.Value, cls)
         {
             _intValue = intValue;
-            InstanceDict = new Dictionary<string, PyObject>();
         }
 
         // An int subclass instance is an int object whose type is the subclass (long_subtype_new):
@@ -49,7 +45,7 @@ namespace SharpPy
         // The class's tp_getattro (SubclassInstanceSupport.GetAttribute); the payload type's own
         // attributes come last. An enum member reads _value_ before the class sets it.
         internal override PyObject GenericGetAttr(string name) =>
-            name == "_value_" && !InstanceDict.ContainsKey("_value_")
+            name == "_value_" && !HeapDict.ContainsKey("_value_")
                 ? _intValue
                 : base.GenericGetAttr(name);
 

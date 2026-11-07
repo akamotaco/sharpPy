@@ -974,11 +974,10 @@ namespace SharpPy
     }
 
     /// <summary>A Python class deriving from bytearray: the layout of bytearray, its own type and __dict__.</summary>
-    public sealed class PyByteArraySubclass : PyByteArray, IDictBackedInstance
+    public sealed class PyByteArraySubclass : PyByteArray
     {
         public PyByteArraySubclass(PyType type) => SetCustomType(type);
 
-        public Dictionary<string, PyObject> InstanceDict { get; } = new();
 
     }
 

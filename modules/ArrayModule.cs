@@ -172,14 +172,15 @@ namespace SharpPy.Modules
             }
         }
 
-        public sealed class PyArray : PyObject, IDictBackedInstance
+        public sealed class PyArray : PyObject
         {
-            private readonly PyType _type;
+            /// <summary>array.array; what slicing, concatenation, repetition and copying build
+            /// (newarrayobject(state->ArrayType, ...)), whatever the operand's class.</summary>
+            internal static PyType ArrayType;
             internal readonly char _typecode;
             internal byte[] _buffer;
             internal int _count;
 
-            public Dictionary<string, PyObject> InstanceDict { get; } = new Dictionary<string, PyObject>();
 
             internal int ItemSize => TypeCodeTable[_typecode].Size;
             internal int Count => _count;
@@ -187,14 +188,14 @@ namespace SharpPy.Modules
 
             public PyArray(PyType type, char typecode)
             {
-                _type = type;
+                if (!ReferenceEquals(type, ArrayType)) SetCustomType(type);
                 _typecode = typecode;
                 _buffer = Array.Empty<byte>();
                 _count = 0;
             }
 
-            public override PyType GetPyType() => _type;
-            public override string GetTypeName() => _type.Name;
+            public override PyType GetPyType() => _customType ?? ArrayType;
+            public override string GetTypeName() => GetPyType().FullName;
 
             // array_buffer_getbuf: the view is over the items themselves, with no spare capacity.
             public override PyMemoryView GetBuffer(int flags)
@@ -249,7 +250,7 @@ namespace SharpPy.Modules
                 {
                     var (start, stop, step) = slice.Indices(_count);
                     int count = slice.GetIndices(_count).Length;
-                    var result = new PyArray(_type, _typecode);
+                    var result = new PyArray(ArrayType, _typecode);
                     result.EnsureCapacity(count);
                     int idx = start;
                     for (int i = 0; i < count; i++)
@@ -394,7 +395,7 @@ namespace SharpPy.Modules
                     throw PyTypeError.Create($"can only append array (not \"{other.GetTypeName()}\") to array");
                 if (arr._typecode != _typecode)
                     throw PyTypeError.Create("can only append two arrays with the same typecode");
-                var result = new PyArray(_type, _typecode);
+                var result = new PyArray(ArrayType, _typecode);
                 int total = _count + arr._count;
                 result.EnsureCapacity(total);
                 int itemSize = ItemSize;
@@ -411,7 +412,7 @@ namespace SharpPy.Modules
                 else if (other is PyBool pb) n = pb.Value ? 1 : 0;
                 else return PyNotImplemented.Instance;
                 if (n < 0) n = 0;
-                var result = new PyArray(_type, _typecode);
+                var result = new PyArray(ArrayType, _typecode);
                 int total = _count * (int)n;
                 result.EnsureCapacity(total);
                 int itemSize = ItemSize;
@@ -698,7 +699,7 @@ namespace SharpPy.Modules
 
             internal PyArray Copy()
             {
-                var result = new PyArray(_type, _typecode);
+                var result = new PyArray(ArrayType, _typecode);
                 int itemSize = ItemSize;
                 result.EnsureCapacity(_count);
                 Array.Copy(_buffer, result._buffer, _count * itemSize);
@@ -720,7 +721,7 @@ namespace SharpPy.Modules
             // array___reduce_ex___impl
             internal PyTuple ReduceEx(int protocol)
             {
-                PyObject state = this is IDictBackedInstance owner && owner.InstanceDict.Count != 0 ? GetAttribute("__dict__") : PyNone.Instance;
+                PyObject state = HasCustomType ? GetAttribute("__dict__") : PyNone.Instance;
                 if (protocol < 3)
                     return new PyTuple(new PyObject[]
                     {
@@ -862,6 +863,7 @@ namespace SharpPy.Modules
             var module = new PyModule("array");
 
             var type = new PyType("array", new[] { PyType.ObjectType }, "array");
+            PyArray.ArrayType = type;
 
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
             {

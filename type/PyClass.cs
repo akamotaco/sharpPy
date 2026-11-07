@@ -1259,10 +1259,9 @@ namespace SharpPy
     /// Tuple subclass instance for user-defined classes that inherit from tuple
     /// CPython 3.12: Used for namedtuple and other tuple subclasses
     /// </summary>
-    public class PyTupleSubclass : PyTuple, IDictBackedInstance
+    public class PyTupleSubclass : PyTuple
     {
 
-        public Dictionary<string, PyObject> InstanceDict { get; }
 
         // update_one_slot: a declared __repr__ or __str__ replaces the slot, otherwise tuple's stays.
 
@@ -1273,7 +1272,6 @@ namespace SharpPy
         public PyTupleSubclass(PyClass instanceType, PyObject[] items) : base(items)
         {
             SetCustomType(instanceType);
-            InstanceDict = new Dictionary<string, PyObject>();
         }
 
         // User-defined descriptors, methods and the instance __dict__ live in the Python class dict,

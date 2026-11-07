@@ -5,28 +5,26 @@ using System.Linq;
 namespace SharpPy
 {
     /// <summary>list[int], tuple[str, int]: a PEP 585 alias, and the base of classes deriving from it.</summary>
-    public class PyGenericAlias : PyObject, IDictBackedInstance
+    public class PyGenericAlias : PyObject
     {
-        private readonly PyType _type;
         private readonly bool _starred;
         private PyTuple _parameters;
 
         public PyObject Origin { get; }
         public PyTuple Args { get; }
-        public Dictionary<string, PyObject> InstanceDict { get; } = new();
 
         // setup_ga
         public PyGenericAlias(PyObject origin, PyObject args, PyType type = null, bool starred = false)
         {
-            _type = type ?? PyType.GenericAliasType;
+            if (type != null && !ReferenceEquals(type, PyType.GenericAliasType)) SetCustomType(type);
             _starred = starred;
             Origin = origin;
             Args = args as PyTuple ?? new PyTuple(new[] { args });
         }
 
-        public override PyType GetPyType() => _type;
+        public override PyType GetPyType() => _customType ?? PyType.GenericAliasType;
 
-        public override string GetTypeName() => _type.Name;
+        public override string GetTypeName() => GetPyType().FullName;
 
         private static PyObject LookupAttr(PyObject value, string name)
         {
@@ -67,7 +65,7 @@ namespace SharpPy
         internal static PyObject Reduce(PyObject self)
         {
             var alias = (PyGenericAlias)self;
-            return new PyTuple(new PyObject[] { alias._type, new PyTuple(new[] { alias.Origin, alias.Args }) });
+            return new PyTuple(new PyObject[] { alias.GetPyType(), new PyTuple(new[] { alias.Origin, alias.Args }) });
         }
 
         // attr_exceptions and ga_getattro: what is not the alias's own goes to the origin.
@@ -78,7 +76,7 @@ namespace SharpPy
         {
             switch (name)
             {
-                case "__class__": return _type;
+                case "__class__": return GetPyType();
                 case "__origin__": return Origin;
                 case "__args__": return Args;
                 case "__unpacked__": return PyBool.FromBool(_starred);
@@ -325,7 +323,7 @@ namespace SharpPy
 
         // ga_iternext: *tuple[int] is an alias that unpacks
         protected internal override PyObject Iter() => new PyList(new PyObject[]
-            { new PyGenericAlias(Origin, Args, _type, starred: true) }).GetIterator();
+            { new PyGenericAlias(Origin, Args, GetPyType(), starred: true) }).GetIterator();
 
         public override PyObject BitwiseOr(PyObject other) => PyUnionType.Or(this, other);
     }

@@ -16,7 +16,7 @@ public interface IDescriptor
     /// property (Objects/descrobject.c): tp_new allocates, property_init fills, and getter, setter
     /// and deleter build a new object through type(self), so a subclass stays a subclass.
     /// </summary>
-    public class PyProperty : PyObject, IDescriptor, IDictBackedInstance
+    public class PyProperty : PyObject, IDescriptor
     {
         private PyObject? _get;
         private PyObject? _set;
@@ -25,8 +25,6 @@ public interface IDescriptor
         private PyObject? _name;
         private bool _getterDoc;
         private static bool _installed;
-
-        public Dictionary<string, PyObject> InstanceDict { get; } = new();
 
         public PyProperty() => InitializePropertyDescriptors();
 

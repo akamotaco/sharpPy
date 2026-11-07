@@ -138,15 +138,13 @@ namespace SharpPy
     /// reference subclass a __dict__ (Objects/weakrefobject.c:690 weakref_subclass sets
     /// tp_dictoffset); Lib/weakref.py:341 KeyedRef relies on it through __slots__.
     /// </summary>
-    internal sealed class PyWeakRefSubclass : PyWeakRef, IDictBackedInstance
+    internal sealed class PyWeakRefSubclass : PyWeakRef
     {
-        public Dictionary<string, PyObject> InstanceDict { get; }
 
         public PyWeakRefSubclass(PyClass instanceType, PyObject target, PyObject callback)
             : base(target, callback)
         {
             SetCustomType(instanceType);
-            InstanceDict = new Dictionary<string, PyObject>();
         }
 
 

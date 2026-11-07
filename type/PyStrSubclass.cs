@@ -14,21 +14,18 @@ namespace SharpPy
     ///
     /// SharpPy에서는 PyString의 모든 동작을 위임하면서 추가 속성을 지원
     /// </summary>
-    public class PyStrSubclass : PyString, IDictBackedInstance
+    public class PyStrSubclass : PyString
     {
         // unicode_subtype_new copies the data of the exact str it made first; that str stays as
         // the exact value str() and the enum's _value_ give back.
         private readonly PyString _strValue;
 
-        // CPython: 서브클래스 인스턴스는 __dict__ 슬롯을 가짐
-        public Dictionary<string, PyObject> InstanceDict { get; }
 
         public PyStrSubclass(PyClass cls, string value) : this(cls, new PyString(value)) { }
 
         public PyStrSubclass(PyClass cls, PyString strValue) : base(strValue.Value)
         {
             _strValue = strValue;
-            InstanceDict = new Dictionary<string, PyObject>();
             SetCustomType(cls);
         }
 
@@ -36,7 +33,7 @@ namespace SharpPy
 
         // An enum member reads _value_ before the class sets it.
         internal override PyObject GenericGetAttr(string name) =>
-            name == "_value_" && !InstanceDict.ContainsKey("_value_")
+            name == "_value_" && !HeapDict.ContainsKey("_value_")
                 ? _strValue
                 : base.GenericGetAttr(name);
 
