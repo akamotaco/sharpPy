@@ -36,6 +36,10 @@ from keyword import iskeyword as _iskeyword
 from operator import eq as _eq
 from operator import itemgetter as _itemgetter
 from reprlib import recursive_repr as _recursive_repr
+from _thread import get_ident as _get_ident
+
+# Py_ReprEnter of defaultdict factories: (id, thread) pairs being repr-ed
+_factory_repr_running = set()
 _proxy = lambda link: link  # OrderedDict breaks a cycle with weak proxies; the CLR collector needs no help.
 
 try:
@@ -68,9 +72,24 @@ class defaultdict(dict):
         self[key] = value = self.default_factory()
         return value
 
-    @_recursive_repr()
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.default_factory!r}, {dict.__repr__(self)})'
+        # defdict_repr: the dict's repr first, then the factory's under Py_ReprEnter of the
+        # factory (not of the dict), named by the type.
+        base = dict.__repr__(self)
+        factory = self.default_factory
+        if factory is None:
+            factory_repr = 'None'
+        else:
+            key = id(factory), _get_ident()
+            if key in _factory_repr_running:
+                factory_repr = '...'
+            else:
+                _factory_repr_running.add(key)
+                try:
+                    factory_repr = repr(factory)
+                finally:
+                    _factory_repr_running.discard(key)
+        return f'{type(self).__name__}({factory_repr}, {base})'
 
     def copy(self):
         return type(self)(self.default_factory, self)

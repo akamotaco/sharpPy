@@ -1049,16 +1049,12 @@ namespace SharpPy
             Zero(type, "__alloc__", self => PyInt.From(((PyByteArray)self).Allocated));
             Zero(type, "__reduce__", self => ReduceEx(self, 2));
             Def(type, "__reduce_ex__", (self, args, kwargs) => ReduceEx(self, args.Length > 0 ? AsSsize(args[0]) : 3));
-            One(type, "__mod__", (self, other) => self.Modulo(other));
-            One(type, "__rmod__", (self, other) => PyNotImplemented.Instance);
         }
 
         internal static void InstallBytes(PyType type)
         {
             Zero(type, "__getnewargs__", self => PyTuple.From(new PyObject[] { PyBytes.From(Self(self)) }));
             Zero(type, "__bytes__", self => ReferenceEquals(self.GetPyType(), PyType.BytesType) ? self : PyBytes.From(Self(self)));
-            One(type, "__mod__", (self, other) => self.Modulo(other));
-            One(type, "__rmod__", (self, other) => PyNotImplemented.Instance);
         }
 
         internal static void Install(PyType type)

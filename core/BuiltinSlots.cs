@@ -375,7 +375,7 @@ namespace SharpPy
             })
                 Slot(PyType.BoolType, $"__r{name}__", (self, args) => args[0] is PyInt or PyBool ? operation(args[0], self) : PyNotImplemented.Instance);
             Slot(PyNotImplemented.Instance.GetPyType(), "__bool__", (self, args) => PyBool.FromBool(self.Bool()));
-            Method(PyType.BytesType, "__getnewargs__", (self, args) => PyTuple.From(new[] { self }));
+            // bytes_mod and bytearray_mod are nb_remainder: __rmod__(self, other) is mod(other, self).
             Slot(PyType.BytesType, "__mod__", (self, args) => self.Modulo(args[0]));
             Slot(PyType.BytesType, "__rmod__", (self, args) => args[0] is PyBytes format ? format.Modulo(self) : PyNotImplemented.Instance);
 

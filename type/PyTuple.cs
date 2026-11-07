@@ -70,7 +70,8 @@ namespace SharpPy
 
             tupleType.TypeDict["__getnewargs__"] = new PyMethodDescriptor(
                 "__getnewargs__", tupleType,
-                (self, args, kwargs) => PyTuple.From(new PyObject[] { self }),
+                // tuple_getnewargs: (tupleslice(v, 0, n),), the tuple itself only when exact.
+                (self, args, kwargs) => PyTuple.From(((PyTuple)self).Stored),
                 minArgs: 0, maxArgs: 0);
 
             // CPython 3.12: Objects/tupleobject.c:488-502 - tuple_index
