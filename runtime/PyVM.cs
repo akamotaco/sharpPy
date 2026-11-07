@@ -77,8 +77,6 @@ namespace SharpPy
 
         // CPython-style error location tracking
         public int CurrentLineNumber { get; set; } = -1;
-        public int CurrentColumnOffset { get; set; } = -1;
-        public string? CurrentFileName { get; set; }
 
         // CPython 3.12: Keyword names for next CALL instruction
         public PyTuple? KeywordNamesForNextCall { get; set; }
@@ -165,7 +163,6 @@ namespace SharpPy
             Globals = ScopeChain.GlobalScope?.Variables ?? new Dictionary<string, PyObject>();
 
             // Initialize filename from code object
-            CurrentFileName = code.FileName;
 
             // func_closure, which COPY_FREE_VARS copies into the free slots.
             Closure = closure ?? Array.Empty<PyCell>();
@@ -1365,11 +1362,6 @@ namespace SharpPy
                         // An instruction with no location has no line: PyCode_Addr2Line gives -1.
                         frame.CurrentLineNumber = instruction.LineNumber;
                     }
-                    if (instruction.ColumnOffset >= 0)
-                    {
-                        frame.CurrentColumnOffset = instruction.ColumnOffset;
-                    }
-                    frame.CurrentFileName = frame.Code.FileName;
                     if ((TraceFunction != null || ProfileFunction != null) && !_tracing)
                         TraceInstruction(frame, instruction);
 
@@ -1439,22 +1431,6 @@ namespace SharpPy
                         // What C# threw inside an instruction is a Python exception from here on:
                         // any except clause sees it, and the frames unwind as for any other.
                         var pyEx = thrown as PythonException ?? new PythonException(ConvertToPythonException(thrown));
-
-                        // CPython-style error location tracking: Enrich exception with current location
-                        if (string.IsNullOrEmpty(pyEx.FileName) && !string.IsNullOrEmpty(frame.CurrentFileName))
-                        {
-                            pyEx.FileName = frame.CurrentFileName;
-                            pyEx.LineNumber = frame.CurrentLineNumber;
-                            pyEx.ColumnOffset = frame.CurrentColumnOffset;
-                            pyEx.SourceLines = frame.Code.SourceLines; // Add source lines for context display
-
-                            // Debug: Show enriched exception info
-#if DEBUG_LOG
-                            Console.WriteLine($"🔍 Exception enriched: {pyEx.FileName}:{pyEx.LineNumber}:{pyEx.ColumnOffset}");
-                            Console.WriteLine($"🔍 Source lines available: {pyEx.SourceLines?.Count ?? 0}");
-                            Console.WriteLine($"🔍 Full exception: {pyEx}");
-#endif
-                        }
 
                         // CPython 3.12: Add current frame to traceback BEFORE unwinding
                         // Corresponds to PyTraceBack_Here() in CPython ceval.c:941
@@ -6417,24 +6393,16 @@ namespace SharpPy
                 tb = tb.Next;
             }
 
-            // 3. Get line number and column offset - try multiple strategies
+            // 3. Get line number - try multiple strategies (the columns are the location table's, by tb_lasti)
             int lineNo = 0;
-            int colNo = -1;
 
-            // Strategy 1: Get line number and column offset directly from instruction
+            // Strategy 1: the line of the instruction itself
             if (lasti >= 0 && lasti < frame.Code.Instructions.Count)
-            {
-                var instr = frame.Code.Instructions[lasti];
-                lineNo = instr.LineNumber;
-                colNo = instr.ColumnOffset;
-            }
+                lineNo = frame.Code.Instructions[lasti].LineNumber;
 
             // Strategy 2: Use CurrentLineNumber if valid
             if (lineNo <= 0 && frame.CurrentLineNumber > 0)
-            {
                 lineNo = frame.CurrentLineNumber;
-                colNo = frame.CurrentColumnOffset;
-            }
 
             // Strategy 3: Look up exact lasti in LineNumberTable
             if (lineNo <= 0 && frame.Code.LineNumberTable.TryGetValue(lasti, out var line))
@@ -6466,10 +6434,6 @@ namespace SharpPy
                         if (instrLine > 0)
                         {
                             lineNo = instrLine;
-                            if (colNo < 0)
-                            {
-                                colNo = frame.Code.Instructions[offset].ColumnOffset;
-                            }
                             break;
                         }
                     }
@@ -6483,9 +6447,7 @@ namespace SharpPy
                 // tb_lasti is a byte offset: _PyInterpreterFrame_LASTI(frame) * sizeof(_Py_CODEUNIT).
                 lasti: lasti * 2,
                 lineno: lineNo,
-                next: existingTraceback,  // Link to existing chain (prepend)
-                colno: colNo,
-                endcolno: colNo  // For now, use same value for end
+                next: existingTraceback  // Link to existing chain (prepend)
             );
 
             // 5. Attach new traceback to exception

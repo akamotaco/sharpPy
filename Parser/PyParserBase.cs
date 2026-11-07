@@ -665,23 +665,8 @@ namespace SharpPy.Generated
         private GeneratedTokenInfo LastFilledToken => _tokens[_tokens.Count - 1];
 
         // _PyPegen_byte_offset_to_character_offset
-        private static int ByteOffsetToCharacterOffset(string line, int colOffset)
-        {
-            int bytes = 0, characters = 0;
-            for (int i = 0; i < line.Length && bytes < colOffset; i++)
-            {
-                char c = line[i];
-                if (char.IsHighSurrogate(c) && i + 1 < line.Length && char.IsLowSurrogate(line[i + 1]))
-                {
-                    bytes += 4;
-                    i++;
-                }
-                else
-                    bytes += c < 0x80 ? 1 : c < 0x800 ? 2 : 3;
-                characters++;
-            }
-            return bytes < colOffset ? characters + 1 : characters;
-        }
+        private static int ByteOffsetToCharacterOffset(string line, int colOffset) =>
+            (int)PyErrorDisplay.ByteOffsetToCharacterOffset(line, colOffset);
 
         // _PyErr_ProgramDecodedTextObject
         private static string ProgramText(string filename, int lineno)

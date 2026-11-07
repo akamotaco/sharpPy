@@ -81,6 +81,7 @@
 ## 1a. 예외 출력
 
 - 1a-1. 예외 출력은 `runtime/PyErrorDisplay.cs` 하나다: `_PyErr_Display`(`print_exception_recursive`, 체인, 그룹, 노트, `print_exception_file_and_line`/`print_error_text`, `_Py_Offer_Suggestions`)와 `traceback.c`의 `tb_printinternal`/`tb_displayline`(소스 줄, AST 앵커, 캐럿, 반복 줄 접기). `sys.excepthook`, `sys.__excepthook__`, `PyErr_PrintEx`(훅 실패 시 "Error in sys.excepthook")가 이것을 부른다. `traceback.py`는 라이브러리의 포매터로 따로 남는다(CPython과 같다).
+- 1a-2. 줄 번호가 경로 셋이다. VM은 명령마다 `frame.CurrentLineNumber`를 `LineNumberTable` 또는 `instruction.LineNumber`(같은 사실의 두 출처)로 갱신하고, `f_lineno`는 그것을 읽고, `PyTraceBack_Here`는 다섯 단계의 대체 규칙으로 줄을 정한다. CPython은 `PyFrame_GetLineNumber`(추적 중이 아니면 `PyCode_Addr2Line(code, lasti)`) 하나를 필요할 때 계산한다. 할 일: 위치 표에서 `lasti`로 구하는 한 함수로, `f_lineno` 쓰기(점프)는 `f_lineno` 필드로.
 
 ## 4. 이터레이터와 제너레이터
 

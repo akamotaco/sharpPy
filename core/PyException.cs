@@ -1010,12 +1010,6 @@ namespace SharpPy
     {
         public PyBaseException PyException { get; }
 
-        // CPython-style error location information
-        public string? FileName { get; set; }
-        public int LineNumber { get; set; } = -1;
-        public int ColumnOffset { get; set; } = -1;
-        public List<string>? SourceLines { get; set; } // Source code lines for context display
-
         // CPython 3.12: Track if exception is from RERAISE to preserve traceback
         public bool FromReraise { get; set; } = false;
 
@@ -1023,15 +1017,6 @@ namespace SharpPy
             : base(pyException.Message)
         {
             PyException = pyException;
-        }
-
-        public PythonException(PyBaseException pyException, string? fileName, int lineNumber, int columnOffset = -1)
-            : base(pyException.Message)
-        {
-            PyException = pyException;
-            FileName = fileName;
-            LineNumber = lineNumber;
-            ColumnOffset = columnOffset;
         }
 
         // CPython 3.12: Constructor for RERAISE - preserves existing traceback
@@ -1044,42 +1029,8 @@ namespace SharpPy
 
         public override string Message => PyException.ToStr().Value;
 
-        public override string ToString()
-        {
-            var baseStr = PyException.ToRepr().Value;
-
-            // CPython-style location information with source context
-            if (!string.IsNullOrEmpty(FileName) && LineNumber > 0)
-            {
-                var result = new System.Text.StringBuilder();
-                result.AppendLine("Traceback (most recent call last):");
-
-                // File location info
-                var locationStr = $"  File \"{FileName}\", line {LineNumber}, in <module>";
-                result.AppendLine(locationStr);
-
-                // Source code context (if available)
-                if (SourceLines != null && LineNumber > 0 && LineNumber <= SourceLines.Count)
-                {
-                    var sourceLine = SourceLines[LineNumber - 1]; // Convert to 0-based index
-                    result.AppendLine($"    {sourceLine}");
-
-                    // Add position marker if column offset is available
-                    if (ColumnOffset >= 0 && ColumnOffset < sourceLine.Length)
-                    {
-                        var spaces = new string(' ', 4 + ColumnOffset); // 4 spaces for indentation + column offset
-                        result.AppendLine($"{spaces}^");
-                    }
-                }
-
-                // Exception type and message
-                result.Append($"{PyException.GetTypeName()}: {PyException.ToStr().Value}");
-
-                return result.ToString();
-            }
-
-            return baseStr;
-        }
+        /// <summary>What PyErr_Display writes for the exception, as text for the host to log.</summary>
+        public override string ToString() => PyErrorDisplay.Format(PyException);
     }
 
     #endregion
@@ -2145,16 +2096,12 @@ namespace SharpPy
         public PyFrame Frame { get; set; }         // tb_frame: execution frame snapshot
         public int LastI { get; set; }             // tb_lasti: byte offset of the last instruction
         public int LineNo { get; set; }            // tb_lineno: line number
-        public int ColNo { get; set; }             // Column offset (CPython 3.12)
-        public int EndColNo { get; set; }          // End column offset (CPython 3.12)
 
-        public PyTraceback(PyFrame frame, int lasti, int lineno, PyTraceback? next = null, int colno = -1, int endcolno = -1)
+        public PyTraceback(PyFrame frame, int lasti, int lineno, PyTraceback? next = null)
         {
             Frame = frame;
             LastI = lasti;
             LineNo = lineno;
-            ColNo = colno;
-            EndColNo = endcolno;
             Next = next;
         }
 

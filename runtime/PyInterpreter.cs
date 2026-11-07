@@ -33,8 +33,6 @@ namespace SharpPy
         private readonly PyScopeChain _globalScope;
         
         // For Python-like error reporting
-        private string _currentFileName;
-        private string[] _sourceLines;
         
         public IntegratedPythonInterpreter()
         {
@@ -134,9 +132,7 @@ namespace SharpPy
             // Store filename and source lines for Python-like error reporting
             if (mode == CompileMode.File && !string.IsNullOrEmpty(fileName) && !fileName.StartsWith("<", StringComparison.Ordinal))
                 PyGlobalsDict.Store(_globalScope.GlobalScope.Variables, "__file__", PyString.From(fileName));
-            _currentFileName = fileName;
             // Fix: Handle all line ending types correctly (\r\n, \r, \n)
-            _sourceLines = sourceCode.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
             
             // Verbose 모드일 때만 상세 디버그 정보 출력
 #if DEBUG_LOG
@@ -265,8 +261,6 @@ namespace SharpPy
         public PyCodeObject CompileOnly(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode)
         {
             // Store filename and source lines for Python-like error reporting
-            _currentFileName = fileName;
-            _sourceLines = sourceCode.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
 #if DEBUG_LOG
             Console.WriteLine("🐍 Python 컴파일 전용 모드 (실행 안 함)");

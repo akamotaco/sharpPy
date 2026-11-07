@@ -56,6 +56,21 @@ namespace SharpPy
             Display(file, value, tb);
         }
 
+        /// <summary>_PyErr_Display into a str, for a host that logs the exception rather than printing it.</summary>
+        internal static string Format(PyBaseException exception)
+        {
+            try
+            {
+                var buffer = PyImportSystem.Import("io").GetAttribute("StringIO").Call(Array.Empty<PyObject>(), null);
+                Display(buffer, exception, null);
+                return ((PyString)buffer.GetAttribute("getvalue").Call(Array.Empty<PyObject>(), null)).Value;
+            }
+            catch (Exception)
+            {
+                return $"{exception.GetTypeName()}: {exception.Message}";
+            }
+        }
+
         /// <summary>_PyErr_Display</summary>
         internal static void Display(PyObject file, PyObject value, PyObject tb)
         {
