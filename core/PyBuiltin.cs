@@ -304,36 +304,22 @@ namespace SharpPy
             // the error rather than ignored.
             RejectUnknownKeywords(kwargs, "print", "sep", "end", "file", "flush");
 
-            // kwargs 처리
+            // builtin_print_impl: sep and end are None or a str, file None is sys.stdout, flush is
+            // its truth value.
             if (kwargs != null)
             {
-                try
-                {
-                    var sepValue = kwargs.GetItem(new PyString("sep"));
-                    sep = sepValue as PyString ?? new PyString(sepValue.ToClrString());
-                }
-                catch { }
-
-                try
-                {
-                    var endValue = kwargs.GetItem(new PyString("end"));
-                    end = endValue as PyString ?? new PyString(endValue.ToClrString());
-                }
-                catch { }
-
-                try
-                {
-                    var fileValue = kwargs.GetItem(new PyString("file"));
+                var sepValue = KwValue(kwargs, "sep");
+                if (sepValue != null && sepValue is not PyNone)
+                    sep = sepValue as PyString ?? throw PyTypeError.Create($"sep must be None or a string, not {sepValue.GetTypeName()}");
+                var endValue = KwValue(kwargs, "end");
+                if (endValue != null && endValue is not PyNone)
+                    end = endValue as PyString ?? throw PyTypeError.Create($"end must be None or a string, not {endValue.GetTypeName()}");
+                var fileValue = KwValue(kwargs, "file");
+                if (fileValue != null && fileValue is not PyNone)
                     file = fileValue;
-                }
-                catch { }
-
-                try
-                {
-                    var flushValue = kwargs.GetItem(new PyString("flush"));
-                    flush = flushValue as PyBool ?? PyBool.FromBool(flushValue.IsTrue());
-                }
-                catch { }
+                var flushValue = KwValue(kwargs, "flush");
+                if (flushValue != null)
+                    flush = PyBool.FromBool(flushValue.IsTrue());
             }
 
             // 출력 생성 - CPython 3.12: print는 str()을 사용, repr()이 아님
