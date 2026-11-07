@@ -18,7 +18,7 @@ namespace SharpPy
             // unicode__format__ with an empty spec is str(self), and the right operand of
             // __rmod__ is formatted: both keep the subclass.
             !ReferenceEquals(ownerType, PyType.StrType) || name is "__format__" or "__rmod__" ? implementation
-                : (self, args, kwargs) => implementation(self is PyStrSubclass text ? text.GetStrValue() : self, args, kwargs);
+                : implementation;
 
         public string Name { get; }
         public PyType OwnerType { get; }

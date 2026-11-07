@@ -964,48 +964,32 @@ public class PyModule : PyObject
                 throw PyImportError.Create("attempted relative import with no known parent package");
             }
 
-            // CPython 3.12 resolution algorithm:
-            // 1. Try __package__
-            string package = null;
-            if (globals.TryGetValue("__package__", out PyObject pkgObj) &&
-                pkgObj != PyNone.Instance && pkgObj is PyString pkgStr)
+            // resolve_name (Python/import.c): __package__, else __spec__.parent, else __name__
+            // (and __path__) with an ImportWarning.
+            string package;
+            globals.TryGetValue("__package__", out var packageObject);
+            if (packageObject is PyNone) packageObject = null;
+            globals.TryGetValue("__spec__", out var spec);
+            if (packageObject != null)
             {
-                package = pkgStr.Value;
+                package = (packageObject as PyString)?.Value ?? throw PyTypeError.Create("package must be a string");
             }
-
-            // 2. Try __spec__.parent (TODO: implement when PyModuleSpec is added)
-            if (string.IsNullOrEmpty(package) &&
-                globals.TryGetValue("__spec__", out PyObject specObj) &&
-                specObj != PyNone.Instance)
+            else if (spec != null && spec is not PyNone)
             {
-                // TODO: Access spec.parent when PyModuleSpec is implemented
-                // For now, skip this step
+                package = (spec.GetAttribute("parent") as PyString)?.Value
+                    ?? throw PyTypeError.Create("__spec__.parent must be a string");
             }
-
-            // 3. Fallback: derive from __name__ and __path__
-            if (string.IsNullOrEmpty(package))
+            else
             {
-                if (!globals.TryGetValue("__name__", out PyObject nameObj) ||
-                    !(nameObj is PyString nameStr))
-                {
-                    throw PyImportError.Create("'__name__' not in globals or not a string");
-                }
-
-                package = nameStr.Value;
-
-                // If module (not package), strip last component
+                PyWarnings.Warn(PyType.ImportWarningType,
+                    "can't resolve package from __spec__ or __package__, falling back on __name__ and __path__", 1);
+                if (!globals.TryGetValue("__name__", out var nameObject))
+                    throw PyKeyError.Create(new PyString("'__name__' not in globals"));
+                package = (nameObject as PyString)?.Value ?? throw PyTypeError.Create("__name__ must be a string");
                 if (!globals.ContainsKey("__path__"))
                 {
                     int lastDot = package.LastIndexOf('.');
-                    if (lastDot >= 0)
-                    {
-                        package = package.Substring(0, lastDot);
-                    }
-                    else
-                    {
-                        // Top-level module cannot do relative import
-                        package = "";
-                    }
+                    package = lastDot >= 0 ? package.Substring(0, lastDot) : "";
                 }
             }
 

@@ -134,6 +134,10 @@ namespace SharpPy
             };
         }
 
+        // set_richcompare answers Py_NE as the negation of its own equality, not through __eq__.
+        protected override PyObject PyNotEquals(PyObject other) =>
+            PyEquals(other) is PyBool equal ? PyBool.FromBool(!equal.IsTrue()) : PyNotImplemented.Instance;
+
         #endregion
 
         #region Set Operations
@@ -654,6 +658,10 @@ namespace SharpPy
                 _ => PyBool.False
             };
         }
+
+        // set_richcompare answers Py_NE as the negation of its own equality, not through __eq__.
+        protected override PyObject PyNotEquals(PyObject other) =>
+            PyEquals(other) is PyBool equal ? PyBool.FromBool(!equal.IsTrue()) : PyNotImplemented.Instance;
 
         #endregion
 

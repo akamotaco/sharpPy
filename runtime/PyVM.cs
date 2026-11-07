@@ -1755,6 +1755,37 @@ namespace SharpPy
         }
 
         // Keep mapping protocol exception handling outside the opcode dispatcher.
+        /// <summary>
+        /// import_from's error (Python/ceval.c): ImportError naming the module (its __name__, or
+        /// "<unknown module name>") and its file (PyModule_GetFilenameObject, "unknown location"
+        /// without one), "partially initialized" while its spec is still initializing, with name,
+        /// path and name_from set as _PyErr_SetImportErrorWithNameFrom sets them.
+        /// </summary>
+        private static PythonException ImportFromError(PyObject module, string itemName)
+        {
+            var packageName = module.LookupAttribute("__name__") as PyString;
+            string shown = packageName != null ? packageName.ToRepr().Value : "'<unknown module name>'";
+            PyString path = module is PyModule fileModule && fileModule.ModuleDict.TryGetValue("__file__", out var file)
+                ? file as PyString : null;
+            string message;
+            if (path == null)
+                message = $"cannot import name {new PyString(itemName).ToRepr().Value} from {shown} (unknown location)";
+            else
+            {
+                var spec = module.LookupAttribute("__spec__");
+                bool initializing = spec != null && spec is not PyNone && spec.LookupAttribute("_initializing") is { } flag && flag.IsTrue();
+                message = initializing
+                    ? $"cannot import name {new PyString(itemName).ToRepr().Value} from partially initialized module {shown} (most likely due to a circular import) ({path.Value})"
+                    : $"cannot import name {new PyString(itemName).ToRepr().Value} from {shown} ({path.Value})";
+            }
+            var kwargs = new PyDict();
+            kwargs.SetItem(new PyString("name"), (PyObject)packageName ?? PyNone.Instance);
+            kwargs.SetItem(new PyString("path"), (PyObject)path ?? PyNone.Instance);
+            var error = (PyBaseException)PyType.ImportErrorType.Call(new PyObject[] { new PyString(message) }, kwargs);
+            error.SetAttribute("name_from", new PyString(itemName));
+            return new PythonException(error);
+        }
+
         // GLOBALS() then BUILTINS(), the tail of LOAD_NAME and all of LOAD_GLOBAL; NameError past both.
         private static PyObject GlobalOrBuiltin(PyFrame frame, string name) =>
             frame.ScopeChain.GlobalScope?.GetVariable(name) ?? frame.Builtin(name)
@@ -4743,57 +4774,7 @@ namespace SharpPy
 
                     if (importedItem == null)
                     {
-                        // Generate error message similar to CPython
-                        // CPython 3.12: Python/ceval.c:2561-2579
-                        string pkgModuleName = "<unknown module name>";
-                        try
-                        {
-                            var nameAttr = module.GetAttribute("__name__");
-                            if (nameAttr is PyString nameStr)
-                            {
-                                pkgModuleName = nameStr.Value;
-                            }
-                        }
-                        catch { }
-
-                        // CPython 3.12 import_from() raises ImportError, not AttributeError:
-                        //   cannot import name 'NOPE' from 'os' (C:\...\Lib\os.py)
-                        //   cannot import name 'NOPE' from 'sys' (unknown location)
-                        // The parenthesised part is __spec__.origin when there is one.
-                        // This is what makes io.py's
-                        //   try: from _io import _WindowsConsoleIO
-                        //   except ImportError: pass
-                        // work at all.
-                        string origin = "unknown location";
-                        try
-                        {
-                            var spec = module.GetAttribute("__spec__");
-                            if (spec != null && !(spec is PyNone))
-                            {
-                                var specOrigin = spec.GetAttribute("origin");
-                                if (specOrigin is PyString specOriginStr && specOriginStr.Value.Length > 0)
-                                    origin = specOriginStr.Value;
-                            }
-                        }
-                        catch { }
-
-                        if (origin == "unknown location")
-                        {
-                            // CPython reads __spec__.origin, which for a source module is its
-                            // file path; SharpPy modules carry __file__ without always having a
-                            // spec, so read the same value from there before giving up.
-                            try
-                            {
-                                var fileAttr = module.GetAttribute("__file__");
-                                // A builtin module has none, and that is "unknown location".
-                                if (fileAttr is PyString fileStr && fileStr.Value.Length > 0)
-                                    origin = fileStr.Value;
-                            }
-                            catch { }
-                        }
-
-                        throw PyImportError.Create(
-                            $"cannot import name '{itemName}' from '{pkgModuleName}' ({origin})");
+                        throw ImportFromError(module, itemName);
                     }
 
                     frame.ValueStack.Push(importedItem);

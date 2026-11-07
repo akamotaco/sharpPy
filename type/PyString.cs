@@ -383,7 +383,7 @@ namespace SharpPy
                     // CPython Objects/unicodeobject.c unicode_zfill pads to the character length.
                     int chars = str.Length();
                     if (chars >= width)
-                        return str;
+                        return str.ResultUnchanged();
 
                     int fillCount = width - chars;
 
@@ -753,7 +753,8 @@ namespace SharpPy
                             throw PyTypeError.Create($"descriptor '__contains__' requires a 'str' object but received a '{self.GetTypeName()}'");
                     }
 
-                    return selfStr.Contains(args[0]);
+                    // unicode_contains: the slot itself, not PyObject_Contains (a subclass would re-enter it).
+                    return selfStr.ContainsItem(args[0]);
                 });
 
             strType.TypeDict["count"] = new PyMethodDescriptor(
@@ -1024,7 +1025,7 @@ namespace SharpPy
 
                     int chars = str.Length();
                     if (chars >= width)
-                        return str;
+                        return str.ResultUnchanged();
 
                     // CPython 3.12 Objects/stringlib/transmogrify.h:203-206:
                     // left = marg/2 + (marg & width & 1); right = marg - left.
@@ -1059,7 +1060,7 @@ namespace SharpPy
 
                     int chars = str.Length();
                     if (chars >= width)
-                        return str;
+                        return str.ResultUnchanged();
 
                     return new PyString(str.Value + Repeat(fillchar, width - chars));
                 },
@@ -1088,7 +1089,7 @@ namespace SharpPy
 
                     int chars = str.Length();
                     if (chars >= width)
-                        return str;
+                        return str.ResultUnchanged();
 
                     return new PyString(Repeat(fillchar, width - chars) + str.Value);
                 },
@@ -1278,7 +1279,7 @@ namespace SharpPy
                     if (str.Value.StartsWith(prefix.Value, StringComparison.Ordinal))
                         return new PyString(str.Value.Substring(prefix.Value.Length));
 
-                    return str;
+                    return str.ResultUnchanged();
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -1298,7 +1299,7 @@ namespace SharpPy
                     if (str.Value.EndsWith(suffix.Value, StringComparison.Ordinal))
                         return new PyString(str.Value.Substring(0, str.Value.Length - suffix.Value.Length));
 
-                    return str;
+                    return str.ResultUnchanged();
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -1393,8 +1394,8 @@ namespace SharpPy
                 "format", strType,
                 (self, args, kwargs) => {
                     PyString str = AsStrReceiver(self, "format");
-
-                    return PyStringFormatter.Format(str.Value, args, kwargs);
+                    var formatted = PyStringFormatter.Format(str.Value, args, kwargs);
+                    return SoleLiteral(str, str.Value.IndexOf('{') < 0 && str.Value.IndexOf('}') < 0) ?? formatted;
                 }
 , acceptsKwargs: true);
 
@@ -1406,8 +1407,8 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"format_map() takes exactly one argument ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "format_map");
-
-                    return PyStringFormatter.Format(str.Value, null, args[0]);
+                    var formatted = PyStringFormatter.Format(str.Value, null, args[0]);
+                    return SoleLiteral(str, str.Value.IndexOf('{') < 0 && str.Value.IndexOf('}') < 0) ?? formatted;
                 },
                 minArgs: 1, maxArgs: 1
 , acceptsKwargs: true);
@@ -1756,6 +1757,10 @@ namespace SharpPy
                 _ => PyNotImplemented.Instance
             };
         }
+
+        // unicode_richcompare answers Py_NE itself, on the contents; a subclass's __eq__ is not asked.
+        protected override PyObject PyNotEquals(PyObject other) =>
+            PyEquals(other) is PyBool equal ? PyBool.FromBool(!equal.IsTrue()) : PyNotImplemented.Instance;
 
         #endregion
 
@@ -2488,8 +2493,17 @@ namespace SharpPy
         {
             // Full CPython 3.12 unicode_format rework: flags/width/precision/mapping
             // keys and the o/x/X/c/d/i/a conversions with CPython-exact error texts.
-            return new PyString(FormatPercent(Value, other));
+            var formatted = FormatPercent(Value, other);
+            return SoleLiteral(this, Value.IndexOf('%') < 0) ?? new PyString(formatted);
         }
+
+        /// <summary>
+        /// _PyUnicodeWriter_Finish when the writer holds nothing but the whole format string, written
+        /// once (WriteSubstring of the full range is WriteStr, which keeps the object itself): the
+        /// format string comes back as it is, a str subclass instance included. An empty one is "".
+        /// </summary>
+        private static PyString SoleLiteral(PyString format, bool noFields) =>
+            noFields && format.Value.Length > 0 ? format : null;
 
         private static string FormatPercent(string fmt, PyObject arg)
         {
@@ -2938,11 +2952,17 @@ namespace SharpPy
             return new PyString(Value.TrimEnd(chars.ToCharArray()));
         }
 
+        /// <summary>
+        /// unicode_result_unchanged (Objects/unicodeobject.c): an exact str is its own result, a
+        /// subclass instance gives an exact copy.
+        /// </summary>
+        internal PyString ResultUnchanged() => HasCustomType ? new PyString(Value) : this;
+
         // replace (Objects/unicodeobject.c): the text is walked once, what was put in is not searched.
         public PyString Replace(string old, string newStr, long count = -1)
         {
             if (count < 0) count = long.MaxValue;
-            if (count == 0) return this;
+            if (count == 0) return ResultUnchanged();
             var output = new StringBuilder(Value.Length);
             int position = 0;
             if (old.Length == 0)
@@ -2975,7 +2995,7 @@ namespace SharpPy
                 output.Append(Value, position, index - position).Append(newStr);
                 position = index + old.Length;
             }
-            if (position == 0) return this;
+            if (position == 0) return ResultUnchanged();
             output.Append(Value, position, Value.Length - position);
             return new PyString(output.ToString());
         }
