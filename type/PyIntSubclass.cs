@@ -17,50 +17,29 @@ namespace SharpPy
     /// </summary>
     public class PyIntSubclass : PyInt
     {
-        // CPython: Objects/longobject.c:5671-5674
-        // newobj->long_value.lv_tag = tmp->long_value.lv_tag;
-        // for (i = 0; i < n; i++) {
-        //     newobj->long_value.ob_digit[i] = tmp->long_value.ob_digit[i];
-        // }
-        private readonly PyInt _intValue;
+        // long_subtype_new copies the digits of the exact int it made first (Objects/longobject.c:5671).
+        public PyIntSubclass(PyClass cls, long value) : base(value, cls) { }
 
-
-        public PyIntSubclass(PyClass cls, long value) : base(value, cls)
-        {
-            _intValue = new PyInt(value);
-        }
-
-        public PyIntSubclass(PyClass cls, PyInt intValue) : base(intValue.Value, cls)
-        {
-            _intValue = intValue;
-        }
+        public PyIntSubclass(PyClass cls, PyInt intValue) : base(intValue.Value, cls) { }
 
         // An int subclass instance is an int object whose type is the subclass (long_subtype_new):
         // every slot is int's, inherited. Two return int itself, not the subclass: long_long for
-        // __int__ and unary +.
-        protected internal override PyObject NbPositive() => _intValue;
+        // __int__ and unary +, which is _PyLong_Copy - a new exact int of the value.
+        protected internal override PyObject NbPositive() => GetIntValue();
 
         #region Attribute Access
 
-        // The class's tp_getattro (SubclassInstanceSupport.GetAttribute); the payload type's own
-        // attributes come last. An enum member reads _value_ before the class sets it.
-        internal override PyObject GenericGetAttr(string name) =>
-            name == "_value_" && !HeapDict.ContainsKey("_value_")
-                ? _intValue
-                : base.GenericGetAttr(name);
 
 
         #endregion
 
         #region Get Underlying Int Value
 
-        /// <summary>
-        /// 내부 PyInt 값 반환 (enum._value_ 접근 등에 사용)
-        /// </summary>
-        public PyInt GetIntValue() => _intValue;
+        /// <summary>_PyLong_Copy: the exact int of the value.</summary>
+        public PyInt GetIntValue() => new PyInt(Value);
 
         // long_long: the exact int of the value.
-        protected internal override PyObject NbInt() => _intValue;
+        protected internal override PyObject NbInt() => GetIntValue();
 
         #endregion
     }

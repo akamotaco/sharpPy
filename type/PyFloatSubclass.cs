@@ -18,28 +18,16 @@ namespace SharpPy
     /// </summary>
     public class PyFloatSubclass : PyFloat
     {
-        // float_subtype_new: ob_fval copied from the converted temporary, which stays as the exact
-        // float float_float answers with.
-        private readonly PyFloat _floatValue;
+        // float_subtype_new: ob_fval copied from the converted temporary.
+        public PyFloatSubclass(PyClass cls, double value) : base(value) => SetCustomType(cls);
 
+        public PyFloatSubclass(PyClass cls, PyFloat floatValue) : this(cls, floatValue.Value) { }
 
-        public PyFloatSubclass(PyClass cls, double value) : this(cls, new PyFloat(value)) { }
+        // float_float: PyFloat_FromDouble(ob_fval), an exact float.
+        public PyFloat GetFloatValue() => new PyFloat(Value);
 
-        public PyFloatSubclass(PyClass cls, PyFloat floatValue) : base(floatValue.Value)
-        {
-            SetCustomType(cls);
-            _floatValue = floatValue;
-        }
+        // Every slot is float's, inherited; float_pos is float_float.
+        protected internal override PyObject NbPositive() => GetFloatValue();
 
-        public PyFloat GetFloatValue() => _floatValue;
-
-        // Every slot is float's, inherited; float_pos is float_float, an exact float.
-        protected internal override PyObject NbPositive() => _floatValue;
-
-        // An enum member reads _value_ before the class sets it.
-        internal override PyObject GenericGetAttr(string name) =>
-            name == "_value_" && !HeapDict.ContainsKey("_value_")
-                ? _floatValue
-                : base.GenericGetAttr(name);
     }
 }

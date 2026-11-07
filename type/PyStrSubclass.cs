@@ -16,29 +16,16 @@ namespace SharpPy
     /// </summary>
     public class PyStrSubclass : PyString
     {
-        // unicode_subtype_new copies the data of the exact str it made first; that str stays as
-        // the exact value str() and the enum's _value_ give back.
-        private readonly PyString _strValue;
+        // unicode_subtype_new copies the data of the exact str it made first.
+        public PyStrSubclass(PyClass cls, string value) : base(value) => SetCustomType(cls);
 
-
-        public PyStrSubclass(PyClass cls, string value) : this(cls, new PyString(value)) { }
-
-        public PyStrSubclass(PyClass cls, PyString strValue) : base(strValue.Value)
-        {
-            _strValue = strValue;
-            SetCustomType(cls);
-        }
+        public PyStrSubclass(PyClass cls, PyString strValue) : this(cls, strValue.Value) { }
 
         // Every slot is str's, inherited: a str whose ob_type is the subclass.
 
-        // An enum member reads _value_ before the class sets it.
-        internal override PyObject GenericGetAttr(string name) =>
-            name == "_value_" && !HeapDict.ContainsKey("_value_")
-                ? _strValue
-                : base.GenericGetAttr(name);
 
-        /// <summary>The exact str of the value.</summary>
-        public PyString GetStrValue() => _strValue;
+        /// <summary>_PyUnicode_Copy: the exact str of the value.</summary>
+        public PyString GetStrValue() => new PyString(Value);
 
         public string GetStringValue() => Value;
     }
