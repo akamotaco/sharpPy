@@ -48,6 +48,22 @@ namespace SharpPy.Core
                     return;
                 }
 
+                // config_run_filename_abspath: the script's name is made absolute, on Windows even
+                // when it is rooted already (GetFullPathNameW also turns forward slashes into
+                // backslashes). sys.argv
+                // keeps what was typed.
+                if (OperatingSystem.IsWindows() || !System.IO.Path.IsPathRooted(pythonFile))
+                {
+                    try
+                    {
+                        pythonFile = System.IO.Path.GetFullPath(pythonFile);
+                    }
+                    catch (Exception)
+                    {
+                        // failed to get the absolute path: keep the name as given
+                    }
+                }
+
                 // pymain_run_file runs after init_interp_main: the streams exist before the source is read.
                 var interpreter = new IntegratedPythonInterpreter();
                 string code;
