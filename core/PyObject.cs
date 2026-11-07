@@ -759,21 +759,8 @@ namespace SharpPy
         // Python의 __call__ 메서드 - 모든 객체가 잠재적으로 호출 가능
         #region Call Protocol
 
-        public virtual bool IsCallable()
-        {
-            // PyCallable_Check: tp_call, which an instance attribute does not fill.
-            if (GetPyType() is PyClass type)
-                return type.LookupInMRO("__call__") != null;
-            try
-            {
-                GetAttribute("__call__");
-                return true;
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-                return false;
-            }
-        }
+        // PyCallable_Check: tp_call, the type's __call__; an instance attribute does not fill it.
+        public virtual bool IsCallable() => GetPyType().LookupSpecial("__call__") != null;
 
         // CPython 3.12 호환: kwargs 지원 버전
         /// <summary>Py_EnterRecursiveCall for native recursion: what no Python frame counts.</summary>
@@ -786,44 +773,21 @@ namespace SharpPy
         public virtual PyObject Call(PyObject[] args, PyDict kwargs)
         {
             CheckNativeStack(" while calling a Python object");
-            // slot_tp_call (Objects/typeobject.c): __call__ from the type, never the instance.
-            // lookup_maybe_method: a function is called with self prepended, anything else is
-            // bound through its __get__ (a staticmethod drops self). What the call raises propagates.
-            if (GetPyType() is PyClass heap)
-            {
-                var declared = heap.FindNameInMro("__call__");
-                if (declared != null)
-                {
-                    if (declared is PyFunction function)
-                    {
-                        var withSelf = new PyObject[args.Length + 1];
-                        withSelf[0] = this;
-                        Array.Copy(args, 0, withSelf, 1, args.Length);
-                        return function.Call(withSelf, kwargs);
-                    }
-                    return BindSpecialMethod(declared).Call(args, kwargs);
-                }
+            // slot_tp_call (Objects/typeobject.c): __call__ from the type, never the instance, for a
+            // class written in Python and a builtin alike. lookup_maybe_method: a function is called
+            // with self prepended, anything else is bound through its __get__ (a staticmethod drops
+            // self). What the call raises propagates.
+            var declared = GetPyType().LookupSpecial("__call__");
+            if (declared == null)
                 throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
-            }
-
-            // A builtin whose __call__ is only reachable as an attribute.
-            PyObject callMethod;
-            try
+            if (declared is PyFunction function)
             {
-                callMethod = GetAttribute("__call__");
+                var withSelf = new PyObject[args.Length + 1];
+                withSelf[0] = this;
+                Array.Copy(args, 0, withSelf, 1, args.Length);
+                return function.Call(withSelf, kwargs);
             }
-            catch (PythonException pe) when (pe.PyException is PyAttributeError)
-            {
-                throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
-            }
-            if (callMethod is PyFunction func)
-            {
-                var newArgs = new PyObject[args.Length + 1];
-                newArgs[0] = this;
-                Array.Copy(args, 0, newArgs, 1, args.Length);
-                return func.Call(newArgs, kwargs);
-            }
-            return callMethod.Call(args, kwargs);
+            return BindSpecialMethod(declared).Call(args, kwargs);
         }
 
         #endregion
