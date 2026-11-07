@@ -43,7 +43,7 @@ namespace SharpPy
         {
             if (value is not PyType target)
                 throw PyTypeError.Create($"__class__ must be set to a class, not '{value.GetTypeName()}' object");
-            if (target is not PyClass heapTarget || target is PyTypeMetaclass)
+            if (target is not PyClass heapTarget || !heapTarget.IsHeapType)
                 throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses");
             PyTypeMetaclass.CheckAssignment(current, heapTarget, "__class__");
             return heapTarget;

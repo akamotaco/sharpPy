@@ -97,7 +97,7 @@ namespace SharpPy
             typeClass.ClassDict["__annotations__"] = new PyGetSetDescriptor("__annotations__", typeClass,
                 self =>
                 {
-                    if (self is not PyClass cls || self is PyTypeMetaclass)
+                    if (self is not PyClass cls || !cls.IsHeapType)
                         throw PyAttributeError.Create($"type object '{((PyType)self).Name}' has no attribute '__annotations__'");
                     if (!cls.ClassDict.TryGetValue("__annotations__", out var annotations))
                         cls.ClassDict["__annotations__"] = annotations = new PyDict();
@@ -160,7 +160,7 @@ namespace SharpPy
             {
                 var type = (PyType)self;
                 long flags = type.HasFeature(PyTypeFlags.BaseType) ? 1L << 10 : 0;
-                if (type is PyClass cls && type is not PyTypeMetaclass)
+                if (type is PyClass cls && cls.IsHeapType)
                 {
                     flags |= 1L << 9;
                     if (cls.ClassDict.TryGetValue("__abstractmethods__", out var abstractMethods) && abstractMethods.IsTrue())
@@ -387,7 +387,7 @@ namespace SharpPy
         private static bool CompatibleWithTpBase(PyType child)
         {
             var parent = child.TpBase;
-            return parent != null && child is PyClass && child is not PyTypeMetaclass &&
+            return parent != null && child.IsHeapType &&
                 child.Layout.BasicSize == parent.Layout.BasicSize && child.Layout.ItemSize == parent.Layout.ItemSize &&
                 child.Layout.DictOffset == parent.Layout.DictOffset && child.Layout.WeakOffset == parent.Layout.WeakOffset &&
                 child.Layout.Gc == parent.Layout.Gc;
@@ -414,7 +414,7 @@ namespace SharpPy
             (type.Layout.DictOffset == -1 ? 1 : 0) | (type.Layout.WeakOffset == -32 ? 2 : 0);
 
         // tp_free: PyObject_GC_Del for whatever is collected, PyObject_Free otherwise.
-        private static bool FreedByGc(PyType type) => type is PyClass && type is not PyTypeMetaclass || type.Layout.Gc;
+        private static bool FreedByGc(PyType type) => type.IsHeapType || type.Layout.Gc;
 
         /// <summary>compatible_for_assignment: the highest supertypes each one matches are compatible.</summary>
         internal static void CheckAssignment(PyType oldTo, PyType newTo, string attribute)

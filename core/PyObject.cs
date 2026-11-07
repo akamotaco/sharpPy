@@ -464,7 +464,7 @@ namespace SharpPy
             HeapType() is { } heap ? heap.GetattroSlot(this, name) : TpGetattro(name);
 
         // Py_TYPE(o) when it is a heap type, a class written in Python; type itself is static.
-        private SharpPy.PyClass HeapType() => GetPyType() is SharpPy.PyClass heap && heap is not PyTypeMetaclass ? heap : null;
+        private SharpPy.PyClass HeapType() => GetPyType() is SharpPy.PyClass heap && heap.IsHeapType ? heap : null;
 
         /// <summary>tp_getattro of the CLR type: the builtin's own, PyObject_GenericGetAttr by default.</summary>
         protected internal virtual PyObject TpGetattro(string name)
@@ -739,7 +739,7 @@ namespace SharpPy
         // _PyObject_GenericSetAttrWithDict over the instance dict the CLR type keeps, if any.
         private void GenericSetOrDelete(string name, PyObject value)
         {
-            if (this is PyType nativeType && nativeType is not SharpPy.PyClass)
+            if (this is PyType nativeType && !nativeType.IsHeapType)
             {
                 // io.UnsupportedOperation is a heap type in CPython, so Lib/io.py may set its __module__.
                 if (value != null && nativeType.AllowsModuleAssignment && name == "__module__")

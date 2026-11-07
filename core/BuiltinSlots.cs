@@ -194,7 +194,7 @@ namespace SharpPy
             // type___sizeof___impl: sizeof(PyTypeObject), or sizeof(PyHeapTypeObject) and the size of
             // its cached keys for a class whose instances keep a dict.
             Method(PyType.TypeType, "__sizeof__", (self, args) =>
-                PyInt.From(self is PyClass heap && self is not PyTypeMetaclass ? 920 + (heap.InstancesHaveDict() ? 768 : 0) : 416));
+                PyInt.From(self is PyClass heap && heap.IsHeapType ? 920 + (heap.InstancesHaveDict() ? 768 : 0) : 416));
             // object_subclasshook: METH_CLASS|METH_VARARGS, NotImplemented whatever it is given.
             PyType.ObjectType.TypeDict["__subclasshook__"] = new PyClassMethodDescriptor("__subclasshook__", PyType.ObjectType,
                 new PyBuiltinFunction("__subclasshook__", (args, kwargs) => PyNotImplemented.Instance));

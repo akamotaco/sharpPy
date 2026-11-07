@@ -163,7 +163,8 @@ namespace SharpPy
             // inherit_special reads tp_base, best_base of a class, which need not be the first
             // base: class D(Mixin, dict) is a dict.
             var baseType = BaseTypes.Length > 0 ? TpBase : null;
-            if (this is PyClass)
+            // type itself is PyType_Type, a static type, although SharpPy builds it as a class.
+            if (this is PyClass && this is not PyTypeMetaclass)
             {
                 // type_new copies the base's flags into a heap type, which is measurable: a user
                 // class deriving from list carries LIST_SUBCLASS and SEQUENCE, and one deriving
@@ -496,7 +497,7 @@ namespace SharpPy
         {
             for (var level = type; level != null; level = level.TpBase)
             {
-                if (level is PyClass written && level is not PyTypeMetaclass)
+                if (level is PyClass written && level.IsHeapType)
                 {
                     if (written.ClassDict.TryGetValue("__new__", out var declared))
                     {
@@ -563,8 +564,14 @@ namespace SharpPy
                 throw PyTypeError.Create($"{name}.__new__({TpName(subtype)}) is not safe, use {TpName(staticBase)}.__new__()");
         }
 
+        /// <summary>
+        /// Py_TPFLAGS_HEAPTYPE: a class statement or type() call made the type. The one answer to
+        /// "is this a heap type" (type itself is not one).
+        /// </summary>
+        internal bool IsHeapType => this is PyClass && this is not PyTypeMetaclass;
+
         /// <summary>tp_base: best_base of a class, the base of a builtin.</summary>
-        internal PyType TpBase => _tpBase ??= this is PyClass && this is not PyTypeMetaclass
+        internal PyType TpBase => _tpBase ??= IsHeapType
             ? PyTypeMetaclass.BestBase(BaseTypes)
             : BaseTypes.Length > 0 ? BaseTypes[0] : null;
 

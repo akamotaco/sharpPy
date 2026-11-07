@@ -554,8 +554,9 @@ namespace SharpPy
         /// <summary>type_setattro</summary>
         internal void TypeSetAttribute(string name, PyObject value)
         {
-            if (this is PyTypeMetaclass)
-                throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type 'type'");
+            // type_setattro: Py_TPFLAGS_IMMUTABLETYPE refuses before anything else, writes and deletions alike.
+            if (!IsHeapType)
+                throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{Name}'");
 #if DEBUG
             // Debug: Track _generate_next_value_ modifications
             if (name == "_generate_next_value_")
@@ -606,6 +607,8 @@ namespace SharpPy
         // CPython 3.12: Override DelAttribute for type objects
         protected override void PyDelAttribute(string name)
         {
+            if (!IsHeapType)
+                throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{Name}'");
             // A heap class is writable, so type_setattro reaches object_set_class, which refuses
             // deletion of __class__ with TypeError (Objects/typeobject.c:5712-5719). Without this the
             // lookup below answered "type object 'C' has no attribute '__class__'".
