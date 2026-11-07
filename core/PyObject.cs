@@ -718,12 +718,9 @@ namespace SharpPy
         /// </summary>
         protected virtual PyObject GenericGetAttribute(string name)
         {
-            // _PyObject_GenericGetAttrWithDict over the object's own store, then what a builtin
-            // answers through its slots (the wrappers PySlotWrappers keeps beside the dict).
+            // _PyObject_GenericGetAttrWithDict over the object's own store; the type's dict holds
+            // the slot wrappers too, as tp_dict does.
             return SubclassInstanceSupport.GenericGetAttrWithDict(this, GetPyType(), name, null, this as IInstanceDictAccessor)
-                ?? (name is "__repr__" or "__str__" && PyType.ObjectType.GetAttribute(name) is IDescriptor objectSlot
-                    ? objectSlot.Get(this, GetPyType()) : null)
-                ?? PySlotWrappers.TryBind(this, name)
                 ?? throw AttributeNotFound(name);
         }
 

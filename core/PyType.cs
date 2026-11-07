@@ -234,10 +234,9 @@ namespace SharpPy
         /// CPython 3.12 호환: 타입의 딕셔너리 (tp_dict)
         /// All types (builtin and user-defined) use this unified storage
         /// </summary>
-        public Dictionary<string, PyObject> TypeDict { get; protected set; }
+        public PyTypeDictionary TypeDict { get; protected set; }
 
         // The wrappers of add_operators for what this type does through CLR virtuals: see PySlotWrappers.
-        internal Dictionary<string, PyObject> SlotDict { get; } = new Dictionary<string, PyObject>();
 
         #endregion
 
@@ -752,7 +751,7 @@ namespace SharpPy
             _typeVersionTag = _nextVersionTag++;
 
             // CPython 3.12: Initialize tp_dict (unified type dictionary)
-            TypeDict = new Dictionary<string, PyObject>();
+            TypeDict = new PyTypeDictionary();
 
             // 타입별 descriptor 초기화 (Phase 3: Directly populates TypeDict)
             InitializeDescriptors();
@@ -1325,9 +1324,6 @@ namespace SharpPy
             }
             if (TypeDict != null && TypeDict.TryGetValue(name, out var typeValue))
                 return typeValue;
-            // add_operators: the slot wrappers are in the builtin's dict in CPython.
-            if (this is not SharpPy.PyClass && SlotDict.TryGetValue(name, out var slotValue))
-                return slotValue;
             return null;
         }
 
@@ -2073,7 +2069,6 @@ namespace SharpPy
             else if (t.TypeDict != null)
             {
                 foreach (var k in t.TypeDict.Keys) names.Add(k);
-                foreach (var k in t.SlotDict.Keys) names.Add(k);
                 // object contributes the standard protocol surface that CPython keeps as
                 // tp_dict slot wrappers. SharpPy implements these as CLR virtuals/operator
                 // slots rather than getattr descriptors (see InitializeObjectTypeDescriptors),
@@ -2258,10 +2253,7 @@ namespace SharpPy
                     throw PyTypeError.Create("descriptor '__dict__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                 if (type is PyClass heap)
                     return new PyMappingProxy(heap.ClassDict);
-                var typeDict = new Dictionary<string, PyObject>(type.TypeDict);
-                foreach (var slot in type.SlotDict)
-                    typeDict.TryAdd(slot.Key, slot.Value);
-                return new PyMappingProxy(typeDict);
+                return new PyMappingProxy(type.TypeDict);
             });
 
             // type_members: {"__base__", T_OBJECT, offsetof(PyTypeObject, tp_base), READONLY}.

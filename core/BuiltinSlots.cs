@@ -123,6 +123,8 @@ namespace SharpPy
                 ((PyModule)self).Initialize(text.Value, doc ?? PyNone.Instance);
                 return PyNone.Instance;
             }, 0, int.MaxValue);
+            // type_ready_fill_dict: every builtin's dict in CPython's layout, once all is registered.
+            PySlotWrappers.LayOut();
         }
 
         private static void Slot(PyType type, string name, Func<PyObject, PyObject[], PyObject> operation)

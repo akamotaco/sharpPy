@@ -5,51 +5,102 @@ namespace SharpPy
     {
         private static void AddAll()
         {
-            Add(PyType.ObjectType, "__repr__ __str__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __getattribute__ __setattr__ __delattr__");
+            Add(PyType.ObjectType, "__repr__ __hash__ __str__ __getattribute__ __setattr__ __delattr__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__");
             Add(PyType.TypeType, "__repr__ __call__ __getattribute__ __setattr__ __delattr__ __or__ __ror__");
-            Add(PyType.IntType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __getattribute__ __bool__ __neg__ __pos__ __abs__ __invert__ __int__ __float__ __index__ __add__ __radd__ __sub__ __rsub__ __mul__ __rmul__ __mod__ __rmod__ __divmod__ __rdivmod__ __pow__ __rpow__ __lshift__ __rlshift__ __rshift__ __rrshift__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __floordiv__ __rfloordiv__ __truediv__ __rtruediv__");
+            Add(PyType.IntType, "__repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __add__ __radd__ __sub__ __rsub__ __mul__ __rmul__ __mod__ __rmod__ __divmod__ __rdivmod__ __pow__ __rpow__ __neg__ __pos__ __abs__ __bool__ __invert__ __lshift__ __rlshift__ __rshift__ __rrshift__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __int__ __float__ __floordiv__ __rfloordiv__ __truediv__ __rtruediv__ __index__");
             Add(PyType.BoolType, "__repr__ __invert__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__");
-            Add(PyType.FloatType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __bool__ __neg__ __pos__ __abs__ __int__ __float__ __add__ __radd__ __sub__ __rsub__ __mul__ __rmul__ __mod__ __rmod__ __divmod__ __rdivmod__ __pow__ __rpow__ __floordiv__ __rfloordiv__ __truediv__ __rtruediv__");
-            Add(PyType.ComplexType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __getattribute__ __bool__ __neg__ __pos__ __abs__ __add__ __radd__ __sub__ __rsub__ __mul__ __rmul__ __pow__ __rpow__ __truediv__ __rtruediv__");
-            Add(PyType.StrType, "__repr__ __str__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __getitem__ __add__ __mul__ __rmul__ __mod__ __rmod__");
-            Add(PyType.BytesType, "__repr__ __str__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __getitem__ __getattribute__ __add__ __mul__ __rmul__ __mod__ __rmod__");
-            Add(PyType.BytearrayType, "__repr__ __str__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __getitem__ __setitem__ __delitem__ __getattribute__ __add__ __mul__ __rmul__ __mod__ __rmod__ __iadd__ __imul__");
-            Add(PyType.MemoryViewType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __getitem__ __setitem__ __delitem__ __getattribute__");
-            Add(PyType.ListType, "__repr__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __getitem__ __setitem__ __delitem__ __getattribute__ __add__ __mul__ __rmul__ __iadd__ __imul__");
-            Add(PyType.TupleType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __getitem__ __getattribute__ __add__ __mul__ __rmul__");
-            Add(PyType.DictType, "__repr__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __getitem__ __setitem__ __delitem__ __getattribute__ __or__ __ror__ __ior__");
-            Add(PyType.SetType, "__repr__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __getattribute__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __ior__");
-            Add(PyType.FrozenSetType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__");
-            Add(PyType.RangeType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __getitem__ __getattribute__ __bool__");
-            Add(PyType.SliceType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __getattribute__");
-            Add(PyType.PropertyType, "__get__ __set__ __delete__ __getattribute__");
+            Add(PyType.FloatType, "__repr__ __hash__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __add__ __radd__ __sub__ __rsub__ __mul__ __rmul__ __mod__ __rmod__ __divmod__ __rdivmod__ __pow__ __rpow__ __neg__ __pos__ __abs__ __bool__ __int__ __float__ __floordiv__ __rfloordiv__ __truediv__ __rtruediv__");
+            Add(PyType.ComplexType, "__repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __add__ __radd__ __sub__ __rsub__ __mul__ __rmul__ __pow__ __rpow__ __neg__ __pos__ __abs__ __bool__ __truediv__ __rtruediv__");
+            Add(PyType.StrType, "__repr__ __hash__ __str__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __mod__ __rmod__ __len__ __getitem__ __add__ __mul__ __rmul__ __contains__");
+            Add(PyType.BytesType, "__repr__ __hash__ __str__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __mod__ __rmod__ __len__ __getitem__ __add__ __mul__ __rmul__ __contains__");
+            Add(PyType.BytearrayType, "__repr__ __str__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __mod__ __rmod__ __len__ __getitem__ __setitem__ __delitem__ __add__ __mul__ __rmul__ __contains__ __iadd__ __imul__ -__hash__");
+            Add(PyType.MemoryViewType, "__repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __len__ __getitem__ __setitem__ __delitem__");
+            Add(PyType.ListType, "__repr__ -__hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __len__ __getitem__ __setitem__ __delitem__ __add__ __mul__ __rmul__ __contains__ __iadd__ __imul__");
+            Add(PyType.TupleType, "__repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __len__ __getitem__ __add__ __mul__ __rmul__ __contains__");
+            Add(PyType.DictType, "__repr__ -__hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __or__ __ror__ __ior__ __len__ __getitem__ __setitem__ __delitem__ __contains__");
+            Add(PyType.SetType, "__repr__ -__hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __ior__ __len__ __contains__");
+            Add(PyType.FrozenSetType, "__repr__ __hash__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __len__ __contains__");
+            Add(PyType.RangeType, "__repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __bool__ __len__ __getitem__ __contains__");
+            Add(PyType.SliceType, "__repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__");
+            Add(PyType.PropertyType, "__getattribute__ __get__ __set__ __delete__");
             Add(PyType.StaticMethodType, "__repr__ __call__ __get__");
             Add(PyType.ClassMethodType, "__repr__ __get__");
-            Add(PyType.SuperType, "__repr__ __get__ __getattribute__");
-            Add(PyType.MapType, "__iter__ __next__ __getattribute__");
-            Add(PyType.FilterType, "__iter__ __next__ __getattribute__");
-            Add(PyType.ZipType, "__iter__ __next__ __getattribute__");
-            Add(PyType.ReversedType, "__iter__ __next__ __getattribute__");
+            Add(PyType.SuperType, "__repr__ __getattribute__ __get__");
+            Add(PyType.MapType, "__getattribute__ __iter__ __next__");
+            Add(PyType.FilterType, "__getattribute__ __iter__ __next__");
+            Add(PyType.ZipType, "__getattribute__ __iter__ __next__");
+            Add(PyType.ReversedType, "__getattribute__ __iter__ __next__");
             Add(PyType.BaseExceptionType, "__repr__ __str__ __getattribute__");
             Add(PyType.FunctionType, "__repr__ __call__ __get__");
-            Add(PyType.MethodType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __call__ __getattribute__");
+            Add(PyType.MethodType, "__repr__ __hash__ __call__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__");
             Add(PyType.ModuleType, "__repr__ __getattribute__");
             Add(PyType.GeneratorType, "__repr__ __iter__ __next__");
             Add(PyType.CoroutineType, "__repr__ __await__");
             Add(PyType.AsyncGeneratorType, "__repr__ __aiter__ __anext__");
-            Add(PyType.CellType, "__repr__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__");
-            Add(PyType.MappingProxyType, "__repr__ __str__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __getitem__ __or__ __ror__ __ior__");
-            Add(PyType.GenericAliasType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __getitem__ __call__ __getattribute__ __or__ __ror__");
-            Add(PyType.BuiltinFunctionOrMethodType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __call__");
+            Add(PyType.CellType, "__repr__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ -__hash__");
+            Add(PyType.MappingProxyType, "__repr__ __hash__ __str__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __or__ __ror__ __ior__ __len__ __getitem__ __contains__");
+            Add(PyType.GenericAliasType, "__repr__ __hash__ __call__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __or__ __ror__ __getitem__");
+            Add(PyType.BuiltinFunctionOrMethodType, "__repr__ __hash__ __call__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__");
             Add(PyType.WrapperDescriptorType, "__repr__ __call__ __get__");
-            Add(PyType.MethodWrapperType, "__repr__ __hash__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __call__");
+            Add(PyType.MethodWrapperType, "__repr__ __hash__ __call__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__");
             Add(PyType.MethodDescriptorType, "__repr__ __call__ __get__");
             Add(PyType.GetSetDescriptorType, "__repr__ __get__ __set__ __delete__");
             Add(PyType.ClassMethodDescriptorType, "__repr__ __call__ __get__");
             Add(PyType.MemberDescriptorType, "__repr__ __get__ __set__ __delete__");
-            Add(PyType.DictKeysType, "__repr__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__");
+            Add(PyType.DictKeysType, "__repr__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __len__ __contains__ -__hash__");
             Add(PyType.DictValuesType, "__repr__ __iter__ __len__");
-            Add(PyType.DictItemsType, "__repr__ __eq__ __ne__ __lt__ __le__ __gt__ __ge__ __iter__ __len__ __contains__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__");
+            Add(PyType.DictItemsType, "__repr__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __len__ __contains__ -__hash__");
+        }
+
+        // type_ready's tp_dict of each type, in order: __new__, add_operators, the methods, members
+        // and getsets, __doc__ (type_ready_fill_dict).
+        private static void LayAll()
+        {
+            Lay(PyType.ObjectType, "__new__ __repr__ __hash__ __str__ __getattribute__ __setattr__ __delattr__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __init__ __reduce_ex__ __reduce__ __getstate__ __subclasshook__ __init_subclass__ __format__ __sizeof__ __dir__ __class__ __doc__");
+            Lay(PyType.TypeType, "__new__ __repr__ __call__ __getattribute__ __setattr__ __delattr__ __init__ __or__ __ror__ mro __subclasses__ __prepare__ __instancecheck__ __subclasscheck__ __dir__ __sizeof__ __basicsize__ __itemsize__ __flags__ __weakrefoffset__ __base__ __dictoffset__ __name__ __qualname__ __bases__ __mro__ __module__ __abstractmethods__ __dict__ __doc__ __text_signature__ __annotations__ __type_params__");
+            Lay(PyType.IntType, "__new__ __repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __add__ __radd__ __sub__ __rsub__ __mul__ __rmul__ __mod__ __rmod__ __divmod__ __rdivmod__ __pow__ __rpow__ __neg__ __pos__ __abs__ __bool__ __invert__ __lshift__ __rlshift__ __rshift__ __rrshift__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __int__ __float__ __floordiv__ __rfloordiv__ __truediv__ __rtruediv__ __index__ conjugate bit_length bit_count to_bytes from_bytes as_integer_ratio __trunc__ __floor__ __ceil__ __round__ __getnewargs__ __format__ __sizeof__ is_integer real imag numerator denominator __doc__");
+            Lay(PyType.BoolType, "__new__ __repr__ __invert__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __doc__");
+            Lay(PyType.FloatType, "__new__ __repr__ __hash__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __add__ __radd__ __sub__ __rsub__ __mul__ __rmul__ __mod__ __rmod__ __divmod__ __rdivmod__ __pow__ __rpow__ __neg__ __pos__ __abs__ __bool__ __int__ __float__ __floordiv__ __rfloordiv__ __truediv__ __rtruediv__ conjugate __trunc__ __floor__ __ceil__ __round__ as_integer_ratio fromhex hex is_integer __getnewargs__ __getformat__ __format__ real imag __doc__");
+            Lay(PyType.ComplexType, "__new__ __repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __add__ __radd__ __sub__ __rsub__ __mul__ __rmul__ __pow__ __rpow__ __neg__ __pos__ __abs__ __bool__ __truediv__ __rtruediv__ conjugate __complex__ __getnewargs__ __format__ real imag __doc__");
+            Lay(PyType.StrType, "__new__ __repr__ __hash__ __str__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __mod__ __rmod__ __len__ __getitem__ __add__ __mul__ __rmul__ __contains__ encode replace split rsplit join capitalize casefold title center count expandtabs find partition index ljust lower lstrip rfind rindex rjust rstrip rpartition splitlines strip swapcase translate upper startswith endswith removeprefix removesuffix isascii islower isupper istitle isspace isdecimal isdigit isnumeric isalpha isalnum isidentifier isprintable zfill format format_map __format__ maketrans __sizeof__ __getnewargs__ __doc__");
+            Lay(PyType.BytesType, "__new__ __repr__ __hash__ __str__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __buffer__ __mod__ __rmod__ __len__ __getitem__ __add__ __mul__ __rmul__ __contains__ __getnewargs__ __bytes__ capitalize center count decode endswith expandtabs find fromhex hex index isalnum isalpha isascii isdigit islower isspace istitle isupper join ljust lower lstrip maketrans partition replace removeprefix removesuffix rfind rindex rjust rpartition rsplit rstrip split splitlines startswith strip swapcase title translate upper zfill __doc__");
+            Lay(PyType.BytearrayType, "__new__ __repr__ __str__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __init__ __buffer__ __release_buffer__ __mod__ __rmod__ __len__ __getitem__ __setitem__ __delitem__ __add__ __mul__ __rmul__ __contains__ __iadd__ __imul__ __alloc__ __reduce__ __reduce_ex__ __sizeof__ append capitalize center clear copy count decode endswith expandtabs extend find fromhex hex index insert isalnum isalpha isascii isdigit islower isspace istitle isupper join ljust lower lstrip maketrans partition pop remove replace removeprefix removesuffix reverse rfind rindex rjust rpartition rsplit rstrip split splitlines startswith strip swapcase title translate upper zfill __doc__ __hash__");
+            Lay(PyType.MemoryViewType, "__new__ __repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __buffer__ __release_buffer__ __len__ __getitem__ __setitem__ __delitem__ release tobytes hex tolist cast toreadonly _from_flags __enter__ __exit__ obj nbytes readonly itemsize format ndim shape strides suboffsets c_contiguous f_contiguous contiguous __doc__");
+            Lay(PyType.ListType, "__new__ __repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __init__ __len__ __getitem__ __setitem__ __delitem__ __add__ __mul__ __rmul__ __contains__ __iadd__ __imul__ __reversed__ __sizeof__ clear copy append insert extend pop remove index count reverse sort __class_getitem__ __doc__");
+            Lay(PyType.TupleType, "__new__ __repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __len__ __getitem__ __add__ __mul__ __rmul__ __contains__ __getnewargs__ index count __class_getitem__ __doc__");
+            Lay(PyType.DictType, "__new__ __repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __init__ __or__ __ror__ __ior__ __len__ __getitem__ __setitem__ __delitem__ __contains__ __sizeof__ get setdefault pop popitem keys items values update fromkeys clear copy __reversed__ __class_getitem__ __doc__");
+            Lay(PyType.SetType, "__new__ __repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __init__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __isub__ __iand__ __ixor__ __ior__ __len__ __contains__ add clear copy discard difference difference_update intersection intersection_update isdisjoint issubset issuperset pop __reduce__ remove __sizeof__ symmetric_difference symmetric_difference_update union update __class_getitem__ __doc__");
+            Lay(PyType.FrozenSetType, "__new__ __repr__ __hash__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __len__ __contains__ copy difference intersection isdisjoint issubset issuperset __reduce__ __sizeof__ symmetric_difference union __class_getitem__ __doc__");
+            Lay(PyType.RangeType, "__new__ __repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __bool__ __len__ __getitem__ __contains__ __reversed__ __reduce__ count index start stop step __doc__");
+            Lay(PyType.SliceType, "__new__ __repr__ __hash__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ indices __reduce__ start stop step __doc__");
+            Lay(PyType.PropertyType, "__new__ __getattribute__ __get__ __set__ __delete__ __init__ getter setter deleter __set_name__ fget fset fdel __doc__ __isabstractmethod__");
+            Lay(PyType.StaticMethodType, "__new__ __repr__ __call__ __get__ __init__ __func__ __wrapped__ __isabstractmethod__ __dict__ __doc__");
+            Lay(PyType.ClassMethodType, "__new__ __repr__ __get__ __init__ __func__ __wrapped__ __isabstractmethod__ __dict__ __doc__");
+            Lay(PyType.SuperType, "__new__ __repr__ __getattribute__ __get__ __init__ __thisclass__ __self__ __self_class__ __doc__");
+            Lay(PyType.MapType, "__new__ __getattribute__ __iter__ __next__ __reduce__ __doc__");
+            Lay(PyType.FilterType, "__new__ __getattribute__ __iter__ __next__ __reduce__ __doc__");
+            Lay(PyType.ZipType, "__new__ __getattribute__ __iter__ __next__ __reduce__ __setstate__ __doc__");
+            Lay(PyType.ReversedType, "__new__ __getattribute__ __iter__ __next__ __length_hint__ __reduce__ __setstate__ __doc__");
+            Lay(PyType.BaseExceptionType, "__new__ __repr__ __str__ __getattribute__ __init__ __reduce__ __setstate__ with_traceback add_note __suppress_context__ __dict__ args __traceback__ __context__ __cause__ __doc__");
+            Lay(PyType.FunctionType, "__new__ __repr__ __call__ __get__ __closure__ __doc__ __globals__ __module__ __builtins__ __code__ __defaults__ __kwdefaults__ __annotations__ __dict__ __name__ __qualname__ __type_params__");
+            Lay(PyType.MethodType, "__new__ __repr__ __hash__ __call__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __reduce__ __func__ __self__ __doc__");
+            Lay(PyType.ModuleType, "__new__ __repr__ __getattribute__ __init__ __dir__ __dict__ __annotations__ __doc__");
+            Lay(PyType.GeneratorType, "__repr__ __iter__ __next__ __del__ send throw close __sizeof__ __name__ __qualname__ gi_yieldfrom gi_running gi_frame gi_suspended gi_code __doc__");
+            Lay(PyType.CoroutineType, "__repr__ __del__ __await__ send throw close __sizeof__ cr_origin __name__ __qualname__ cr_await cr_running cr_frame cr_code cr_suspended __doc__");
+            Lay(PyType.AsyncGeneratorType, "__repr__ __del__ __aiter__ __anext__ asend athrow aclose __sizeof__ __class_getitem__ ag_running __name__ __qualname__ ag_await ag_frame ag_code ag_suspended __doc__");
+            Lay(PyType.CellType, "__new__ __repr__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ cell_contents __doc__ __hash__");
+            Lay(PyType.MappingProxyType, "__new__ __repr__ __hash__ __str__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __or__ __ror__ __ior__ __len__ __getitem__ __contains__ get keys values items copy __class_getitem__ __reversed__ __doc__");
+            Lay(PyType.GenericAliasType, "__new__ __repr__ __hash__ __call__ __getattribute__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __or__ __ror__ __getitem__ __mro_entries__ __instancecheck__ __subclasscheck__ __reduce__ __dir__ __origin__ __args__ __unpacked__ __parameters__ __typing_unpacked_tuple_args__ __doc__");
+            Lay(PyType.BuiltinFunctionOrMethodType, "__repr__ __hash__ __call__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __reduce__ __module__ __doc__ __name__ __qualname__ __self__ __text_signature__");
+            Lay(PyType.WrapperDescriptorType, "__repr__ __call__ __get__ __reduce__ __objclass__ __name__ __doc__ __qualname__ __text_signature__");
+            Lay(PyType.MethodWrapperType, "__repr__ __hash__ __call__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __reduce__ __self__ __objclass__ __name__ __qualname__ __doc__ __text_signature__");
+            Lay(PyType.MethodDescriptorType, "__repr__ __call__ __get__ __reduce__ __objclass__ __name__ __doc__ __qualname__ __text_signature__");
+            Lay(PyType.GetSetDescriptorType, "__repr__ __get__ __set__ __delete__ __objclass__ __name__ __doc__ __qualname__");
+            Lay(PyType.ClassMethodDescriptorType, "__repr__ __call__ __get__ __objclass__ __name__ __doc__ __qualname__ __text_signature__");
+            Lay(PyType.MemberDescriptorType, "__repr__ __get__ __set__ __delete__ __reduce__ __objclass__ __name__ __doc__ __qualname__");
+            Lay(PyType.DictKeysType, "__repr__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __len__ __contains__ isdisjoint __reversed__ mapping __doc__ __hash__");
+            Lay(PyType.DictValuesType, "__repr__ __iter__ __len__ __reversed__ mapping __doc__");
+            Lay(PyType.DictItemsType, "__repr__ __lt__ __le__ __eq__ __ne__ __gt__ __ge__ __iter__ __sub__ __rsub__ __and__ __rand__ __xor__ __rxor__ __or__ __ror__ __len__ __contains__ isdisjoint __reversed__ mapping __doc__ __hash__");
         }
     }
 }

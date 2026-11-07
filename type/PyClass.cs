@@ -9,7 +9,7 @@ namespace SharpPy
     /// </summary>
     public class PyClass : PyType
     {
-        public Dictionary<string, PyObject> ClassDict { get; }
+        public PyTypeDictionary ClassDict { get; }
 
         /// <summary>
         /// One slot of the type as update_one_slot (Objects/typeobject.c) leaves it, for the version
@@ -438,11 +438,11 @@ namespace SharpPy
             // This is critical for enum classes where update() modifies the dict
             if (classDict != null)
             {
-                ClassDict = new Dictionary<string, PyObject>(classDict);
+                ClassDict = new PyTypeDictionary(classDict);
             }
             else
             {
-                ClassDict = new Dictionary<string, PyObject>();
+                ClassDict = new PyTypeDictionary();
             }
             // type_new_set_ht_name (Objects/typeobject.c:3416): the qualname the class body wrote is
             // taken out of the dict and kept on the type, so '__qualname__' in C.__dict__ is False and
@@ -666,13 +666,11 @@ namespace SharpPy
             return PyString.From($"<{modulePrefix}{name} object at {PyObjectId.Pointer(self)}>");
         }
 
-        // A builtin type's own dict, then the slot wrappers SharpPy keeps beside it (PyType.SlotDict).
+        // A builtin type's own dict, which holds its slot wrappers too.
         private static PyObject? BuildTypeAttribute(PyType pyType, string name)
         {
             if (pyType.TypeDict != null && pyType.TypeDict.TryGetValue(name, out PyObject descriptor))
                 return descriptor;
-            if (pyType.SlotDict.TryGetValue(name, out var slotWrapper))
-                return slotWrapper;
             return ReferenceEquals(pyType, PyType.ObjectType) && name == "__class__" ? PyType.TypeType : null;
         }
 

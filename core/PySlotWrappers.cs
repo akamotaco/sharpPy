@@ -5,10 +5,9 @@ namespace SharpPy
 {
     /// <summary>
     /// add_operators and slotdefs (Objects/typeobject.c): CPython gives a type a wrapper in its dict for
-    /// every slot it fills. SharpPy's builtin types answer through CLR virtuals, so what they have is kept
-    /// in PyType.SlotDict, one table (SlotTable.g.cs) for vars(), dir() and attribute access.
-    /// Dispatch does not read it: a special method lookup that met a slot wrapper would come back to the
-    /// same virtual. A wrapper therefore works on the native value and not on the instance.
+    /// every slot it fills, and the dict is one: tp_dict. SharpPy's builtin types answer through CLR
+    /// virtuals; the wrappers for the slots each type fills (SlotTable.g.cs) go into its TypeDict, which
+    /// is then laid out in type_ready's order. A wrapper works on the native value, not the instance.
     /// </summary>
     internal static partial class PySlotWrappers
     {
@@ -32,9 +31,9 @@ namespace SharpPy
         {
             foreach (var name in new[] { "__mul__", "__rmul__", "__imul__" })
             {
-                var table = type.TypeDict.ContainsKey(name) ? type.TypeDict : type.SlotDict.ContainsKey(name) ? type.SlotDict : null;
-                if (table?[name] is not PyWrapperDescriptor wrapper)
+                if (!type.TypeDict.TryGetValue(name, out var present) || present is not PyWrapperDescriptor wrapper)
                     continue;
+                var table = type.TypeDict;
                 var inner = wrapper._implementation;
                 table[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) =>
                     inner(self, new PyObject[] { PyInt.From(PyArgs.IndexSsize(args[0])) }, kwargs))
@@ -44,10 +43,44 @@ namespace SharpPy
             }
         }
 
+        private static readonly List<(PyType Type, string[] Order)> Layouts = new List<(PyType, string[])>();
+
+        private static void Lay(PyType type, string names) =>
+            Layouts.Add((type, names.Split(' ', StringSplitOptions.RemoveEmptyEntries)));
+
+        /// <summary>
+        /// type_ready_fill_dict's layout of each builtin's tp_dict (__new__, add_operators, the methods,
+        /// members and getsets, __doc__), in the order CPython 3.12 has it (SlotTable.g.cs). Run once,
+        /// after every builtin type has registered what it has; a name CPython's dict lacks keeps its
+        /// registration order after the others.
+        /// </summary>
+        internal static void LayOut()
+        {
+            LayAll();
+            foreach (var (type, order) in Layouts)
+            {
+                var old = type.TypeDict;
+                var laid = new Dictionary<string, PyObject>(old.Count);
+                foreach (var name in order)
+                    if (old.TryGetValue(name, out var value))
+                        laid[name] = value;
+                foreach (var entry in old)
+                    laid.TryAdd(entry.Key, entry.Value);
+                old.Clear();
+                foreach (var entry in laid)
+                    old[entry.Key] = entry.Value;
+            }
+        }
+
         private static void Add(PyType type, string names)
         {
-            foreach (var name in names.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            var listed = names.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            // "-name": a slot CPython keeps as None in the dict, which has no wrapper.
+            foreach (var entry in listed)
             {
+                if (entry.StartsWith('-'))
+                    continue;
+                string name = entry;
                 // add_operators: a slot in a builtin's dict is a slot wrapper, however it was registered.
                 if (type.TypeDict.TryGetValue(name, out var present))
                 {
@@ -59,7 +92,7 @@ namespace SharpPy
                     continue;
                 string slot = name;
                 var owner = type;
-                type.SlotDict[name] = new PyWrapperDescriptor(name, type,
+                type.TypeDict[name] = new PyWrapperDescriptor(name, type,
                     (self, args, kwargs) => Run(owner, self, slot, args, kwargs)) { CallsVirtual = true };
             }
         }
@@ -166,23 +199,6 @@ namespace SharpPy
                 case "__floordiv__": return value.FloorDivide(args[0]);
                 default: return value.Divide(args[0]);
             }
-        }
-
-        // The end of attribute lookup: what the regular lookup found nothing for.
-        internal static PyObject TryBind(PyObject self, string name)
-        {
-            if (self is PyType type)
-            {
-                foreach (var level in type.MRO)
-                    if (level.SlotDict.TryGetValue(name, out var slot))
-                        return slot;
-                self = type;
-            }
-            var kind = self.GetPyType();
-            foreach (var level in kind.MRO)
-                if (level.SlotDict.TryGetValue(name, out var slot))
-                    return ((IDescriptor)slot).Get(self, kind);
-            return null;
         }
     }
 }

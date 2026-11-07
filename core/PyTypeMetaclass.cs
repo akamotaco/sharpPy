@@ -261,7 +261,6 @@ namespace SharpPy
             // type_new_set_attrs
             if (!dict.ContainsKey("__module__") && PyVM.CurrentFrame?.Globals.TryGetValue("__name__", out var module) == true)
                 dict["__module__"] = module;
-            if (!dict.ContainsKey("__doc__")) dict["__doc__"] = PyNone.Instance;
             if (dict.TryGetValue("__new__", out var newEntry) && newEntry is PyFunction)
                 dict["__new__"] = new PyStaticmethod(newEntry);
             foreach (var implicitClassmethod in new[] { "__init_subclass__", "__class_getitem__" })
@@ -277,6 +276,8 @@ namespace SharpPy
             if (created.ClassDict.Remove("__classdictcell__", out var dictCell) && dictCell is PyCell classDictCell)
                 classDictCell.Value = new PyMappingProxy(created.ClassDict);
             AddInstanceDescriptors(created);
+            // type_dict_set_doc: __doc__ None when the class has none, after the members and getsets.
+            created.ClassDict.TryAdd("__doc__", PyNone.Instance);
 
             // mro_internal: a metaclass may answer another order.
             created.MroPending = true;
