@@ -110,6 +110,9 @@ public class PyModule : PyObject
     // Cache the PyDict wrapper to ensure identity consistency
     private PyDict _cachedDict;
 
+    // md_dict, the one dict object of the module (frame->f_globals of its code).
+    internal PyDict DictObject => _cachedDict ??= PyGlobalsDict.For(ModuleDict);
+
     public PyModule(string name, string fileName = null)
     {
         Name = name;
@@ -179,22 +182,8 @@ public class PyModule : PyObject
 
     internal PyObject ModuleGetAttro(string name)
     {
-        // CPython 3.12: Objects/moduleobject.c:783 - _Py_module_getattro_impl
-        // Special handling for __dict__ - return same object every time
-        if (name == "__dict__" && LookupUserSpecial(name) is { } shadow && shadow is not PyGetSetDescriptor)
-            return PyClassInstance.CallDescriptorGet(shadow, this, GetPyType());
-        if (name == "__dict__")
-        {
-            if (_cachedDict == null)
-            {
-                // CPython 3.12: Python/ceval.c:2392 - frame->f_globals is module->md_dict
-                // Use PyGlobalsDict which synchronizes bidirectionally with ModuleDict
-                // This ensures dict.update() modifies ModuleDict, and LOAD_NAME sees the changes
-                _cachedDict = PyGlobalsDict.For(ModuleDict);
-            }
-            return _cachedDict;
-        }
-
+        // CPython 3.12: Objects/moduleobject.c:783 - _Py_module_getattro_impl. __dict__ and
+        // __annotations__ are the module type's member and getset, found below like any other.
         // PyObject_GenericGetAttr over the module's type: a data descriptor (object's __class__)
         // comes before md_dict.
         var declared = GetPyType().FindNameInMro(name);
@@ -203,14 +192,6 @@ public class PyModule : PyObject
 
         if (ModuleDict.TryGetValue(name, out PyObject value))
             return value;
-
-        // module_get_annotations: a module without any gets an empty dict of its own.
-        if (name == "__annotations__")
-        {
-            var annotations = new PyDict();
-            ModuleDict[name] = annotations;
-            return annotations;
-        }
 
         // The rest of _PyObject_GenericGetAttrWithDict: a non-data descriptor or plain value of
         // the type; then module_getattro's own __getattr__ (PEP 562).
@@ -229,9 +210,6 @@ public class PyModule : PyObject
 
     internal void ModuleSetAttro(string name, PyObject value)
     {
-        // module_members: __dict__ is READONLY.
-        if (name == "__dict__")
-            throw PyAttributeError.Create("readonly attribute");
         // object_set_class: a module's type may change, to another module type.
         if (name == "__class__")
         {
@@ -243,7 +221,9 @@ public class PyModule : PyObject
             SetCustomType(target as PyClass);
             return;
         }
-        if (_customType is PyClass heap && PyClassInstance.FindDataDescriptorInMro(heap, name) is { } descriptor)
+        // _PyObject_GenericSetAttrWithDict: a data descriptor of the type (the READONLY __dict__,
+        // the __annotations__ getset, a subclass's own) first, then md_dict.
+        if (PyClassInstance.FindDataDescriptorInMro(GetPyType(), name) is { } descriptor)
         {
             PyClassInstance.CallDescriptorSet(descriptor, this, value);
             return;
@@ -270,11 +250,9 @@ public class PyModule : PyObject
     {
         // _PyObject_GenericSetAttrWithDict over md_dict: __dict__ is a READONLY member, __class__
         // object's getset, a data descriptor of a subclass deletes.
-        if (name == "__dict__")
-            throw PyAttributeError.Create("readonly attribute");
         if (name == "__class__")
             throw PyTypeError.Create("can't delete __class__ attribute");
-        if (_customType is PyClass heap && PyClassInstance.FindDataDescriptorInMro(heap, name) is { } descriptor)
+        if (PyClassInstance.FindDataDescriptorInMro(GetPyType(), name) is { } descriptor)
         {
             PyClassInstance.CallDescriptorDelete(descriptor, this);
             return;

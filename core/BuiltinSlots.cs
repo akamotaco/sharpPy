@@ -123,6 +123,7 @@ namespace SharpPy
                 ((PyModule)self).Initialize(text.Value, doc ?? PyNone.Instance);
                 return PyNone.Instance;
             }, 0, int.MaxValue);
+            InstallSurfaces();
             // type_ready_fill_dict: every builtin's dict in CPython's layout, once all is registered.
             PySlotWrappers.LayOut();
         }
@@ -198,6 +199,81 @@ namespace SharpPy
             // object_subclasshook: METH_CLASS|METH_VARARGS, NotImplemented whatever it is given.
             PyType.ObjectType.TypeDict["__subclasshook__"] = new PyClassMethodDescriptor("__subclasshook__", PyType.ObjectType,
                 new PyBuiltinFunction("__subclasshook__", (args, kwargs) => PyNotImplemented.Instance));
+        }
+
+        private static void InstallSurfaces()
+        {
+            // module_members and module_getsets
+            var module = PyType.ModuleType;
+            module.TypeDict["__dict__"] = new PyMemberDescriptor("__dict__", module, self => ((PyModule)self).DictObject, readOnly: true);
+            module.TypeDict["__annotations__"] = new PyGetSetDescriptor("__annotations__", module,
+                // module_get_annotations: the dict's own, or a new empty one stored there.
+                self =>
+                {
+                    var dict = ((PyModule)self).DictObject;
+                    if (dict.TryGetStoredValue(PyString.From("__annotations__"), out var found)) return found;
+                    var created = new PyDict();
+                    dict.SetItem(PyString.From("__annotations__"), created);
+                    return created;
+                },
+                (self, value) => ((PyModule)self).DictObject.SetItem(PyString.From("__annotations__"), value),
+                // module_set_annotations with NULL
+                deleter: self =>
+                {
+                    var dict = ((PyModule)self).DictObject;
+                    if (!dict.TryGetStoredValue(PyString.From("__annotations__"), out _))
+                        throw PyAttributeError.Create("__annotations__");
+                    dict.DelItem(PyString.From("__annotations__"));
+                });
+            // module_getattro and super_getattro are the slots of their own types, so the wrappers.
+            foreach (var type in new[] { PyType.ModuleType, PyType.SuperType })
+                type.TypeDict["__getattribute__"] = new PyWrapperDescriptor("__getattribute__", type, (self, args, kwargs) =>
+                {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    if (args[0] is not PyString name)
+                        throw PyTypeError.Create($"attribute name must be string, not '{args[0].GetTypeName()}'");
+                    return self.TpGetattro(name.Value);
+                });
+            // method_reduce: (getattr, (im_self, im_func.__name__))
+            Method(PyType.MethodType, "__reduce__", (self, args) =>
+            {
+                var method = (PyMethod)self;
+                return PyTuple.From(PyImportSystem.Import("builtins").GetAttribute("getattr"),
+                    PyTuple.From(method.Instance, method.Function.GetAttribute("__name__")));
+            });
+            // gen_finalize as __del__, and gen_sizeof / frame_sizeof / code_sizeof.
+            foreach (var type in new[] { PyType.GeneratorType, PyType.CoroutineType })
+            {
+                Method(type, "__del__", (self, args) => { PyFinalizer.FinalizeGenerator(self); return PyNone.Instance; });
+                var owner = type;
+                Method(type, "__sizeof__", (self, args) =>
+                {
+                    var code = (PyCodeObject)self.GetAttribute(ReferenceEquals(owner, PyType.GeneratorType) ? "gi_code" : "cr_code");
+                    return PyInt.From(owner.Layout.BasicSize + owner.Layout.ItemSize * (long)(code.NLocalsPlus + code.StackSize));
+                });
+            }
+            Method(PyFrame.FramePyType, "__sizeof__", (self, args) =>
+            {
+                var code = ((PyFrame)self).Code;
+                return PyInt.From(PyFrame.FramePyType.Layout.BasicSize + PyFrame.FramePyType.Layout.ItemSize * (long)(code.NLocalsPlus + code.StackSize));
+            });
+            // code_sizeof: _PyObject_VAR_SIZE, rounded up to a pointer
+            Method(PyCodeObject.CodePyType, "__sizeof__", (self, args) =>
+            {
+                long units = ((PyBytes)self.GetAttribute("co_code")).Value.Length / 2;
+                long size = PyCodeObject.CodePyType.Layout.BasicSize + PyCodeObject.CodePyType.Layout.ItemSize * units;
+                return PyInt.From((size + 7) & ~7L);
+            });
+            // ga_dir: dir(origin), then the alias's own names that dir did not list.
+            Method(PyType.GenericAliasType, "__dir__", (self, args) =>
+            {
+                var names = (PyList)PyImportSystem.Import("builtins").GetAttribute("dir").Call(new[] { ((PyGenericAlias)self).Origin }, null);
+                foreach (var own in PyGenericAlias.AttrExceptions)
+                    if (!names.ContainsItem(PyString.From(own)).Value)
+                        names.Append(PyString.From(own));
+                return names;
+            });
         }
 
         // object___sizeof___impl: tp_basicsize, and Py_SIZE(self) * tp_itemsize for a variable-size type.

@@ -68,6 +68,14 @@ namespace SharpPy
             return PyTuple.From(new PyObject[] { alias.GetPyType(), PyTuple.From(new[] { alias.Origin, alias.Args }) });
         }
 
+        // attr_exceptions (Objects/genericaliasobject.c:631): the alias's own names, which ga_getattro
+        // answers itself and ga_dir adds to the origin's.
+        internal static readonly string[] AttrExceptions =
+        {
+            "__class__", "__origin__", "__args__", "__unpacked__", "__parameters__", "__typing_unpacked_tuple_args__",
+            "__mro_entries__", "__reduce_ex__", "__reduce__", "__copy__", "__deepcopy__",
+        };
+
         // attr_exceptions and ga_getattro: what is not the alias's own goes to the origin.
         // A subclass inherits ga_getattro, which forwards to __origin__.
         internal override PyObject InheritedGetattro(string name) => TpGetattro(name);

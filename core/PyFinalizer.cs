@@ -483,50 +483,43 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// _PyGen_Finalize (Objects/genobject.c:70), the generator's tp_finalize and so its
+        /// __del__: a coroutine that never ran says so, a suspended one is closed; what that raises
+        /// is reported as unraisable, naming the generator.
+        /// </summary>
+        internal static void FinalizeGenerator(PyObject target)
+        {
+            var saved = PyVM.SnapshotExceptionStates();
+            try
+            {
+                if (target is SharpPy.Core.PyCoroutine coroutine) coroutine.Finalize();
+                else ((PyGenerator)target).Close();
+            }
+            catch (PythonException ex)
+            {
+                PyUnraisable.Report(ex, target);
+            }
+            catch (Exception ex)
+            {
+                PyUnraisable.Report(new PythonException(PyVM.ConvertToPythonException(ex)), target);
+            }
+            finally
+            {
+                PyVM.RestoreExceptionStates(saved);
+            }
+        }
+
         private static void RunFinalizer(PyGuard guard)
         {
             var target = guard.Owner;
             if (target == null) return;
 
             // A suspended generator has a different debt: _PyGen_Finalize (Objects/genobject.c:70)
-            // closes it, which is what runs the try/finally it is sitting in. The report names the
-            // generator, as CPython does ("Exception ignored in: <generator object stubborn at 0x..>").
-            if (target is SharpPy.Core.PyCoroutine coroutine)
+            // closes it, which is what runs the try/finally it is sitting in.
+            if (target is SharpPy.Core.PyCoroutine or PyGenerator)
             {
-                var savedCoroutine = PyVM.SnapshotExceptionStates();
-                try
-                {
-                    coroutine.Finalize();
-                }
-                catch (PythonException ex)
-                {
-                    PyUnraisable.Report(ex, coroutine);
-                }
-                finally
-                {
-                    PyVM.RestoreExceptionStates(savedCoroutine);
-                }
-                return;
-            }
-            if (target is PyGenerator generator)
-            {
-                var savedGenerator = PyVM.SnapshotExceptionStates();
-                try
-                {
-                    generator.Close();
-                }
-                catch (PythonException ex)
-                {
-                    PyUnraisable.Report(ex, generator);
-                }
-                catch (Exception ex)
-                {
-                    PyUnraisable.Report(new PythonException(PyVM.ConvertToPythonException(ex)), generator);
-                }
-                finally
-                {
-                    PyVM.RestoreExceptionStates(savedGenerator);
-                }
+                FinalizeGenerator(target);
                 return;
             }
 
