@@ -906,45 +906,7 @@ namespace SharpPy
 
                     var (sep, maxsplit) = SplitArguments(ProjectKeywordSlots(args, kwargs, "sep", "maxsplit"));
 
-                    // CPython: rsplit splits from the right but returns results in left-to-right order
-                    string[] parts;
-                    if (sep == null)
-                    {
-                        // Split on whitespace - rsplit from right means keeping leftmost parts together when limited
-                        parts = str.Value.Split((char[])null, System.StringSplitOptions.RemoveEmptyEntries);
-                        if (maxsplit >= 0 && parts.Length > maxsplit + 1)
-                        {
-                            // Keep the leftmost parts together
-                            int keepCount = parts.Length - maxsplit;
-                            var limited = new string[maxsplit + 1];
-                            limited[0] = string.Join(" ", parts, 0, keepCount);
-                            Array.Copy(parts, keepCount, limited, 1, maxsplit);
-                            parts = limited;
-                        }
-                    }
-                    else
-                    {
-                        // Split with separator from right
-                        var allParts = str.Value.Split(new[] { sep }, System.StringSplitOptions.None);
-                        if (maxsplit >= 0 && allParts.Length > maxsplit + 1)
-                        {
-                            // Keep the leftmost parts together
-                            int keepCount = allParts.Length - maxsplit;
-                            parts = new string[maxsplit + 1];
-                            parts[0] = string.Join(sep, allParts, 0, keepCount);
-                            Array.Copy(allParts, keepCount, parts, 1, maxsplit);
-                        }
-                        else
-                        {
-                            parts = allParts;
-                        }
-                    }
-
-                    var items = new PyObject[parts.Length];
-                    for (int i = 0; i < parts.Length; i++)
-                        items[i] = new PyString(parts[i]);
-
-                    return new PyList(new System.Collections.Generic.List<PyObject>(items));
+                    return str.Split(sep, maxsplit, fromRight: true);
                 },
                 minArgs: 0, maxArgs: 2
 , acceptsKwargs: true);
@@ -2660,6 +2622,9 @@ namespace SharpPy
                     }
                 }
 
+                // unicode_format_arg_parse: one "h", "l" or "L" length prefix is ignored ("%ld").
+                if (i < fmt.Length && fmt[i] is 'h' or 'l' or 'L')
+                    i++;
                 if (i >= fmt.Length)
                     throw PyValueError.Create("incomplete format");
                 char conv = fmt[i];
@@ -3051,32 +3016,82 @@ namespace SharpPy
         public PyBool StartsWith(string prefix) => PyBool.FromBool(Value.StartsWith(prefix, StringComparison.Ordinal));
         public PyBool EndsWith(string suffix) => PyBool.FromBool(Value.EndsWith(suffix, StringComparison.Ordinal));
 
-        public PyList Split(string sep = null, int maxsplit = -1)
+        /// <summary>
+        /// str.split and str.rsplit: Objects/stringlib/split.h (split_whitespace, split,
+        /// rsplit_whitespace, rsplit), a negative maxcount being PY_SSIZE_T_MAX. The whitespace test
+        /// is Py_UNICODE_ISSPACE, which no surrogate passes, so the walk can be over code units.
+        /// When nothing was split an exact str is its own only element.
+        /// </summary>
+        public PyList Split(string sep, long maxcount, bool fromRight = false)
         {
-            string[] parts;
-
-            if (sep == null)
+            string text = Value;
+            int len = text.Length;
+            if (maxcount < 0) maxcount = long.MaxValue;
+            var parts = new List<PyObject>();
+            PyObject Piece(int start, int end) =>
+                start == 0 && end == len && !HasCustomType ? this : new PyString(text.Substring(start, end - start));
+            if (sep == null && !fromRight)
             {
-                // 공백문자로 분리
-                var options = StringSplitOptions.RemoveEmptyEntries;
-                parts = maxsplit == -1
-                    ? Value.Split(new char[0], options)
-                    : Value.Split(new char[0], maxsplit + 1, options);
+                int i = 0, j;
+                while (maxcount-- > 0)
+                {
+                    while (i < len && IsWhiteSpaceCp(text[i])) i++;
+                    if (i == len) break;
+                    j = i; i++;
+                    while (i < len && !IsWhiteSpaceCp(text[i])) i++;
+                    parts.Add(Piece(j, i));
+                }
+                if (i < len)
+                {
+                    // only when maxcount was reached: the rest, without its leading whitespace
+                    while (i < len && IsWhiteSpaceCp(text[i])) i++;
+                    if (i != len) parts.Add(Piece(i, len));
+                }
+            }
+            else if (sep == null)
+            {
+                int i = len - 1, j;
+                while (maxcount-- > 0)
+                {
+                    while (i >= 0 && IsWhiteSpaceCp(text[i])) i--;
+                    if (i < 0) break;
+                    j = i; i--;
+                    while (i >= 0 && !IsWhiteSpaceCp(text[i])) i--;
+                    parts.Add(Piece(i + 1, j + 1));
+                }
+                if (i >= 0)
+                {
+                    while (i >= 0 && IsWhiteSpaceCp(text[i])) i--;
+                    if (i >= 0) parts.Add(Piece(0, i + 1));
+                }
+                parts.Reverse();
+            }
+            else if (!fromRight)
+            {
+                int i = 0;
+                while (maxcount-- > 0)
+                {
+                    int pos = text.IndexOf(sep, i, StringComparison.Ordinal);
+                    if (pos < 0) break;
+                    parts.Add(Piece(i, pos));
+                    i = pos + sep.Length;
+                }
+                parts.Add(Piece(i, len));
             }
             else
             {
-                parts = maxsplit == -1
-                    ? Value.Split(new[] { sep }, StringSplitOptions.None)
-                    : Value.Split(new[] { sep }, maxsplit + 1, StringSplitOptions.None);
+                int j = len;
+                while (maxcount-- > 0)
+                {
+                    int pos = j < sep.Length ? -1 : text.LastIndexOf(sep, j - 1, j, StringComparison.Ordinal);
+                    if (pos < 0) break;
+                    parts.Add(Piece(pos + sep.Length, j));
+                    j = pos;
+                }
+                parts.Add(Piece(0, j));
+                parts.Reverse();
             }
-
-            // Performance: Eliminated LINQ (.Select + .Cast + .ToArray) - direct array creation + Cache
-            var pyStrings = new PyObject[parts.Length];
-            for (int i = 0; i < parts.Length; i++)
-            {
-                pyStrings[i] = StringCache.GetOrCreate(parts[i]);
-            }
-            return ListCache.Create(pyStrings);
+            return new PyList(parts);
         }
 
         public PyString Join(PyObject iterable)
@@ -3599,7 +3614,7 @@ namespace SharpPy
         }
 
         // unicode_split_impl and unicode_rsplit_impl: argument clinic, then split's empty check.
-        private static (string, int) SplitArguments(PyObject[] arguments)
+        private static (string, long) SplitArguments(PyObject[] arguments)
         {
             string separator = null;
             if (arguments.Length >= 1 && arguments[0] != null && arguments[0] is not PyNone)
@@ -3612,30 +3627,10 @@ namespace SharpPy
                 if (separator.Length == 0)
                     throw PyValueError.Create("empty separator");
             }
-            int limit = -1;
+            long limit = -1;
             if (arguments.Length >= 2 && arguments[1] != null)
-            {
-                long count = PyArgs.Ssize(arguments[1]);
-                limit = count > int.MaxValue ? int.MaxValue : count < 0 ? -1 : (int)count;
-            }
+                limit = PyArgs.Ssize(arguments[1]);
             return (separator, limit);
-        }
-
-        private PyObject Split(PyObject[] args)
-        {
-            if (args.Length > 2)
-                throw PyTypeError.Create($"split() takes at most 2 arguments ({args.Length} given)");
-            
-            string sep = null;
-            int maxsplit = -1;
-            
-            if (args.Length >= 1 && args[0] is PyString sepStr)
-                sep = sepStr.Value;
-            
-            if (args.Length >= 2 && args[1] is PyInt maxsplitInt)
-                maxsplit = Math.Max(PyArgs.SsizeCount(maxsplitInt), -1);
-
-            return Split(sep, maxsplit);
         }
 
         private PyObject Join(PyObject[] args)
