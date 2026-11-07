@@ -22,11 +22,5 @@ namespace SharpPy
         public PyStrSubclass(PyClass cls, PyString strValue) : this(cls, strValue.Value) { }
 
         // Every slot is str's, inherited: a str whose ob_type is the subclass.
-
-
-        /// <summary>_PyUnicode_Copy: the exact str of the value.</summary>
-        public PyString GetStrValue() => new PyString(Value);
-
-        public string GetStringValue() => Value;
     }
 }

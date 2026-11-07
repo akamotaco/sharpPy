@@ -220,9 +220,6 @@ namespace SharpPy
                 ? self : new PyComplex(((PyComplex)self).Real, ((PyComplex)self).Imag));
         }
 
-        private static PyObject StoredText(PyObject self) =>
-            (self as PyStrSubclass)?.GetStrValue() ?? self;
-
         // _Py_union_type_or with the operands as written: None | int.
         private static PyObject UnionOnTheRight(PyObject self, PyObject left) => PyUnionType.Or(left, self);
 
@@ -242,9 +239,9 @@ namespace SharpPy
 
         private static void InstallText()
         {
-            // unicode_repeat reads the text; a subclass's own __mul__ is not asked again.
-            Slot(PyType.StrType, "__mul__", (self, args) => StoredText(self).Multiply(args[0]));
-            Slot(PyType.StrType, "__rmul__", (self, args) => StoredText(self).Multiply(args[0]));
+            // unicode_repeat, str's own sq_repeat: a subclass's __mul__ is not asked again.
+            Slot(PyType.StrType, "__mul__", (self, args) => ((PyString)self).Multiply(args[0]));
+            Slot(PyType.StrType, "__rmul__", (self, args) => ((PyString)self).Multiply(args[0]));
             Slot(PyType.StrType, "__rmod__", (self, args) => args[0] is PyString format ? format.Modulo(self) : PyNotImplemented.Instance);
 
             Method(PyType.BytesType, "__bytes__", (self, args) => self);

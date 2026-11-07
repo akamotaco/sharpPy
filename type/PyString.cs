@@ -65,7 +65,7 @@ namespace SharpPy
             }
 
             // With encoding or errors present, CPython never accepts a str and never calls str().
-            if (objectArg is PyString || objectArg is PyStrSubclass)
+            if (objectArg is PyString)
                 throw PyTypeError.Create("decoding str is not supported");
             if (encodingArg != null && encodingArg is not PyString)
                 throw PyTypeError.Create(
@@ -381,7 +381,7 @@ namespace SharpPy
                     string value = str.Value;
 
                     // CPython Objects/unicodeobject.c unicode_zfill pads to the character length.
-                    int chars = str.Length();
+                    int chars = str.CodePointLength();
                     if (chars >= width)
                         return str.ResultUnchanged();
 
@@ -660,7 +660,7 @@ namespace SharpPy
                 "__getnewargs__", strType,
                 (self, args, kwargs) => new PyTuple(new PyObject[]
                 {
-                    self is PyStrSubclass sub ? sub.GetStrValue() : self
+                    new PyString(((PyString)self).Value)
                 }),
                 minArgs: 0, maxArgs: 0);
 
@@ -1023,7 +1023,7 @@ namespace SharpPy
                         fillchar = FillCharacter(args[1]);
                     }
 
-                    int chars = str.Length();
+                    int chars = str.CodePointLength();
                     if (chars >= width)
                         return str.ResultUnchanged();
 
@@ -1058,7 +1058,7 @@ namespace SharpPy
                         fillchar = FillCharacter(args[1]);
                     }
 
-                    int chars = str.Length();
+                    int chars = str.CodePointLength();
                     if (chars >= width)
                         return str.ResultUnchanged();
 
@@ -1087,7 +1087,7 @@ namespace SharpPy
                         fillchar = FillCharacter(args[1]);
                     }
 
-                    int chars = str.Length();
+                    int chars = str.CodePointLength();
                     if (chars >= width)
                         return str.ResultUnchanged();
 
@@ -2335,11 +2335,13 @@ namespace SharpPy
                 // CPython 3.12: PyUnicode_Concat gates on PyUnicode_Check, which is true
                 // for str subclass instances; they concatenate by content
                 // (Objects/unicodeobject.c:11060-11067).
-                otherStr = (other as PyStrSubclass)?.GetStrValue();
-                if (otherStr == null)
-                    return PyNotImplemented.Instance;
+                return PyNotImplemented.Instance;
             }
 
+            // PyUnicode_Concat's shortcuts: the empty str and the other operand is PyUnicode_FromObject
+            // of the other (itself when exact, an exact copy of a subclass).
+            if (IsEmptySingleton) return otherStr.ResultUnchanged();
+            if (otherStr.IsEmptySingleton) return ResultUnchanged();
             return new PyString(Value + otherStr.Value);
         }
 
@@ -2469,6 +2471,9 @@ namespace SharpPy
 
             if (count.Value <= 0)
                 return new PyString("");
+            // unicode_repeat: once is the text unchanged.
+            if (count.Value == 1)
+                return ResultUnchanged();
             // unicode_repeat: "repeated string is too long" past Py_ssize_t, then PyUnicode_New.
             if (Value.Length * count.Value > long.MaxValue)
                 throw PyOverflowError.Create("repeated string is too long");
@@ -2719,11 +2724,11 @@ namespace SharpPy
                     case 'c':
                     {
                         // formatchar
-                        if (value is PyString or PyStrSubclass)
+                        if (value is PyString character)
                         {
-                            if (value.Length() != 1)
+                            if (character.CodePointLength() != 1)
                                 throw PyTypeError.Create("%c requires int or char");
-                            body = value.AsString().Value;
+                            body = character.Value;
                             break;
                         }
                         var code = PyPercentFormat.Character(value) ??
@@ -2809,7 +2814,7 @@ namespace SharpPy
 
             // PyUnicode_Format: ctx.dict is a mapping that is no tuple or str.
             if ((positional && ai < args.Length) || (!positional && !singleUsed &&
-                (arg is PyString or PyStrSubclass || !arg.HasTypeSlot("__getitem__"))))
+                (arg is PyString || !arg.HasTypeSlot("__getitem__"))))
                 throw PyTypeError.Create("not all arguments converted during string formatting");
             return sb.ToString();
         }
@@ -2956,6 +2961,9 @@ namespace SharpPy
         /// unicode_result_unchanged (Objects/unicodeobject.c): an exact str is its own result, a
         /// subclass instance gives an exact copy.
         /// </summary>
+        // unicode_get_empty: every exact empty str is the one singleton in CPython.
+        private bool IsEmptySingleton => Value.Length == 0 && !HasCustomType;
+
         internal PyString ResultUnchanged() => HasCustomType ? new PyString(Value) : this;
 
         // replace (Objects/unicodeobject.c): the text is walked once, what was put in is not searched.
@@ -3419,13 +3427,11 @@ namespace SharpPy
             return (UnitIndexOfCharacter(newPosition), newPosition);
         }
 
-        private int CodePointLength()
-        {
-            int count = 0;
-            for (int unit = 0; unit < Value.Length; count++)
-                unit += char.IsHighSurrogate(Value[unit]) && unit + 1 < Value.Length && char.IsLowSurrogate(Value[unit + 1]) ? 2 : 1;
-            return count;
-        }
+        /// <summary>
+        /// PyUnicode_GET_LENGTH: the text's length in code points, which a subclass's __len__ does
+        /// not change (that is PyObject_Size, Length()).
+        /// </summary>
+        internal int CodePointLength() => (int)Len();
 
         private static void Emit(List<byte> bytes, int cp, EncodeContext ctx, bool bigEndian)
         {

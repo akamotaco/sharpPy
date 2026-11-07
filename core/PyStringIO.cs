@@ -197,7 +197,7 @@ public class PyStringIO : PyIOBaseInstance
         else
         {
             line = GetAttribute("readline").Call(Array.Empty<PyObject>(), null);
-            if (line is not PyString && line is not PyStrSubclass)
+            if (line is not PyString)
                 throw new PythonException(PyOSError.FromArguments(new PyObject[]
                 {
                     new PyString($"readline() should have returned a str object, not '{line.GetTypeName()}'"),
@@ -244,7 +244,7 @@ public class PyStringIO : PyIOBaseInstance
     private PyObject Write(PyObject value)
     {
         CheckInitialized();
-        if (value is not PyString && value is not PyStrSubclass)
+        if (value is not PyString)
             throw PyTypeError.Create($"string argument expected, got '{value.GetTypeName()}'");
         CheckClosed();
         string text = value.ToStr().Value;
@@ -284,7 +284,7 @@ public class PyStringIO : PyIOBaseInstance
         }
         if (newline != null && newline.Length != 0 && newline != "\n" && newline != "\r" && newline != "\r\n")
             throw PyValueError.Create($"illegal newline value: {newlineObject.ToRepr().Value}");
-        if (value != null && value is not PyNone && value is not PyString && value is not PyStrSubclass)
+        if (value != null && value is not PyNone && value is not PyString)
             throw PyTypeError.Create($"initial_value must be str or None, not {value.GetTypeName()}");
         _ok = false;
         _writer.Clear();
@@ -332,7 +332,7 @@ public class PyStringIO : PyIOBaseInstance
             throw PyTypeError.Create($"{TypeName(this)}.__setstate__ argument should be 4-tuple, got {state.GetTypeName()}");
         Initialize(new[] { tuple.Items[0], tuple.Items[1] }, null);
         var item = tuple.Items[0];
-        if (item is PyString or PyStrSubclass)
+        if (item is PyString)
         {
             string text = item.ToStr().Value;
             int size = PyString.CodePointCount(text);

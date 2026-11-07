@@ -89,7 +89,7 @@ namespace SharpPy.Modules
         {
             if (args.Length == 0)
                 throw PyTypeError.Create($"{function}() takes at least 1 argument (0 given)");
-            if (args[0] is PyString text && text.Length() == 1)
+            if (args[0] is PyString text && text.CodePointLength() == 1)
                 return text.Value.Length == 1 ? text.Value[0] : char.ConvertToUtf32(text.Value, 0);
             throw PyTypeError.Create($"{function}() argument must be a unicode character, not {args[0].GetTypeName()}");
         }

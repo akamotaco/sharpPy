@@ -4495,16 +4495,15 @@ namespace SharpPy
                             frame.ValueStack.Push(listDup.Items[i]);
                         }
                     }
-                    else if (sequence is PyString str)
+                    // An exact str iterates its characters; a subclass is unpack_iterable's, over its __iter__.
+                    else if (sequence is PyString { HasCustomType: false } str)
                     {
-                        if (str.Length() != unpackCount)
+                        if (str.CodePointLength() != unpackCount)
                         {
-                            throw UnpackCountError(unpackCount, str.Length());
+                            throw UnpackCountError(unpackCount, str.CodePointLength());
                         }
 
-                        // CPython pushes characters in reverse order, and "character" means whatever
-                        // str[i] hands back, so go through GetItem rather than cutting the buffer.
-                        for (int i = str.Length() - 1; i >= 0; i--)
+                        for (int i = str.CodePointLength() - 1; i >= 0; i--)
                         {
                             frame.ValueStack.Push(str.GetItem(i));
                         }
@@ -5363,7 +5362,7 @@ namespace SharpPy
         // list, tuple, str, bytes and bytearray have sq_concat and sq_repeat, and no nb_add or nb_multiply.
         private static bool HasOnlySequenceSlot(PyObject value, BinaryOpType operation) =>
             operation is BinaryOpType.ADD or BinaryOpType.MULTIPLY &&
-            value is PyList or PyTuple or PyString or PyStrSubclass or PyBytes
+            value is PyList or PyTuple or PyString or PyBytes
                 or PyBytesSubclass or PyByteArray or SharpPy.Modules.PyDeque;
 
         // SQSLOT("__add__", sq_concat, NULL, ...): __add__ written in Python leaves the slot empty.

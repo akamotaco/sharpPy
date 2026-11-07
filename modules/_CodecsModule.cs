@@ -270,7 +270,7 @@ namespace SharpPy.Modules
             if (!(args[0] is PyString pyStr))
                 throw PyTypeError.Create($"{name}() argument 1 must be str, not {args[0].GetTypeName()}");
             string errors = args.Length > 1 && args[1] is PyString errorName ? errorName.Value : null;
-            return new PyTuple(new PyObject[] { pyStr.Encode(codec, errors), new PyInt(pyStr.Length()) });
+            return new PyTuple(new PyObject[] { pyStr.Encode(codec, errors), new PyInt(pyStr.CodePointLength()) });
         }
 
         // UTF-8 encoding - CPython 3.12: Modules/_codecsmodule.c:488-520
@@ -408,7 +408,6 @@ namespace SharpPy.Modules
 
         private static string TextOf(PyObject obj, string name) =>
             obj is PyString text ? text.Value
-                : obj is PyStrSubclass derived ? derived.GetStrValue().Value
                 : throw PyTypeError.Create($"{name}() argument 1 must be str, not {obj.GetTypeName()}");
 
         private static PyObject Result(PyObject value, int consumed) => new PyTuple(new[] { value, new PyInt(consumed) });

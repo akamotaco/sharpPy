@@ -687,7 +687,7 @@ namespace SharpPy
                 ? args[1]
                 : PyObject.KwValue(kwargs, "start") ?? new PyInt(0);
             // builtin_sum_impl
-            if (start is PyString or PyStrSubclass)
+            if (start is PyString)
                 throw PyTypeError.Create("sum() can't sum strings [use ''.join(seq) instead]");
             if (start.GetPyType().IsSubclassOf(PyType.BytesType) || ReferenceEquals(start.GetPyType(), PyType.BytesType))
                 throw PyTypeError.Create("sum() can't sum bytes [use b''.join(seq) instead]");
@@ -1587,8 +1587,8 @@ namespace SharpPy
                 throw PyTypeError.Create($"ord expected exactly 1 arguments ({args.Length} given)");
 
             // PyUnicode_GET_LENGTH: the text, whatever __len__ a subclass declares.
-            var text = args[0] is PyStrSubclass subclass ? subclass.GetStrValue() : args[0] as PyString;
-            if (text != null && text.Length() == 1)
+            var text = args[0] as PyString;
+            if (text != null && text.CodePointLength() == 1)
             {
                 return new PyInt(text.CodePointAt(0));
             }
@@ -1602,7 +1602,7 @@ namespace SharpPy
             }
             if (text == null)
                 throw PyTypeError.Create($"ord() expected string of length 1, but {args[0].GetTypeName()} found");
-            throw PyTypeError.Create($"ord() expected a character, but string of length {text.Length()} found");
+            throw PyTypeError.Create($"ord() expected a character, but string of length {text.CodePointLength()} found");
         }
 
         private static PyObject CallChr(PyObject[] args, PyDict kwargs = null)
@@ -1788,7 +1788,7 @@ namespace SharpPy
             var nameArgument = args.Length >= 1 ? args[0] : KwValue(kwargs, "name");
             if (nameArgument == null)
                 throw PyTypeError.Create("__import__() missing required argument 'name' (pos 1)");
-            if (nameArgument is not PyString and not PyStrSubclass)
+            if (nameArgument is not PyString)
                 throw PyTypeError.Create($"__import__() argument 1 must be str, not {nameArgument.GetTypeName()}");
             var levelArgument = args.Length >= 5 ? args[4] : KwValue(kwargs, "level");
             if (nameArgument.Length() == 0 && (levelArgument == null || !levelArgument.IsTrue()))

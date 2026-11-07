@@ -29,7 +29,6 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
     }
 
     internal static string CheckDecoded(PyObject decoded) => decoded is PyString text ? text.Value
-        : decoded is PyStrSubclass derived ? derived.GetStrValue().Value
         : throw PyTypeError.Create($"decoder should return a string result, not '{decoded.GetTypeName()}'");
 
     // _PyIncrementalNewlineDecoder_decode
@@ -575,7 +574,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         Call(_buffer, "write", new PyBytes(data));
     }
 
-    private static PyObject TextArgument(PyObject value, string method) => value is PyString or PyStrSubclass ? value
+    private static PyObject TextArgument(PyObject value, string method) => value is PyString ? value
         : throw PyTypeError.Create($"{method}() argument must be str, not {value.GetTypeName()}");
 
     // _io_TextIOWrapper_write_impl
@@ -1135,7 +1134,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         else
         {
             line = Call(this, "readline");
-            if (line is not PyString && line is not PyStrSubclass)
+            if (line is not PyString)
                 throw new PythonException(PyOSError.FromArguments(new PyObject[]
                 {
                     new PyString($"readline() should have returned a str object, not '{line.GetTypeName()}'"),

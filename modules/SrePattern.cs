@@ -248,7 +248,7 @@ namespace SharpPy.Modules
             PyObject literal = null;
             if (!callable)
             {
-                bool hasEscape = replacement is PyString or PyStrSubclass
+                bool hasEscape = replacement is PyString
                     ? replacement.ToStr().Value.IndexOf('\\') >= 0
                     : replacement is PyBytes bytes ? Array.IndexOf(bytes.Value, (byte)'\\') >= 0 : true;
                 if (hasEscape)
@@ -310,7 +310,7 @@ namespace SharpPy.Modules
             var builder = new StringBuilder();
             for (int i = 0; i < pieces.Count; i++)
             {
-                if (pieces[i] is PyString or PyStrSubclass) builder.Append(pieces[i].ToStr().Value);
+                if (pieces[i] is PyString piece) builder.Append(piece.Value);
                 else throw PyTypeError.Create($"sequence item {i}: expected str instance, {pieces[i].GetTypeName()} found");
             }
             return new PyString(builder.ToString());

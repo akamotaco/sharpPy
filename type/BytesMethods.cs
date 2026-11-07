@@ -923,15 +923,15 @@ namespace SharpPy
             }
             if (encoding != null)
             {
-                if (source is not PyString && source is not PyStrSubclass)
+                if (source is not PyString)
                     throw PyTypeError.Create("encoding without a string argument");
                 return new PyBytes(Encoded(source, encoding, errors));
             }
             if (errors != null)
-                throw PyTypeError.Create(source is PyString or PyStrSubclass ? "string argument without an encoding" : "errors without a string argument");
+                throw PyTypeError.Create(source is PyString ? "string argument without an encoding" : "errors without a string argument");
             if (!ReferenceEquals(source.GetPyType(), PyType.BytesType) && BytesSlot(source) is { } converted)
                 return converted;
-            if (source is PyString or PyStrSubclass)
+            if (source is PyString)
                 throw PyTypeError.Create("string argument without an encoding");
             if (HasIndex(source) && Buffer(source) == null)
             {
@@ -952,7 +952,7 @@ namespace SharpPy
                     throw PyTypeError.Create(encoding != null ? "encoding without a string argument" : "errors without a string argument");
                 return new byte[0];
             }
-            if (source is PyString or PyStrSubclass)
+            if (source is PyString)
             {
                 if (encoding == null)
                     throw PyTypeError.Create("string argument without an encoding");

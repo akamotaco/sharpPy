@@ -691,7 +691,7 @@ namespace SharpPy.Modules
                 {
                     1 => true,
                     2 => !isNumber,
-                    4 => field is PyString or PyStrSubclass,
+                    4 => field is PyString,
                     5 => field is not PyNone,
                     _ => false,
                 };
