@@ -3617,22 +3617,6 @@ namespace SharpPy
         #region String Methods
 
 
-        private PyObject CountOccurrences(string text, string sub)
-        {
-            if (string.IsNullOrEmpty(sub)) return PyInt.From(0);
-            
-            int count = 0;
-            int index = 0;
-            
-            while ((index = text.IndexOf(sub, index, StringComparison.Ordinal)) != -1)
-            {
-                count++;
-                index += sub.Length;
-            }
-            
-            return PyInt.From(count);
-        }
-
         internal PyObject IsIdentifier(PyObject[] args)
         {
             if (args.Length != 0)

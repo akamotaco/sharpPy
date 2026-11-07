@@ -316,26 +316,5 @@ namespace SharpPy
             return result;
         }
 
-        private static List<string>? AsNameList(PyObject? value)
-        {
-            switch (value)
-            {
-                case PyDict d:
-                    var fromDict = new List<string>();
-                    foreach (var key in d.Keys().Items)
-                        if (key is PyString ks && ks.Value.Length > 0)
-                            fromDict.Add(ks.Value);
-                    return fromDict;
-                case PyModule m:
-                    var fromModule = new List<string>();
-                    foreach (var key in m.ModuleDict.Keys)
-                        if (key.Length > 0)
-                            fromModule.Add(key);
-                    return fromModule;
-                default:
-                    return null;
-            }
-        }
-
     }
 }

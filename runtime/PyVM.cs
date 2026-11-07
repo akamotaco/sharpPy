@@ -1431,20 +1431,6 @@ namespace SharpPy
                         pyEx = null;
                         thrown = null;
                     }
-                    catch (LoopBreakException)
-                    {
-                        // Break: jump to end of current loop
-                        // For now, find the next loop end by looking for matching FOR_ITER
-                        var loopEnd = FindLoopEnd(frame, frame.InstructionPointer);
-                        frame.InstructionPointer = loopEnd;
-                    }
-                    catch (LoopContinueException)
-                    {
-                        // Continue: jump to beginning of current loop
-                        // For now, find the loop start by looking for matching loop instruction
-                        var loopStart = FindLoopStart(frame, frame.InstructionPointer);
-                        frame.InstructionPointer = loopStart;
-                    }
                 }
 
                 // 명시적 return이 없으면 None 반환
@@ -5660,79 +5646,6 @@ namespace SharpPy
             NotIn = 1
         }
 
-        /// <summary>
-        /// Find the end of the current loop for break statements
-        /// </summary>
-        private int FindLoopEnd(PyFrame frame, int currentPos)
-        {
-            var instructions = frame.Code.Instructions;
-
-            // For FOR loops, look backwards for FOR_ITER and use its argument
-            for (int i = currentPos - 1; i >= 0; i--)
-            {
-                var instr = instructions[i];
-                if (instr.OpCode == ByteCodeOp.FOR_ITER)
-                {
-                    return instr.Argument;
-                }
-            }
-
-            // For while loops, we need to find the outermost POP_JUMP_IF_FALSE that exits the loop
-            // Look backwards to find all POP_JUMP_IF_FALSE instructions and take the one with highest jump target
-            int bestJumpTarget = -1;
-            for (int i = currentPos - 1; i >= 0; i--)
-            {
-                var instr = instructions[i];
-                if (instr.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
-                {
-                    // Take the POP_JUMP_IF_FALSE with the highest jump target (outermost loop)
-                    if (instr.Argument > bestJumpTarget)
-                    {
-                        bestJumpTarget = instr.Argument;
-                    }
-                }
-            }
-
-            if (bestJumpTarget != -1)
-            {
-                return bestJumpTarget;
-            }
-
-            // If we can't find a proper loop end, just continue execution
-            return currentPos + 1;
-        }
-
-        /// <summary>
-        /// Find the start of the current loop for continue statements
-        /// </summary>
-        private int FindLoopStart(PyFrame frame, int currentPos)
-        {
-            var instructions = frame.Code.Instructions;
-
-            // For FOR loops, look backwards for FOR_ITER first (priority)
-            for (int i = currentPos - 1; i >= 0; i--)
-            {
-                var instr = instructions[i];
-                if (instr.OpCode == ByteCodeOp.FOR_ITER)
-                {
-                    return i; // Jump back to FOR_ITER
-                }
-            }
-
-            // For while loops, look for loop condition (COMPARE_OP followed by POP_JUMP_IF_FALSE)
-            for (int i = currentPos - 1; i >= 1; i--)
-            {
-                var instr = instructions[i];
-                if (instr.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE &&
-                    instructions[i-1].OpCode == ByteCodeOp.COMPARE_OP)
-                {
-                    return i - 1; // Jump back to COMPARE_OP
-                }
-            }
-
-            // If we can't find a proper loop start, just continue execution
-            return currentPos + 1;
-        }
 
 
         /// <summary>
@@ -6200,7 +6113,7 @@ namespace SharpPy
         /// </summary>
         // Control flow of the host and syntax errors have their own routes.
         private static bool IsHostFailure(Exception exception) => exception is not (
-            LoopBreakException or LoopContinueException or PyReturnException or PyYieldException or PySyntaxErrorException or
+            PyYieldException or PySyntaxErrorException or
             SyntaxErrorException or SharpPy.Generated.SyntaxErrorException);
 
         internal static PyBaseException ConvertToPythonException(Exception exception) => exception switch
