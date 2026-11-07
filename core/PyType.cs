@@ -793,21 +793,8 @@ namespace SharpPy
                 if (parent.MroPending)
                     throw PyTypeError.Create($"Cannot extend an incomplete type '{parent.Name}'");
 
-            try
-            {
-                return C3Linearize(this);
-            }
-            catch (PythonException)
-            {
-                // Already a catchable Python error (MRO order disagreement raised by
-                // C3Merge). Propagate so "except BaseException" can catch it.
-                throw;
-            }
-            catch (Exception)
-            {
-                // Fallback: never leak a raw CLR exception past a Python try/except.
-                throw PyTypeError.Create($"Cannot create a consistent method resolution\norder (MRO) for bases {Name}");
-            }
+            // mro_implementation: C3Merge raises its own TypeError; a host fault is the VM's to convert.
+            return C3Linearize(this);
         }
 
         /// <summary>
@@ -2037,6 +2024,7 @@ namespace SharpPy
             }
             else
             {
+                // object___dir___impl: _PyObject_LookupAttr(__dict__), only AttributeError is "none".
                 try
                 {
                     var d = obj.GetAttribute("__dict__");
@@ -2044,7 +2032,7 @@ namespace SharpPy
                         foreach (var k in pd.Keys().Items)
                             if (k is PyString ks) names.Add(ks.Value);
                 }
-                catch { }
+                catch (PythonException error) when (error.PyException is PyAttributeError) { }
                 // object___dir___impl: the class the object names, and it may name none.
                 PyObject itsClass = null;
                 try

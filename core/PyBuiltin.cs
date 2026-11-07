@@ -397,32 +397,6 @@ namespace SharpPy
                     throw PyEOFError.Create("EOF when reading a line");
                 return new PyString(text.Value.EndsWith("\n", StringComparison.Ordinal) ? text.Value.Substring(0, text.Value.Length - 1) : text.Value);
             }
-
-            // prompt가 주어지면 출력 (줄바꿈 없이)
-            // stdin에서 한 줄 읽기
-            try
-            {
-                var line = Console.ReadLine();
-
-                // CPython 3.12: EOF (Ctrl+D on Unix, Ctrl+Z on Windows) raises EOFError
-                if (line == null)
-                {
-                    throw PyEOFError.Create("EOF when reading a line");
-                }
-
-                // CPython 3.12: 줄바꿈은 자동으로 제거됨 (ReadLine이 이미 제거함)
-                return new PyString(line);
-            }
-            catch (PythonException)
-            {
-                // Python 예외는 그대로 전파
-                throw;
-            }
-            catch (Exception ex)
-            {
-                // I/O error 등 다른 예외는 EOFError로 변환
-                throw PyEOFError.Create($"Error reading input: {ex.Message}");
-            }
         }
 
 
@@ -2386,9 +2360,9 @@ namespace SharpPy
                     }
                 }
             }
-            catch
+            // PyObject_GetOptionalAttr: only an AttributeError means "no __class__".
+            catch (PythonException error) when (error.PyException is PyAttributeError)
             {
-                // __class__ lookup failed, continue to error
             }
 
             throw PyTypeError.Create("super(type, obj): obj must be an instance or subtype of type");
