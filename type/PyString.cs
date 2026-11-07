@@ -2923,36 +2923,6 @@ namespace SharpPy
             }
         }
 
-        /// <summary>
-        /// 슬라이싱 str[start:end]
-        /// </summary>
-        public PyString GetSlice(int? start = null, int? end = null, int step = 1)
-        {
-            if (step == 0)
-                throw PyValueError.Create("slice step cannot be zero");
-            
-            // Same coordinate system as GetItem: characters, not code units.
-            int len = CodePointLength();
-            int actualStart = start ?? (step > 0 ? 0 : len - 1);
-            int actualEnd = end ?? (step > 0 ? len : -1);
-
-            if (actualStart < 0) actualStart += len;
-            if (actualEnd < 0) actualEnd += len;
-
-            if (step > 0)
-            {
-                if (actualStart < 0) actualStart = 0;
-                if (actualEnd > len) actualEnd = len;
-            }
-            else
-            {
-                if (actualStart > len - 1) actualStart = len - 1;
-                if (actualEnd < -1) actualEnd = -1;
-            }
-
-            return PyString.From(StepCodePoints(actualStart, actualEnd, step));
-        }
-
         #endregion
 
         #region String Methods
@@ -2979,8 +2949,6 @@ namespace SharpPy
         internal const int LeftStrip = 0, RightStrip = 1, BothStrip = 2;
 
         public PyString Strip(string chars = null) => StripText(BothStrip, chars);
-        public PyString LStrip(string chars = null) => StripText(LeftStrip, chars);
-        public PyString RStrip(string chars = null) => StripText(RightStrip, chars);
 
         /// <summary>
         /// do_strip and _PyUnicode_XStrip (Objects/unicodeobject.c): whole code points are stripped,
@@ -3077,49 +3045,6 @@ namespace SharpPy
             output.Append(Value, position, Value.Length - position);
             return PyString.Fresh(output.ToString());
         }
-
-        public PyInt Find(string sub, int start = 0, int? end = null)
-        {
-            var actualEnd = end ?? Value.Length;
-            if (start < 0) start = 0;
-            if (actualEnd > Value.Length) actualEnd = Value.Length;
-
-            // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_find
-            // If start >= end, return -1 (empty string search)
-            if (start >= actualEnd) return PyInt.From(-1);
-
-            var searchIn = start == 0 && actualEnd == Value.Length
-                ? Value
-                : Value.Substring(start, actualEnd - start);
-
-            var index = searchIn.IndexOf(sub, StringComparison.Ordinal);
-            return PyInt.From(index == -1 ? -1 : index + start);
-        }
-
-        public PyInt Index(string sub, int start = 0, int? end = null)
-        {
-            var result = Find(sub, start, end);
-            if (((PyInt)result).Value == -1)
-                throw PyValueError.Create("substring not found");
-            return (PyInt)result;
-        }
-
-        public PyInt Count(string sub)
-        {
-            if (string.IsNullOrEmpty(sub)) return PyInt.From(Value.Length + 1);
-            
-            int count = 0;
-            int index = 0;
-            while ((index = Value.IndexOf(sub, index, StringComparison.Ordinal)) != -1)
-            {
-                count++;
-                index += sub.Length;
-            }
-            return PyInt.From(count);
-        }
-
-        public PyBool StartsWith(string prefix) => PyBool.FromBool(Value.StartsWith(prefix, StringComparison.Ordinal));
-        public PyBool EndsWith(string suffix) => PyBool.FromBool(Value.EndsWith(suffix, StringComparison.Ordinal));
 
         /// <summary>
         /// str.split and str.rsplit: Objects/stringlib/split.h (split_whitespace, split,
@@ -3227,7 +3152,6 @@ namespace SharpPy
         // unit offset converts through CodePointToUnit.
         protected internal override long Len() => HasPairs ? CodePointCount(Value) : Value.Length;
         
-        public PyBool Contains(string substring) => PyBool.FromBool(Value.Contains(substring));
         
         /// <summary>
         /// CPython __contains__ 메소드 구현 - PyObject 버전

@@ -417,13 +417,6 @@ namespace SharpPy
 
         #region Complex-specific Methods
 
-        /// <summary>
-        /// 복소수의 위상(각도) 반환 (라디안)
-        /// </summary>
-        public PyFloat Phase()
-        {
-            return new PyFloat(Math.Atan2(Imag, Real));
-        }
 
         #endregion
 
