@@ -13,7 +13,6 @@ namespace SharpPy.Modules
         // Codec registry - CPython 3.12: Python/codecs.c
         private static List<PyObject> _searchPath = new List<PyObject>();
         private static Dictionary<string, PyObject> _cache = new Dictionary<string, PyObject>();
-        private static Dictionary<string, PyObject> _errors = new Dictionary<string, PyObject>();
 
         public static PyModule CreateCodecsModule()
         {
@@ -68,9 +67,6 @@ namespace SharpPy.Modules
             module.ModuleDict["unicode_escape_decode"] = new PyBuiltinFunction("unicode_escape_decode", PyUnicodeEscapeDecode);
             module.ModuleDict["raw_unicode_escape_encode"] = new PyBuiltinFunction("raw_unicode_escape_encode", PyRawUnicodeEscapeEncode);
             module.ModuleDict["raw_unicode_escape_decode"] = new PyBuiltinFunction("raw_unicode_escape_decode", PyRawUnicodeEscapeDecode);
-
-            // Initialize default error handlers
-            InitializeErrorHandlers();
 
             return module;
         }
@@ -176,11 +172,9 @@ namespace SharpPy.Modules
             if (!(args[0] is PyString nameStr))
                 throw PyTypeError.Create("first argument must be a string");
 
-            var handler = args[1];
-            if (!handler.IsCallable())
+            if (!args[1].IsCallable())
                 throw PyTypeError.Create("second argument must be callable");
-
-            _errors[nameStr.Value] = handler;
+            PyCodecErrors.RegisterError(nameStr.Value, args[1]);
             return PyNone.Instance;
         }
 
@@ -193,54 +187,7 @@ namespace SharpPy.Modules
             if (!(args[0] is PyString nameStr))
                 throw PyTypeError.Create("argument must be a string");
 
-            if (_errors.TryGetValue(nameStr.Value, out var handler))
-                return handler;
-
-            throw SharpPy.PyLookupError.Create($"unknown error handler name '{nameStr.Value}'");
-        }
-
-        // Initialize default error handlers - CPython 3.12: Python/codecs.c:969-1012
-        private static void InitializeErrorHandlers()
-        {
-            // strict handler
-            _errors["strict"] = new PyBuiltinFunction("strict_errors", args =>
-            {
-                if (args.Length > 0 && args[0] is PyException exc)
-                    throw new PythonException(exc);
-                throw PyValueError.Create("strict error handler");
-            });
-
-            // ignore handler
-            _errors["ignore"] = new PyBuiltinFunction("ignore_errors", args =>
-            {
-                // Return empty replacement and position to skip
-                return new PyTuple(new PyObject[] { new PyString(""), new PyInt(0) });
-            });
-
-            // replace handler
-            _errors["replace"] = new PyBuiltinFunction("replace_errors", args =>
-            {
-                // Return replacement character and position
-                return new PyTuple(new PyObject[] { new PyString("?"), new PyInt(0) });
-            });
-
-            // xmlcharrefreplace handler
-            _errors["xmlcharrefreplace"] = new PyBuiltinFunction("xmlcharrefreplace_errors", args =>
-            {
-                return new PyTuple(new PyObject[] { new PyString(""), new PyInt(0) });
-            });
-
-            // backslashreplace handler
-            _errors["backslashreplace"] = new PyBuiltinFunction("backslashreplace_errors", args =>
-            {
-                return new PyTuple(new PyObject[] { new PyString(""), new PyInt(0) });
-            });
-
-            // namereplace handler
-            _errors["namereplace"] = new PyBuiltinFunction("namereplace_errors", args =>
-            {
-                return new PyTuple(new PyObject[] { new PyString(""), new PyInt(0) });
-            });
+            return PyCodecErrors.LookupError(nameStr.Value);
         }
 
         /// <summary>
@@ -581,8 +528,11 @@ namespace SharpPy.Modules
                     case "surrogateescape":
                         result.Append((char)(0xDC00 + data[i]));
                         break;
-                    default:
+                    case "strict":
                         throw PyUnicodeDecodeError.Failure("charmap", data, i, i + 1, "character maps to <undefined>");
+                    default:
+                        i = PyCodecErrors.CallDecode(errors, "charmap", "character maps to <undefined>", ref data, i, i + 1, result) - 1;
+                        break;
                 }
             }
             return Result(new PyString(result.ToString()), data.Length);

@@ -3266,8 +3266,8 @@ namespace SharpPy
             internal EncodeContext(string codec, string errors)
             {
                 Codec = codec;
-                // codecs.lookup_error() resolves handler names case-insensitively.
-                Errors = (errors ?? "strict").ToLowerInvariant();
+                // PyCodec_LookupError takes the name as given.
+                Errors = errors ?? "strict";
                 IsUtf = codec == "utf-8" || codec == "utf-16" || codec == "utf-16-le" ||
                         codec == "utf-16-be" || codec == "utf-32" || codec == "utf-32-le" ||
                         codec == "utf-32-be";
@@ -3370,10 +3370,65 @@ namespace SharpPy
                         throw surrogateRefusal ? SurrogateError(ctx, cpIndex, Value[i])
                                                : RangeError(ctx, cpIndex, cp, unitWidth);
                     default:
-                        throw PyLookupError.Create($"unknown error handler name '{ctx.Errors}'");
+                        (i, cpIndex) = CallEncodeHandler(bytes, ctx, bigEndian, cpIndex, unitWidth, surrogateRefusal, cp);
+                        continue;
                 }
             }
             return bytes.ToArray();
+        }
+
+        /// <summary>
+        /// unicode_encode_call_errorhandler for the run of unencodable characters starting at
+        /// cpIndex: the handler's str is encoded again and must be encodable (ASCII for the UTF
+        /// codecs), else the original refusal stands; its bytes are written as they are.
+        /// Answers the unit and character positions encoding resumes at.
+        /// </summary>
+        private (int Unit, int Character) CallEncodeHandler(List<byte> bytes, EncodeContext ctx, bool bigEndian,
+            int cpIndex, int unitWidth, bool surrogateRefusal, int cp)
+        {
+            int runEnd = cpIndex + 1;
+            int at = UnitIndexOfCharacter(cpIndex) + unitWidth;
+            while (at < Value.Length)
+            {
+                int next = Value[at];
+                int nextWidth = 1;
+                if (char.IsHighSurrogate(Value[at]) && at + 1 < Value.Length && char.IsLowSurrogate(Value[at + 1]))
+                {
+                    next = char.ConvertToUtf32(Value[at], Value[at + 1]);
+                    nextWidth = 2;
+                }
+                bool lone = nextWidth == 1 && char.IsSurrogate(Value[at]);
+                bool bad = next > ctx.Limit || lone && ctx.IsUtf;
+                if (!bad) break;
+                runEnd++;
+                at += nextWidth;
+            }
+            string reason = surrogateRefusal ? "surrogates not allowed" : $"ordinal not in range({ctx.Limit + 1})";
+            var replacement = PyCodecErrors.CallEncode(ctx.Errors, ctx.Codec, reason, Value, cpIndex, runEnd,
+                CodePointLength(), out int newPosition);
+            if (replacement is PyBytes raw)
+                bytes.AddRange(raw.Value);
+            else
+            {
+                var text = ((PyString)replacement).Value;
+                foreach (var ch in text)
+                {
+                    bool encodable = ctx.IsUtf ? ch < 0x80 : ch <= ctx.Limit;
+                    if (!encodable)
+                        throw surrogateRefusal ? SurrogateError(ctx, cpIndex, Value[UnitIndexOfCharacter(cpIndex)])
+                                               : RangeError(ctx, cpIndex, cp, unitWidth);
+                    Emit(bytes, ch, ctx, bigEndian);
+                }
+            }
+            return (UnitIndexOfCharacter(newPosition), newPosition);
+        }
+
+        private int CodePointLength()
+        {
+            int count = 0;
+            for (int unit = 0; unit < Value.Length; count++)
+                unit += char.IsHighSurrogate(Value[unit]) && unit + 1 < Value.Length && char.IsLowSurrogate(Value[unit + 1]) ? 2 : 1;
+            return count;
         }
 
         private static void Emit(List<byte> bytes, int cp, EncodeContext ctx, bool bigEndian)

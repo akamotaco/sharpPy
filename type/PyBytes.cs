@@ -31,12 +31,6 @@ namespace SharpPy
         /// </summary>
         internal static string DecodeUtf8Python(byte[] data, string errors)
         {
-            if (errors != "strict" && errors != "replace" && errors != "ignore"
-                && errors != "surrogateescape" && errors != "backslashreplace" && errors != "surrogatepass")
-            {
-                throw PyLookupError.Create($"unknown error handler name '{errors}'");
-            }
-
             var sb = new System.Text.StringBuilder();
             int i = 0;
             int n = data.Length;
@@ -67,8 +61,8 @@ namespace SharpPy
                 else if (b0 >= 0xF0 && b0 <= 0xF4) { extra = 3; minCp = 0x10000; maxCp = 0x10FFFF; }
                 else
                 {
-                    HandleDecodeError(data, i, i, errors, sb, "invalid start byte");
-                    i++;
+                    i = HandleDecodeError(ref data, i, i + 1, errors, sb, "invalid start byte");
+                    n = data.Length;
                     continue;
                 }
 
@@ -79,13 +73,13 @@ namespace SharpPy
                     {
                         if ((data[i + k] & 0xC0) != 0x80)
                         {
-                            HandleDecodeError(data, i, i, errors, sb, "invalid continuation byte");
-                            i++;
+                            i = HandleDecodeError(ref data, i, i + 1, errors, sb, "invalid continuation byte");
+                            n = data.Length;
                             goto nextInput;
                         }
                     }
-                    HandleDecodeError(data, i, n - 1, errors, sb, "unexpected end of data", true);
-                    i = n;
+                    i = HandleDecodeError(ref data, i, n, errors, sb, "unexpected end of data");
+                    n = data.Length;
                     continue;
                 }
 
@@ -107,8 +101,8 @@ namespace SharpPy
                 }
                 if (!ok || cp < minCp || cp > maxCp)
                 {
-                    HandleDecodeError(data, i, i, errors, sb, "invalid continuation byte");
-                    i++;
+                    i = HandleDecodeError(ref data, i, i + 1, errors, sb, "invalid continuation byte");
+                    n = data.Length;
                     continue;
                 }
 
@@ -128,32 +122,30 @@ namespace SharpPy
             return sb.ToString();
         }
 
-        private static void HandleDecodeError(byte[] data, int start, int end, string errors,
-            System.Text.StringBuilder sb, string reason, bool range = false)
+        // The decoder's fast path for the builtin handler names (unicode_decode_utf8 with
+        // _Py_GetErrorHandler); any other name is the registry's. Answers where decoding resumes.
+        private static int HandleDecodeError(ref byte[] data, int start, int end, string errors,
+            System.Text.StringBuilder sb, string reason, string encoding = "utf-8")
         {
-            if (errors == "strict" || errors == "surrogatepass")
+            switch (errors)
             {
-                throw PyUnicodeDecodeError.Failure("utf-8", data, start, range && end > start ? end + 1 : start + 1, reason);
+                case "strict":
+                case "surrogatepass":
+                    throw PyUnicodeDecodeError.Failure(encoding, data, start, end, reason);
+                case "replace":
+                    sb.Append('\uFFFD');
+                    return end;
+                case "ignore":
+                    return end;
+                case "surrogateescape":
+                    for (int k = start; k < end; k++) sb.Append((char)(0xDC00 + data[k]));
+                    return end;
+                case "backslashreplace":
+                    for (int k = start; k < end; k++) sb.Append($"\\x{data[k]:x2}");
+                    return end;
+                default:
+                    return PyCodecErrors.CallDecode(errors, encoding, reason, ref data, start, end, sb);
             }
-            if (errors == "replace")
-            {
-                sb.Append('\uFFFD');
-            }
-            else if (errors == "surrogateescape")
-            {
-                for (int k = start; k <= end; k++)
-                {
-                    sb.Append((char)(0xDC00 + data[k]));
-                }
-            }
-            else if (errors == "backslashreplace")
-            {
-                for (int k = start; k <= end; k++)
-                {
-                    sb.Append($"\\x{data[k]:x2}");
-                }
-            }
-            // ignore: emit nothing
         }
 
         /// <summary>
@@ -162,27 +154,18 @@ namespace SharpPy
         /// </summary>
         internal static string DecodeAsciiPython(byte[] data, string errors)
         {
-            if (errors != "strict" && errors != "replace" && errors != "ignore"
-                && errors != "surrogateescape" && errors != "backslashreplace")
-            {
-                throw PyLookupError.Create($"unknown error handler name '{errors}'");
-            }
             var sb = new System.Text.StringBuilder();
-            for (int i = 0; i < data.Length; i++)
+            int i = 0;
+            while (i < data.Length)
             {
                 byte b = data[i];
                 if (b < 0x80)
                 {
                     sb.Append((char)b);
+                    i++;
                     continue;
                 }
-                if (errors == "strict")
-                {
-                    throw PyUnicodeDecodeError.Failure("ascii", data, i, i + 1, "ordinal not in range(128)");
-                }
-                if (errors == "replace") sb.Append('\uFFFD');
-                else if (errors == "surrogateescape") sb.Append((char)(0xDC00 + b));
-                else if (errors == "backslashreplace") sb.Append($"\\x{b:x2}");
+                i = HandleDecodeError(ref data, i, i + 1, errors, sb, "ordinal not in range(128)", "ascii");
             }
             return sb.ToString();
         }
