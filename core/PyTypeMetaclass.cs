@@ -239,18 +239,17 @@ namespace SharpPy
             BestBase(baseTypes);
 
             // dict_merge: the storage, unless the class has its own __iter__, as OrderedDict does.
-            var dict = new Dictionary<string, PyObject>();
+            // A key that is no str stays an entry of the dict, and a str subclass key stays its object.
+            var dict = new PyTypeDictionary();
             if (PyDict.IterIsDictIter(args[3]))
             {
                 foreach (var entry in ns.InternalDict)
-                    if (entry.Key is PyString key)
-                        dict[key.Value] = entry.Value;
+                    dict.SetItem(entry.Key, entry.Value);
             }
             else
             {
                 foreach (var key in PySet.IterableItems(args[3].GetAttribute("keys").Call(Array.Empty<PyObject>(), null)))
-                    if (key is PyString text)
-                        dict[text.Value] = PyAbstract.GetItem(args[3], key);
+                    dict.SetItem(key, PyAbstract.GetItem(args[3], key));
             }
             // type_new_set_names and type_new_set_doc: both must encode.
             PyString.From(name.Value).GetAttribute("encode").Call(Array.Empty<PyObject>(), null);

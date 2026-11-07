@@ -18,13 +18,41 @@ namespace SharpPy
 
         internal PyMappingProxy(PyObject mapping) => _mapping = mapping;
 
-        /// <summary>pp->mapping. For a type's table, a dict of it as it is now.</summary>
-        internal PyObject Mapping => _mapping ?? new PyDict(_table);
+        /// <summary>pp->mapping. For a type's table, a dict of it as it is now, key objects and all.</summary>
+        internal PyObject Mapping
+        {
+            get
+            {
+                if (_mapping != null)
+                    return _mapping;
+                var dict = new PyDict();
+                foreach (var entry in TableEntries)
+                    dict.SetItem(entry.Key, entry.Value);
+                return dict;
+            }
+        }
 
-        internal int InternalCount => _table?.Count ?? _mapping.Length();
+        internal int InternalCount => _table is PyTypeDictionary typed ? typed.EntryCount : _table?.Count ?? _mapping.Length();
 
-        // The keys of a type's table: dict_merge and the update paths read it in place.
-        internal IEnumerable<string> Keys => _table?.Keys;
+        // The entries of a type's table, its key objects in its order: dict_merge and the update
+        // paths read it in place. Null for mappingproxy(m).
+        internal IEnumerable<KeyValuePair<PyObject, PyObject>> TableEntries =>
+            _table is PyTypeDictionary typed ? typed.Entries()
+            : _table == null ? null : PlainEntries(_table);
+
+        private static IEnumerable<KeyValuePair<PyObject, PyObject>> PlainEntries(Dictionary<string, PyObject> table)
+        {
+            foreach (var entry in table)
+                yield return new KeyValuePair<PyObject, PyObject>(PyString.From(entry.Key), entry.Value);
+        }
+
+        private bool TryGetFromTable(PyObject key, out PyObject value)
+        {
+            if (_table is PyTypeDictionary typed)
+                return typed.TryGetItem(key, out value);
+            value = null;
+            return key is PyString text && _table.TryGetValue(text.Value, out value);
+        }
 
         public override PyType GetPyType() => PyType.MappingProxyType;
         public override string GetTypeName() => "mappingproxy";
@@ -37,7 +65,7 @@ namespace SharpPy
         {
             if (_table == null)
                 return PyAbstract.GetItem(_mapping, key);
-            if (key is PyString text && _table.TryGetValue(text.Value, out var value))
+            if (TryGetFromTable(key, out var value))
                 return value;
             throw PyKeyError.Create(key);
         }
@@ -51,7 +79,7 @@ namespace SharpPy
         protected internal override PyBool ContainsItem(PyObject item)
         {
             if (_table != null)
-                return PyBool.FromBool(item is PyString text && _table.ContainsKey(text.Value));
+                return PyBool.FromBool(TryGetFromTable(item, out _));
             return _mapping.Contains(item);
         }
 

@@ -851,15 +851,16 @@ namespace SharpPy
                         throw PyRuntimeError.Create("dict mutated during update");
                 }
             }
-            else if (other is PyMappingProxy { Keys: not null } mappingProxy)
+            else if (other is PyMappingProxy { TableEntries: not null } mappingProxy)
             {
                 // CPython 3.12: Objects/dictobject.c:2811-2990 (dict_merge)
                 // Line 2961: value = PyObject_GetItem(b, key);
                 // Line 2967: PyDict_SetItem (does NOT call __setitem__, updates storage directly)
-                foreach (var key in mappingProxy.Keys)
+                foreach (var tableEntry in mappingProxy.TableEntries)
                 {
-                    var pyKey = PyString.From(key);
-                    var value = mappingProxy.GetItem(pyKey);
+                    var pyKey = tableEntry.Key;
+                    var key = pyKey is PyString keyText ? keyText.Value : null;
+                    var value = tableEntry.Value;
 
                     #if DEBUG
                     // Debug: Track _generate_next_value_ updates
@@ -1505,13 +1506,10 @@ namespace SharpPy
                 }
                 return PyNone.Instance;
             }
-            if (other is PyMappingProxy { Keys: not null } proxy)
+            if (other is PyMappingProxy { TableEntries: not null } proxy)
             {
-                foreach (var name in proxy.Keys)
-                {
-                    var key = PyString.From(name);
-                    SetItem(key, proxy.GetItem(key));
-                }
+                foreach (var entry in proxy.TableEntries)
+                    SetItem(entry.Key, entry.Value);
                 return PyNone.Instance;
             }
             return base.Update(other); // Preserve existing unsupported-input errors.
