@@ -20,8 +20,7 @@ namespace DotNet_IO
                     {
                         if (string.IsNullOrEmpty(extension) || file.EndsWith(extension, StringComparison.Ordinal))
                         {
-                            // 경로를 슬래시로 정규화
-                            files.Add(file.Replace('\\', '/'));
+                            files.Add(file);
                         }
                     }
                 }
@@ -45,8 +44,7 @@ namespace DotNet_IO
                     var allDirs = Directory.GetDirectories(path);
                     foreach (var dir in allDirs)
                     {
-                        // 경로를 슬래시로 정규화
-                        directories.Add(dir.Replace('\\', '/'));
+                        directories.Add(dir);
                     }
                 }
             }
@@ -79,11 +77,11 @@ namespace DotNet_IO
             return File.ReadAllText(path);
         }
         
-        // 경로 결합 메서드 - 슬래시로 정규화
+        // Path.Combine, with the OS's separator (getpath and FileFinder join with path_sep)
         public static string CombinePath(params string[] paths)
         {
             string combined = Path.Combine(paths);
-            return combined.Replace('\\', '/');
+            return combined;
         }
         
         // 대소문자 정확한 매칭 (Windows에서도 엄격하게)
@@ -179,18 +177,13 @@ namespace DotNet_IO
         public static string[] GetFileSystemEntries(string path)
         {
             var entries = Directory.GetFileSystemEntries(path);
-            // 경로를 슬래시로 정규화
-            for (int i = 0; i < entries.Length; i++)
-            {
-                entries[i] = entries[i].Replace('\\', '/');
-            }
             return entries;
         }
 
         // 추가 메서드: 절대 경로 가져오기
         public static string GetFullPath(string path)
         {
-            return Path.GetFullPath(path).Replace('\\', '/');
+            return Path.GetFullPath(path);
         }
 
         // 추가 메서드: 파일/디렉토리 이동 (이름 변경)
@@ -215,7 +208,7 @@ namespace DotNet_IO
         public static string GetDirectoryName(string path)
         {
             var dir = Path.GetDirectoryName(path);
-            return string.IsNullOrEmpty(dir) ? "" : dir.Replace('\\', '/');
+            return string.IsNullOrEmpty(dir) ? "" : dir;
         }
 
         // 추가 유틸리티: 파일명만 가져오기

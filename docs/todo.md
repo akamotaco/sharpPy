@@ -100,7 +100,7 @@
 - 5-7. 2026-11-03 새로 돌린 모듈의 큰 묶음: `test_array` 404건(메서드 인자 검사, `fromfile`), `test_itertools`·`test_weakref` 시간 초과, `test_types` `_testinternalcapi`, `test_collections` doctest가 `inspect.getmodule`에서 멈춤, `test_time` `mktime`, `test_sys` 13건, `test_frame` 11건(`frame.clear`, `f_locals`), `test_memoryview` 18건(다차원 형식), `test_struct` 23건.
 - 5-8. `sys.path_hooks`, `sys.path_importer_cache`는 빈 목록이다. C# 내장 모듈(`math` 등)에 `__spec__`이 없다. 파일 찾기는 C# `PathFinder` 하나다. 테스트 드라이버 밖의 자식 SharpPy에서 `import test.test_threading`은 CPython `importlib/_bootstrap_external.py`가 `winreg`를 찾다 실패한다(`test_4_daemon_threads`를 드라이버에서 건너뛰는 이유). `importlib.util.cache_from_source`는 `__pycache__`와 태그 없이 `a/b.pyc`를 돌려준다.
 
-- 5-9. 경로 표기: `platform/helper_dotnet.cs`의 `CombinePath`, `GetFullPath`, `GetDirectoryName`, `GetFiles`가 모든 경로를 `/`로 바꾼다(Godot의 `res://`에서 온 관례). 그래서 Windows에서 `sys.path`, 가져온 모듈의 `__file__`, 그 코드의 `co_filename`과 트레이스백 줄이 CPython(`getpath`가 `os.path.join`으로 만드는 `\` 경로)과 다르다. 주 스크립트는 `config_run_filename_abspath`대로 고쳤다. 같은 자리의 `sys.prefix`, `sys.exec_prefix`, `sys.base_prefix`는 빈 문자열이고 `sys._stdlib_dir`은 `None`이다(test_sys `test_stdlib_dir`). 할 일: dotnet 쪽은 OS 구분자로, Godot 쪽은 지금대로; `getpath`의 값을 프로젝트의 `Lib`로.
+- 5-9. 경로: dotnet 쪽 `platform/helper_dotnet.cs`는 OS 구분자를 그대로 둔다(`sys.path`, 모듈의 `__file__`과 `__path__`가 Windows에서 `\`). Godot 쪽은 `res://` 때문에 `/`다. 주 스크립트는 `config_run_filename_abspath`대로 절대 경로다. 남은 것: `sys.prefix`, `sys.exec_prefix`, `sys.base_prefix`는 빈 문자열이고 `sys._stdlib_dir`은 `None`이다(test_sys `test_stdlib_dir`). `getpath`의 값을 프로젝트의 `Lib`로.
 
 ## 6. PEP 695
 
