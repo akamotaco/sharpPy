@@ -644,27 +644,11 @@ namespace SharpPy
                     case 's':
                     case 'b':
                     {
-                        // CPython converts %s to %b; the failure message always names %b.
-                        if (arg is PyBytes pyb) text = System.Text.Encoding.Latin1.GetString(pyb.Value);
-                        else if (arg is PyByteArray pyba) text = System.Text.Encoding.Latin1.GetString(pyba.ToByteArrayCopy());
-                        else if (arg is PyTuple || arg is PyDict || arg is PyInt || arg is PyBool || arg is PyFloat
-                                 || !(arg.LookupAttribute("__bytes__") != null || arg.SupportsBuffer()))
-                        {
-                            throw PyTypeError.Create($"%b requires a bytes-like object, or an object that implements __bytes__, not '{arg.GetTypeName()}'");
-                        }
-                        else
-                        {
-                            var asBytes = arg.GetAttribute("__bytes__");
-                            var converted = asBytes != null && asBytes.IsCallable()
-                                ? asBytes.Call(new PyObject[0], null)
-                                : arg;
-                            if (converted is PyBytes cb) text = System.Text.Encoding.Latin1.GetString(cb.Value);
-                            else if (converted is PyByteArray cba) text = System.Text.Encoding.Latin1.GetString(cba.ToByteArrayCopy());
-                            else
-                            {
-                                throw PyTypeError.Create($"%b requires a bytes-like object, or an object that implements __bytes__, not '{arg.GetTypeName()}'");
-                            }
-                        }
+                        // format_obj (Objects/bytesobject.c), %s being %b: bytes, a buffer, then
+                        // __bytes__ from the type; the failure message always names %b.
+                        var data = BytesMethods.Buffer(arg) ?? BytesMethods.BytesSlot(arg)?.Value
+                            ?? throw PyTypeError.Create($"%b requires a bytes-like object, or an object that implements __bytes__, not '{arg.GetTypeName()}'");
+                        text = System.Text.Encoding.Latin1.GetString(data);
                         if (precision >= 0 && text.Length > precision)
                             text = text.Substring(0, precision);
                         break;

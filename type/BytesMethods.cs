@@ -43,6 +43,19 @@ namespace SharpPy
             return value.GetBuffer(0).Data;
         }
 
+        /// <summary>
+        /// PyObject_Bytes's __bytes__ step: the method found on the type (_PyObject_LookupSpecial),
+        /// whose answer must be bytes. Null when the type has none.
+        /// </summary>
+        internal static PyBytes BytesSlot(PyObject value)
+        {
+            if (value.LookupSpecialMethodUncached("__bytes__") is not PyObject method)
+                return null;
+            var result = value.BindSpecialMethod(method).Call(new PyObject[0], null);
+            return result as PyBytes
+                ?? throw PyTypeError.Create($"__bytes__ returned non-bytes (type {result.GetTypeName()})");
+        }
+
         private static byte[] RequireBuffer(PyObject value) =>
             Buffer(value) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{value.GetTypeName()}'");
 
@@ -916,12 +929,8 @@ namespace SharpPy
             }
             if (errors != null)
                 throw PyTypeError.Create(source is PyString or PyStrSubclass ? "string argument without an encoding" : "errors without a string argument");
-            if (!ReferenceEquals(source.GetPyType(), PyType.BytesType) && source.LookupSpecialMethodUncached("__bytes__") is PyObject method)
-            {
-                var result = source.BindSpecialMethod(method).Call(new PyObject[0], null);
-                return result is PyBytes ? result
-                    : throw PyTypeError.Create($"__bytes__ returned non-bytes (type {result.GetTypeName()})");
-            }
+            if (!ReferenceEquals(source.GetPyType(), PyType.BytesType) && BytesSlot(source) is { } converted)
+                return converted;
             if (source is PyString or PyStrSubclass)
                 throw PyTypeError.Create("string argument without an encoding");
             if (HasIndex(source) && Buffer(source) == null)

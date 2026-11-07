@@ -1138,16 +1138,10 @@ namespace SharpPy
             }
 
             // Python-level descriptor with __delete__
-            PyObject deleteMethod;
-            try
-            {
-                deleteMethod = descriptor.GetAttribute("__delete__");
-            }
-            catch (PythonException) when (true)
-            {
-                throw PyAttributeError.Create("cannot delete attribute");
-            }
-            deleteMethod.Call(new PyObject[] { instance }, null);
+            // slot_tp_descr_set with no value: vectorcall_method(__delete__), found on the type.
+            var deleteMethod = descriptor.LookupSpecialMethodUncached("__delete__")
+                ?? throw PyAttributeError.Create("__delete__");
+            descriptor.BindSpecialMethod(deleteMethod).Call(new PyObject[] { instance }, null);
         }
 
 
