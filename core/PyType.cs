@@ -1780,7 +1780,7 @@ namespace SharpPy
                 "list" => self => PyNativeStorage.ForList(self).Repr(),
                 "tuple" => self => ((PyTuple)self).Repr(),
                 "set" => self => SubclassSetRepr(self, ((PyString)PyNativeStorage.ForSet(self).Repr()).Value, "set"),
-                "frozenset" => self => SubclassSetRepr(self, ((PyString)PyNativeStorage.ForFrozenSet(self).Repr()).Value, "frozenset"),
+                "frozenset" => self => PyNativeStorage.ForFrozenSet(self).Repr(),
                 "bool" => self => self.Repr(),
                 _ => null,
             };
@@ -2870,10 +2870,10 @@ namespace SharpPy
                             : args[0] is PyFrozenSet same && same.GetPyType() == PyType.FrozenSetType ? same
                             : new PyFrozenSet(PySet.SourceItems(args[0]));
                     if (cls is PyClass frozenClass) {
-                        // make_new_frozenset builds the value here, so its errors come out of tp_new.
-                        return new PyClassInstance(frozenClass, args.Length == 0
-                            ? new PyFrozenSet()
-                            : new PyFrozenSet(PySet.SourceItems(args[0])));
+                        // make_new_set: the frozenset layout, ob_type the subclass.
+                        return new PyFrozenSetSubclass(frozenClass, args.Length == 0
+                            ? Array.Empty<PyObject>()
+                            : PySet.SourceItems(args[0]));
                     }
                     string foreign = TpName(cls);
                     throw PyTypeError.Create(

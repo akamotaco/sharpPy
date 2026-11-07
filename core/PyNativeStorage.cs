@@ -44,11 +44,7 @@ namespace SharpPy
         /// </summary>
         internal static PyFrozenSet ForFrozenSet(PyObject self)
         {
-            if (self is PyFrozenSet frozen)
-                return frozen;
-            if (self is PyClassInstance instance && instance.IsFrozenSetSubclass())
-                return instance.GetFrozenStorage();
-            return null;
+            return self as PyFrozenSet;
         }
 
         /// <summary>

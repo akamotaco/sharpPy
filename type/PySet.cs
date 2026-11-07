@@ -746,8 +746,8 @@ namespace SharpPy
         public PyFrozenSet(IEnumerable<PyObject> items) => 
             _items = new PySetStorage(items);
 
-        public override PyType GetPyType() => PyType.FrozenSetType;
-        public override string GetTypeName() => "frozenset";
+        public override PyType GetPyType() => _customType ?? PyType.FrozenSetType;
+        public override string GetTypeName() => _customType?.Name ?? "frozenset";
 
         public IReadOnlyCollection<PyObject> Items => _items;
 
@@ -759,7 +759,8 @@ namespace SharpPy
 
         // set_repr is shared with set (see PySet.Repr): the prefix is always present because
         // PySet_CheckExact() is false for a frozenset, giving frozenset({1, 2}) and frozenset().
-        protected internal override PyString Repr() => Repr("frozenset");
+        // The name is Py_TYPE(so)->tp_name, a subclass's own.
+        protected internal override PyString Repr() => Repr(GetTypeName());
 
         internal PyString Repr(string typeName)
         {
@@ -902,7 +903,8 @@ namespace SharpPy
 
         #region Copy
 
-        public PyFrozenSet Copy() => this;
+        // frozenset_copy: an exact frozenset is its own copy, a subclass gives an exact frozenset.
+        public PyFrozenSet Copy() => HasCustomType ? new PyFrozenSet(_items) : this;
 
         #endregion
 
@@ -951,4 +953,18 @@ namespace SharpPy
     }
     
     #endregion
+
+    /// <summary>
+    /// An instance of a Python class deriving from frozenset: frozenset_new allocates the frozenset
+    /// layout with ob_type set to the subclass (Objects/setobject.c make_new_set), so it is a
+    /// frozenset whose _customType is the class, with the __dict__ a heap type adds.
+    /// </summary>
+    public sealed class PyFrozenSetSubclass : PyFrozenSet, IDictBackedInstance, IHeapInstance
+    {
+        public PyFrozenSetSubclass(PyClass cls, IEnumerable<PyObject> items) : base(items) => SetCustomType(cls);
+
+        public Dictionary<string, PyObject> InstanceDict { get; } = new();
+
+        public void ChangeClass(PyClass target) => SetCustomType(target);
+    }
 }

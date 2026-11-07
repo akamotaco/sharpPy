@@ -901,16 +901,10 @@ namespace SharpPy
         // clears and fills it from the one optional iterable argument.
         private PySet _setStorage;
 
-        // CPython 3.12: frozenset has **no** tp_init (Objects/setobject.c:2262 "0, /* tp_init */"),
-        // so the value exists only because frozenset_new (setobject.c:1003) built it.
-        private readonly PyFrozenSet _frozenStorage;
 
         // CPython 3.12: _PyObject_MaterializeManagedDict — exactly one of _attrs / _materialized is live.
         private Dictionary<string, PyObject> _attrs;
         private PyDict _materialized;
-
-        /// <summary>frozenset_new for a subclass: the layout with its value.</summary>
-        internal PyClassInstance(PyClass instanceType, PyFrozenSet value) : this(instanceType) => _frozenStorage = value;
 
         public PyClassInstance(PyClass instanceType)
         {
@@ -943,15 +937,12 @@ namespace SharpPy
         // answer for these two and is kept.
         public bool IsSetSubclass() => InstanceType.IsSubclassOf(PyType.SetType);
 
-        public bool IsFrozenSetSubclass() => InstanceType.IsSubclassOf(PyType.FrozenSetType);
 
         /// <summary>
         /// The value a set subclass instance carries, or null when this is not one.
         /// </summary>
         public PySet GetSetStorage() => _setStorage;
 
-        /// <summary>The value frozenset_new gave a frozenset subclass instance, or null.</summary>
-        public PyFrozenSet GetFrozenStorage() => _frozenStorage;
 
         /// <summary>
         /// The builtin container value this instance carries, or null for a plain class. CPython
@@ -964,8 +955,7 @@ namespace SharpPy
         internal PyObject NativeStorage()
         {
             if (_dictStorage != null) return _dictStorage;
-            if (_setStorage != null) return _setStorage;
-            return _frozenStorage;
+            return _setStorage;
         }
 
         // CPython 3.12: Provide access to internal dict storage for dict subclasses
