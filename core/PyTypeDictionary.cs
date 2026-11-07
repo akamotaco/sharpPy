@@ -108,6 +108,18 @@ namespace SharpPy
             _others.SetItem(key, value);
         }
 
+        /// <summary>
+        /// A lookup by name, as lookdict probes: when no str key matches, a key of another kind with
+        /// the same hash is compared with ==, which may run Python (and may even answer True).
+        /// </summary>
+        public new bool TryGetValue(string key, out PyObject value)
+        {
+            if (base.TryGetValue(key, out value))
+                return true;
+            value = null;
+            return _others != null && _others.Length() != 0 && _others.TryGetStoredValue(PyString.From(key), out value);
+        }
+
         internal bool TryGetItem(PyObject key, out PyObject value)
         {
             if (key is PyString text)
