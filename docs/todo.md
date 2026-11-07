@@ -78,6 +78,10 @@
 - 3-7. 내장 이터레이터를 상속한 클래스, `set` 하위 클래스의 `repr` 경로, `__bases__` 대입 검사 (P0-83).
 - 3-8. `type_setattro`는 `PyType.TypeSetAttribute` 하나다(불변 검사, 메타타입 데이터 디스크립터, `tp_dict`, `PyType_Modified`). `PyStructSequence_NewType`으로 만드는 타입(`time.struct_time`, `os.stat_result`, `os.terminal_size`, `nt.times_result`)은 힙 타입이다. 남은 것: `os.stat_result`에 `st_birthtime`, `st_birthtime_ns`가 없다(n_fields 18, CPython 20).
 
+## 1a. 예외 출력
+
+- 1a-1. 출력 경로가 둘이고 둘 다 CPython 3.12의 것이 아니다. `sys.excepthook`/`sys.__excepthook__`는 `traceback.print_exception`(Python 쪽 포매터)을 부르고, 훅이 실패하면 `runtime/PyInterpreter.cs`의 손으로 쓴 출력기(`PrintPythonStyleTraceback`, `ShowSourceLineWithMarkers`, `PrintCurrentFrameFallback`)가 쓴다. CPython 3.12는 둘 다 C의 `_PyErr_Display`(`Python/pythonrun.c` `print_exception_recursive`, `print_exception_file_and_line`, `print_error_text`; `Python/traceback.c` `tb_displayline`)다. 3.12의 `traceback.py`는 SyntaxError의 범위를 다르게 그린다: 끝 열이 음수이거나 시작 열보다 앞이면 C는 `^` 하나, 끝 열이 줄 길이+1을 넘으면 C는 거기서 자르고, 끝 줄이 다음 줄이면 C는 줄 끝까지 칠한다(test_exceptions `test_range_of_offsets`). 할 일: `_PyErr_Display`를 C#으로 옮겨 두 경로를 그것 하나로.
+
 ## 4. 이터레이터와 제너레이터
 
 - 4-1. 이터레이터의 `__reduce__`, `__setstate__`, `__length_hint__`는 끝났다. `list()`, `tuple()`이 길이 힌트를 호출하는지는 대조가 남았다.
