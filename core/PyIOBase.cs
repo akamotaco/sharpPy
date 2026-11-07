@@ -25,10 +25,13 @@ namespace SharpPy;
 ///   "I/O operation on closed file." with a trailing period while stringio.c reports it
 ///   without one (both measured). Keeping the two strings separate here is parity, not noise.
 /// </summary>
-public class PyIOBaseInstance : PyObject, IDictBackedInstance
+public class PyIOBaseInstance : PyObject, IObjectDict
 {
     private readonly PyType _builtin;
-    private Dictionary<string, PyObject> dict = new();
+    // iobase's dict (tp_dictoffset), made when first needed.
+    private PyDict _dict;
+    public PyDict ObjectDict(bool create) => create ? _dict ??= new PyDict() : _dict;
+    public void SetObjectDict(PyDict dict) => _dict = dict;
 
     /// <summary>The closed state of bytesio.c and stringio.c, which keep their own.</summary>
     public bool PyClosed;
@@ -37,12 +40,6 @@ public class PyIOBaseInstance : PyObject, IDictBackedInstance
 
     public override PyType GetPyType() => _customType ?? _builtin;
     public override string GetTypeName() => GetPyType().Name;
-
-    public Dictionary<string, PyObject> InstanceDict
-    {
-        get => dict;
-        set => dict = value;
-    }
 
     /// <summary>
     /// CPython stores these tp_names dotted ("_io._IOBase") and the attribute error prints
@@ -187,6 +184,9 @@ public static class PyIOBaseSlots
         registered = true;
 
         // ---- _IOBase (Modules/_io/iobase.c) --------------------------------------
+        // iobase_getset: {"__dict__", PyObject_GenericGetDict, NULL}, so it cannot be assigned.
+        IOBaseType.TypeDict["__dict__"] = new PyGetSetDescriptor("__dict__", IOBaseType,
+            self => ((IObjectDict)self).ObjectDict(true));
         IOBaseType.TypeDict["closed"] = new PyGetSetDescriptor(
             "closed", IOBaseType, self => PyBool.FromBool(IsClosed(self)));
 

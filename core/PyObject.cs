@@ -474,9 +474,6 @@ namespace SharpPy
                 return SubclassInstanceSupport.GenericGetAttrWithDict(this, heap, name, attributes, null) ?? PyGetAttribute(name);
             }
 
-            // An instance dict kept beside a native value (IDictBackedInstance) is its __dict__.
-            if (name == "__dict__" && HasInstanceDict(out var dictAccessor))
-                return PyGlobalsDict.OfInstance(dictAccessor.InstanceDict);
             return PyGetAttribute(name);
         }
 
@@ -493,14 +490,6 @@ namespace SharpPy
 
         internal virtual PyObject GenericGetAttr(string name)
         {
-            // A Python class over a builtin keeps its instance dict beside the value: the generic
-            // lookup over it, then what the builtin base holds (its tp_getattro).
-            if (this is IDictBackedInstance owner && this is not PyType && GetPyType() is PyClass heap)
-            {
-                if (name == "__dict__" && heap.InstancesHaveDict())
-                    return PyGlobalsDict.For(owner.InstanceDict);
-                return SubclassInstanceSupport.GenericGetAttrWithDict(this, heap, name, owner.InstanceDict, null) ?? TpGetattro(name);
-            }
             return TpGetattro(name);
         }
 
@@ -538,10 +527,7 @@ namespace SharpPy
         /// </summary>
         internal virtual void GenericSetAttr(string name, PyObject value)
         {
-            if (this is IDictBackedInstance owner && GetPyType() is PyClass heap)
-                SubclassInstanceSupport.GenericSetAttribute(this, heap, owner.InstanceDict, name, value);
-            else
-                TpSetattro(name, value);
+            TpSetattro(name, value);
         }
 
         /// <summary>PyObject_GenericSetAttr with no value, object.__delattr__.</summary>
@@ -549,30 +535,16 @@ namespace SharpPy
         {
             if (this is not PyType && GetPyType() is PyClass heap)
             {
-                // The dict a builtin keeps for itself; otherwise the CLR type's tp_setattro, which
-                // keeps the dict a heap subclass adds, as the set and get halves do.
-                if (this is IDictBackedInstance owner)
-                {
-                    SubclassInstanceSupport.GenericSetAttribute(this, heap, owner.InstanceDict, name, null);
-                    return;
-                }
             }
             TpDelattro(name);
         }
 
-        // tp_dictoffset: the instance dict a builtin keeps beside its value, when its type gives one.
-        private bool HasInstanceDict(out IDictBackedInstance owner)
-        {
-            owner = this as IDictBackedInstance;
-            return owner != null && GetPyType().Layout.DictOffset != 0;
-        }
-
         /// <summary>The instance dict of a Python class over a builtin with no store of its own.</summary>
-        internal Dictionary<string, PyObject> HeapDict => this is IDictBackedInstance owner ? owner.InstanceDict : HeapAttributes.GetOrCreateValue(this);
+        internal Dictionary<string, PyObject> HeapDict => HeapAttributes.GetOrCreateValue(this);
 
-        // tp_dictoffset of the builtin itself (function, BaseException, the dict-backed builtins): a
-        // heap subclass uses that dict, there is no second one beside it.
-        private bool HasOwnDict => this is IDictBackedInstance or IObjectDict;
+        // tp_dictoffset of the builtin itself (function, BaseException, classmethod, the io objects,
+        // SimpleNamespace): a heap subclass uses that dict, there is no second one beside it.
+        private bool HasOwnDict => this is IObjectDict;
 
         // The __slots__ of a Python class over a builtin, beside its __dict__ (PyMemberDescriptor of
         // type_new_descriptors); a PyClassInstance keeps its own.
@@ -614,9 +586,6 @@ namespace SharpPy
         protected virtual PyObject PyGetAttribute(string name)
         {
             // CPython 3.12 호환: GenericGetAttribute 사용
-            // A heap subclass of a value type keeps its instance dict beside the value; __dict__ is the live view.
-            if (name == "__dict__" && HasInstanceDict(out var owner))
-                return PyGlobalsDict.OfInstance(owner.InstanceDict);
             return GenericGetAttribute(name);
         }
 
@@ -779,10 +748,7 @@ namespace SharpPy
                 }
                 throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{nativeType.Name}'");
             }
-            Dictionary<string, PyObject> dict = HasInstanceDict(out var owner) ? owner.InstanceDict : null;
-            IInstanceDictStore store = dict != null ? null
-                : this as IInstanceDictStore;
-            SubclassInstanceSupport.GenericSetAttrWithDict(this, GetPyType(), name, value, dict, store);
+            SubclassInstanceSupport.GenericSetAttrWithDict(this, GetPyType(), name, value, null, this as IInstanceDictStore);
         }
 
         internal System.Exception NoSuchAttribute(string name) => AttributeNotFound(name);

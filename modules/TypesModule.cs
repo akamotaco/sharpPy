@@ -34,10 +34,13 @@ namespace SharpPy.Modules
         }
     }
 
-    public sealed class PySimpleNamespace : PyObject, IDictBackedInstance
+    public sealed class PySimpleNamespace : PyObject, IObjectDict
     {
         private readonly PyType _builtin;
-        public Dictionary<string, PyObject> InstanceDict { get; } = new();
+        // ns_dict
+        private PyDict _dict = new PyDict();
+        public PyDict ObjectDict(bool create) => _dict;
+        public void SetObjectDict(PyDict dict) => _dict = dict;
 
         internal PySimpleNamespace(PyType type) => _builtin = Allocated(type);
 
@@ -48,10 +51,10 @@ namespace SharpPy.Modules
             if (kwargs == null)
                 return;
             foreach (var pair in kwargs.InternalDict)
-                InstanceDict[((PyString)pair.Key).Value] = pair.Value;
+                _dict.SetItem(pair.Key, pair.Value);
         }
 
-        internal PyObject Dict => PyGlobalsDict.OfInstance(InstanceDict);
+        internal PyObject Dict => _dict;
 
         public override PyType GetPyType() => _customType ?? _builtin;
         public override string GetTypeName() => GetPyType().FullName;
@@ -66,9 +69,10 @@ namespace SharpPy.Modules
             try
             {
                 var pairs = new List<string>();
-                foreach (var pair in InstanceDict)
-                    if (pair.Key.Length > 0)
-                        pairs.Add($"{pair.Key}={pair.Value.ToRepr().Value}");
+                // namespace_repr: the str keys that are not empty.
+                foreach (var pair in new List<KeyValuePair<PyObject, PyObject>>(_dict.InternalDict))
+                    if (pair.Key is PyString key && key.Value.Length > 0)
+                        pairs.Add($"{key.Value}={pair.Value.ToRepr().Value}");
                 return new PyString($"{name}({string.Join(", ", pairs)})");
             }
             finally

@@ -61,19 +61,4 @@ namespace SharpPy
             return true;
         }
     }
-
-    /// <summary>
-    /// Dict-backed instances that store attributes in a plain Dictionary.
-    /// Provides default implementations of IInstanceDictAccessor over InstanceDict.
-    /// </summary>
-    public interface IDictBackedInstance : IInstanceDictAccessor
-    {
-        Dictionary<string, PyObject> InstanceDict { get; }
-
-        bool IInstanceDictAccessor.TryGetInstanceAttribute(string name, out PyObject value)
-            => InstanceDict.TryGetValue(name, out value);
-
-        IEnumerable<KeyValuePair<string, PyObject>> IInstanceDictAccessor.InstanceAttributes
-            => InstanceDict;
-    }
 }

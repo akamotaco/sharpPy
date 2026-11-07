@@ -6,14 +6,17 @@ namespace SharpPy
     /// What classmethod and staticmethod share in Objects/funcobject.c: the wrapped callable, a
     /// __dict__ filled by functools_wraps, and a type that may be a Python subclass.
     /// </summary>
-    public abstract class PyCallableWrapper : PyObject, IDescriptor, IDictBackedInstance
+    public abstract class PyCallableWrapper : PyObject, IDescriptor, IObjectDict
     {
         private static readonly string[] WrappedAttributes = { "__module__", "__name__", "__qualname__", "__doc__", "__annotations__" };
 
         private readonly PyType _builtin;
 
         public PyObject Callable { get; private set; }
-        public Dictionary<string, PyObject> InstanceDict { get; set; } = new();
+        // cm_dict / sm_dict: the wrapper's one __dict__, which functools_wraps fills.
+        private PyDict _dict;
+        public PyDict ObjectDict(bool create) => create ? _dict ??= new PyDict() : _dict;
+        public void SetObjectDict(PyDict dict) => _dict = dict;
 
         protected PyCallableWrapper(PyType type, PyObject callable)
         {
@@ -30,7 +33,7 @@ namespace SharpPy
             {
                 try
                 {
-                    InstanceDict[name] = callable.GetAttribute(name);
+                    ObjectDict(true).SetItem(new PyString(name), callable.GetAttribute(name));
                 }
                 catch (PythonException error) when (error.PyException is PyAttributeError)
                 {

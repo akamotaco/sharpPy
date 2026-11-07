@@ -272,16 +272,9 @@ public class PyBytesIO : PyIOBaseInstance
     private PyObject GetState()
     {
         var value = GetValue();
-        PyObject dict = InstanceDict.Count == 0 ? PyNone.Instance : PyDictOf(InstanceDict);
+        // a copy of the dict, None when there never was one
+        PyObject dict = ObjectDict(false) is { } own ? own.Copy() : PyNone.Instance;
         return new PyTuple(new[] { value, new PyInt(_pos), dict });
-    }
-
-    private static PyDict PyDictOf(System.Collections.Generic.Dictionary<string, PyObject> entries)
-    {
-        var dict = new PyDict();
-        foreach (var pair in entries)
-            dict.SetItem(new PyString(pair.Key), pair.Value);
-        return dict;
     }
 
     private static string TypeName(PyObject self) =>
@@ -308,8 +301,7 @@ public class PyBytesIO : PyIOBaseInstance
         {
             if (dict is not PyDict entries)
                 throw PyTypeError.Create($"third item of state should be a dict, got a {dict.GetTypeName()}");
-            foreach (var pair in entries.InternalDict)
-                InstanceDict[pair.Key.ToStr().Value] = pair.Value;
+            ObjectDict(true).Update(entries);
         }
         return PyNone.Instance;
     }

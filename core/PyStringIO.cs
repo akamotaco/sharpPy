@@ -317,16 +317,8 @@ public class PyStringIO : PyIOBaseInstance
     private PyObject GetState()
     {
         var value = new PyString(GetValue());
-        PyObject dict = InstanceDict.Count == 0 ? PyNone.Instance : DictOf();
+        PyObject dict = ObjectDict(false) is { } own ? own.Copy() : PyNone.Instance;
         return new PyTuple(new PyObject[] { value, _readnl == null ? PyNone.Instance : new PyString(_readnl), new PyInt(_pos), dict });
-    }
-
-    private PyDict DictOf()
-    {
-        var dict = new PyDict();
-        foreach (var pair in InstanceDict)
-            dict.SetItem(new PyString(pair.Key), pair.Value);
-        return dict;
     }
 
     private static string TypeName(PyObject self) =>
@@ -362,8 +354,7 @@ public class PyStringIO : PyIOBaseInstance
         {
             if (dict is not PyDict entries)
                 throw PyTypeError.Create($"fourth item of state should be a dict, got a {dict.GetTypeName()}");
-            foreach (var pair in entries.InternalDict)
-                InstanceDict[pair.Key.ToStr().Value] = pair.Value;
+            ObjectDict(true).Update(entries);
         }
         return PyNone.Instance;
     }

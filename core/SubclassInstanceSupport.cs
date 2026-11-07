@@ -152,14 +152,13 @@ namespace SharpPy
 
         /// <summary>
         /// PyObject_GenericGetDict: the instance dict, wherever this runtime keeps it - a Python
-        /// instance's own store, the dict a builtin holds (IObjectDict, IDictBackedInstance), or the
+        /// instance's own store, the dict a builtin holds (IObjectDict), or the
         /// one kept beside a builtin's value for a class written in Python.
         /// </summary>
         internal static PyObject GenericGetDict(PyObject self) => self switch
         {
             PyClassInstance instance => instance.GetAttributeGeneric("__dict__"),
             IObjectDict holder => holder.ObjectDict(true),
-            IDictBackedInstance owner => PyGlobalsDict.OfInstance(owner.InstanceDict),
             _ => PyGlobalsDict.For(self.HeapDict),
         };
 
@@ -174,9 +173,6 @@ namespace SharpPy
                 case IObjectDict holder:
                     holder.SetObjectDict(value as PyDict ?? throw PyTypeError.Create(
                         $"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'"));
-                    break;
-                case IDictBackedInstance owner:
-                    ReplaceDict(owner.InstanceDict, value);
                     break;
                 default:
                     ReplaceDict(self.HeapDict, value);
