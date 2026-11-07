@@ -156,24 +156,6 @@ public static class PyIOBaseSlots
         return bytes;
     }
 
-    /// <summary>Iterates with CPython's PyIter_Next shape: Next() until StopIteration.</summary>
-    private static IEnumerable<PyObject> Enumerate(PyObject iterable)
-    {
-        var iterator = iterable.GetIterator();
-        while (true)
-        {
-            PyObject item;
-            try
-            {
-                item = iterator.Next();
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                yield break;
-            }
-            yield return item;
-        }
-    }
 
     private static bool registered;
 
@@ -293,12 +275,12 @@ public static class PyIOBaseSlots
                 var result = new PyList();
                 if (hint <= 0)
                 {
-                    foreach (var line in Enumerate(self))
+                    foreach (var line in PyObject.IterateItems(self))
                         result.Append(line);
                     return result;
                 }
                 long length = 0;
-                foreach (var line in Enumerate(self))
+                foreach (var line in PyObject.IterateItems(self))
                 {
                     result.Append(line);
                     long lineLength = line.Length();
@@ -316,7 +298,7 @@ public static class PyIOBaseSlots
                 if (args.Length != 1)
                     throw PyTypeError.Create($"_IOBase.writelines() takes exactly one argument ({args.Length} given)");
                 CheckClosed(self);
-                foreach (var line in Enumerate(args[0]))
+                foreach (var line in PyObject.IterateItems(args[0]))
                     CallWith(self, "write", One(line));
                 return PyNone.Instance;
             }, minArgs: 1, maxArgs: 1);

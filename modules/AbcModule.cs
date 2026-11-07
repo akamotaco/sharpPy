@@ -110,24 +110,13 @@ namespace SharpPy.Modules
             }
         }
 
-        private static IEnumerable<PyObject> Iterate(PyObject iterable)
-        {
-            var iterator = iterable.GetIterator();
-            while (true)
-            {
-                PyObject item;
-                try { item = iterator.Next(); }
-                catch (PythonException error) when (error.PyException is PyStopIteration) { yield break; }
-                yield return item;
-            }
-        }
 
         // compute_abstract_methods
         private static void ComputeAbstractMethods(PyObject self)
         {
             var abstracts = new PySet();
             var items = self.GetAttribute("__dict__").GetAttribute("items").Call(Array.Empty<PyObject>(), null);
-            foreach (var item in new List<PyObject>(Iterate(items)))
+            foreach (var item in new List<PyObject>(PyObject.IterateItems(items)))
             {
                 var pair = item.AsTuple();
                 if (pair.Length() != 2)
@@ -141,7 +130,7 @@ namespace SharpPy.Modules
             {
                 var inherited = AttributeOrNull(entry, PyString.From("__abstractmethods__"));
                 if (inherited == null) continue;
-                foreach (var key in Iterate(inherited))
+                foreach (var key in PyObject.IterateItems(inherited))
                 {
                     var value = AttributeOrNull(self, key);
                     if (value != null && IsAbstract(value))

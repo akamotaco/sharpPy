@@ -643,12 +643,8 @@ namespace SharpPy.Modules
             {
                 if (args.Length < 1) throw PyTypeError.Create("writerows() requires an iterable argument");
                 var rows = args[0];
-                var it = rows.GetIterator();
-                while (true)
+                foreach (var row in PyObject.IterateItems(rows))
                 {
-                    PyObject row;
-                    try { row = it.Next(); }
-                    catch (PythonException e) when (e.PyException is PyStopIteration) { break; }
                     WriteRow(new PyObject[] { row }, null);
                 }
                 return PyNone.Instance;

@@ -534,12 +534,8 @@ namespace SharpPy.Modules
         {
             var p = new List<double>();
             double specialSum = 0.0, infSum = 0.0;
-            var iterator = iterable.GetIterator();
-            while (true)
+            foreach (var item in PyObject.IterateItems(iterable))
             {
-                PyObject item;
-                try { item = iterator.Next(); }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration) { break; }
                 double x = RealNumber(item);
                 double xsave = x;
                 int i = 0;

@@ -91,18 +91,7 @@ namespace SharpPy
             // set_update_internal: any set is merged from its table, __iter__ of a subclass or not.
             if (value is PySet set) return set.Items;
             if (value is PyFrozenSet frozen) return frozen.Items;
-            return Iterate(value);
-        }
-        private static IEnumerable<PyObject> Iterate(PyObject value)
-        {
-            var iterator = value.GetIterator();
-            while (true)
-            {
-                PyObject item;
-                try { item = iterator.Next(); }
-                catch (PythonException error) when (error.PyException is PyStopIteration) { yield break; }
-                yield return item;
-            }
+            return PyObject.IterateItems(value);
         }
 
         public override PyType GetPyType() => _customType ?? PyType.SetType;

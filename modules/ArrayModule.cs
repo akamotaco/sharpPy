@@ -489,12 +489,8 @@ namespace SharpPy.Modules
                     _count += arr._count;
                     return;
                 }
-                var it = iterable.GetIterator();
-                while (true)
+                foreach (var item in PyObject.IterateItems(iterable))
                 {
-                    PyObject item;
-                    try { item = it.Next(); }
-                    catch (PythonException e) when (e.PyException is PyStopIteration) { break; }
                     Append(item);
                 }
             }
@@ -659,12 +655,8 @@ namespace SharpPy.Modules
 
             internal void FromList(PyObject iterable)
             {
-                var it = iterable.GetIterator();
-                while (true)
+                foreach (var item in PyObject.IterateItems(iterable))
                 {
-                    PyObject item;
-                    try { item = it.Next(); }
-                    catch (PythonException e) when (e.PyException is PyStopIteration) { break; }
                     Append(item);
                 }
             }
@@ -825,12 +817,8 @@ namespace SharpPy.Modules
                 }
                 else
                 {
-                    var it = initializer.GetIterator();
-                    while (true)
+                    foreach (var item in PyObject.IterateItems(initializer))
                     {
-                        PyObject item;
-                        try { item = it.Next(); }
-                        catch (PythonException e) when (e.PyException is PyStopIteration) { break; }
                         Append(item);
                     }
                 }

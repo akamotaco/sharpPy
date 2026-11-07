@@ -324,12 +324,8 @@ namespace SharpPy
                 // A range is a sequence in CPython, so it is enumerated here (PySequence_Tuple
                 // materialises it too). Big ranges blow up in both interpreters.
                 var steps = new List<PyObject>();
-                var rangeIterator = value.GetIterator();
-                while (true)
+                foreach (var step in PyObject.IterateItems(value))
                 {
-                    PyObject step;
-                    try { step = rangeIterator.Next(); }
-                    catch (PythonException error) when (error.PyException is PyStopIteration) { break; }
                     steps.Add(step);
                 }
                 return steps.ToArray();

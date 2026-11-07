@@ -1249,6 +1249,22 @@ namespace SharpPy
         /// </summary>
         public PyObject Next() => GetPyType() is SharpPy.PyClass heap ? heap.IterNextSlot(this) : IterNext();
 
+        /// <summary>
+        /// PyObject_GetIter, then PyIter_Next until it is exhausted: the items of an iterable, read
+        /// lazily. What the iterator raises, other than the StopIteration that ends it, propagates.
+        /// </summary>
+        internal static IEnumerable<PyObject> IterateItems(PyObject iterable)
+        {
+            var iterator = iterable.GetIterator();
+            while (true)
+            {
+                PyObject item;
+                try { item = iterator.Next(); }
+                catch (PythonException error) when (error.PyException is PyStopIteration) { yield break; }
+                yield return item;
+            }
+        }
+
         #endregion
 
         #region Buffer Protocol (PEP 688)
