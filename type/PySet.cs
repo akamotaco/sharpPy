@@ -805,25 +805,23 @@ namespace SharpPy
     /// layout with ob_type set to the subclass (Objects/setobject.c make_new_set), so it is a
     /// frozenset whose _customType is the class, with the __dict__ a heap type adds.
     /// </summary>
-    public sealed class PyFrozenSetSubclass : PyFrozenSet, IDictBackedInstance, IHeapInstance
+    public sealed class PyFrozenSetSubclass : PyFrozenSet, IDictBackedInstance
     {
         public PyFrozenSetSubclass(PyClass cls, IEnumerable<PyObject> items) : base(items) => SetCustomType(cls);
 
         public Dictionary<string, PyObject> InstanceDict { get; } = new();
 
-        public void ChangeClass(PyClass target) => SetCustomType(target);
     }
 
     /// <summary>
     /// An instance of a Python class deriving from set: set_new (make_new_set) allocates the set
     /// layout with ob_type set to the subclass, and set_init fills that table.
     /// </summary>
-    public sealed class PySetSubclass : PySet, IDictBackedInstance, IHeapInstance
+    public sealed class PySetSubclass : PySet, IDictBackedInstance
     {
         public PySetSubclass(PyClass cls) => SetCustomType(cls);
 
         public Dictionary<string, PyObject> InstanceDict { get; } = new();
 
-        public void ChangeClass(PyClass target) => SetCustomType(target);
     }
 }

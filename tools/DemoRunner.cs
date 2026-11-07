@@ -105,7 +105,7 @@ namespace SharpPy.Tools
             var nameProperty = new PyProperty(nameGetter, nameSetter);
             personClass.SetAttribute("name", nameProperty);
             
-            var person = personClass.CreateInstance(new PyObject[0]);
+            var person = personClass.Call(new PyObject[0], null);
             person.SetAttribute("name", new PyString("Alice"));
             var name = person.GetAttribute("name");
             Console.WriteLine($"person.name: {name}");
@@ -155,7 +155,7 @@ namespace SharpPy.Tools
             }));
             
             derived.PrintMRO();
-            var derivedInstance = derived.CreateInstance(new PyObject[0]);
+            var derivedInstance = derived.Call(new PyObject[0], null);
             var derivedMethod = derivedInstance.GetAttribute("method");
             derivedMethod.Call(new PyObject[] {  }, null);
 

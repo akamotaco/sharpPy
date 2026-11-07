@@ -16,13 +16,11 @@ namespace SharpPy
     /// type(x), isinstance() and the subclass's own methods report the subclass. int and str
     /// already had this shape (PyIntSubclass, PyStrSubclass): a float whose _customType is the class.
     /// </summary>
-    public class PyFloatSubclass : PyFloat, IDictBackedInstance, IHeapInstance
+    public class PyFloatSubclass : PyFloat, IDictBackedInstance
     {
         // float_subtype_new: ob_fval copied from the converted temporary, which stays as the exact
         // float float_float answers with.
         private readonly PyFloat _floatValue;
-
-        public void ChangeClass(PyClass target) => SetCustomType(target);
 
         // float subclasses get an instance __dict__ (tp_alloc with the subclass's basicsize).
         public Dictionary<string, PyObject> InstanceDict { get; }

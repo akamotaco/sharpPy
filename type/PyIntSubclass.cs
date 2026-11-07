@@ -15,7 +15,7 @@ namespace SharpPy
     /// An int whose ob_type is the subclass: _customType, as for every builtin a Python class
     /// derives from, so the exact-int fast paths (GetType and HasCustomType) pass it by.
     /// </summary>
-    public class PyIntSubclass : PyInt, IDictBackedInstance, IHeapInstance
+    public class PyIntSubclass : PyInt, IDictBackedInstance
     {
         // CPython: Objects/longobject.c:5671-5674
         // newobj->long_value.lv_tag = tmp->long_value.lv_tag;
@@ -26,8 +26,6 @@ namespace SharpPy
 
         // CPython: 서브클래스 인스턴스는 __dict__ 슬롯을 가짐
         public Dictionary<string, PyObject> InstanceDict { get; }
-
-        public void ChangeClass(PyClass target) => SetCustomType(target);
 
         public PyIntSubclass(PyClass cls, long value) : base(value, cls)
         {

@@ -4,11 +4,6 @@ using System.Collections.Generic;
 namespace SharpPy
 {
     /// <summary>An instance of a Python class over a builtin value: __class__ can change.</summary>
-    internal interface IHeapInstance
-    {
-        void ChangeClass(PyClass target);
-    }
-
     /// <summary>
     /// Attribute access for instances of a builtin type that a Python class derives from
     /// (str/bytes/tuple/int/float subclasses). Their class dicts hold user descriptors and functions,
@@ -136,9 +131,10 @@ namespace SharpPy
         internal static void GenericSetAttribute(PyObject self, PyClass instanceType,
             Dictionary<string, PyObject> instanceDict, string name, PyObject value)
         {
-            if (name == "__class__" && value != null && self is IHeapInstance heap)
+            // object_set_class
+            if (name == "__class__" && value != null)
             {
-                heap.ChangeClass(ClassAssignment(instanceType, value));
+                self.SetCustomType(ClassAssignment(instanceType, value));
                 return;
             }
             // object_set_dict: the storage stays, __dict__ is a live view of it.
