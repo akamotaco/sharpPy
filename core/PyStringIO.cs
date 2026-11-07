@@ -70,12 +70,15 @@ public class PyStringIO : PyIOBaseInstance
     }
 
     // resize_buffer: room for size code points and the terminating one.
+    // (Modules/_io/stringio.c) past PY_SSIZE_T_MAX / sizeof(Py_UCS4) is the OverflowError, checked
+    // before anything is allocated; what the CLR cannot give is PyErr_NoMemory.
     private void Resize(long size)
     {
         long alloc = _buf.Length;
-        size += 1;
-        if (size > Array.MaxLength)
+        // size_t arithmetic, as there: size + 1 does not wrap before it is checked.
+        if ((ulong)size + 1 > long.MaxValue / 4)
             throw PyOverflowError.Create("new buffer size too large");
+        size += 1;
         if (size < alloc / 2)
             alloc = size + 1;
         else if (size < alloc)
@@ -84,9 +87,7 @@ public class PyStringIO : PyIOBaseInstance
             alloc = size + (size >> 3) + (size < 9 ? 3 : 6);
         else
             alloc = size + 1;
-        if (alloc > Array.MaxLength)
-            throw PyOverflowError.Create("new buffer size too large");
-        Array.Resize(ref _buf, (int)alloc);
+        Array.Resize(ref _buf, PyAllocation.ArrayLength(alloc));
     }
 
     // realize

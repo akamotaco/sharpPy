@@ -1851,7 +1851,7 @@ namespace SharpPy
         {
             if (string.IsNullOrEmpty(spec)) return DecimalString(value);
             var format = FormatSpec.Parse("int", spec, 'd', '>');
-            if (format.Width > int.MaxValue) throw PyMemoryError.Create();
+            PyAllocation.StringLength(format.Width);
             string fill = format.Fill;
             char align = format.Align, sign = format.Sign, grouping = format.Thousands, type = format.TypeChar;
             bool alternate = format.Alternate, negativeZero = format.NoNegativeZero;

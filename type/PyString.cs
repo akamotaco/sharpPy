@@ -2646,9 +2646,7 @@ namespace SharpPy
                     }
                 }
                 // A result no CLR string can hold is the MemoryError of its allocation.
-                if (widthValue > int.MaxValue)
-                    throw PyMemoryError.Create();
-                int width = (int)widthValue;
+                int width = PyAllocation.StringLength(widthValue);
 
                 int precision = 6;
                 bool hasPrecision = false;
@@ -3763,7 +3761,7 @@ namespace SharpPy
                 throw PyValueError.Create("Alternate form (#) not allowed in string format specifier");
             if (format.Align == '=')
                 throw PyValueError.Create("'=' alignment not allowed in string format specifier");
-            if (format.Width > int.MaxValue) throw PyMemoryError.Create();
+            PyAllocation.StringLength(format.Width);
             string fill = format.Fill;
             char align = format.Align;
             int width = (int)format.Width;

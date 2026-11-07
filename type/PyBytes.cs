@@ -773,9 +773,7 @@ namespace SharpPy
                         i++;
                     }
                 // A result no CLR array can hold is the MemoryError of its allocation.
-                if (widthValue > int.MaxValue)
-                    throw PyMemoryError.Create();
-                int width = (int)widthValue;
+                int width = PyAllocation.ArrayLength(widthValue);
                 int precision = -1;
                 if (i < fmt.Length && fmt[i] == (byte)'.')
                 {

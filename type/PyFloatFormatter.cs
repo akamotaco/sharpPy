@@ -21,7 +21,7 @@ internal static class PyFloatFormatter
     internal static string Render(double value, FormatSpec format)
     {
         if (format.Precision > int.MaxValue) throw PyValueError.Create("precision too big");
-        if (format.Width > int.MaxValue) throw PyMemoryError.Create();
+        PyAllocation.StringLength(format.Width);
         string fill = format.Fill;
         char align = format.Align, sign = format.Sign == '\0' ? '-' : format.Sign, group = format.Thousands;
         char type = format.TypeChar;

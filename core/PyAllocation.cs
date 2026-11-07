@@ -38,11 +38,14 @@ namespace SharpPy
         /// list_repeat, tuple_repeat, bytearray_repeat, array_repeat: a size past PY_SSIZE_T_MAX is
         /// PyErr_NoMemory there, as is one no array holds.
         /// </summary>
-        internal static int RepeatedItems(long size, long count)
+        internal static int RepeatedItems(long size, long count) => ArrayLength(RepeatedSize(size, count));
+
+        /// <summary>size * count, or PyErr_NoMemory past PY_SSIZE_T_MAX (deque_inplace_repeat keeps blocks, no array).</summary>
+        internal static long RepeatedSize(long size, long count)
         {
             if (size != 0 && count > long.MaxValue / size)
                 throw PyMemoryError.Create();
-            return ArrayLength(size * count);
+            return size * count;
         }
 
         internal static long Product(long size, long count, string overflowMessage)

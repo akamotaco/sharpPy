@@ -115,7 +115,7 @@ namespace SharpPy
         private static string FormatComplexInternal(double real, double imag, FormatSpec format)
         {
             if (format.Precision > int.MaxValue) throw PyValueError.Create("precision too big");
-            if (format.Width > int.MaxValue) throw PyMemoryError.Create();
+            PyAllocation.StringLength(format.Width);
             if (format.Fill == "0")
                 throw PyValueError.Create("Zero padding is not allowed in complex format specifier");
             if (format.Align == '=')

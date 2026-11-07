@@ -634,8 +634,7 @@ namespace SharpPy.Modules
             }
 
             // check for overflow, then PyMem_Malloc of the codes
-            if (ncodes + 1 > Array.MaxLength)
-                throw PyMemoryError.Create();
+            PyAllocation.ArrayLength(ncodes + 1);
 
             var codes = new FormatCode[ncodes + 1];
             int k = 0;
@@ -797,9 +796,7 @@ namespace SharpPy.Modules
             long nargs = args.Length - offset;
             if (nargs != so.Len)
                 throw Error($"pack expected {so.Len} items for packing (got {nargs})");
-            if (so.Size > Array.MaxLength)
-                throw PyMemoryError.Create();
-            var buf = new byte[so.Size];
+            var buf = new byte[PyAllocation.ArrayLength(so.Size)];
             PackInternal(so, args, offset, buf);
             return PyBytes.From(buf);
         }

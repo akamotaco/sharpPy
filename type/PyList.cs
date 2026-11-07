@@ -800,8 +800,7 @@ namespace SharpPy
             { throw PyTypeError.Create(message); }
             var cursor = iterator.GetIterator();
             long hint = iterator.LengthHint(8);
-            if (hint > Array.MaxLength) throw PyMemoryError.Create();
-            var collected = new List<PyObject>((int)hint);
+            var collected = new List<PyObject>(PyAllocation.ArrayLength(hint));
             while (true)
             {
                 try { collected.Add(cursor.Next()); }

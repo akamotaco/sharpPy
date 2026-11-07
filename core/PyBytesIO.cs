@@ -76,26 +76,33 @@ public class PyBytesIO : PyIOBaseInstance
         _shared = null;
     }
 
-    // resize_buffer
-    private void Resize(long size)
+    // resize_buffer (Modules/_io/bytesio.c), in its size_t arithmetic: past PY_SSIZE_T_MAX is the
+    // OverflowError; an alloc that wraps negative reaches PyBytes_FromStringAndSize or
+    // _PyBytes_Resize as the SystemError it raises there; what the CLR cannot give is
+    // PyErr_NoMemory.
+    private void Resize(ulong size)
     {
-        long alloc = _buf.Length;
-        if (size > Array.MaxLength)
+        ulong alloc = (ulong)_buf.Length;
+        if (size > long.MaxValue)
             throw PyOverflowError.Create("new buffer size too large");
         if (size < alloc / 2)
             alloc = size + 1;
         else if (size < alloc)
             return;
         else if (size <= alloc * 1.125)
-            alloc = size + (size >> 3) + (size < 9 ? 3 : 6);
+            alloc = size + (size >> 3) + (size < 9UL ? 3UL : 6UL);
         else
             alloc = size + 1;
-        if (alloc > Array.MaxLength)
-            throw PyOverflowError.Create("new buffer size too large");
+        // SHARED_BUF is a reference count above one; a BytesIO's first buffer is the empty bytes
+        // object, which always is.
+        if ((long)alloc < 0)
+            throw PySystemError.Create(Shared || _buf.Length == 0 ? "Negative size passed to PyBytes_FromStringAndSize"
+                : "bad argument to internal function");
+        int length = PyAllocation.ArrayLength((long)alloc);
         if (Shared)
-            Unshare(alloc);
+            Unshare(length);
         else
-            Array.Resize(ref _buf, (int)alloc);
+            Array.Resize(ref _buf, length);
     }
 
     private static byte[] Contiguous(PyObject value) => BytesMethods.Buffer(value)
@@ -110,10 +117,13 @@ public class PyBytesIO : PyIOBaseInstance
         int len = data.Length;
         if (len == 0)
             return 0;
-        long endpos = _pos + len;
-        if (endpos > _buf.Length)
-            Resize(endpos);
-        else if (Shared)
+        // write_bytes: endpos is a size_t; past the buffer it goes to resize_buffer, which only
+        // returns when the buffer holds it.
+        ulong wanted = (ulong)_pos + (ulong)len;
+        if (wanted > (ulong)_buf.Length)
+            Resize(wanted);
+        long endpos = (long)wanted;
+        if (Shared)
             Unshare(Math.Max(endpos, _size));
         if (_pos > _size)
             Array.Clear(_buf, _size, (int)(_pos - _size));
@@ -226,7 +236,7 @@ public class PyBytesIO : PyIOBaseInstance
         if (size < _size)
         {
             _size = (int)size;
-            Resize(size);
+            Resize((ulong)size);
         }
         return PyInt.From(size);
     }

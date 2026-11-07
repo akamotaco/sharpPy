@@ -423,8 +423,8 @@ namespace SharpPy.Modules
                 }
                 return this;
             }
-            if ((ulong)size > (ulong)long.MaxValue / (ulong)n)
-                throw PyMemoryError.Create();
+            // deque_inplace_repeat: size * n past PY_SSIZE_T_MAX is PyErr_NoMemory.
+            PyAllocation.RepeatedSize(size, n);
             var seq = AsList();
             // Reduce the number of repetitions when maxlen would be exceeded.
             if (MaxLen >= 0 && n * size > MaxLen)

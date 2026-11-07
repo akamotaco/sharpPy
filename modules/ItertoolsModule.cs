@@ -151,8 +151,7 @@ namespace SharpPy.Modules
         // PyMem_New of n Py_ssize_t: NULL past what can be allocated, and PyErr_NoMemory.
         internal static long[] Indices(long n)
         {
-            if (n > Array.MaxLength)
-                throw PyMemoryError.Create();
+            PyAllocation.ArrayLength(n);
             return new long[n];
         }
 
@@ -674,8 +673,7 @@ namespace SharpPy.Modules
         {
             if (n < 0)
                 throw PyValueError.Create("n must be >= 0");
-            if (n > Array.MaxLength)
-                throw PyMemoryError.Create();
+            PyAllocation.ArrayLength(n);
             var result = new PyObject[n];
             if (n == 0)
                 return PyTuple.From(result);

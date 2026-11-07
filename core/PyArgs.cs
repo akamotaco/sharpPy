@@ -224,8 +224,8 @@ internal static class PyArgs
     internal static int Width(PyObject value)
     {
         long width = Ssize(value);
-        if (width > int.MaxValue)
-            throw PyMemoryError.Create();
+        if (width > 0)
+            PyAllocation.StringLength(width);
         return width < int.MinValue ? int.MinValue : (int)width;
     }
 
