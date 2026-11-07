@@ -27,16 +27,16 @@ namespace SharpPy;
 /// </summary>
 public class PyIOBaseInstance : PyObject, IDictBackedInstance
 {
-    private readonly PyType type;
+    private readonly PyType _builtin;
     private Dictionary<string, PyObject> dict = new();
 
     /// <summary>The closed state of bytesio.c and stringio.c, which keep their own.</summary>
     public bool PyClosed;
 
-    public PyIOBaseInstance(PyType type) => this.type = type;
+    public PyIOBaseInstance(PyType type) => _builtin = Allocated(type);
 
-    public override PyType GetPyType() => type;
-    public override string GetTypeName() => type.Name;
+    public override PyType GetPyType() => _customType ?? _builtin;
+    public override string GetTypeName() => GetPyType().Name;
 
     public Dictionary<string, PyObject> InstanceDict
     {
@@ -52,7 +52,7 @@ public class PyIOBaseInstance : PyObject, IDictBackedInstance
     /// readlines(), next() and writelines() all surface that AttributeError.
     /// </summary>
     protected override System.Exception AttributeNotFound(string name)
-        => PyAttributeError.Create($"'{type.FullName}' object has no attribute '{name}'");
+        => PyAttributeError.Create($"'{GetPyType().FullName}' object has no attribute '{name}'");
 
     /// <summary>
     /// CPython drives io iteration through tp_iter / tp_iternext (iobase_iter returns self and

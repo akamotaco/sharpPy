@@ -149,16 +149,17 @@ public class PyModule : PyObject
         }
     }
     
-    private PyType _type = PyType.ModuleType;
     private bool _allocated;
 
-    public override PyType GetPyType() => _type;
-    public override string GetTypeName() => _type.Name;
+    // ob_type: module, or the ModuleType subclass written in Python that allocated it.
+    public override PyType GetPyType() => _customType ?? PyType.ModuleType;
+    public override string GetTypeName() => GetPyType().Name;
 
     // new_module: a dict and nothing in it. module___init__ names it.
     internal static PyModule Allocate(PyType type)
     {
-        var module = new PyModule("?") { _type = type, _allocated = true };
+        var module = new PyModule("?") { _allocated = true };
+        module.Allocated(type);
         module.ModuleDict.Clear();
         return module;
     }
@@ -238,11 +239,11 @@ public class PyModule : PyObject
                 throw PyTypeError.Create($"__class__ must be set to a class, not '{value.GetTypeName()}' object");
             if (!ReferenceEquals(target, PyType.ModuleType) && !target.IsSubclassOf(PyType.ModuleType))
                 throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses");
-            PyTypeMetaclass.CheckAssignment(_type, target, "__class__");
-            _type = target;
+            PyTypeMetaclass.CheckAssignment(GetPyType(), target, "__class__");
+            SetCustomType(target as PyClass);
             return;
         }
-        if (_type is PyClass heap && PyClassInstance.FindDataDescriptorInMro(heap, name) is { } descriptor)
+        if (_customType is PyClass heap && PyClassInstance.FindDataDescriptorInMro(heap, name) is { } descriptor)
         {
             PyClassInstance.CallDescriptorSet(descriptor, this, value);
             return;
@@ -273,13 +274,13 @@ public class PyModule : PyObject
             throw PyAttributeError.Create("readonly attribute");
         if (name == "__class__")
             throw PyTypeError.Create("can't delete __class__ attribute");
-        if (_type is PyClass heap && PyClassInstance.FindDataDescriptorInMro(heap, name) is { } descriptor)
+        if (_customType is PyClass heap && PyClassInstance.FindDataDescriptorInMro(heap, name) is { } descriptor)
         {
             PyClassInstance.CallDescriptorDelete(descriptor, this);
             return;
         }
         if (!ModuleDict.Remove(name))
-            throw PyAttributeError.Create($"'{(_type is PyClass ? _type.Name : "module")}' object has no attribute '{name}'");
+            throw PyAttributeError.Create($"'{(_customType is PyClass owner ? owner.Name : "module")}' object has no attribute '{name}'");
     }
 
     // 모듈 실행 (소스 코드 실행) - 전체 Python 인터프리터 파이프라인 사용

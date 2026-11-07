@@ -49,6 +49,22 @@ namespace SharpPy
             _customType = customType;
         }
 
+        /// <summary>
+        /// ob_type at allocation (type->tp_alloc of the type asked for): a class written in Python
+        /// is kept in _customType, where every heap type is; the answer is the builtin whose layout
+        /// this object is.
+        /// </summary>
+        protected PyType Allocated(PyType type)
+        {
+            if (type is not SharpPy.PyClass heap)
+                return type;
+            SetCustomType(heap);
+            foreach (var entry in heap.MRO)
+                if (entry is not SharpPy.PyClass)
+                    return entry;
+            return PyType.ObjectType;
+        }
+
         protected virtual int GetDefaultHash()
         {
             return GetTypeName().GetHashCode();
@@ -533,14 +549,11 @@ namespace SharpPy
         {
             if (this is not PyType && GetPyType() is PyClass heap)
             {
+                // The dict a builtin keeps for itself; otherwise the CLR type's tp_setattro, which
+                // keeps the dict a heap subclass adds, as the set and get halves do.
                 if (this is IDictBackedInstance owner)
                 {
                     SubclassInstanceSupport.GenericSetAttribute(this, heap, owner.InstanceDict, name, null);
-                    return;
-                }
-                if (_customType is PyClass)
-                {
-                    SubclassInstanceSupport.GenericSetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, null);
                     return;
                 }
             }

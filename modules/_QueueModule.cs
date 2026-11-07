@@ -23,7 +23,7 @@ namespace SharpPy.Modules
             {
                 if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
                     throw PyTypeError.Create("SimpleQueue() takes no arguments");
-                return new PySimpleQueue(type);
+                return new PySimpleQueue((PyType)cls);
             }, 0, int.MaxValue, acceptsKwargs: true);
             type.TypeDict["put"] = new PyMethodDescriptor("put", type, Put, 1, 3, acceptsKwargs: true);
             type.TypeDict["put_nowait"] = new PyMethodDescriptor("put_nowait", type, (self, args, kwargs) =>
@@ -74,10 +74,10 @@ namespace SharpPy.Modules
 
         private sealed class PySimpleQueue : PyObject
         {
-            private readonly PyType _type;
+            private readonly PyType _builtin;
             private readonly Queue<PyObject> _items = new();
 
-            internal PySimpleQueue(PyType type) => _type = type;
+            internal PySimpleQueue(PyType type) => _builtin = Allocated(type);
 
             internal int Count
             {
@@ -88,7 +88,7 @@ namespace SharpPy.Modules
                 }
             }
 
-            public override PyType GetPyType() => _type;
+            public override PyType GetPyType() => _customType ?? _builtin;
             public override string GetTypeName() => "SimpleQueue";
 
             internal void Put(PyObject item)

@@ -36,10 +36,10 @@ namespace SharpPy.Modules
 
     public sealed class PySimpleNamespace : PyObject, IDictBackedInstance
     {
-        private readonly PyType _type;
+        private readonly PyType _builtin;
         public Dictionary<string, PyObject> InstanceDict { get; } = new();
 
-        internal PySimpleNamespace(PyType type) => _type = type;
+        internal PySimpleNamespace(PyType type) => _builtin = Allocated(type);
 
         public PySimpleNamespace(PyDict kwargs = null) : this(PySimpleNamespaceType.Instance) => Update(kwargs);
 
@@ -53,14 +53,14 @@ namespace SharpPy.Modules
 
         internal PyObject Dict => PyGlobalsDict.OfInstance(InstanceDict);
 
-        public override PyType GetPyType() => _type;
-        public override string GetTypeName() => _type.FullName;
+        public override PyType GetPyType() => _customType ?? _builtin;
+        public override string GetTypeName() => GetPyType().FullName;
 
 
         // namespace_repr
         protected internal override PyString Repr()
         {
-            string name = ReferenceEquals(_type, PySimpleNamespaceType.Instance) ? "namespace" : _type.FullName;
+            string name = ReferenceEquals(GetPyType(), PySimpleNamespaceType.Instance) ? "namespace" : GetPyType().FullName;
             if (!PyReprGuard.Enter(this))
                 return new PyString($"{name}(...)");
             try

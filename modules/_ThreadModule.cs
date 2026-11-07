@@ -31,7 +31,7 @@ namespace SharpPy.Modules
             // RLock type
             var rlockType = new PyLockType("RLock");
             rlockType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", rlockType,
-                (cls, args, kwargs) => new PyRLock(rlockType), 0, int.MaxValue);
+                (cls, args, kwargs) => new PyRLock((PyType)cls), 0, int.MaxValue);
             rlockType.TypeDict["acquire"] = new PyMethodDescriptor("acquire", rlockType, RLockAcquire, 0, 2, acceptsKwargs: true);
             rlockType.TypeDict["release"] = new PyMethodDescriptor("release", rlockType, RLockRelease, 0, 0);
             rlockType.TypeDict["_is_owned"] = new PyMethodDescriptor("_is_owned", rlockType, RLockIsOwned, 0, 0);
@@ -333,14 +333,14 @@ namespace SharpPy.Modules
     internal class PyLock : PyObject
     {
         private readonly object _gate = new();
-        private readonly PyType _type;
+        private readonly PyType _builtin;
         private bool _locked;
 
         internal bool Locked => _locked;
 
         public PyLock(PyType type)
         {
-            _type = type;
+            _builtin = Allocated(type);
         }
 
         internal bool TryAcquire()
@@ -397,7 +397,7 @@ namespace SharpPy.Modules
                 _locked = false;
         }
 
-        public override PyType GetPyType() => _type;
+        public override PyType GetPyType() => _customType ?? _builtin;
         public override string GetTypeName() => "lock";
 
         // lock_repr
@@ -412,15 +412,15 @@ namespace SharpPy.Modules
         internal readonly PyLock Lock;
         public int Owner { get; set; } = -1;
         public int Count { get; set; }
-        private readonly PyType _type;
+        private readonly PyType _builtin;
 
         public PyRLock(PyType type)
         {
-            _type = type;
+            _builtin = Allocated(type);
             Lock = new PyLock(type);
         }
 
-        public override PyType GetPyType() => _type;
+        public override PyType GetPyType() => _customType ?? _builtin;
         public override string GetTypeName() => "RLock";
 
         // rlock_repr

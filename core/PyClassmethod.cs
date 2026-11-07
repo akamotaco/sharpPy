@@ -10,14 +10,14 @@ namespace SharpPy
     {
         private static readonly string[] WrappedAttributes = { "__module__", "__name__", "__qualname__", "__doc__", "__annotations__" };
 
-        private readonly PyType _type;
+        private readonly PyType _builtin;
 
         public PyObject Callable { get; private set; }
         public Dictionary<string, PyObject> InstanceDict { get; set; } = new();
 
         protected PyCallableWrapper(PyType type, PyObject callable)
         {
-            _type = type;
+            _builtin = Allocated(type);
             if (callable != null)
                 Initialize(callable);
         }
@@ -38,8 +38,8 @@ namespace SharpPy
             }
         }
 
-        public override PyType GetPyType() => _type;
-        public override string GetTypeName() => _type.Name;
+        public override PyType GetPyType() => _customType ?? _builtin;
+        public override string GetTypeName() => GetPyType().Name;
 
         public abstract PyObject Get(PyObject instance, PyType owner);
 
