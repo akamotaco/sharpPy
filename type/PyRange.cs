@@ -23,7 +23,7 @@ namespace SharpPy
         protected internal override PyBool ContainsItem(PyObject item)
         {
             if (item is PyBool truth) item = PyInt.From(truth.Value ? 1 : 0);
-            if (item is PyInt number && item.GetType() == typeof(PyInt))
+            if (item is PyInt number && item.IsExactly(PyType.IntType))
             {
                 var value = number.Value;
                 bool inside = Step > 0 ? value >= Start && value < Stop : value <= Start && value > Stop;

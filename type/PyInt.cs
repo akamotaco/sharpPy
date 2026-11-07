@@ -710,6 +710,9 @@ namespace SharpPy
         // Uses PyObject's GetPyType() which returns _customType ?? PyType.IntType
         public override PyType GetPyType() => _customType ?? PyType.IntType;
 
+        // PyX_CheckExact
+        internal bool IsExact => IsExactly(PyType.IntType);
+
         // CPython 3.12: Objects/longobject.c - long_bool
         // Optimized: Direct value check, no MRO traversal
         protected internal override bool Bool() => Value != 0;
@@ -791,7 +794,7 @@ namespace SharpPy
             {
                 // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
                 PyInt otherInt => PyBool.FromBool(Value == otherInt.Value),
-                PyFloat { HasCustomType: false } otherFloat => PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) == 0),
+                PyFloat { IsExact: true } otherFloat => PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) == 0),
                 PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1 : 0)),
                 _ => PyNotImplemented.Instance
             };
@@ -806,7 +809,7 @@ namespace SharpPy
             // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
             if (other is PyInt otherInt)
                 return PyBool.FromBool(Value < otherInt.Value);
-            if (other is PyFloat { HasCustomType: false } otherFloat)
+            if (other is PyFloat { IsExact: true } otherFloat)
                 return PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) > 0);
             if (other is PyBool otherBool)
                 return PyBool.FromBool(Value < (otherBool.Value ? 1 : 0));
@@ -822,7 +825,7 @@ namespace SharpPy
             // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
             if (other is PyInt otherInt)
                 return PyBool.FromBool(Value <= otherInt.Value);
-            if (other is PyFloat { HasCustomType: false } otherFloat)
+            if (other is PyFloat { IsExact: true } otherFloat)
                 return PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) >= 0);
             if (other is PyBool otherBool)
                 return PyBool.FromBool(Value <= (otherBool.Value ? 1 : 0));
@@ -838,7 +841,7 @@ namespace SharpPy
             // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
             if (other is PyInt otherInt)
                 return PyBool.FromBool(Value > otherInt.Value);
-            if (other is PyFloat { HasCustomType: false } otherFloat)
+            if (other is PyFloat { IsExact: true } otherFloat)
                 return PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) < 0);
             if (other is PyBool otherBool)
                 return PyBool.FromBool(Value > (otherBool.Value ? 1 : 0));
@@ -855,7 +858,7 @@ namespace SharpPy
             // Try direct comparison first
             if (other is PyInt otherInt)
                 return PyBool.FromBool(Value >= otherInt.Value);
-            if (other is PyFloat { HasCustomType: false } otherFloat)
+            if (other is PyFloat { IsExact: true } otherFloat)
                 return PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) <= 0);
             if (other is PyBool otherBool)
                 return PyBool.FromBool(Value >= (otherBool.Value ? 1 : 0));
@@ -878,7 +881,7 @@ namespace SharpPy
             return other switch
             {
                 PyInt otherInt => PyInt.From(Value + otherInt.Value),
-                PyFloat { HasCustomType: false } otherFloat => new PyFloat(ToFloat() + otherFloat.Value),
+                PyFloat { IsExact: true } otherFloat => new PyFloat(ToFloat() + otherFloat.Value),
                 PyBool otherBool => PyInt.From(Value + (otherBool.Value ? 1 : 0)),
                 PyComplex otherComplex => new PyComplex(ToFloat() + otherComplex.Real, otherComplex.Imag),
                 _ => PyNotImplemented.Instance
@@ -891,7 +894,7 @@ namespace SharpPy
             return other switch
             {
                 PyInt otherInt => PyInt.From(Value - otherInt.Value),
-                PyFloat { HasCustomType: false } otherFloat => new PyFloat(ToFloat() - otherFloat.Value),
+                PyFloat { IsExact: true } otherFloat => new PyFloat(ToFloat() - otherFloat.Value),
                 PyBool otherBool => PyInt.From(Value - (otherBool.Value ? 1 : 0)),
                 PyComplex otherComplex => new PyComplex(ToFloat() - otherComplex.Real, -otherComplex.Imag),
                 _ => PyNotImplemented.Instance
@@ -904,7 +907,7 @@ namespace SharpPy
             return other switch
             {
                 PyInt otherInt => PyInt.From(Value * otherInt.Value),
-                PyFloat { HasCustomType: false } otherFloat => new PyFloat(ToFloat() * otherFloat.Value),
+                PyFloat { IsExact: true } otherFloat => new PyFloat(ToFloat() * otherFloat.Value),
                 PyBool otherBool => PyInt.From(Value * (otherBool.Value ? 1 : 0)),
                 PyComplex otherComplex => new PyComplex(ToFloat() * otherComplex.Real, (double)Value * otherComplex.Imag),
                 _ => PyNotImplemented.Instance
@@ -926,7 +929,7 @@ namespace SharpPy
             }
 
             double otherValue;
-            if (other is PyFloat { HasCustomType: false } otherFloat)
+            if (other is PyFloat { IsExact: true } otherFloat)
                 otherValue = otherFloat.Value;
             else if (other is PyBool otherBool)
                 otherValue = otherBool.Value ? 1.0 : 0.0;
@@ -959,7 +962,7 @@ namespace SharpPy
 
                 return PyInt.From(quotient);
             }
-            if (other is PyFloat { HasCustomType: false } otherFloat)
+            if (other is PyFloat { IsExact: true } otherFloat)
             {
                 // CPython 3.12: Objects/longobject.c:2453-2494 - long_div (floor division)
                 if (otherFloat.Value == 0.0)
@@ -994,7 +997,7 @@ namespace SharpPy
 
                 return PyInt.From(remainder);
             }
-            if (other is PyFloat { HasCustomType: false } otherFloat)
+            if (other is PyFloat { IsExact: true } otherFloat)
             {
                 // CPython 3.12: Objects/longobject.c:2496-2531 - long_mod
                 if (otherFloat.Value == 0.0)
@@ -1169,7 +1172,7 @@ namespace SharpPy
 
                 return PyInt.From(Value);
             }
-            else if (other is PyFloat { HasCustomType: false } otherFloat)
+            else if (other is PyFloat { IsExact: true } otherFloat)
             {
                 // int ** float → float
                 // CPython: Objects/floatobject.c:float_pow
@@ -1633,7 +1636,7 @@ namespace SharpPy
         /// </summary>
         internal static PyInt NumberLong(PyObject value)
         {
-            if (value.GetType() == typeof(PyInt))
+            if (value.IsExactly(PyType.IntType))
                 return (PyInt)value;
             var result = value.TpNbInt();
             if (result != null)
@@ -1663,7 +1666,7 @@ namespace SharpPy
         // _PyLong_FromNbInt: an exact int, or a strict subclass with a DeprecationWarning.
         private static PyInt FromNbInt(PyObject result, string name)
         {
-            if (result.GetType() == typeof(PyInt))
+            if (result.IsExactly(PyType.IntType))
                 return (PyInt)result;
             if (PyInt.LongCheck(result))
             {

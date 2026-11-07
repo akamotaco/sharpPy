@@ -295,7 +295,7 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
                     // PyDict_Copy: an exact dict copies its table; a subclass goes through dict_merge.
-                    if (self is PyDict { HasCustomType: false } dict) return dict.Copy();
+                    if (self is PyDict { IsExact: true } dict) return dict.Copy();
                     return CopySubclass(self, GetDict(self, dictType));
                 },
                 minArgs: 0, maxArgs: 0
@@ -339,7 +339,8 @@ namespace SharpPy
                     {
                         if (pyDict.TryGetStoredValue(args[0], out var value))
                             return value;
-                        if (pyDict.HasCustomType && pyDict.LookupSpecialMethodUncached("__missing__") is { } missing)
+                        // dict_subscript: only !PyDict_CheckExact looks __missing__ up.
+                        if (!pyDict.IsExact && pyDict.LookupSpecialMethodUncached("__missing__") is { } missing)
                             return pyDict.CallSpecial(missing, args[0]);
                         throw PyKeyError.Create(args[0]);
                     }
@@ -485,6 +486,9 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => _customType ?? PyType.DictType;
+
+        // PyX_CheckExact
+        internal bool IsExact => IsExactly(PyType.DictType);
         public override string GetTypeName() => _customType?.Name ?? "dict";
 
         // CPython 3.12: Objects/dictobject.c - dict_bool
@@ -1339,7 +1343,7 @@ namespace SharpPy
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         private bool CanUseHostLookup(PyObject key) => key is PyString &&
             (_globalScopeVariables is not PyNamespace owned ||
-             (!owned.GenericKeys && key.GetType() == typeof(PyString) && !key.HasCustomType));
+             (!owned.GenericKeys && key.IsExactly(PyType.StrType)));
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         private bool TryGetHostValue(string name, out PyObject value) => _globalScopeVariables is PyNamespace owned
@@ -1475,7 +1479,7 @@ namespace SharpPy
                 {
                     bool exactStrings = true;
                     foreach (var pair in sourceDict.InternalDict)
-                        if (pair.Key.GetType() != typeof(PyString) || pair.Key.HasCustomType) { exactStrings = false; break; }
+                        if (!pair.Key.IsExactly(PyType.StrType)) { exactStrings = false; break; }
                     if (exactStrings)
                     {
                         var result = base.Update(other);

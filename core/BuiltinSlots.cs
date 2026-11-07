@@ -216,7 +216,7 @@ namespace SharpPy
             Slot(complex, "__neg__", (self, args) => self.NbNegative());
             Slot(complex, "__pos__", (self, args) => self.NbPositive());
             // complex___complex___impl: an exact complex, a subclass gives up its type.
-            Method(complex, "__complex__", (self, args) => self.GetType() == typeof(PyComplex)
+            Method(complex, "__complex__", (self, args) => self.IsExactly(PyType.ComplexType)
                 ? self : new PyComplex(((PyComplex)self).Real, ((PyComplex)self).Imag));
         }
 

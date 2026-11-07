@@ -417,7 +417,7 @@ namespace SharpPy.Modules
         // ceil, floor: a type's own slot, then the double.
         private static PyObject Rounded(string name, string slot, PyObject value, Func<double, double> function)
         {
-            if (value.GetType() != typeof(PyFloat) && value.LookupSpecialMethodUncached(slot) is { } method)
+            if (!value.IsExactly(PyType.FloatType) && value.LookupSpecialMethodUncached(slot) is { } method)
                 return value.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
             return Whole(function(RealNumber(value)));
         }
@@ -703,8 +703,8 @@ namespace SharpPy.Modules
         private static PyObject Add(PyObject a, PyObject b) => PyVM.Instance.ExecuteBinaryOpType(a, b, BinaryOpType.ADD);
         private static PyObject Multiply(PyObject a, PyObject b) => PyVM.Instance.ExecuteBinaryOpType(a, b, BinaryOpType.MULTIPLY);
 
-        private static bool ExactInt(PyObject value) => value.GetType() == typeof(PyInt);
-        private static bool ExactFloat(PyObject value) => value.GetType() == typeof(PyFloat);
+        private static bool ExactInt(PyObject value) => value.IsExactly(PyType.IntType);
+        private static bool ExactFloat(PyObject value) => value.IsExactly(PyType.FloatType);
 
         private static bool Next(PyObject iterator, out PyObject item)
         {
@@ -1104,7 +1104,7 @@ namespace SharpPy.Modules
         {
             if (PyFloat.TryFloatSelf(value, out var real)) return real.Value;
             if (value is PyBool boolean) return boolean.Value ? 1 : 0;
-            if (value is PyInt integer && !value.HasCustomType) return IntegerDouble(integer);
+            if (value is PyInt { IsExact: true } integer) return IntegerDouble(integer);
             var method = value.LookupSpecialMethodUncached("__float__");
             if (method != null)
             {

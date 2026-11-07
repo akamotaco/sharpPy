@@ -1793,7 +1793,7 @@ namespace SharpPy
 
         private static PyObject LookupNamespaceMapping(PyObject mapping, PyString key)
         {
-            if (mapping.GetType() == typeof(PyDict))
+            if (mapping.IsExactly(PyType.DictType))
                 return ((PyDict)mapping).InternalDict.TryGetValue(key, out var value) ? value : null;
             try { return PyAbstract.GetItem(mapping, key); }
             catch (PythonException ex) when (ex.PyException is PyKeyError) { return null; }
@@ -1805,7 +1805,7 @@ namespace SharpPy
             {
                 var key = PyString.From(name);
                 // PyDict_CheckExact(ns) ? PyDict_DelItem : PyObject_DelItem
-                if (frame.ClassLocalsDict is PyDict { HasCustomType: false } dict) dict.DelItem(key);
+                if (frame.ClassLocalsDict is PyDict { IsExact: true } dict) dict.DelItem(key);
                 else frame.ClassLocalsDict.DelItem(key);
             }
             catch (PythonException)
@@ -4496,7 +4496,7 @@ namespace SharpPy
                         }
                     }
                     // An exact str iterates its characters; a subclass is unpack_iterable's, over its __iter__.
-                    else if (sequence is PyString { HasCustomType: false } str)
+                    else if (sequence is PyString { IsExact: true } str)
                     {
                         if (str.CodePointLength() != unpackCount)
                         {

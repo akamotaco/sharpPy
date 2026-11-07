@@ -1608,6 +1608,9 @@ namespace SharpPy
         public PyString(string value) => Value = value ?? "";
 
         public override PyType GetPyType() => _customType ?? PyType.StrType;
+
+        // PyX_CheckExact
+        internal bool IsExact => IsExactly(PyType.StrType);
         public override string GetTypeName() => _customType?.Name ?? "str";
 
         // CPython 3.12: Objects/unicodeobject.c - unicode_bool
@@ -1619,7 +1622,7 @@ namespace SharpPy
         #region String Representation
 
         // Python str() - PyString은 이미 문자열이므로 자신을 반환
-        protected internal override PyString Str() => GetType() == typeof(PyString) ? this : PyString.From(Value);
+        protected internal override PyString Str() => IsExactly(PyType.StrType) ? this : PyString.From(Value);
 
         protected internal override PyString Repr()
         {
@@ -3015,9 +3018,9 @@ namespace SharpPy
         /// subclass instance gives an exact copy.
         /// </summary>
         // unicode_get_empty: every exact empty str is the one singleton in CPython.
-        private bool IsEmptySingleton => Value.Length == 0 && !HasCustomType;
+        private bool IsEmptySingleton => Value.Length == 0 && IsExact;
 
-        internal PyString ResultUnchanged() => HasCustomType ? PyString.From(Value) : this;
+        internal PyString ResultUnchanged() => IsExact ? this : PyString.From(Value);
 
         // replace (Objects/unicodeobject.c): the text is walked once, what was put in is not searched.
         public PyString Replace(string old, string newStr, long count = -1)
@@ -3131,7 +3134,7 @@ namespace SharpPy
             if (maxcount < 0) maxcount = long.MaxValue;
             var parts = new List<PyObject>();
             PyObject Piece(int start, int end) =>
-                start == 0 && end == len && !HasCustomType ? this : PyString.From(text.Substring(start, end - start));
+                start == 0 && end == len && IsExact ? this : PyString.From(text.Substring(start, end - start));
             if (sep == null && !fromRight)
             {
                 int i = 0, j;
@@ -3201,7 +3204,7 @@ namespace SharpPy
             // stringlib join: PySequence_Fast consumes the iterable before checking element types.
             PyObject[] values = PyList.SequenceFast(iterable, "can only join an iterable");
             if (values.Length == 0) return PyString.From("");
-            if (values.Length == 1 && values[0].GetType() == typeof(PyString)) return (PyString)values[0];
+            if (values.Length == 1 && values[0].IsExactly(PyType.StrType)) return (PyString)values[0];
             var strings = new string[values.Length];
             for (int i = 0; i < values.Length; i++)
             {

@@ -967,7 +967,7 @@ namespace SharpPy.Modules
         protected internal override PyObject IterNext()
         {
             var args = _it.Next();
-            var items = args is PyTuple tuple && tuple.GetType() == typeof(PyTuple) && !tuple.HasCustomType
+            var items = args is PyTuple tuple && tuple.IsExactly(PyType.TupleType)
                 ? tuple.Items
                 : ItertoolsModule.SequenceTuple(args);
             return _func.Call(items, null);
@@ -1109,7 +1109,7 @@ namespace SharpPy.Modules
             long i;
             for (i = 0; i < nargs; i++)
             {
-                var pool = args[i] is PyTuple exact && exact.GetType() == typeof(PyTuple) && !exact.HasCustomType
+                var pool = args[i] is PyTuple exact && exact.IsExactly(PyType.TupleType)
                     ? exact
                     : PyTuple.From(ItertoolsModule.SequenceTuple(args[i]));
                 poolObjects[i] = pool;

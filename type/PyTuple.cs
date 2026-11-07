@@ -8,7 +8,7 @@ namespace SharpPy
     public class PyTuple : PyObject
     {
         // PyTuple_CheckExact
-        internal bool IsExact => GetType() == typeof(PyTuple);
+        internal bool IsExact => IsExactly(PyType.TupleType);
 
         // What the slots of tuple read: the items, not the methods of a subclass.
         internal PyTuple Stored => IsExact ? this : PyTuple.From(Items);
@@ -377,7 +377,7 @@ namespace SharpPy
                 // tuple_repeat: an exact tuple that is empty or taken once is itself; a count below 1
                 // is the empty tuple; a size past Py_ssize_t is PyErr_NoMemory.
                 long n = PyAllocation.IndexSized(count.Value);
-                bool exact = GetType() == typeof(PyTuple) && !HasCustomType;
+                bool exact = IsExactly(PyType.TupleType);
                 if ((Items.Length == 0 || n == 1) && exact)
                     return this;
                 if (Items.Length == 0 || n <= 0)

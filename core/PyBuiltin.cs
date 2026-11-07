@@ -639,7 +639,7 @@ namespace SharpPy
                 {
                     var item = iterator.Next();
                     // builtin_sum: exact floats accumulate with Neumaier compensation (3.12).
-                    if (result.GetType() == typeof(PyFloat) && (item.GetType() == typeof(PyFloat) || item.GetType() == typeof(PyInt)))
+                    if (result.IsExactly(PyType.FloatType) && (item.IsExactly(PyType.FloatType) || item.IsExactly(PyType.IntType)))
                     {
                         double total = ((PyFloat)result).Value, value = item.ToFloat(), sumNow = total + value;
                         compensation += Math.Abs(total) >= Math.Abs(value) ? (total - sumNow) + value : (value - sumNow) + total;
@@ -960,7 +960,7 @@ namespace SharpPy
                 }
             r ??= PyInt.From(0);
 
-            if (r.GetType() == typeof(PyComplex) && i == null)
+            if (r.IsExactly(PyType.ComplexType) && i == null)
                 return r;
             if (r is PyString text)
             {
@@ -1019,11 +1019,11 @@ namespace SharpPy
         private static (PyDict Globals, PyObject Namespace) GlobalsAndNamespace(PyObject globals, PyObject locals)
         {
             if (globals == null)
-                return (null, locals != null && locals.GetType() != typeof(PyDict) ? locals : null);
-            bool plain = globals is PyDict { HasCustomType: false };
+                return (null, locals != null && !locals.IsExactly(PyType.DictType) ? locals : null);
+            bool plain = globals is PyDict { IsExact: true };
             var storage = (globals as PyDict);
             if (locals != null)
-                return (storage, locals is PyDict { HasCustomType: false } ? null : locals);
+                return (storage, locals is PyDict { IsExact: true } ? null : locals);
             return (storage, plain ? null : globals);
         }
 
@@ -1583,7 +1583,7 @@ namespace SharpPy
                 var names = new List<PyObject>();
                 // PyMapping_Keys: a mapping as locals is asked for its keys.
                 var locals = PyVM.CurrentFrame.GetAttribute("f_locals");
-                var keys = locals is PyDict { HasCustomType: false } ? locals : locals.GetAttribute("keys").Call(new PyObject[0], null);
+                var keys = locals is PyDict { IsExact: true } ? locals : locals.GetAttribute("keys").Call(new PyObject[0], null);
                 foreach (var name in PySet.IterableItems(keys)) names.Add(name);
                 var sortedLocals = new PyList(names);
                 sortedLocals.GetAttribute("sort").Call(new PyObject[0], null);

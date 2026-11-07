@@ -60,7 +60,7 @@ namespace SharpPy
 
             var value = valueArgs.Length == 0 ? null : valueArgs[0];
             PyFloat result = value == null ? new PyFloat(0.0)
-                : value.GetType() == typeof(PyString) ? FromObject(value) : NumberFloat(value);
+                : value.IsExactly(PyType.StrType) ? FromObject(value) : NumberFloat(value);
             if (ReferenceEquals(cls, PyType.FloatType))
                 return result;
             if (!(cls is PyClass subtype))
@@ -71,7 +71,7 @@ namespace SharpPy
         // The check PyNumber_Float makes on what nb_float gave.
         internal static PyFloat CheckFloatResult(PyObject source, PyObject result)
         {
-            if (result is PyFloat exact && !exact.HasCustomType)
+            if (result is PyFloat { IsExact: true } exact)
                 return exact;
             if (result is not PyFloatSubclass subclass)
                 throw PyTypeError.Create($"{source.GetPyType().Name}.__float__ returned non-float (type {result.GetPyType().Name})");
@@ -87,7 +87,7 @@ namespace SharpPy
         /// </summary>
         internal static PyFloat NumberFloat(PyObject value)
         {
-            if (value.GetType() == typeof(PyFloat))
+            if (value.IsExactly(PyType.FloatType))
                 return (PyFloat)value;
             var result = value.TpNbFloat();
             if (result != null)
@@ -472,6 +472,9 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => _customType ?? PyType.FloatType;
+
+        // PyX_CheckExact
+        internal bool IsExact => IsExactly(PyType.FloatType);
         public override string GetTypeName() => _customType?.Name ?? "float";
 
         // CPython 3.12: Objects/floatobject.c - float_bool
@@ -1021,7 +1024,7 @@ namespace SharpPy
         protected internal override PyObject NbAbsolute() => new PyFloat(Math.Abs(Value));
 
         // float_float: the float itself, a subclass's value as a float.
-        protected internal override PyObject NbFloat() => GetType() == typeof(PyFloat) ? this : new PyFloat(Value);
+        protected internal override PyObject NbFloat() => IsExactly(PyType.FloatType) ? this : new PyFloat(Value);
         
         /// <summary>
         /// CPython 호환: PyFloat를 PyInt로 변환

@@ -95,7 +95,7 @@ namespace SharpPy.Modules
                     {
                         foreach (var r in PyFinalizer.WeakReferencesOf(target))
                         {
-                            if (r.Callback == null && r.GetType() == typeof(PyWeakRef))
+                            if (r.Callback == null && r.IsExactly(PyType.WeakRefType))
                                 return r;
                         }
                     }

@@ -106,6 +106,9 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => _customType ?? PyType.SetType;
+
+        // PyAnySet_CheckExact's halves
+        internal bool IsExact => IsExactly(PyType.SetType);
         public override string GetTypeName() => _customType?.Name ?? "set";
 
         // 내부 HashSet 접근 (읽기 전용)
@@ -118,7 +121,7 @@ namespace SharpPy
         protected internal override PyString Str() => ToRepr();
 
         // set_repr: the bare {...} only for an exact set, otherwise Py_TYPE(so)->tp_name({...}).
-        protected internal override PyString Repr() => SetRepr(this, _items.Count, exactSet: !HasCustomType);
+        protected internal override PyString Repr() => SetRepr(this, _items.Count, exactSet: IsExact);
 
         /// <summary>
         /// CPython Objects/setobject.c:507 set_repr formats with Py_TYPE(so)-&gt;tp_name, which is why
@@ -620,6 +623,9 @@ namespace SharpPy
             _items = new PySetStorage(items);
 
         public override PyType GetPyType() => _customType ?? PyType.FrozenSetType;
+
+        // PyAnySet_CheckExact's halves
+        internal bool IsExact => IsExactly(PyType.FrozenSetType);
         public override string GetTypeName() => _customType?.Name ?? "frozenset";
 
         public IReadOnlyCollection<PyObject> Items => _items;
@@ -753,7 +759,7 @@ namespace SharpPy
         #region Copy
 
         // frozenset_copy: an exact frozenset is its own copy, a subclass gives an exact frozenset.
-        public PyFrozenSet Copy() => HasCustomType ? new PyFrozenSet(_items) : this;
+        public PyFrozenSet Copy() => IsExact ? this : new PyFrozenSet(_items);
 
         #endregion
 

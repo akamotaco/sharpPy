@@ -10,13 +10,10 @@ namespace SharpPy
         {
             // Exact builtins have immutable format slots. Subclasses still bind
             // the type descriptor; instance __getattribute__ must not run here.
-            if (!HasCustomType)
-            {
-                if (GetType() == typeof(PyFloat)) return PyString.From(PyFloat.FormatFloat(((PyFloat)this).Value, spec.Value));
-                if (GetType() == typeof(PyInt)) return PyString.From(PyInt.FormatInt(((PyInt)this).Value, spec.Value));
-                if (GetType() == typeof(PyString)) return spec.Value.Length == 0 ? (PyString)this
-                    : PyString.From(PyString.FormatString(((PyString)this).Value, spec.Value));
-            }
+            if (IsExactly(PyType.FloatType)) return PyString.From(PyFloat.FormatFloat(((PyFloat)this).Value, spec.Value));
+            if (IsExactly(PyType.IntType)) return PyString.From(PyInt.FormatInt(((PyInt)this).Value, spec.Value));
+            if (IsExactly(PyType.StrType)) return spec.Value.Length == 0 ? (PyString)this
+                : PyString.From(PyString.FormatString(((PyString)this).Value, spec.Value));
             var method = LookupSpecialMethodUncached("__format__");
             if (method == null) throw PyTypeError.Create($"Type {GetTypeName()} doesn't define __format__");
             var result = BindSpecialMethod(method).Call(new PyObject[] { spec }, null);
@@ -32,6 +29,13 @@ namespace SharpPy
         // If null, GetPyType() returns the default type for this object
         protected PyType? _customType;
         internal bool HasCustomType => _customType != null;
+
+        /// <summary>
+        /// Py_IS_TYPE(o, type), which every PyX_CheckExact is: the object's type is that one, not a
+        /// class derived from it and not a builtin that shares its layout (a struct sequence is no
+        /// exact tuple). Neither the CLR class nor the presence of a heap type alone says this.
+        /// </summary>
+        internal bool IsExactly(PyType type) => ReferenceEquals(GetPyType(), type);
 
         // CPython 3.12: Include/object.h:350 - Py_TYPE(op) macro
         // Returns ob_type if set, otherwise returns default type
@@ -118,7 +122,7 @@ namespace SharpPy
         /// </summary>
         public PyString AsString()
         {
-            if (GetType() == typeof(PyString))
+            if (IsExactly(PyType.StrType))
                 return (PyString)this;
             PyObject result;
             var recursion = PyCRecursion.EnterState(" while getting the str of an object");
@@ -224,7 +228,7 @@ namespace SharpPy
             var method = obj.LookupSpecialMethodUncached("__index__");
             if (method == null) return null;
             var result = obj.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-            if (result.GetType() == typeof(PyInt) && !result.HasCustomType) return (PyInt)result;
+            if (result.IsExactly(PyType.IntType)) return (PyInt)result;
             // _PyNumber_Index: a strict subclass of int still answers, with a warning.
             if (result is PyBool or PyIntSubclass)
             {

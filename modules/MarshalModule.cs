@@ -97,8 +97,6 @@ namespace SharpPy.Modules
             return new Reader(args[0]).ReadObject();
         }
 
-        private static bool Exact<T>(PyObject value) where T : PyObject =>
-            value.GetType() == typeof(T) && !value.HasCustomType;
 
         private static byte[] Utf8(string text) =>
             ((PyBytes)PyString.From(text).GetAttribute("encode")
@@ -207,22 +205,22 @@ namespace SharpPy.Modules
             // w_complex_object
             private void Complex(PyObject value, byte flag)
             {
-                if (Exact<PyInt>(value))
+                if (value.IsExactly(PyType.IntType))
                     Integer(((PyInt)value).Value, flag);
-                else if (Exact<PyFloat>(value))
+                else if (value.IsExactly(PyType.FloatType))
                     Real(((PyFloat)value).Value, flag);
-                else if (Exact<PyComplex>(value))
+                else if (value.IsExactly(PyType.ComplexType))
                     ComplexNumber((PyComplex)value, flag);
-                else if (Exact<PyBytes>(value))
+                else if (value.IsExactly(PyType.BytesType))
                 {
                     Type('s', flag);
                     PString(((PyBytes)value).Value);
                 }
-                else if (Exact<PyString>(value))
+                else if (value.IsExactly(PyType.StrType))
                     Text(((PyString)value), flag);
-                else if (Exact<PyTuple>(value))
+                else if (value.IsExactly(PyType.TupleType))
                     Tuple((PyTuple)value, flag);
-                else if (Exact<PyList>(value))
+                else if (value.IsExactly(PyType.ListType))
                 {
                     var items = ((PyList)value).Items;
                     Type('[', flag);
@@ -230,7 +228,7 @@ namespace SharpPy.Modules
                     foreach (var item in items)
                         Object(item);
                 }
-                else if (Exact<PyDict>(value))
+                else if (value.IsExactly(PyType.DictType))
                 {
                     var dict = (PyDict)value;
                     Type('{', flag);
@@ -241,7 +239,7 @@ namespace SharpPy.Modules
                     }
                     Byte('0');
                 }
-                else if (Exact<PySet>(value) || Exact<PyFrozenSet>(value))
+                else if (value.IsExactly(PyType.SetType) || value.IsExactly(PyType.FrozenSetType))
                     Set(value, flag);
                 else if (value is PyCodeObject code)
                     Code(code, flag);

@@ -435,7 +435,7 @@ namespace SharpPy
             _index = 0;
             // unicode_iter: PyUnicode_IS_COMPACT_ASCII picks str_ascii_iterator. A subclass
             // instance is never compact (unicode_subtype_new), so it has str_iterator.
-            bool ascii = pyString.GetType() == typeof(PyString);
+            bool ascii = pyString.IsExactly(PyType.StrType);
             foreach (var ch in _string) { if (ch > 127) { ascii = false; break; } }
             _name = ascii ? "str_ascii_iterator" : "str_iterator";
         }

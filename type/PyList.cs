@@ -6,7 +6,7 @@ namespace SharpPy
     public class PyList : PyObject
     {
         // PyList_CheckExact: a subclass may have its own __iter__, so only the exact type is read directly.
-        internal bool IsExact => GetType() == typeof(PyList);
+        internal bool IsExact => IsExactly(PyType.ListType);
 
         static PyList()
         {

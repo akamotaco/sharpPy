@@ -21,6 +21,9 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => _customType ?? PyType.ComplexType;
+
+        // PyX_CheckExact
+        internal bool IsExact => IsExactly(PyType.ComplexType);
         public override string GetTypeName() => _customType?.Name ?? "complex";
 
         // complex_subtype_from_c_complex: complex_new builds the value, the subclass gets it.

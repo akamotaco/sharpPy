@@ -254,7 +254,7 @@ namespace SharpPy
             }
             // type_new_set_names and type_new_set_doc: both must encode.
             PyString.From(name.Value).GetAttribute("encode").Call(Array.Empty<PyObject>(), null);
-            if (dict.TryGetValue("__doc__", out var classDoc) && classDoc.GetType() == typeof(PyString))
+            if (dict.TryGetValue("__doc__", out var classDoc) && classDoc.IsExactly(PyType.StrType))
                 classDoc.GetAttribute("encode").Call(Array.Empty<PyObject>(), null);
             CheckSlots(dict, baseTypes);
 

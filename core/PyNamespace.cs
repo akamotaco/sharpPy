@@ -72,7 +72,7 @@ public sealed class PyNamespace : IDictionary<string, PyObject>
     internal void ClearFromMapping() => lookup.Clear();
     internal void PrepareKey(PyObject key)
     {
-        if (!GenericKeys && (key.GetType() != typeof(PyString) || key.HasCustomType)) InvalidateLookup();
+        if (!GenericKeys && (!key.IsExactly(PyType.StrType))) InvalidateLookup();
     }
     internal void InvalidateLookup() { GenericKeys = true; lookup.Clear(); }
     internal void BeginBulkMutation() { bulkMutations++; InvalidateLookup(); }
@@ -83,7 +83,7 @@ public sealed class PyNamespace : IDictionary<string, PyObject>
         if (bulkMutations != 0) { GenericKeys = true; return; }
         foreach (var pair in Mapping.InternalDict)
         {
-            if (pair.Key.GetType() != typeof(PyString) || pair.Key.HasCustomType)
+            if (!pair.Key.IsExactly(PyType.StrType))
             {
                 GenericKeys = true; lookup.Clear(); return;
             }
