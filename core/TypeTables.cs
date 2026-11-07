@@ -124,6 +124,26 @@ namespace SharpPy
             traceback.TypeDict["tb_next"] = new PyGetSetDescriptor("tb_next", traceback, self => ((PyTraceback)self).Read("tb_next"),
                 (self, value) => ((PyTraceback)self).SetNext(value), deleter: self => throw PyTypeError.Create("can't delete tb_next attribute"));
 
+            // tb_new (Python/traceback.c): traceback(tb_next, tb_frame, tb_lasti, tb_lineno), each
+            // positional or by name.
+            var tracebackType = PyTraceback.TracebackPyType;
+            tracebackType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", tracebackType, (cls, args, kwargs) =>
+            {
+                string[] names = { "tb_next", "tb_frame", "tb_lasti", "tb_lineno" };
+                int given = args.Length + (kwargs?.Length() ?? 0);
+                if (given > 4)
+                    throw PyTypeError.Create($"TracebackType() takes at most 4 arguments ({given} given)");
+                var values = new PyObject[4];
+                for (int i = 0; i < 4; i++)
+                    values[i] = i < args.Length ? args[i] : PyObject.KwValue(kwargs, names[i])
+                        ?? throw PyTypeError.Create($"TracebackType() missing required argument '{names[i]}' (pos {i + 1})");
+                var next = values[0] is PyNone ? null : values[0] as PyTraceback
+                    ?? throw PyTypeError.Create($"expected traceback object or None, got '{values[0].GetTypeName()}'");
+                var frame = values[1] as PyFrame
+                    ?? throw PyTypeError.Create($"TracebackType() argument 'tb_frame' must be frame, not {values[1].GetTypeName()}");
+                return new PyTraceback(frame, PyArgs.Int(values[2]), PyArgs.Int(values[3]), next);
+            }, 0, int.MaxValue, acceptsKwargs: true);
+
             PyType.CellType.TypeDict["cell_contents"] = new PyGetSetDescriptor("cell_contents", PyType.CellType, self => ((PyCell)self).Contents(),
                 (self, value) => ((PyCell)self).Value = value, deleter: self => ((PyCell)self).Value = null);
             PyType.CellType.TypeDict["__hash__"] = PyNone.Instance;

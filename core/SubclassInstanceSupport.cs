@@ -137,12 +137,6 @@ namespace SharpPy
                 self.SetCustomType(ClassAssignment(instanceType, value));
                 return;
             }
-            // object_set_dict: the storage stays, __dict__ is a live view of it.
-            if (name == "__dict__" && value != null)
-            {
-                ReplaceDict(instanceDict, value);
-                return;
-            }
             GenericSetAttrWithDict(self, instanceType, name, value, instanceDict, null);
         }
 

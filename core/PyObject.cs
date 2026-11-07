@@ -466,7 +466,7 @@ namespace SharpPy
         protected internal virtual PyObject TpGetattro(string name)
         {
             // A Python subclass of a builtin with no storage of its own for attributes.
-            if (_customType is PyClass heap && this is not IDictBackedInstance)
+            if (_customType is PyClass heap && !HasOwnDict)
             {
                 var attributes = HeapAttributes.GetOrCreateValue(this);
                 if (name == "__dict__" && heap.InstancesHaveDict())
@@ -570,6 +570,10 @@ namespace SharpPy
         /// <summary>The instance dict of a Python class over a builtin with no store of its own.</summary>
         internal Dictionary<string, PyObject> HeapDict => this is IDictBackedInstance owner ? owner.InstanceDict : HeapAttributes.GetOrCreateValue(this);
 
+        // tp_dictoffset of the builtin itself (function, BaseException, the dict-backed builtins): a
+        // heap subclass uses that dict, there is no second one beside it.
+        private bool HasOwnDict => this is IDictBackedInstance or IObjectDict;
+
         // The __slots__ of a Python class over a builtin, beside its __dict__ (PyMemberDescriptor of
         // type_new_descriptors); a PyClassInstance keeps its own.
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PyObject, Dictionary<string, PyObject>> SlotValues = new();
@@ -589,7 +593,7 @@ namespace SharpPy
                 throw PyTypeError.Create(value is PyType ? "__class__ assignment only supported for mutable types or ModuleType subclasses" : $"__class__ must be set to a class, not '{value.GetTypeName()}' object");
             }
 
-            if (_customType is PyClass heap && this is not IDictBackedInstance)
+            if (_customType is PyClass heap && !HasOwnDict)
                 SubclassInstanceSupport.GenericSetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, value);
             else
                 PySetAttribute(name, value);
@@ -600,7 +604,7 @@ namespace SharpPy
         /// <summary>tp_setattro of the CLR type asked to delete.</summary>
         protected internal virtual void TpDelattro(string name)
         {
-            if (this is not IDictBackedInstance && _customType is SharpPy.PyClass &&
+            if (!HasOwnDict && _customType is SharpPy.PyClass &&
                 HeapAttributes.TryGetValue(this, out var attributes) && PyGlobalsDict.Delete(attributes, name)) return;
             PyDelAttribute(name);
         }

@@ -2143,7 +2143,7 @@ namespace SharpPy
     {
         public PyTraceback? Next { get; set; }     // tb_next: linked list of traceback frames
         public PyFrame Frame { get; set; }         // tb_frame: execution frame snapshot
-        public int LastI { get; set; }             // tb_lasti: last instruction index
+        public int LastI { get; set; }             // tb_lasti: byte offset of the last instruction
         public int LineNo { get; set; }            // tb_lineno: line number
         public int ColNo { get; set; }             // Column offset (CPython 3.12)
         public int EndColNo { get; set; }          // End column offset (CPython 3.12)
@@ -2201,7 +2201,7 @@ namespace SharpPy
             {
                 "tb_frame" => Frame,
                 "tb_next" => (PyObject?)Next ?? PyNone.Instance,
-                "tb_lasti" => new PyInt(LastI * 2),
+                "tb_lasti" => new PyInt(LastI),
                 "tb_lineno" => LineNo < 0 ? PyNone.Instance : new PyInt(LineNo),
                 _ => base.TpGetattro(name)
             };

@@ -622,12 +622,17 @@ namespace SharpPy.Modules
         // CPython 3.12: Objects/memoryobject.c:850 - PyMemoryView_FromObject
         // memoryview(object) -> memoryview
         // Create a new memoryview object which references the given object
-        private static PyObject MemoryView(PyObject[] args)
+        // memoryview(object): one positional-or-keyword parameter, as the clinic unpacks it.
+        private static PyObject MemoryView(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"memoryview() takes exactly one argument ({args.Length} given)");
-
-            var obj = args[0];
+            int keywordCount = kwargs?.Length() ?? 0;
+            int total = args.Length + keywordCount;
+            if (total > 1)
+                throw PyTypeError.Create(keywordCount > 1
+                    ? $"memoryview() takes at most 1 keyword argument ({keywordCount} given)"
+                    : $"memoryview() takes at most 1 argument ({total} given)");
+            var obj = args.Length == 1 ? args[0] : PyObject.KwValue(kwargs, "object")
+                ?? throw PyTypeError.Create("memoryview() missing required argument 'object' (pos 1)");
 
             // Try to get buffer from object using buffer protocol
             if (obj.SupportsBuffer())

@@ -6497,7 +6497,8 @@ namespace SharpPy
             // CPython: newtb = _PyTraceBack_FromFrame(tb, frame)
             var newTraceback = new PyTraceback(
                 frame: frame,
-                lasti: lasti,
+                // tb_lasti is a byte offset: _PyInterpreterFrame_LASTI(frame) * sizeof(_Py_CODEUNIT).
+                lasti: lasti * 2,
                 lineno: lineNo,
                 next: existingTraceback,  // Link to existing chain (prepend)
                 colno: colNo,

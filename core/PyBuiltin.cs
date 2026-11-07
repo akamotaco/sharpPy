@@ -545,7 +545,7 @@ namespace SharpPy
             if (kwargs != null && kwargs.Length() > 0)
                 throw PyTypeError.Create("filter() takes no keyword arguments");
             if (args.Length != 2)
-                throw PyTypeError.Create($"filter expected exactly 2 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"filter expected 2 arguments, got {args.Length}");
 
             // CPython 3.12: filter is lazy (Objects/mapobject.c filter_new).
             var func = args[0];
