@@ -147,23 +147,6 @@ namespace SharpPy
         }
     }
 
-    // Optimized function scopes materialize their C# dictionary only on access.
-    internal sealed class PyFastLocalScope : PyScope
-    {
-        private readonly PyFrame _frame;
-        internal PyFastLocalScope(PyFrame frame, PyScope enclosingScope, string name)
-            : base(ScopeType.Local, enclosingScope, name, true) => _frame = frame;
-
-        public override IDictionary<string, PyObject> Variables
-        {
-            get
-            {
-                var variables = base.Variables;
-                _frame.RefreshScopeLocals(variables);
-                return variables;
-            }
-        }
-    }
 
     // LEGB 스코프 체인 관리자 (Builtin 특별 관리)
     public class PyScopeChain
@@ -222,198 +205,18 @@ namespace SharpPy
             SharpPyConfig.DebugWriteInternal($"🏗️ 모듈용 LEGB 시스템 초기화: {moduleName}");
         }
 
-        public PyScope PushScope(ScopeType type, string name = "", PyScope enclosingScope = null)
-        {
-            if (type == ScopeType.Builtin)
-            {
-                throw new InvalidOperationException("❌ Builtin 스코프는 전역 싱글톤입니다! 직접 생성 불가.");
-            }
 
-            PyScope enclosing = enclosingScope ?? (type == ScopeType.Local ? CurrentScope : null);
-            var newScope = new PyScope(type, enclosing, name);
-            _normalScopes.Add(newScope);
-#if DEBUG_LOG
-            Console.WriteLine($"📁 스코프 추가: {newScope}");
-#endif
-            return newScope;
+
+
+
+        // The host's lookup of a name: the globals, then the builtins.
+        public PyObject LookupVariable(string name)
+        {
+            return GlobalScope?.GetVariable(name) ?? _builtinModule.GetBuiltin(name)
+                ?? throw PyNameError.Create($"name '{name}' is not defined", name);
         }
 
-        internal PyScope PushFastLocalScope(PyFrame frame, string name)
-        {
-            var scope = new PyFastLocalScope(frame, CurrentScope, name);
-            _normalScopes.Add(scope);
-            return scope;
-        }
-
-        public void PopScope()
-        {
-#if DEBUG_LOG
-            Console.WriteLine($"🔍 PopScope called: Current scope = {CurrentScope?.Type} '{CurrentScope?.Name}'");
-#endif
-            if (_normalScopes.Count > 1) // Global 유지
-            {
-                var removed = _normalScopes.Last();
-                _normalScopes.RemoveAt(_normalScopes.Count - 1);
-#if DEBUG_LOG
-                Console.WriteLine($"🗑️ 스코프 제거: {removed.Type} '{removed.Name}' ({removed.Variables.Count} vars)");
-#endif
-#if DEBUG_LOG
-                Console.WriteLine($"📂 새 현재 스코프: {CurrentScope?.Type} '{CurrentScope?.Name}'");
-#endif
-            }
-            else
-            {
-#if DEBUG_LOG
-                Console.WriteLine($"📂 PopScope 스킵: 최소 스코프 수준 (count={_normalScopes.Count})");
-#endif
-            }
-        }
-
-        public void RestoreScopeDepth(int targetDepth)
-        {
-#if DEBUG_LOG
-            Console.WriteLine($"🔧 RestoreScopeDepth: Current={_normalScopes.Count}, Target={targetDepth}");
-#endif
-            while (_normalScopes.Count > targetDepth && _normalScopes.Count > 1) // Keep at least Global
-            {
-                PopScope();
-            }
-        }
-
-        // LEGB 순서로 변수 탐색 (Builtin 특별 처리!)
-        public PyObject LookupVariable(string name, HashSet<string> globalVars = null, bool verbose = false)
-        {
-#if DEBUG_LOG
-            if (verbose) Console.WriteLine($"🔍 LEGB 탐색: '{name}' (Builtin=특별관리)");
-#endif
-
-            var currentScope = CurrentScope;
-
-            // L - Local
-            if (currentScope?.Type == ScopeType.Local && globalVars?.Contains(name) != true)
-            {
-#if DEBUG_LOG
-                if (verbose) Console.WriteLine($"  L (Local '{currentScope.Name}'): 탐색...");
-#endif
-                var localResult = currentScope.GetVariable(name);
-                if (localResult != null)
-                {
-#if DEBUG_LOG
-                    if (verbose) Console.WriteLine($"  ✅ L에서 발견: {localResult}");
-#endif
-                    return localResult;
-                }
-#if DEBUG_LOG
-                if (verbose) Console.WriteLine($"  ❌ L에서 못 찾음");
-#endif
-            }
-
-            // E - Enclosing
-            if (currentScope?.Type == ScopeType.Local && currentScope.EnclosingScope != null && globalVars?.Contains(name) != true)
-            {
-                var enclosingScope = currentScope.EnclosingScope;
-                var enclosingLevel = 1;
-
-                while (enclosingScope != null && enclosingScope.Type != ScopeType.Global)
-                {
-#if DEBUG_LOG
-                    if (verbose) Console.WriteLine($"  E{enclosingLevel} (Enclosing '{enclosingScope.Name}'): 탐색...");
-#endif
-                    var enclosingResult = enclosingScope.GetVariable(name);
-                    if (enclosingResult != null)
-                    {
-#if DEBUG_LOG
-                        if (verbose) Console.WriteLine($"  ✅ E{enclosingLevel}에서 발견: {enclosingResult}");
-#endif
-                        return enclosingResult;
-                    }
-#if DEBUG_LOG
-                    if (verbose) Console.WriteLine($"  ❌ E{enclosingLevel}에서 못 찾음");
-#endif
-
-                    enclosingScope = enclosingScope.EnclosingScope;
-                    enclosingLevel++;
-                }
-            }
-
-            // G - Global
-#if DEBUG_LOG
-            if (verbose) Console.WriteLine($"  G (Global): 탐색...");
-#endif
-            var globalResult = GlobalScope?.GetVariable(name);
-            if (globalResult != null)
-            {
-#if DEBUG_LOG
-                if (verbose) Console.WriteLine($"  ✅ G에서 발견: {globalResult}");
-#endif
-                return globalResult;
-            }
-#if DEBUG_LOG
-            if (verbose) Console.WriteLine($"  ❌ G에서 못 찾음");
-#endif
-
-            // B - Built-in (특별한 전역 모듈에서!)
-#if DEBUG_LOG
-            if (verbose) Console.WriteLine($"  B (Builtin 전역모듈): 탐색...");
-#endif
-            var builtinResult = _builtinModule.GetBuiltin(name);
-            if (builtinResult != null)
-            {
-#if DEBUG_LOG
-                if (verbose) Console.WriteLine($"  ✅ B(전역모듈)에서 발견: {builtinResult}");
-#endif
-                return builtinResult;
-            }
-#if DEBUG_LOG
-            if (verbose) Console.WriteLine($"  ❌ B에서 못 찾음");
-#endif
-
-            // CPython 3.12: raise a plain message plus the .name attribute.
-            // "Did you mean" suggestions are produced by the traceback display layer
-            // (Python/suggestions.c offer_suggestions_for_name_error / Lib/traceback.py),
-            // never baked into the caught exception's args.
-            throw PyNameError.Create($"name '{name}' is not defined", name);
-        }
-
-        public void AssignVariable(string name, PyObject value, HashSet<string> globalVars = null)
-        {
-#if DEBUG_LOG
-            Console.WriteLine($"🔍 AssignVariable Debug: name={name}, CurrentScope={CurrentScope?.Name}, Type={CurrentScope?.Type}");
-#endif
-
-            if (globalVars?.Contains(name) == true)
-            {
-                GlobalScope.SetVariable(name, value);
-#if DEBUG_LOG
-                Console.WriteLine($"📝 Global 변수 할당: {name} = {value}");
-#endif
-            }
-            // Scope ownership is explicit; a function name must not redirect locals
-            // to globals (e.g. functions named "module", "abc" or "typing").
-            // CPython v3.12.15, Python/ceval.c: initialize_locals uses frame localsplus.
-            else if (CurrentScope != null &&
-                     (CurrentScope.Type == ScopeType.Global || CurrentScope.Type == ScopeType.Module))
-            {
-                GlobalScope.SetVariable(name, value);
-#if DEBUG_LOG
-                Console.WriteLine($"📝 Module → Global 변수 할당: {name} = {value}");
-#endif
-            }
-            else if (CurrentScope != null)
-            {
-                CurrentScope.SetVariable(name, value);
-#if DEBUG_LOG
-                Console.WriteLine($"📝 {CurrentScope.Type} 변수 할당: {name} = {value}");
-#endif
-            }
-            else
-            {
-                GlobalScope.SetVariable(name, value);
-#if DEBUG_LOG
-                Console.WriteLine($"📝 Default Global 변수 할당: {name} = {value}");
-#endif
-            }
-        }
+        public void AssignVariable(string name, PyObject value) => GlobalScope.SetVariable(name, value);
 
         // 시스템 상태 출력
         public void PrintSystemState()

@@ -177,15 +177,6 @@ namespace SharpPy
             BindArgumentsToParametersCPython312(args, code, parentFrame, defaults, kwdefaults, keywordNames);
         }
 
-        /// <summary>
-        /// CPython 3.12 호환: 코드 이름으로 모듈 실행인지 판단
-        /// 모듈 레벨 코드는 항상 "<module>"이어야 함
-        /// </summary>
-        private static bool IsModuleExecution(string codeName)
-        {
-            // CPython 3.12: 모듈 코드 객체 이름은 항상 "<module>"
-            return codeName == "<module>";
-        }
 
         /// <summary>The name argument errors use. CPython reports func_qualname, which an assignment to
         /// __qualname__ moves away from the code object; dataclasses does that for every method it builds.</summary>
@@ -856,16 +847,6 @@ namespace SharpPy
                 ScopeChain.AssignVariable(name, value);
         }
 
-        internal void RefreshScopeLocals(IDictionary<string, PyObject> result)
-        {
-            for (int i = 0; i < LocalsPlus.Length; i++)
-            {
-                if (!FrameGetVar(i, out var value))
-                    continue;
-                if (value != null) result[Code.LocalsPlusNames[i]] = value;
-                else result.Remove(Code.LocalsPlusNames[i]);
-            }
-        }
 
         // _PyFrame_GetLocals (Objects/frameobject.c): one retained dict, refreshed from the
         // localsplus slots. Writes to the dict alone do not reach the slots.
@@ -1826,10 +1807,6 @@ namespace SharpPy
         {
             var callArgs = new PyObject[callArgCount];
 
-            // CPython 3.12: Save current scope depth before function call for proper restoration
-            var savedScopeCount = frame.ScopeChain?.ScopeCount ?? 0;
-            var savedCurrentScopeName = frame.ScopeChain?.CurrentScope?.Name;
-
             // CPython 3.12: Check for keyword arguments from KW_NAMES
             var kwNames = frame.KeywordNamesForNextCall;
     #if DEBUG_LOG
@@ -1934,20 +1911,8 @@ namespace SharpPy
             }
             finally
             {
-                // Consume KW_NAMES and restore caller scope on success or failure.
+                // Consume KW_NAMES on success or failure.
                 frame.KeywordNamesForNextCall = null;
-                // CPython 3.12: Restore scope depth after function call (especially important for metaclass)
-                if (frame.ScopeChain != null && frame.ScopeChain.ScopeCount != savedScopeCount)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 Restoring scope depth after function call: {frame.ScopeChain.CurrentScope?.Name} (depth={frame.ScopeChain.ScopeCount}) → {savedCurrentScopeName} (depth={savedScopeCount})");
-                    #endif
-                    frame.ScopeChain.RestoreScopeDepth(savedScopeCount);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"✅ Scope depth restored successfully to: {frame.ScopeChain.CurrentScope?.Name}");
-                    #endif
-                }
-
             }
 
             frame.ValueStack.Push(newCallResult);
