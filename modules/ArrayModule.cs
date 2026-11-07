@@ -407,13 +407,15 @@ namespace SharpPy.Modules
 
             public override PyObject Multiply(PyObject other)
             {
+                // array_repeat (sq_repeat): sequence_repeat has made the count a Py_ssize_t already.
                 long n;
-                if (other is PyInt pi) n = (long)pi.Value;
+                if (other is PyInt pi) n = PyAllocation.IndexSized(pi.Value);
                 else if (other is PyBool pb) n = pb.Value ? 1 : 0;
                 else return PyNotImplemented.Instance;
                 if (n < 0) n = 0;
                 var result = new PyArray(ArrayType, _typecode);
-                int total = _count * (int)n;
+                // array_repeat: a size past Py_ssize_t is PyErr_NoMemory.
+                int total = n == 0 ? 0 : PyAllocation.RepeatedItems((long)_count * ItemSize, n) / ItemSize;
                 result.EnsureCapacity(total);
                 int itemSize = ItemSize;
                 for (long r = 0; r < n; r++)
@@ -1021,13 +1023,14 @@ namespace SharpPy.Modules
             {
                 var arr = (PyArray)self;
                 long n;
-                if (args[0] is PyInt pi) n = (long)pi.Value;
+                if (args[0] is PyInt pi) n = PyAllocation.IndexSized(pi.Value);
                 else if (args[0] is PyBool pb) n = pb.Value ? 1 : 0;
                 else throw PyTypeError.Create($"can't multiply sequence by non-int of type '{args[0].GetTypeName()}'");
                 if (n < 0) n = 0;
                 int itemSize = arr.ItemSize;
                 int origCount = arr.Count;
-                int total = origCount * (int)n;
+                // array_inplace_repeat: a size past Py_ssize_t is PyErr_NoMemory.
+                int total = n == 0 ? 0 : PyAllocation.RepeatedItems((long)origCount * itemSize, n) / itemSize;
                 var newBuf = new byte[total * itemSize];
                 for (long r = 0; r < n; r++)
                     Array.Copy(arr.Buffer, 0, newBuf, (int)r * origCount * itemSize, origCount * itemSize);

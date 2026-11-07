@@ -37,7 +37,7 @@ namespace SharpPy
                     continue;
                 var inner = wrapper._implementation;
                 table[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) =>
-                    inner(self, new PyObject[] { PyArgs.RepeatCount(self, PyArgs.IndexSsize(args[0])) }, kwargs))
+                    inner(self, new PyObject[] { new PyInt(PyArgs.IndexSsize(args[0])) }, kwargs))
                 {
                     CallsVirtual = wrapper.CallsVirtual,
                 };

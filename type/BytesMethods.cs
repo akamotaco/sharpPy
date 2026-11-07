@@ -424,7 +424,7 @@ namespace SharpPy
             if (missing <= 0)
                 return ReturnSelf(self, text);
             var (left, right) = split(missing);
-            var result = new byte[width];
+            var result = new byte[PyAllocation.ArrayLength(width)];
             Array.Fill(result, fill);
             Array.Copy(text, 0, result, left, text.Length);
             return New(self, result);
@@ -437,7 +437,7 @@ namespace SharpPy
             if (width <= text.Length)
                 return ReturnSelf(self, text);
             long fill = width - text.Length;
-            var result = new byte[width];
+            var result = new byte[PyAllocation.ArrayLength(width)];
             Array.Fill(result, (byte)'0');
             Array.Copy(text, 0, result, fill, text.Length);
             if (text.Length != 0 && (text[0] == '+' || text[0] == '-'))
@@ -916,7 +916,7 @@ namespace SharpPy
             {
                 long count = CountOf(source);
                 if (count >= 0)
-                    return new PyBytes(new byte[count]);
+                    return new PyBytes(new byte[PyAllocation.ArrayLength(count)]);
             }
             return ReferenceEquals(source.GetPyType(), PyType.BytesType) ? source : new PyBytes(FromObject(source, "bytes"));
         }
@@ -943,7 +943,7 @@ namespace SharpPy
             {
                 long count = CountOf(source);
                 if (count >= 0)
-                    return new byte[count];
+                    return new byte[PyAllocation.ArrayLength(count)];
             }
             return FromObject(source, "bytearray", 0, growing);
         }

@@ -358,10 +358,12 @@ namespace SharpPy
                     var old = args[0] is PyString oldStr ? oldStr.Value : throw PyTypeError.Create("replace() old must be str");
                     var newStr = args[1] is PyString newPyStr ? newPyStr.Value : throw PyTypeError.Create("replace() new must be str");
 
-                    if (args.Length != 3)
-                        return str.Replace(old, newStr);
                     // count is "n": PyLong_AsSsize_t after _PyNumber_Index.
-                    return str.Replace(old, newStr, PyArgs.Ssize(args[2]));
+                    long count = args.Length == 3 ? PyArgs.Ssize(args[2]) : -1;
+                    // replace(): "if (str1 == str2) goto nothing" - the same object for old and new.
+                    if (ReferenceEquals(args[0], args[1]))
+                        return str.ResultUnchanged();
+                    return str.Replace(old, newStr, count);
                 },
                 minArgs: 2, maxArgs: 3
             );
@@ -1270,7 +1272,9 @@ namespace SharpPy
                     string text = str.Value;
                     if (text.IndexOf('\t') < 0)
                         return str.ResultUnchanged();
-                    var result = new System.Text.StringBuilder(text.Length);
+                    // First pass: the size of the result ("new string is too long" past Py_ssize_t),
+                    // allocated once; nothing is built before it is known to fit.
+                    long size = 0;
                     long column = 0;
                     for (int u = 0; u < text.Length; u += PairWidth(text, u))
                     {
@@ -1279,9 +1283,29 @@ namespace SharpPy
                         {
                             if (tabsize > 0)
                             {
-                                int spaces = (int)(tabsize - column % tabsize);
-                                if (result.Length > int.MaxValue - spaces)
+                                long incr = tabsize - column % tabsize;
+                                if (size > long.MaxValue - incr)
                                     throw PyOverflowError.Create("new string is too long");
+                                size += incr;
+                                column += incr;
+                            }
+                        }
+                        else
+                        {
+                            size += PairWidth(text, u);
+                            column = c == '\n' || c == '\r' ? 0 : column + 1;
+                        }
+                    }
+                    var result = new System.Text.StringBuilder(PyAllocation.StringLength(size));
+                    column = 0;
+                    for (int u = 0; u < text.Length; u += PairWidth(text, u))
+                    {
+                        char c = text[u];
+                        if (c == '\t')
+                        {
+                            if (tabsize > 0)
+                            {
+                                int spaces = (int)(tabsize - column % tabsize);
                                 result.Append(' ', spaces);
                                 column += spaces;
                             }
@@ -2437,20 +2461,21 @@ namespace SharpPy
             if (other is not PyInt count)
                 return PyNotImplemented.Instance;
 
-            if (count.Value <= 0)
+            long times = PyAllocation.IndexSized(count.Value);
+            if (times <= 0)
                 return new PyString("");
             // unicode_repeat: once is the text unchanged.
-            if (count.Value == 1)
+            if (times == 1)
                 return ResultUnchanged();
             // unicode_repeat: "repeated string is too long" past Py_ssize_t, then PyUnicode_New.
-            if (Value.Length * count.Value > long.MaxValue)
-                throw PyOverflowError.Create("repeated string is too long");
-            if (Value.Length * count.Value > int.MaxValue)
-                throw PyMemoryError.Create();
+            PyAllocation.Product(CodePointLength(), times, "repeated string is too long");
+            PyAllocation.StringLength(PyAllocation.Product(Value.Length, times, "repeated string is too long"));
+            if (Value.Length == 0)
+                return new PyString("");
 
             // Performance: Eliminated LINQ (Enumerable.Repeat) - manual string repetition
-            var sb = new StringBuilder(Value.Length * (int)count.Value);
-            for (int i = 0; i < count.Value; i++)
+            var sb = new StringBuilder(Value.Length * (int)times);
+            for (long i = 0; i < times; i++)
             {
                 sb.Append(Value);
             }
@@ -2998,7 +3023,21 @@ namespace SharpPy
         {
             if (count < 0) count = long.MaxValue;
             if (count == 0) return ResultUnchanged();
-            var output = new StringBuilder(Value.Length);
+            // replace(): the matches are counted first, then the new size is checked
+            // ("replace string is too long" past Py_ssize_t) and allocated once.
+            long matches = 0;
+            if (old.Length == 0)
+                matches = Math.Min(count, (long)CodePointLength() + 1);
+            else
+                for (int at = Value.IndexOf(old, StringComparison.Ordinal); at >= 0 && matches < count;
+                     at = Value.IndexOf(old, at + old.Length, StringComparison.Ordinal))
+                    matches++;
+            if (matches == 0) return ResultUnchanged();
+            // replace(): only a growing replacement can pass PY_SSIZE_T_MAX.
+            long growth = newStr.Length > old.Length
+                ? PyAllocation.Product(newStr.Length - old.Length, matches, "replace string is too long")
+                : (long)(newStr.Length - old.Length) * matches;
+            var output = new StringBuilder(PyAllocation.StringLength(Value.Length + growth));
             int position = 0;
             if (old.Length == 0)
             {
@@ -3169,6 +3208,10 @@ namespace SharpPy
                     throw PyTypeError.Create($"sequence item {i}: expected str instance, {values[i].GetTypeName()} found");
                 strings[i] = item.Value;
             }
+            // _PyUnicode_JoinArray: the size first, then one allocation.
+            long size = (long)Value.Length * (strings.Length - 1);
+            foreach (var piece in strings) size += piece.Length;
+            PyAllocation.StringLength(size);
             return new PyString(string.Join(Value, strings));
         }
 

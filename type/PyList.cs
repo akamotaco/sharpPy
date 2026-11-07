@@ -1067,16 +1067,12 @@ namespace SharpPy
             if (other is not PyInt pyInt)
                 return PyNotImplemented.Instance;
 
-            int n = (int)pyInt.Value;
-            if (n <= 0)
-            {
-                // Empty list for 0 or negative multiplier
-                return ListCache.Create(new PyObject[0]);
-            }
-
-            // Create new list with repeated elements
+            // list_repeat: an empty list or a count below 1 is empty, a size past Py_ssize_t PyErr_NoMemory.
+            long n = PyAllocation.IndexSized(pyInt.Value);
             int itemCount = _items.Count;
-            var newItems = new PyObject[itemCount * n];
+            if (itemCount == 0 || n <= 0)
+                return ListCache.Create(new PyObject[0]);
+            var newItems = new PyObject[PyAllocation.RepeatedItems(itemCount, n)];
 
             for (int i = 0; i < n; i++)
             {
@@ -1148,14 +1144,14 @@ namespace SharpPy
             if (other is not PyInt pyInt)
                 return PyNotImplemented.Instance;
 
-            int n = (int)pyInt.Value;
-
-            // CPython: Objects/listobject.c:608-612 - Handle n <= 0
-            if (n <= 0)
+            // list_inplace_repeat: below 1 (or nothing to repeat) clears, past Py_ssize_t PyErr_NoMemory.
+            long n = PyAllocation.IndexSized(pyInt.Value);
+            if (n < 1 || _items.Count == 0)
             {
                 _items.Clear();
                 return this;
             }
+            PyAllocation.RepeatedItems(_items.Count, n);
 
             // CPython: Objects/listobject.c:614-617 - Repeat elements n times
             if (n == 1)

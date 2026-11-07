@@ -195,20 +195,6 @@ internal static class PyArgs
         return (long)index.Value;
     }
 
-    /// <summary>
-    /// The count sq_repeat receives as a Py_ssize_t. A repeat that cannot be allocated is the
-    /// MemoryError of list_repeat and the others (size > PY_SSIZE_T_MAX / n); an empty sequence
-    /// stays empty however large the count.
-    /// </summary>
-    internal static PyInt RepeatCount(PyObject sequence, long count)
-    {
-        if (count > int.MaxValue)
-        {
-            if (sequence.Length() == 0) return new PyInt(0);
-            throw PyMemoryError.Create();
-        }
-        return new PyInt(count);
-    }
 
     /// <summary>
     /// _PyEval_SliceIndex: None is the default, __index__ is read and a value past Py_ssize_t is

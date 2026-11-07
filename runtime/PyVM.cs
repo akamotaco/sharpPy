@@ -5356,11 +5356,12 @@ namespace SharpPy
             return false;
         }
 
-        // list, tuple, str, bytes and bytearray have sq_concat and sq_repeat, and no nb_add or nb_multiply.
+        // list, tuple, str, bytes, bytearray, deque and array have sq_concat and sq_repeat, and no
+        // nb_add or nb_multiply.
         private static bool HasOnlySequenceSlot(PyObject value, BinaryOpType operation) =>
             operation is BinaryOpType.ADD or BinaryOpType.MULTIPLY &&
-            value is PyList or PyTuple or PyString or PyBytes
-                or PyBytesSubclass or PyByteArray or SharpPy.Modules.PyDeque;
+            value is PyList or PyTuple or PyString or PyBytes or PyByteArray
+                or SharpPy.Modules.PyDeque or SharpPy.Modules.ArrayModule.PyArray;
 
         // SQSLOT("__add__", sq_concat, NULL, ...): __add__ written in Python leaves the slot empty.
         private static bool HasSequenceSlot(PyObject value, BinaryOpType operation) =>
@@ -5611,7 +5612,8 @@ namespace SharpPy
             if (!PyObject.IndexCheck(count))
                 throw PyTypeError.Create($"can't multiply sequence by non-int of type '{count.GetTypeName()}'");
             var native = sequence;
-            return native.Multiply(PyArgs.RepeatCount(native, PyArgs.IndexSsize(count)));
+            // The type's own sq_repeat decides what the size means (OverflowError or MemoryError).
+            return native.Multiply(new PyInt(PyArgs.IndexSsize(count)));
         }
 
         /// <summary>
@@ -6358,7 +6360,8 @@ namespace SharpPy
         {
             PythonException python => python.PyException,
             InsufficientExecutionStackException => new PyRecursionError(),
-            OutOfMemoryException => new PyMemoryError(exception.Message),
+            // PyErr_NoMemory: a MemoryError without a message.
+            OutOfMemoryException => new PyMemoryError(),
             OverflowException => new PyOverflowError(exception.Message),
             DivideByZeroException => new PyZeroDivisionError(exception.Message),
             NotImplementedException => new PyNotImplementedError(exception.Message),

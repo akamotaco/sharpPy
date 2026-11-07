@@ -1041,16 +1041,16 @@ namespace SharpPy
             // CPython 3.12: Objects/bytesobject.c:1230-1250 - bytes_repeat
             if (other is PyInt count)
             {
-                if (count.Value < 0)
+                long times = PyAllocation.IndexSized(count.Value);
+                if (times < 0)
                     return new PyBytes(new byte[0]);
                 // bytes_repeat: one copy of an exact bytes is that bytes.
-                if (count.Value == 1 && ReferenceEquals(GetPyType(), PyType.BytesType))
+                if (times == 1 && ReferenceEquals(GetPyType(), PyType.BytesType))
                     return this;
-                if (count.Value * Value.Length > int.MaxValue)
-                    throw PyMemoryError.Create();
-
-                int countInt = (int)count.Value;
-                var result = new byte[Value.Length * countInt];
+                // bytes_repeat: "repeated bytes are too long" past Py_ssize_t, then _PyBytes_FromSize.
+                int total = PyAllocation.ArrayLength(PyAllocation.Product(Value.Length, times, "repeated bytes are too long"));
+                int countInt = total == 0 ? 0 : (int)times;
+                var result = new byte[total];
                 for (int i = 0; i < countInt; i++)
                 {
                     Array.Copy(Value, 0, result, i * Value.Length, Value.Length);

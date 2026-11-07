@@ -614,11 +614,13 @@ namespace SharpPy
         {
             if (other is PyInt count)
             {
-                if (count.Value <= 0)
+                long times = PyAllocation.IndexSized(count.Value);
+                if (times <= 0)
                     return new PyByteArray(new byte[0]);
 
-                var result = new List<byte>(_bytes.Count * (int)count.Value);
-                for (int i = 0; i < count.Value; i++)
+                // bytearray_repeat: a size past Py_ssize_t is PyErr_NoMemory, as is one no array holds.
+                var result = new List<byte>(PyAllocation.RepeatedItems(_bytes.Count, times));
+                for (long i = 0; _bytes.Count != 0 && i < times; i++)
                 {
                     result.AddRange(_bytes);
                 }

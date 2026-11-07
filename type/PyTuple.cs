@@ -178,7 +178,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"descriptor '__mul__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
 
                     // wrap_indexargfunc: the count is PyNumber_AsSsize_t(arg, PyExc_OverflowError).
-                    return tuple.Multiply(PyArgs.RepeatCount(tuple, PyArgs.IndexSsize(args[0])));
+                    return tuple.Multiply(new PyInt(PyArgs.IndexSsize(args[0])));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -193,7 +193,7 @@ namespace SharpPy
                     if (self is not PyTuple tuple)
                         throw PyTypeError.Create($"descriptor '__rmul__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
 
-                    return tuple.Multiply(PyArgs.RepeatCount(tuple, PyArgs.IndexSsize(args[0])));
+                    return tuple.Multiply(new PyInt(PyArgs.IndexSsize(args[0])));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -374,14 +374,15 @@ namespace SharpPy
         {
             if (other is PyInt count)
             {
-                if (count.Value <= 0)
-                    return PyTuple.Empty;
-                // tuple_repeat: an exact tuple once over is itself.
-                if (count.Value.IsOne && GetType() == typeof(PyTuple) && !HasCustomType)
+                // tuple_repeat: an exact tuple that is empty or taken once is itself; a count below 1
+                // is the empty tuple; a size past Py_ssize_t is PyErr_NoMemory.
+                long n = PyAllocation.IndexSized(count.Value);
+                bool exact = GetType() == typeof(PyTuple) && !HasCustomType;
+                if ((Items.Length == 0 || n == 1) && exact)
                     return this;
-
-                // Performance: Eliminated LINQ (Enumerable.Range + .SelectMany + .ToArray) - manual repetition + Cache
-                var result = new PyObject[Items.Length * (int)count.Value];
+                if (Items.Length == 0 || n <= 0)
+                    return PyTuple.Empty;
+                var result = new PyObject[PyAllocation.RepeatedItems(Items.Length, n)];
                 for (int i = 0; i < count.Value; i++)
                 {
                     Array.Copy(Items, 0, result, i * Items.Length, Items.Length);
