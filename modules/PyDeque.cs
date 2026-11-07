@@ -35,6 +35,8 @@ namespace SharpPy.Modules
         {
             var type = new PyType("deque", new[] { PyType.ObjectType }, "collections");
             DequeType = type;
+            // deque_type: tp_getattro is PyObject_GenericGetAttr, so the wrapper is in its dict.
+            TypeTables.GenericAttributes(type);
             type.TypeDict["__module__"] = PyString.From("collections");
 
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type,

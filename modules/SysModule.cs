@@ -633,31 +633,36 @@ namespace SharpPy.Modules
             throw new PythonException(new PySystemExit(args));
         }
 
+        // sys_getsizeof and _PySys_GetSizeOf (Python/sysmodule.c): the object's __sizeof__, looked up
+        // on its type, as a non-negative Py_ssize_t, and sizeof(PyGC_Head) for an object the collector
+        // tracks the type of. With a default, a TypeError gives the default instead.
         private PyObject CallGetSizeOf(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"getsizeof() takes exactly one argument ({args.Length} given)");
-
-            // _PySys_GetSizeOf: a class's own __sizeof__ answers.
+            if (args.Length < 1 || args.Length > 2)
+                throw PyTypeError.Create(args.Length < 1 ? "getsizeof() missing required argument 'object' (pos 1)"
+                    : $"getsizeof() takes at most 2 arguments ({args.Length} given)");
             var obj = args[0];
-            var declared = obj.LookupUserSpecial("__sizeof__");
-            if (declared != null)
-                return PyInt.From(((PyInt)obj.CallSpecial(declared)).Value + 16);
-
-            // 간단한 크기 추정
-            int size = obj switch
+            try
             {
-                PyInt => 32,
-                PyFloat => 32,
-                PyBool => 16,
-                PyString str => 48 + str.Value.Length * 2,
-                PyList list => 64 + list.Items.Length * 8,
-                PyDict dict => 128 + dict.Length() * 16,
-                PyTuple tuple => 48 + tuple.Items.Length * 8,
-                _ => 64 // 기본 객체 크기
-            };
-
-            return PyInt.From(size);
+                var method = obj.GetPyType().LookupSpecial("__sizeof__")
+                    ?? throw PyTypeError.Create($"Type {obj.GetTypeName()} doesn't define __sizeof__");
+                var result = obj.CallSpecial(method);
+                if (result is not PyInt && result is not PyBool)
+                    throw PyTypeError.Create("an integer is required");
+                long size = PyArgs.Ssize(result);
+                if (size < 0)
+                    throw PyValueError.Create("__sizeof__() should return >= 0");
+                // _PyType_PreHeaderSize: sizeof(PyGC_Head) for what the collector tracks (a type
+                // object always is: sys.getsizeof(int) is 432), and the two words of a managed dict.
+                var kind = obj.GetPyType();
+                bool gc = obj is PyType || kind is PyClass || kind.Layout.Gc;
+                bool managedDict = obj is not PyType && kind is PyClass heap && heap.InstancesHaveDict();
+                return PyInt.From(size + (gc ? 16 : 0) + (managedDict ? 16 : 0));
+            }
+            catch (PythonException error) when (args.Length == 2 && error.PyException is PyTypeError)
+            {
+                return args[1];
+            }
         }
 
         private PyObject CallGetRefCount(PyObject[] args)

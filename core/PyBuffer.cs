@@ -78,7 +78,7 @@ namespace SharpPy
         {
             var type = PyType.MemoryViewType;
 
-            // CPython 3.12: memoryview.tobytes()/hex()/tolist()/__bytes__
+            // CPython 3.12: memoryview.tobytes()/hex()/tolist(); bytes(view) is the buffer protocol, there is no __bytes__
             type.TypeDict["tobytes"] = new PyMethodDescriptor("tobytes", type, (self, args, kwargs) =>
             {
                 if (self is not PyMemoryView view)
@@ -113,13 +113,6 @@ namespace SharpPy
                 view.CheckReleased();
                 return BytesMethods.HexMethod(view.Data, args, kwargs);
             }, acceptsKwargs: true);
-            type.TypeDict["__bytes__"] = new PyMethodDescriptor("__bytes__", type, (self, args, kwargs) =>
-            {
-                if (self is not PyMemoryView view)
-                    throw PyTypeError.Create($"descriptor '__bytes__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
-                view.CheckReleased();
-                return PyBytes.From(view.Data);
-            });
 
             foreach (var name in new[] { "release", "__enter__", "__exit__" })
                 type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) => {

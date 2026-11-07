@@ -159,10 +159,55 @@ namespace SharpPy
 
         private static void InstallObject()
         {
-            Method(PyType.ObjectType, "__sizeof__", (self, args) => PyInt.From(16));
+            // The __sizeof__ family: CPython's own formulas over the layouts in TypeLayout.g.cs. What
+            // depends on CPython's allocation history (list and bytearray over-allocation, a str's
+            // UTF-8 cache, a class's shared keys) is the size of a fresh object; docs/todo.md says so.
+            Method(PyType.ObjectType, "__sizeof__", (self, args) => PyInt.From(ObjectSizeOf(self)));
+            // int___sizeof___impl: offsetof(PyLongObject, long_value.ob_digit) + max(ndigits, 1) * 4
+            Method(PyType.IntType, "__sizeof__", (self, args) =>
+            {
+                var value = self is PyBool flag ? (flag.Value ? 1 : 0) : System.Numerics.BigInteger.Abs(((PyInt)self).Value);
+                long digits = Math.Max(1, ((long)value.GetBitLength() + 29) / 30);
+                return PyInt.From(24 + digits * 4);
+            });
+            // unicode___sizeof___impl: sizeof(PyASCIIObject) + len + 1 for a compact ASCII str, else
+            // sizeof(PyCompactUnicodeObject) + (len + 1) * kind.
+            Method(PyType.StrType, "__sizeof__", (self, args) =>
+            {
+                var text = (PyString)self;
+                int max = 0;
+                for (int u = 0; u < text.Value.Length; u += PyString.PairWidth(text.Value, u))
+                    max = Math.Max(max, PyString.CodePointAtUnit(text.Value, u));
+                long length = text.CodePointLength();
+                if (max < 0x80) return PyInt.From(40 + length + 1);
+                int kind = max < 0x100 ? 1 : max < 0x10000 ? 2 : 4;
+                return PyInt.From(56 + (length + 1) * kind);
+            });
+            // list___sizeof___impl: the type's size + allocated * sizeof(PyObject *)
+            Method(PyType.ListType, "__sizeof__", (self, args) => PyInt.From(PyType.ListType.Layout.BasicSize + 8L * ((PyList)self).RawCount()));
+            // bytearray___sizeof___impl: the type's size + ob_alloc (the bytes and their NUL)
+            Method(PyType.BytearrayType, "__sizeof__", (self, args) =>
+            {
+                long length = ((PyObject)self).Size();
+                return PyInt.From(PyType.BytearrayType.Layout.BasicSize + (length == 0 ? 0 : length + 1));
+            });
+            // type___sizeof___impl: sizeof(PyTypeObject), or sizeof(PyHeapTypeObject) and the size of
+            // its cached keys for a class whose instances keep a dict.
+            Method(PyType.TypeType, "__sizeof__", (self, args) =>
+                PyInt.From(self is PyClass heap && self is not PyTypeMetaclass ? 920 + (heap.InstancesHaveDict() ? 768 : 0) : 416));
             // object_subclasshook: METH_CLASS|METH_VARARGS, NotImplemented whatever it is given.
             PyType.ObjectType.TypeDict["__subclasshook__"] = new PyClassMethodDescriptor("__subclasshook__", PyType.ObjectType,
                 new PyBuiltinFunction("__subclasshook__", (args, kwargs) => PyNotImplemented.Instance));
+        }
+
+        // object___sizeof___impl: tp_basicsize, and Py_SIZE(self) * tp_itemsize for a variable-size type.
+        internal static long ObjectSizeOf(PyObject self)
+        {
+            var layout = self.GetPyType().Layout;
+            long size = layout.BasicSize;
+            if (layout.ItemSize > 0)
+                size += layout.ItemSize * (self switch { PyBytes bytes => bytes.Value.Length, PyTuple tuple => tuple.Items.Length, _ => 0 });
+            return size;
         }
 
         private static PyObject Int(PyObject value) => value is PyIntSubclass subclass ? subclass.GetIntValue() : value;
