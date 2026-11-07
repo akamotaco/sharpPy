@@ -892,7 +892,9 @@ public static class PyFunctionFactory
                 var result = func();
                 return PyTypeConverter.ToPyObject(result);
             }
-            catch (Exception ex)
+            // A host delegate's own failure is a RuntimeError; a Python exception it let through
+            // stays what it is.
+            catch (Exception ex) when (ex is not PythonException)
             {
                 throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
             }
@@ -915,7 +917,7 @@ public static class PyFunctionFactory
                 var result = func(arg1);
                 return PyTypeConverter.ToPyObject(result);
             }
-            catch (Exception ex) when (!(ex is PyException))
+            catch (Exception ex) when (ex is not PythonException)
             {
                 throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
             }
@@ -939,7 +941,7 @@ public static class PyFunctionFactory
                 var result = func(arg1, arg2);
                 return PyTypeConverter.ToPyObject(result);
             }
-            catch (Exception ex) when (!(ex is PyException))
+            catch (Exception ex) when (ex is not PythonException)
             {
                 throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
             }
@@ -964,7 +966,7 @@ public static class PyFunctionFactory
                 var result = func(arg1, arg2, arg3);
                 return PyTypeConverter.ToPyObject(result);
             }
-            catch (Exception ex) when (!(ex is PyException))
+            catch (Exception ex) when (ex is not PythonException)
             {
                 throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
             }
@@ -990,7 +992,7 @@ public static class PyFunctionFactory
                 var result = func(arg1, arg2, arg3, arg4);
                 return PyTypeConverter.ToPyObject(result);
             }
-            catch (Exception ex) when (!(ex is PyException))
+            catch (Exception ex) when (ex is not PythonException)
             {
                 throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
             }
@@ -1016,7 +1018,9 @@ public static class PyFunctionFactory
                 action();
                 return PyNone.Instance;
             }
-            catch (Exception ex)
+            // A host delegate's own failure is a RuntimeError; a Python exception it let through
+            // stays what it is.
+            catch (Exception ex) when (ex is not PythonException)
             {
                 throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
             }
@@ -1039,7 +1043,7 @@ public static class PyFunctionFactory
                 action(arg1);
                 return PyNone.Instance;
             }
-            catch (Exception ex) when (!(ex is PyException))
+            catch (Exception ex) when (ex is not PythonException)
             {
                 throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
             }
@@ -1063,7 +1067,7 @@ public static class PyFunctionFactory
                 action(arg1, arg2);
                 return PyNone.Instance;
             }
-            catch (Exception ex) when (!(ex is PyException))
+            catch (Exception ex) when (ex is not PythonException)
             {
                 throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
             }
@@ -1088,7 +1092,7 @@ public static class PyFunctionFactory
                 action(arg1, arg2, arg3);
                 return PyNone.Instance;
             }
-            catch (Exception ex) when (!(ex is PyException))
+            catch (Exception ex) when (ex is not PythonException)
             {
                 throw PyRuntimeError.Create($"Error in {name}(): {ex.Message}");
             }

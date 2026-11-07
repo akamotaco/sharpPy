@@ -6513,54 +6513,6 @@ namespace SharpPy
 #endif
         }
 
-        /// <summary>
-        /// CPython 3.12: Implement super() attribute lookup
-        /// </summary>
-        private PyObject GetSuperAttribute(PyObject superObj, PyObject selfObj, string attrName)
-        {
-            try
-            {
-                // In CPython, super() object contains the class hierarchy info
-                // For now, implement a simple version that looks up parent class methods
-
-                if (selfObj is PyType selfType)
-                {
-                    // Get the parent class (metaclass case)
-                    var parentType = typeof(PyType); // Python type metaclass
-
-                    // Look for the method in parent type
-                    if (attrName == "__new__")
-                    {
-                        // Return type.__new__ method
-                        return new PyFunction("__new__", (args) =>
-                        {
-                            var cls = args[0];
-                            var name = args[1];
-                            var bases = args[2];
-                            var attrs = args[3];
-
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 type.__new__: Creating class {name}");
-                            #endif
-
-                            // Create new class using PyType constructor
-                            return new PyType(((PyString)name).Value, new PyType[0]);
-                        }, null); // cls, name, bases, attrs
-                    }
-                }
-
-                // Fallback: try to get attribute directly from super object
-                return superObj.GetAttribute(attrName);
-            }
-            catch (Exception ex)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"⚠️  GetSuperAttribute error: {ex.Message}");
-                #endif
-                // Return None for missing attributes for now
-                return PyNone.Instance;
-            }
-        }
 
         /// <summary>
         /// CALL with keyword names (Python/bytecodes.c CALL, PyObject_Vectorcall with kwnames): the
