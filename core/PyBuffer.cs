@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 
 namespace SharpPy
@@ -174,47 +175,78 @@ namespace SharpPy
                     // ordinary tp_name for everything else.
                     throw PyTypeError.Create($"cast() argument 'format' must be str, not {(fmtArg is PyNone ? "None" : fmtArg.GetTypeName())}");
 
-                // Only the native byte order is accepted: one struct character with an
-                // optional '@'. '=' '<' '>' '!' are rejected even though they are valid
-                // struct module prefixes, because CPython's parser allows only '@'.
+                // memoryview_cast_impl
+                view.CheckReleased();
+                if (!view.IsCContiguous)
+                    throw PyTypeError.Create("memoryview: casts are restricted to C-contiguous views");
+                int[] sourceShape = view._shape ?? new[] { view._length };
+                if ((shapeArg != null || view.NDim != 1) && Array.IndexOf(sourceShape, 0) >= 0)
+                    throw PyTypeError.Create("memoryview: cannot cast view with zeros in shape or strides");
+                PyObject[] dims = null;
+                int ndim = 1;
+                if (shapeArg != null)
+                {
+                    // CHECK_LIST_OR_TUPLE(shape)
+                    if (shapeArg is PyTuple t) dims = t.Items;
+                    else if (shapeArg is PyList lst) dims = lst.Items;
+                    else throw PyTypeError.Create("shape must be a list or a tuple");
+                    ndim = dims.Length;
+                    if (ndim > 64)
+                        throw PyValueError.Create("memoryview: number of dimensions must not exceed 64");
+                    if (view.NDim != 1 && ndim != 1)
+                        throw PyTypeError.Create("memoryview: cast must be 1D -> ND or ND -> 1D");
+                }
+
+                // cast_to_1D: one native character after an optional '@' (get_native_fmtchar),
+                // and one side of the cast a byte format.
+                // PyUnicode_AsASCIIString(format)
+                fmtStr.GetAttribute("encode").Call(new PyObject[] { PyString.From("ascii") }, null);
                 string fs = fmtStr.Value;
                 if (fs.Length == 2 && fs[0] == '@') fs = fs.Substring(1);
-                if (fs.Length != 1)
-                    throw PyValueError.Create(FormatError);
-                char f = fs[0];
-                int isz = FormatSize(f);
+                int isz = fs.Length == 1 ? FormatSize(fs[0]) : -1;
                 if (isz < 0)
                     throw PyValueError.Create(FormatError);
-                if (view._length > 1 && view._stride != view._itemsize)
-                    throw PyTypeError.Create("memoryview: underlying buffer is not C-contiguous");
+                char f = fs[0];
+                static bool IsByteFormat(char c) => c == 'b' || c == 'B' || c == 'c';
+                string source = string.IsNullOrEmpty(view._fmt) ? "B" : view._fmt;
+                if (source.Length == 2 && source[0] == '@') source = source.Substring(1);
+                bool sourceIsByte = source.Length == 1 && FormatSize(source[0]) >= 0 && IsByteFormat(source[0]);
+                if (!sourceIsByte && !IsByteFormat(f))
+                    throw PyTypeError.Create("memoryview: cannot cast between two non-byte formats");
                 long totalBytes = (long)view._length * view._itemsize;
                 if (totalBytes % isz != 0)
                     throw PyTypeError.Create("memoryview: length is not a multiple of itemsize");
 
+                // cast_to_ND, through copy_shape
                 int[] shape = null;
-                if (shapeArg != null)
+                if (dims != null)
                 {
-                    PyObject[] dims;
-                    if (shapeArg is PyTuple t) dims = t.Items;
-                    else if (shapeArg is PyList lst) dims = lst.Items;
-                    else throw PyTypeError.Create("shape must be a list or a tuple");
-                    shape = new int[dims.Length];
-                    long product = 1;
-                    for (int k = 0; k < dims.Length; k++)
+                    shape = new int[ndim];
+                    long len = isz;
+                    for (int k = 0; k < ndim; k++)
                     {
-                        var conv = PyObject.TryGetIndex(dims[k]);
-                        if (conv == null)
-                            throw PyTypeError.Create("memoryview.cast(): elements of shape must be integers");
-                        long d = (long)conv.Value;
-                        if (d <= 0)
+                        // PyLong_Check, which a bool passes, then PyLong_AsSsize_t
+                        System.Numerics.BigInteger value = dims[k] switch
+                        {
+                            PyBool truth => truth.Value ? 1 : 0,
+                            PyInt dim => dim.Value,
+                            _ => throw PyTypeError.Create("memoryview.cast(): elements of shape must be integers"),
+                        };
+                        if (value > long.MaxValue || value < long.MinValue)
+                            throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+                        long x = (long)value;
+                        if (x <= 0)
                             throw PyValueError.Create("memoryview.cast(): elements of shape must be integers > 0");
-                        shape[k] = (int)d;
-                        product *= d;
+                        if (x > long.MaxValue / len)
+                            throw PyValueError.Create("memoryview.cast(): product(shape) > SSIZE_MAX");
+                        len *= x;
+                        shape[k] = (int)Math.Min(x, int.MaxValue);
                     }
-                    if (product * isz != totalBytes)
+                    if (totalBytes != len)
                         throw PyTypeError.Create("memoryview: product(shape) * itemsize != buffer size");
                 }
-                return view.Reinterpret(f.ToString(), isz, shape);
+                // get_native_fmtstr: the format as written, '@' and all.
+                return view.Reinterpret(fmtStr.Value, isz, shape);
             }, acceptsKwargs: true);
 
             // p42: CPython exposes these as slot wrappers on the type, so they are
@@ -248,18 +280,14 @@ namespace SharpPy
 
             // CPython memoryview is iterable and yields one element per position
             // (honouring the current cast format/itemsize).
-            type.TypeDict["__iter__"] = new PyMethodDescriptor("__iter__", type, (self, args, kwargs) =>
+            // tp_iter is memory_iter: the slot wrapper calls it.
+            type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) =>
             {
                 if (self is not PyMemoryView view)
                     throw PyTypeError.Create($"descriptor '__iter__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
                 if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
-                    throw PyTypeError.Create("__iter__() takes no arguments");
-                view.CheckReleased();
-                int n = view._length;
-                var items = new PyObject[n];
-                for (int i = 0; i < n; i++)
-                    items[i] = view.ReadElement(view.StorageIndex(i));
-                return new PyList(items).GetIterator();
+                    throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+                return view.Iter();
             });
         }
 
@@ -298,6 +326,14 @@ namespace SharpPy
                 {
                     if (shape[0] != length)
                         throw PyTypeError.Create("memoryview: product(shape) * itemsize != buffer size");
+                }
+                else if (shape.Length == 0)
+                {
+                    // a scalar: one item, no axes
+                    if (length != 1)
+                        throw PyTypeError.Create("memoryview: product(shape) * itemsize != buffer size");
+                    _estr = Array.Empty<long>();
+                    _shape = shape;
                 }
                 else
                 {
@@ -387,29 +423,194 @@ namespace SharpPy
             'q' or 'Q' => 8,
             'f' => 4,
             'd' => 8,
+            '?' => 1,
+            'e' => 2,
+            'n' or 'N' or 'P' => 8,
             _ => -1,
         };
 
-        private PyObject ReadElement(int storageByte)
+        private PyObject ReadElement(int storageByte) => UnpackSingle(storageByte, AdjustFmt());
+
+        // adjust_fmt: one format character after an optional '@' (a buffer without a format is 'B').
+        private string AdjustFmt()
         {
-            byte b0 = ReadByte(storageByte);
-            switch (_fmt)
+            string format = string.IsNullOrEmpty(_fmt) ? "B" : _fmt;
+            string fmt = format[0] == '@' ? format.Substring(1) : format;
+            if (fmt.Length == 1)
+                return fmt;
+            throw PyNotImplementedError.Create($"memoryview: unsupported format {format}");
+        }
+
+        private int NDim => _shape == null ? 1 : _shape.Length;
+
+        // unpack_single: the item at storageByte in a native format.
+        private PyObject UnpackSingle(int at, string fmt)
+        {
+            CheckReleased();
+            ReadOnlySpan<byte> item = StorageSpan().Slice(at);
+            switch (fmt[0])
             {
-                case "":
-                case "B": return PyInt.From(b0);
-                case "b": return PyInt.From((sbyte)b0);
-                case "c": return PyBytes.From(new[] { b0 });
-                case "H": return PyInt.From((uint)(b0 | (ReadByte(storageByte + 1) << 8)));
-                case "h": return PyInt.From((short)(b0 | (ReadByte(storageByte + 1) << 8)));
-                case "I":
-                case "L": return PyInt.From((uint)(b0 | (ReadByte(storageByte + 1) << 8) | (ReadByte(storageByte + 2) << 16) | (ReadByte(storageByte + 3) << 24)));
-                case "i":
-                case "l": return PyInt.From(b0 | (ReadByte(storageByte + 1) << 8) | (ReadByte(storageByte + 2) << 16) | (ReadByte(storageByte + 3) << 24));
-                case "Q": { ulong v = 0; for (int k = 0; k < 8; k++) v |= (ulong)ReadByte(storageByte + k) << (8 * k); return PyInt.From(unchecked((long)v)); }
-                case "q": { long v = 0; for (int k = 0; k < 8; k++) v |= (long)ReadByte(storageByte + k) << (8 * k); return PyInt.From(v); }
-                case "f": { uint u = 0; for (int k = 0; k < 4; k++) u |= (uint)ReadByte(storageByte + k) << (8 * k); return new PyFloat(BitConverter.ToSingle(BitConverter.GetBytes(u), 0)); }
-                case "d": { ulong u = 0; for (int k = 0; k < 8; k++) u |= (ulong)ReadByte(storageByte + k) << (8 * k); return new PyFloat(BitConverter.ToDouble(BitConverter.GetBytes(u), 0)); }
-                default: return PyInt.From(b0);
+                case 'B': return PyInt.From(item[0]);
+                case 'b': return PyInt.From((sbyte)item[0]);
+                case 'h': return PyInt.From(BinaryPrimitives.ReadInt16LittleEndian(item));
+                case 'i': case 'l': return PyInt.From(BinaryPrimitives.ReadInt32LittleEndian(item));
+                case '?': return PyBool.FromBool(item[0] != 0);
+                case 'H': return PyInt.From(BinaryPrimitives.ReadUInt16LittleEndian(item));
+                case 'I': case 'L': return PyInt.From(BinaryPrimitives.ReadUInt32LittleEndian(item));
+                case 'q': case 'n': return PyInt.From(BinaryPrimitives.ReadInt64LittleEndian(item));
+                case 'Q': case 'N': case 'P': return PyInt.From((System.Numerics.BigInteger)BinaryPrimitives.ReadUInt64LittleEndian(item));
+                case 'f': return new PyFloat(BinaryPrimitives.ReadSingleLittleEndian(item));
+                case 'd': return new PyFloat(BinaryPrimitives.ReadDoubleLittleEndian(item));
+                case 'e': return new PyFloat((double)BinaryPrimitives.ReadHalfLittleEndian(item));
+                case 'c': return PyBytes.From(new[] { item[0] });
+                default: throw PyNotImplementedError.Create($"memoryview: format {fmt} not supported");
+            }
+        }
+
+        private static Exception InvalidType(string fmt) => PyTypeError.Create($"memoryview: invalid type for format '{fmt}'");
+        private static Exception InvalidValue(string fmt) => PyValueError.Create($"memoryview: invalid value for format '{fmt}'");
+
+        // _PyNumber_Index and PyLong_As*: fix_error_int makes a TypeError the format's type error
+        // and an OverflowError or ValueError its value error; anything else stays as it was.
+        private static System.Numerics.BigInteger IndexValue(PyObject item, string fmt, System.Numerics.BigInteger min, System.Numerics.BigInteger max)
+        {
+            PyInt index;
+            try
+            {
+                index = PyObject.TryGetIndex(item);
+            }
+            catch (PythonException error) when (error.PyException is PyTypeError)
+            {
+                throw InvalidType(fmt);
+            }
+            catch (PythonException error) when (error.PyException is PyValueError or PyOverflowError)
+            {
+                throw InvalidValue(fmt);
+            }
+            if (index == null)
+                throw InvalidType(fmt);
+            if (index.Value < min || index.Value > max)
+                throw InvalidValue(fmt);
+            return index.Value;
+        }
+
+        // pack_single: item stored at storageByte in a native format.
+        private void PackSingle(int at, PyObject item, string fmt)
+        {
+            switch (fmt[0])
+            {
+                case 'b': case 'h': case 'i': case 'l':
+                {
+                    // PyLong_AsLong: a C long, 32 bits here; then the range of the format.
+                    long ld = (long)IndexValue(item, fmt, int.MinValue, int.MaxValue);
+                    CheckReleased();
+                    switch (fmt[0])
+                    {
+                        case 'b':
+                            if (ld < sbyte.MinValue || ld > sbyte.MaxValue) throw InvalidValue(fmt);
+                            StorageSpan()[at] = unchecked((byte)(sbyte)ld);
+                            break;
+                        case 'h':
+                            if (ld < short.MinValue || ld > short.MaxValue) throw InvalidValue(fmt);
+                            BinaryPrimitives.WriteInt16LittleEndian(StorageSpan().Slice(at), (short)ld);
+                            break;
+                        default:
+                            BinaryPrimitives.WriteInt32LittleEndian(StorageSpan().Slice(at), (int)ld);
+                            break;
+                    }
+                    break;
+                }
+                case 'B': case 'H': case 'I': case 'L':
+                {
+                    // PyLong_AsUnsignedLong: a C unsigned long, 32 bits here.
+                    ulong lu = (ulong)IndexValue(item, fmt, 0, uint.MaxValue);
+                    CheckReleased();
+                    switch (fmt[0])
+                    {
+                        case 'B':
+                            if (lu > byte.MaxValue) throw InvalidValue(fmt);
+                            StorageSpan()[at] = (byte)lu;
+                            break;
+                        case 'H':
+                            if (lu > ushort.MaxValue) throw InvalidValue(fmt);
+                            BinaryPrimitives.WriteUInt16LittleEndian(StorageSpan().Slice(at), (ushort)lu);
+                            break;
+                        default:
+                            BinaryPrimitives.WriteUInt32LittleEndian(StorageSpan().Slice(at), (uint)lu);
+                            break;
+                    }
+                    break;
+                }
+                case 'q': case 'n':
+                {
+                    long value = (long)IndexValue(item, fmt, long.MinValue, long.MaxValue);
+                    CheckReleased();
+                    BinaryPrimitives.WriteInt64LittleEndian(StorageSpan().Slice(at), value);
+                    break;
+                }
+                case 'Q': case 'N':
+                {
+                    ulong value = (ulong)IndexValue(item, fmt, 0, ulong.MaxValue);
+                    CheckReleased();
+                    BinaryPrimitives.WriteUInt64LittleEndian(StorageSpan().Slice(at), value);
+                    break;
+                }
+                case 'P':
+                {
+                    // PyLong_AsVoidPtr: a negative value as a long long, any other as unsigned.
+                    var value = IndexValue(item, fmt, long.MinValue, ulong.MaxValue);
+                    CheckReleased();
+                    BinaryPrimitives.WriteUInt64LittleEndian(StorageSpan().Slice(at),
+                        value < 0 ? unchecked((ulong)(long)value) : (ulong)value);
+                    break;
+                }
+                case 'f': case 'd': case 'e':
+                {
+                    double d;
+                    try
+                    {
+                        d = SharpPy.Modules.PyMathFunction.RealNumber(item);
+                    }
+                    catch (PythonException error) when (error.PyException is PyTypeError)
+                    {
+                        throw InvalidType(fmt);
+                    }
+                    catch (PythonException error) when (error.PyException is PyValueError or PyOverflowError)
+                    {
+                        throw InvalidValue(fmt);
+                    }
+                    CheckReleased();
+                    if (fmt[0] == 'f')
+                        BinaryPrimitives.WriteSingleLittleEndian(StorageSpan().Slice(at), (float)d);
+                    else if (fmt[0] == 'd')
+                        BinaryPrimitives.WriteDoubleLittleEndian(StorageSpan().Slice(at), d);
+                    else
+                    {
+                        // PyFloat_Pack2: rounded to the nearest half; one too large for it is an
+                        // OverflowError, which fix_error_int makes the value error.
+                        var half = (Half)d;
+                        if (Half.IsInfinity(half) && !double.IsInfinity(d))
+                            throw InvalidValue(fmt);
+                        BinaryPrimitives.WriteHalfLittleEndian(StorageSpan().Slice(at), half);
+                    }
+                    break;
+                }
+                case '?':
+                {
+                    bool truth = item.IsTrue();
+                    CheckReleased();
+                    StorageSpan()[at] = truth ? (byte)1 : (byte)0;
+                    break;
+                }
+                case 'c':
+                    if (item is not PyBytes bytes)
+                        throw InvalidType(fmt);
+                    if (bytes.Value.Length != 1)
+                        throw InvalidValue(fmt);
+                    StorageSpan()[at] = bytes.Value[0];
+                    break;
+                default:
+                    throw PyNotImplementedError.Create($"memoryview: format {fmt} not supported");
             }
         }
 
@@ -427,6 +628,8 @@ namespace SharpPy
         // p42: CPython memory_tolist nests one list per remaining dimension.
         internal PyObject ToNestedList()
         {
+            if (NDim == 0)
+                return UnpackSingle(StorageIndex(0), AdjustFmt());
             if (_shape == null)
             {
                 var flat = new PyObject[_length];
@@ -454,39 +657,59 @@ namespace SharpPy
             return new PyList(items);
         }
 
-        // p42: CPython memory_subscript for ndim > 1. A full-rank tuple selects an
-        // element; every other form would need a sub-view, which CPython itself
-        // refuses - the wording differs between an int index and a short tuple.
-        private PyObject GetNdItem(PyObject index)
+
+        // PyNumber_AsSsize_t(key, PyExc_IndexError)
+        private static long IndexOf(PyObject key)
         {
-            if (index is PySlice slice)
-                return _data is IBufferExporter ? new ExportedView(this, slice) : new PyMemoryView(this, slice);
-            if (index is PyTuple items)
-            {
-                if (items.Items.Length > _shape.Length)
-                    throw PyTypeError.Create($"cannot index {_shape.Length}-dimension view with {items.Items.Length}-element tuple");
-                if (items.Items.Length < _shape.Length)
-                    throw PyNotImplementedError.Create("sub-views are not implemented");
-                return ReadElement(StorageIndex(NdFlat(items.Items)));
-            }
-            throw PyNotImplementedError.Create("multi-dimensional sub-views are not implemented");
+            var index = PyObject.TryGetIndex(key)
+                ?? throw PyTypeError.Create($"'{key.GetTypeName()}' object cannot be interpreted as an integer");
+            if (index.Value > long.MaxValue || index.Value < long.MinValue)
+                throw PyIndexError.Create($"cannot fit '{key.GetTypeName()}' into an index-sized integer");
+            return (long)index.Value;
         }
 
-        private int NdFlat(PyObject[] items)
+        // lookup_dimension: the element offset an index makes along dim.
+        private long LookupDimension(int dim, long index)
         {
-            long flat = 0;
-            for (int k = 0; k < items.Length; k++)
-            {
-                var conv = PyObject.TryGetIndex(items[k]);
-                if (conv == null) throw PyTypeError.Create("memoryview: invalid slice key");
-                long i = (long)conv.Value;
-                CheckReleased();
-                if (i < 0) i += _shape[k];
-                if (i < 0 || i >= _shape[k])
-                    throw PyIndexError.Create($"index out of bounds on dimension {k + 1}");
-                flat += i * _estr[k];
-            }
-            return (int)flat;
+            long items = _shape == null ? _length : _shape[dim];
+            if (index < 0)
+                index += items;
+            if (index < 0 || index >= items)
+                throw PyIndexError.Create($"index out of bounds on dimension {dim + 1}");
+            return index * (_shape == null ? 1 : _estr[dim]);
+        }
+
+        // ptr_from_tuple: the element a tuple of indices names.
+        private int ElementFromTuple(PyTuple key)
+        {
+            int count = key.Items.Length, ndim = NDim;
+            if (count > ndim)
+                throw PyTypeError.Create($"cannot index {ndim}-dimension view with {count}-element tuple");
+            long element = 0;
+            for (int dim = 0; dim < count; dim++)
+                element += LookupDimension(dim, IndexOf(key.Items[dim]));
+            return (int)element;
+        }
+
+        // is_multiindex and is_multislice
+        private static bool IsMultiIndex(PyObject key)
+        {
+            if (key is not PyTuple tuple)
+                return false;
+            foreach (var item in tuple.Items)
+                if (!PyObject.IndexCheck(item))
+                    return false;
+            return true;
+        }
+
+        private static bool IsMultiSlice(PyObject key)
+        {
+            if (key is not PyTuple tuple || tuple.Items.Length == 0)
+                return false;
+            foreach (var item in tuple.Items)
+                if (item is not PySlice)
+                    return false;
+            return true;
         }
 
         private int GetIndex(PyInt index, PyObject original = null)
@@ -565,43 +788,45 @@ namespace SharpPy
                 // BASE_INACCESSIBLE(v): answer with identity and raise nothing.
                 return PyBool.FromBool(ReferenceEquals(this, other));
 
-            if (!TryComparableView(other, out var otherView))
-                return PyNotImplemented.Instance;
-            if (otherView._data == null)
-                return PyBool.FromBool(ReferenceEquals(this, other));
-
-            if (!EquivalentShape(this, otherView))
-                return PyBool.False;
-
-            var left = LogicalElements();
-            var right = otherView.LogicalElements();
-            for (int i = 0; i < left.Length; i++)
+            PyMemoryView otherView;
+            bool acquired = false;
+            if (other is PyMemoryView view)
             {
-                if (!PyObject.CompareBool(left[i], right[i], CompareOp.EQ))
-                    return PyBool.False;
+                if (view._data == null)
+                    return PyBool.FromBool(ReferenceEquals(this, other));
+                otherView = view;
             }
-            return PyBool.True;
-        }
-
-        // PyObject_GetBuffer(w, &wbuf, PyBUF_FULL_RO): the buffer providers SharpPy models are
-        // bytes, bytearray and another view; str, int, list and tuple have no buffer and stay
-        // NotImplemented, which is why memoryview(b"abc") == "abc" is False rather than an error.
-        private static bool TryComparableView(PyObject other, out PyMemoryView view)
-        {
-            switch (other)
+            else
             {
-                case PyMemoryView mv:
-                    view = mv;
-                    return true;
-                case PyBytes bytes:
-                    view = new PyMemoryView(bytes.Value, true, 1, bytes);
-                    return true;
-                case PyByteArray:
-                    view = other.GetBuffer(0);
-                    return true;
-                default:
-                    view = null;
-                    return false;
+                // PyObject_GetBuffer(w, &wbuf, PyBUF_FULL_RO); an object with no buffer is NotImplemented.
+                try
+                {
+                    otherView = other.GetBuffer(0);
+                }
+                catch (PythonException error) when (error.PyException is PyTypeError or PyBufferError)
+                {
+                    return PyNotImplemented.Instance;
+                }
+                acquired = true;
+            }
+            try
+            {
+                if (!EquivalentShape(this, otherView))
+                    return PyBool.False;
+                var left = LogicalElements();
+                var right = otherView.LogicalElements();
+                for (int i = 0; i < left.Length; i++)
+                {
+                    if (!PyObject.CompareBool(left[i], right[i], CompareOp.EQ))
+                        return PyBool.False;
+                }
+                return PyBool.True;
+            }
+            finally
+            {
+                // PyBuffer_Release(&wbuf)
+                if (acquired)
+                    otherView.Release();
             }
         }
 
@@ -618,6 +843,8 @@ namespace SharpPy
             {
                 if (sa[i] != sb[i])
                     return false;
+                if (sa[i] == 0)
+                    break;
             }
             return true;
         }
@@ -631,32 +858,41 @@ namespace SharpPy
             return items;
         }
 
-        // CPython memory_hash(): released, writable and non-byte formats each raise in that
-        // order, and a byte-format view hashes as the equivalent bytes object. That last rule is
-        // observable - {b"abc": 1}[memoryview(b"abc")] finds the entry - so the hash has to come
-        // from the bytes hash function, not from view identity. ToHash() is the Python-level hook
-        // (object.GetHashCode stays non-throwing by contract, but this override is the path the
-        // interpreter uses for hash() and dict lookups).
-        public override int ToHash()
-        {
-            CheckReleased();
-            if (!_readonly)
-                throw PyValueError.Create("cannot hash writable memoryview object");
-            // get_native_fmtchar(): one native character, optionally '@'-prefixed.
-            string f = _fmt ?? "";
-            if (f.Length == 2 && f[0] == '@')
-                f = f.Substring(1);
-            char fmt = f.Length == 1 ? f[0] : '_';
-            if (fmt != 'B' && fmt != 'b' && fmt != 'c')
-                throw PyValueError.Create(
-                    "memoryview: hashing is restricted to formats 'B', 'b' or 'c'");
-            return PyBytes.From(Data).ToHash();
-        }
+        // memory_hash: self->hash, computed once. Released, writable and non-byte formats each
+        // raise in that order, and the exporter must be hashable; a byte-format view hashes as the
+        // equivalent bytes, so {b"abc": 1}[memoryview(b"abc")] finds the entry. A view released after
+        // it was hashed keeps answering.
+        private long _hash = -1;
+        private int? _clrHash;
 
         protected internal override long Hash()
         {
-            ToHash();
-            return PyHash.Bytes(Data);
+            if (_hash == -1)
+            {
+                CheckReleased();
+                if (!_readonly)
+                    throw PyValueError.Create("cannot hash writable memoryview object");
+                // get_native_fmtchar(): one native character, optionally '@'-prefixed.
+                string f = _fmt ?? "";
+                if (f.Length == 2 && f[0] == '@')
+                    f = f.Substring(1);
+                char fmt = f.Length == 1 ? f[0] : '_';
+                if (fmt != 'B' && fmt != 'b' && fmt != 'c')
+                    throw PyValueError.Create("memoryview: hashing is restricted to formats 'B', 'b' or 'c'");
+                // PyObject_Hash(view->obj), keeping its own error
+                _exportee?.Hash();
+                var bytes = Data;
+                _clrHash = PyBytes.From(bytes).ToHash();
+                _hash = PyHash.Bytes(bytes);
+            }
+            return _hash;
+        }
+
+        // The CLR hash, the bytes' own, for host containers; the same rules through Hash().
+        public override int ToHash()
+        {
+            Hash();
+            return _clrHash.Value;
         }
 
         public int ItemSize { get { CheckReleased(); return _itemsize; } }
@@ -731,66 +967,89 @@ namespace SharpPy
             throw PyAttributeError.Create(name);
         }
 
-        /// <summary>
-        /// CPython 3.12: Objects/memoryobject.c:2547-2606 - memory_subscript
-        /// Supports both integer indexing and slicing
-        /// </summary>
-        protected internal override PyObject MpSubscript(PyObject index)
+        /// <summary>memory_subscript (Objects/memoryobject.c)</summary>
+        protected internal override PyObject MpSubscript(PyObject key)
         {
             CheckReleased();
-            if (_shape != null) return GetNdItem(index);
-            // CPython 3.12: line 2571-2576 - integer indexing
-            if (index is PyInt pyInt)
+            int ndim = NDim;
+            if (ndim == 0)
             {
-                return ReadElement(GetIndex(pyInt));
+                if (key is PyTuple { Items.Length: 0 })
+                    return UnpackSingle(StorageIndex(0), AdjustFmt());
+                if (key is PyEllipsis)
+                    return this;
+                throw PyTypeError.Create("invalid indexing of 0-dim memory");
             }
-            // CPython 3.12: line 2578-2593 - slice support
-            else if (index is PySlice slice)
+            if (PyObject.IndexCheck(key))
             {
+                // memory_item
+                long index = IndexOf(key);
+                CheckReleased();
+                string fmt = AdjustFmt();
+                if (ndim != 1)
+                    throw PyNotImplementedError.Create("multi-dimensional sub-views are not implemented");
+                return UnpackSingle(StorageIndex((int)LookupDimension(0, index)), fmt);
+            }
+            if (key is PySlice slice)
                 return _data is IBufferExporter ? new ExportedView(this, slice) : new PyMemoryView(this, slice);
+            if (IsMultiIndex(key))
+            {
+                // memory_item_multi
+                var tuple = (PyTuple)key;
+                CheckReleased();
+                string fmt = AdjustFmt();
+                if (tuple.Items.Length < ndim)
+                    throw PyNotImplementedError.Create("sub-views are not implemented");
+                return UnpackSingle(StorageIndex(ElementFromTuple(tuple)), fmt);
             }
-            var converted = TryGetIndex(index);
-            if (converted == null) throw PyTypeError.Create("memoryview: invalid slice key");
-            int position = GetIndex(converted, index);
-            CheckReleased();
-            return ReadElement(position);
+            if (IsMultiSlice(key))
+                throw PyNotImplementedError.Create("multi-dimensional slicing is not implemented");
+            throw PyTypeError.Create("memoryview: invalid slice key");
         }
 
-        protected internal override void MpAssSubscript(PyObject index, PyObject value)
+        /// <summary>memory_ass_sub (Objects/memoryobject.c)</summary>
+        protected internal override void MpAssSubscript(PyObject key, PyObject value)
         {
             CheckReleased();
-            if (_shape != null && index is PyTuple ndIdx)
-            {
-                if (ndIdx.Items.Length != _shape.Length)
-                    throw PyNotImplementedError.Create("sub-views are not implemented");
-                index = PyInt.From(NdFlat(ndIdx.Items));
-            }
+            string fmt = AdjustFmt();
             if (_readonly)
                 throw PyTypeError.Create("cannot modify read-only memory");
-
-            var pyInt = index as PyInt;
-            if (pyInt == null)
+            if (value == null)
+                throw PyTypeError.Create("cannot delete memory");
+            int ndim = NDim;
+            if (ndim == 0)
             {
-                if (index is PySlice slice)
+                if (key is PyEllipsis || key is PyTuple { Items.Length: 0 })
                 {
-                    SetSlice(slice, value);
+                    PackSingle(StorageIndex(0), value, fmt);
                     return;
                 }
-                pyInt = TryGetIndex(index);
+                throw PyTypeError.Create("invalid indexing of 0-dim memory");
             }
-            if (pyInt != null)
+            if (PyObject.IndexCheck(key))
             {
-                int position = GetIndex(pyInt, index);
-                ulong byteValue = ConvertByteValue(value);
-                CheckReleased();
-
-                if (byteValue > 255)
-                    throw PyValueError.Create("memoryview: invalid value for format 'B'");
-
-                if (_data is IBufferExporter exporter) exporter.BufferSpan[position] = (byte)byteValue;
-                else ((byte[])_data)[position] = (byte)byteValue;
+                if (ndim > 1)
+                    throw PyNotImplementedError.Create("sub-views are not implemented");
+                long index = IndexOf(key);
+                PackSingle(StorageIndex((int)LookupDimension(0, index)), value, fmt);
                 return;
             }
+            // one-dimensional: fast path
+            if (key is PySlice slice && ndim == 1)
+            {
+                SetSlice(slice, value);
+                return;
+            }
+            if (IsMultiIndex(key))
+            {
+                var tuple = (PyTuple)key;
+                if (tuple.Items.Length < ndim)
+                    throw PyNotImplementedError.Create("sub-views are not implemented");
+                PackSingle(StorageIndex(ElementFromTuple(tuple)), value, fmt);
+                return;
+            }
+            if (key is PySlice || IsMultiSlice(key))
+                throw PyNotImplementedError.Create("memoryview slice assignments are currently restricted to ndim = 1");
             throw PyTypeError.Create("memoryview: invalid slice key");
         }
 
@@ -854,6 +1113,8 @@ namespace SharpPy
             data.CopyTo(StorageSpan().Slice(_offset, data.Length));
         }
 
+        // memory_ass_sub's one-dimensional slice: the rvalue is an exporter, the lvalue the sliced
+        // view, and copy_single copies when equiv_structure holds.
         private void SetSlice(PySlice slice, PyObject value)
         {
             // memory_ass_sub acquires the source before invoking slice callbacks.
@@ -866,32 +1127,24 @@ namespace SharpPy
             {
                 var (start, stop, step) = slice.ViewIndices(_length);
                 int length = PySlice.GetLength(start, stop, int.CreateSaturating(step));
+                // copy_single: CHECK_RELEASED_INT_AGAIN, then equiv_structure.
                 CheckReleased();
-                if (length != source._length || _itemsize != source._itemsize)
+                if (!EquivFormat(this, source) || source.NDim != 1 || source._length != length)
                     throw PyValueError.Create("memoryview assignment: lvalue and rvalue have different structures");
                 if (length == 0) return;
 
                 nint offset = unchecked(_offset + start * _stride);
                 nint stride = unchecked(_stride * step);
-                // All Python callbacks have completed before taking storage spans.
-                var destination = StorageSpan();
+                int itemsize = _itemsize;
+                // All Python callbacks have completed before taking storage spans. The source is
+                // read whole before anything is written, as memmove and copy_base's buffer do.
                 var input = source.StorageSpan();
-                if (stride == 1 && source._stride == 1)
-                {
-                    input.Slice(source._offset, length).CopyTo(destination.Slice(unchecked((int)offset), length));
-                    return;
-                }
-                if (ReferenceEquals(_data, source._data))
-                {
-                    // A strided overlapping assignment must read every source byte
-                    // before writing any destination byte (CPython copy_single).
-                    var snapshot = new byte[length];
-                    for (int i = 0; i < length; i++) snapshot[i] = input[source.StorageIndex(i)];
-                    for (int i = 0; i < length; i++) destination[unchecked((int)(offset + i * stride))] = snapshot[i];
-                }
-                else
-                    for (int i = 0; i < length; i++)
-                        destination[unchecked((int)(offset + i * stride))] = input[source.StorageIndex(i)];
+                var snapshot = new byte[length * itemsize];
+                for (int i = 0; i < length; i++)
+                    input.Slice(source.StorageIndex(i), itemsize).CopyTo(snapshot.AsSpan(i * itemsize, itemsize));
+                var destination = StorageSpan();
+                for (int i = 0; i < length; i++)
+                    snapshot.AsSpan(i * itemsize, itemsize).CopyTo(destination.Slice(unchecked((int)(offset + i * stride)), itemsize));
             }
             finally
             {
@@ -901,42 +1154,76 @@ namespace SharpPy
             }
         }
 
-        private static ulong ConvertByteValue(PyObject value)
+        // equiv_format: the same format after an optional '@', and the same itemsize.
+        private static bool EquivFormat(PyMemoryView dest, PyMemoryView src)
         {
-            try
+            static string Strip(string format)
             {
-                var integer = value as PyInt ?? TryGetIndex(value);
-                if (integer == null) throw PyTypeError.Create("memoryview: invalid type for format 'B'");
-                // pack_single converts to C unsigned long before checking release
-                // and the byte range (32 bits on Windows, 64 on Unix x64).
-                return OperatingSystem.IsWindows() ? (ulong)(uint)integer.Value : (ulong)integer.Value;
+                format = string.IsNullOrEmpty(format) ? "B" : format;
+                return format[0] == '@' ? format.Substring(1) : format;
             }
-            catch (PythonException ex) when (ex.PyException is PyTypeError)
-            {
-                throw PyTypeError.Create("memoryview: invalid type for format 'B'");
-            }
-            catch (PythonException ex) when (ex.PyException is PyValueError || ex.PyException is PyOverflowError)
-            {
-                throw PyValueError.Create("memoryview: invalid value for format 'B'");
-            }
-            catch (OverflowException)
-            {
-                throw PyValueError.Create("memoryview: invalid value for format 'B'");
-            }
+            return Strip(dest._fmt) == Strip(src._fmt) && dest._itemsize == src._itemsize;
         }
+
+        // mp_ass_subscript with NULL
+        protected internal override void MpDelSubscript(PyObject key) => MpAssSubscript(key, null);
+
 
         // len() of an N-D view is its first axis (CPython bf_length), while the flat
         // element count stays in _length for storage arithmetic.
-        protected internal override long Len() { CheckReleased(); return _shape == null ? _length : _shape[0]; }
+        // memory_length
+        protected internal override long Len()
+        {
+            CheckReleased();
+            if (NDim == 0)
+                throw PyTypeError.Create("0-dim memory has no length");
+            return _shape == null ? _length : _shape[0];
+        }
 
+        // memory_iter
         protected internal override PyObject Iter()
         {
             CheckReleased();
-            int n = _length;
-            var items = new PyObject[n];
-            for (int i = 0; i < n; i++)
-                items[i] = ReadElement(StorageIndex(i));
-            return new PyList(items).GetIterator();
+            int ndim = NDim;
+            if (ndim == 0)
+                throw PyTypeError.Create("invalid indexing of 0-dim memory");
+            if (ndim != 1)
+                throw PyNotImplementedError.Create("multi-dimensional sub-views are not implemented");
+            return new MemoryIterator(this, AdjustFmt(), _length);
+        }
+
+        /// <summary>
+        /// memoryiterobject: one item at a time, the view checked for release at each, and the
+        /// length taken when the iterator was made.
+        /// </summary>
+        private sealed class MemoryIterator : PyIterator
+        {
+            private PyMemoryView _seq;
+            private readonly string _fmt;
+            private readonly int _length;
+            private int _index;
+
+            internal MemoryIterator(PyMemoryView seq, string fmt, int length)
+            {
+                _seq = seq;
+                _fmt = fmt;
+                _length = length;
+            }
+
+            protected override string IteratorName => "memory_iterator";
+
+            // memoryiter_next
+            protected internal override PyObject IterNext()
+            {
+                var seq = _seq ?? throw PyStopIteration.Create();
+                if (_index < _length)
+                {
+                    seq.CheckReleased();
+                    return seq.UnpackSingle(seq.StorageIndex(_index++), _fmt);
+                }
+                _seq = null;
+                throw PyStopIteration.Create();
+            }
         }
         protected internal override bool Bool() => Len() != 0;
 
