@@ -3997,39 +3997,11 @@ namespace SharpPy
                     Console.WriteLine($"🔧 BEFORE_ASYNC_WITH: Processing async context manager: {asyncContextManager}");
                     #endif
 
-                    // 1. Load __aenter__ method
-                    PyObject aenterMethod;
-                    try
-                    {
-                        aenterMethod = asyncContextManager.GetAttribute("__aenter__");
-                        if (!aenterMethod.IsCallable())
-                        {
-                            throw PyTypeError.Create(
-                                $"'{asyncContextManager.GetTypeName()}' object does not support the asynchronous context manager protocol");
-                        }
-                    }
-                    catch
-                    {
-                        throw PyTypeError.Create(
-                            $"'{asyncContextManager.GetTypeName()}' object does not support the asynchronous context manager protocol");
-                    }
-
-                    // 2. Load __aexit__ method
-                    PyObject aexitMethod;
-                    try
-                    {
-                        aexitMethod = asyncContextManager.GetAttribute("__aexit__");
-                        if (!aexitMethod.IsCallable())
-                        {
-                            throw PyTypeError.Create(
-                                $"'{asyncContextManager.GetTypeName()}' object does not support the asynchronous context manager protocol (missed __aexit__ method)");
-                        }
-                    }
-                    catch
-                    {
-                        throw PyTypeError.Create(
-                            $"'{asyncContextManager.GetTypeName()}' object does not support the asynchronous context manager protocol (missed __aexit__ method)");
-                    }
+                    // bytecodes.c BEFORE_ASYNC_WITH: both looked up on the type, __aenter__ first.
+                    var aenterMethod = WithMethod(asyncContextManager, "__aenter__") ?? throw PyTypeError.Create(
+                        $"'{asyncContextManager.GetTypeName()}' object does not support the asynchronous context manager protocol");
+                    var aexitMethod = WithMethod(asyncContextManager, "__aexit__") ?? throw PyTypeError.Create(
+                        $"'{asyncContextManager.GetTypeName()}' object does not support the asynchronous context manager protocol (missed __aexit__ method)");
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 BEFORE_ASYNC_WITH: Found __aenter__ and __aexit__ methods");
@@ -4162,16 +4134,8 @@ namespace SharpPy
                     var exc_type = pyExcVal.GetPyType();
 
                     // CPython bytecodes.c:2536-2542: tb = PyException_GetTraceback(val)
-                    PyObject exc_tb;
-                    try
-                    {
-                        var tb_attr = pyExcVal.GetAttribute("__traceback__");
-                        exc_tb = (tb_attr == PyNone.Instance) ? PyNone.Instance : tb_attr;
-                    }
-                    catch
-                    {
-                        exc_tb = PyNone.Instance;
-                    }
+                    // PyException_GetTraceback(val)
+                    PyObject exc_tb = (PyObject)pyExcVal.__traceback__ ?? PyNone.Instance;
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 WITH_EXCEPT_START: Calling exit_func(exc_type={exc_type}, val={val}, tb={exc_tb})");
@@ -4740,14 +4704,7 @@ namespace SharpPy
 
                     // Step 1: Try to get attribute from module object
                     // CPython 3.12: Python/ceval.c:2535-2537 (_PyObject_LookupAttr)
-                    try
-                    {
-                        importedItem = module.GetAttribute(itemName);
-                    }
-                    catch
-                    {
-                        // Attribute not found, continue to fallback
-                    }
+                    importedItem = module.LookupAttribute(itemName);
 
                     if (importedItem == null)
                     {
@@ -4788,7 +4745,7 @@ namespace SharpPy
                     {
                         // Generate error message similar to CPython
                         // CPython 3.12: Python/ceval.c:2561-2579
-                        string pkgModuleName = "unknown";
+                        string pkgModuleName = "<unknown module name>";
                         try
                         {
                             var nameAttr = module.GetAttribute("__name__");
@@ -5965,44 +5922,13 @@ namespace SharpPy
                     //   PyObject *hook = _PySys_GetRequiredAttr(&_Py_ID(displayhook));
                     //   PyObject *res = PyObject_CallOneArg(hook, value);
 
-                    try
                     {
-                        // CPython 3.12: Get sys.displayhook
-                        if (!PyImportSystem.TryGetModule("sys", out var sysModule))
-                        {
-                            throw new InvalidOperationException("sys module not found");
-                        }
-
-                        var displayhook = sysModule.GetAttribute("displayhook");
+                        PyObject displayhook = null;
+                        if (PyImportSystem.TryGetModule("sys", out var sysModule))
+                            displayhook = sysModule.LookupAttribute("displayhook");
                         if (displayhook == null)
-                        {
-                            throw new InvalidOperationException("sys.displayhook not found");
-                        }
-
-                        // Call displayhook(arg)
-                        if (displayhook is PyBuiltinFunction func)
-                        {
-                            return func.Call(new[] { arg });
-                        }
-                        else if (displayhook is PyFunction pyFunc)
-                        {
-                            // User-defined displayhook
-                            return pyFunc.Call(new[] { arg }, null);
-                        }
-                        else
-                        {
-                            throw new InvalidOperationException("sys.displayhook is not callable");
-                        }
-                    }
-                    catch
-                    {
-                        // Fallback: direct print if sys.displayhook fails
-                        if (arg != PyNone.Instance && !(arg is PyNone))
-                        {
-                            var reprValue = arg.ToRepr().Value;
-                            Console.WriteLine(reprValue);
-                        }
-                        return PyNone.Instance;
+                            throw PyRuntimeError.Create("lost sys.displayhook");
+                        return displayhook.Call(new[] { arg }, null);
                     }
                 case (int)IntrinsicFunction.INTRINSIC_IMPORT_STAR:
                     // CPython 3.12: Python/intrinsics.c:127-146 (import_star)

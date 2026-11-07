@@ -902,53 +902,51 @@ public class PyModule : PyObject
         /// Python/import.c:2940-2948 - Calls _handle_fromlist
         /// importlib/_bootstrap.py:1020-1040 - _handle_fromlist implementation
         /// </summary>
+        // _handle_fromlist's except clause: only the submodule itself being absent is silent, and not
+        // when sys.modules holds None for it.
         private static bool IsMissing(PythonException error, string fullName) =>
-            error.PyException.GetPyType().IsSubclassOf(PyType.ModuleNotFoundErrorType) && error.Message.Contains($"'{fullName}'");
+            error.PyException.GetPyType().IsSubclassOf(PyType.ModuleNotFoundErrorType) &&
+            error.PyException.LookupAttribute("name") is PyString name && name.Value == fullName &&
+            !(SysModules.InternalDict.TryGetValue(new PyString(fullName), out var entry) && entry is PyNone);
 
+        // PyImport_ImportModuleLevelObject: _handle_fromlist runs for a package, a module that has
+        // __path__ (read with getattr, so a module's __getattr__ answers and its errors propagate).
         private static void HandleFromList(PyModule module, string[] fromlist)
         {
-            if (fromlist == null || fromlist.Length == 0)
-            {
+            if (fromlist == null || fromlist.Length == 0 || module.LookupAttribute("__path__") == null)
                 return;
-            }
+            var names = new PyObject[fromlist.Length];
+            for (int i = 0; i < names.Length; i++) names[i] = new PyString(fromlist[i]);
+            HandleFromList(module, names, recursive: false);
+        }
 
-            // CPython 3.12: Check if this is a package (has __path__)
-            bool hasPath = module.ModuleDict.ContainsKey("__path__");
-            if (!hasPath)
+        // importlib._bootstrap._handle_fromlist: a name the module does not have is imported as its
+        // submodule; '*' does that for the names in __all__.
+        private static void HandleFromList(PyModule module, IEnumerable<PyObject> fromlist, bool recursive)
+        {
+            foreach (var item in fromlist)
             {
-                // Not a package, fromlist items should already be attributes
-                return;
-            }
-
-            string packageName = module.Name;
-
-            foreach (var itemName in fromlist)
-            {
-                // CPython 3.12: Skip special names like '*'
-                if (itemName == "*")
-                    continue;
-
-                // Check if the attribute already exists in the module
-                if (module.ModuleDict.ContainsKey(itemName))
+                if (item is not PyString name)
                 {
+                    string where = recursive ? module.GetAttribute("__name__").ToStr().Value + ".__all__" : "``from list''";
+                    throw PyTypeError.Create($"Item in {where} must be str, not {item.GetTypeName()}");
+                }
+                if (name.Value == "*")
+                {
+                    if (!recursive && module.LookupAttribute("__all__") is { } all)
+                        HandleFromList(module, new List<PyObject>(PySet.IterableItems(all)), recursive: true);
                     continue;
                 }
-
-                // Try to import as submodule: package.item
-                // CPython 3.12: This is done by calling __import__(package.item)
-                string fullName = $"{packageName}.{itemName}";
+                if (module.LookupAttribute(name.Value) != null)
+                    continue;
+                string fromName = $"{module.GetAttribute("__name__").ToStr().Value}.{name.Value}";
                 try
                 {
-                    var subModule = Import(fullName);
-                    // Add to parent module's namespace
-                    // CPython 3.12: This is done automatically by the import system
-                    // but we need to ensure it's in the module dict
-                    module.ModuleDict[itemName] = subModule;
+                    var subModule = Import(fromName);
+                    module.ModuleDict[name.Value] = subModule;
                 }
-                catch (PythonException error) when (IsMissing(error, fullName))
+                catch (PythonException error) when (IsMissing(error, fromName))
                 {
-                    // _handle_fromlist: only the submodule itself being absent is silent.
-                    // Anything raised while it runs is the caller's error.
                 }
             }
         }
