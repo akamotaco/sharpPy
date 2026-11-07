@@ -72,7 +72,7 @@ namespace SharpPy
 
         private const PyTypeFlags InheritableFlags =
             PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.MatchSelf |
-            PyTypeFlags.ItemsAtEnd | PyTypeFlags.Sequence | PyTypeFlags.Mapping |
+            PyTypeFlags.ItemsAtEnd |
             PyTypeFlags.LongSubclass | PyTypeFlags.ListSubclass | PyTypeFlags.TupleSubclass |
             PyTypeFlags.BytesSubclass | PyTypeFlags.UnicodeSubclass |
             PyTypeFlags.DictSubclass | PyTypeFlags.BaseExceptionSubclass |
@@ -163,18 +163,40 @@ namespace SharpPy
             // inherit_special reads tp_base, best_base of a class, which need not be the first
             // base: class D(Mixin, dict) is a dict.
             var baseType = BaseTypes.Length > 0 ? TpBase : null;
+            PyTypeFlags flags;
             // type itself is PyType_Type, a static type, although SharpPy builds it as a class.
-            if (this is PyClass && this is not PyTypeMetaclass)
+            if (MadeByTypeNew)
             {
                 // type_new copies the base's flags into a heap type, which is measurable: a user
-                // class deriving from list carries LIST_SUBCLASS and SEQUENCE, and one deriving
-                // from bool carries nothing, which is what makes the base check fire.
-                return PyTypeFlags.HeapType |
-                       (baseType != null ? baseType._flags & InheritableFlags : PyTypeFlags.None);
+                // class deriving from list carries LIST_SUBCLASS, and one deriving from bool
+                // carries nothing, which is what makes the base check fire.
+                flags = PyTypeFlags.HeapType |
+                        (baseType != null ? baseType._flags & InheritableFlags : PyTypeFlags.None);
             }
-            return BuiltInSpecFlags(Name) | WeakListFlag(Name) |
-                   (baseType != null ? baseType._flags & InheritSpecialFlags : PyTypeFlags.None);
+            else
+            {
+                flags = BuiltInSpecFlags(Name) | WeakListFlag(Name) |
+                        (baseType != null ? baseType._flags & InheritSpecialFlags : PyTypeFlags.None);
+            }
+            // type_ready_inherit -> inherit_patma_flags over mro[1:]: a type without SEQUENCE or
+            // MAPPING of its own takes those of the first in its MRO that has any.
+            if ((flags & CollectionBits) == 0 && MRO != null)
+            {
+                foreach (var level in MRO)
+                {
+                    if (ReferenceEquals(level, this) || level == null)
+                        continue;
+                    if ((level._flags & CollectionBits) != 0)
+                    {
+                        flags |= level._flags & CollectionBits;
+                        break;
+                    }
+                }
+            }
+            return flags;
         }
+
+        private const PyTypeFlags CollectionBits = PyTypeFlags.Sequence | PyTypeFlags.Mapping;
 
         /// <summary>
         /// Objects/typeobject.c:2789 - a base without Py_TPFLAGS_BASETYPE is refused before any
@@ -540,9 +562,6 @@ namespace SharpPy
             _ => tpNew.Call(args, kwargs),
         };
 
-        // tp_name: a builtin's carries its module, a class's is its __name__.
-        private static string TpName(PyType type) => type is PyClass ? type.Name : type.FullName;
-
         /// <summary>
         /// tp_new_wrapper (Objects/typeobject.c): the checks of type.__new__(subtype, ...) before the
         /// type's tp_new runs. The subtype must be a type and a subtype, and its most derived base
@@ -565,13 +584,16 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Py_TPFLAGS_HEAPTYPE: a class statement or type() call made the type. The one answer to
-        /// "is this a heap type" (type itself is not one).
+        /// Py_TPFLAGS_HEAPTYPE, the one answer to "is this a heap type": a class statement or type()
+        /// call (type itself is not one).
         /// </summary>
-        internal bool IsHeapType => this is PyClass && this is not PyTypeMetaclass;
+        internal bool IsHeapType => HasFeature(PyTypeFlags.HeapType);
+
+        // type_new made it: a class statement or a type() call, whose tp_base is best_base.
+        private bool MadeByTypeNew => this is PyClass && this is not PyTypeMetaclass;
 
         /// <summary>tp_base: best_base of a class, the base of a builtin.</summary>
-        internal PyType TpBase => _tpBase ??= IsHeapType
+        internal PyType TpBase => _tpBase ??= MadeByTypeNew
             ? PyTypeMetaclass.BestBase(BaseTypes)
             : BaseTypes.Length > 0 ? BaseTypes[0] : null;
 
@@ -653,31 +675,13 @@ namespace SharpPy
         internal const int TPFLAGS_SEQUENCE = 1 << 5;
         internal const int TPFLAGS_MAPPING = 1 << 6;
         internal const int COLLECTION_FLAGS = TPFLAGS_SEQUENCE | TPFLAGS_MAPPING;
-        private int _collectionFlags = -1;
 
-        // inherit_patma_flags: a type without its own takes those of the first in its MRO that has any.
+        // The SEQUENCE and MAPPING bits of tp_flags (set by PyType_Ready, by _abc_init and by
+        // set_collection_flag_recursive), as the int MATCH_SEQUENCE and MATCH_MAPPING test.
         internal int CollectionFlags
         {
-            get
-            {
-                if (_collectionFlags >= 0)
-                    return _collectionFlags;
-                int flags = 0;
-                if (MRO != null)
-                {
-                    foreach (var level in MRO)
-                    {
-                        if (!ReferenceEquals(level, this) && level.CollectionFlags != 0)
-                        {
-                            flags = level.CollectionFlags;
-                            break;
-                        }
-                    }
-                }
-                _collectionFlags = flags;
-                return flags;
-            }
-            set => _collectionFlags = value;
+            get => (int)(_flags & CollectionBits);
+            set => _flags = (_flags & ~CollectionBits) | ((PyTypeFlags)(ulong)(uint)value & CollectionBits);
         }
 
         // set_collection_flag_recursive
@@ -2142,13 +2146,13 @@ namespace SharpPy
                     }
                     else
                     {
-                        throw PyTypeError.Create($"cannot set '__name__' attribute of immutable type '{type.Name}'");
+                        throw PyTypeError.Create($"cannot set '__name__' attribute of immutable type '{type.FullName}'");
                     }
                 },
                 deleter: self => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__name__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    var name = type is PyClass pyClass ? pyClass.Name : type.Name;
+                    var name = type.FullName;
                     throw PyTypeError.Create($"cannot delete '__name__' attribute of immutable type '{name}'");
                 }
             );
@@ -2178,13 +2182,13 @@ namespace SharpPy
                     }
                     else
                     {
-                        throw PyTypeError.Create($"cannot set '__qualname__' attribute of immutable type '{type.Name}'");
+                        throw PyTypeError.Create($"cannot set '__qualname__' attribute of immutable type '{type.FullName}'");
                     }
                 },
                 deleter: self => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__qualname__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    var name = type is PyClass pyClass ? pyClass.Name : type.Name;
+                    var name = type.FullName;
                     throw PyTypeError.Create($"cannot delete '__qualname__' attribute of immutable type '{name}'");
                 }
             );
@@ -2212,7 +2216,7 @@ namespace SharpPy
                 },
                 setter: (self, value) => {
                     if (self is not PyClass heap)
-                        throw PyTypeError.Create($"cannot set '__bases__' attribute of immutable type '{((PyType)self).Name}'");
+                        throw PyTypeError.Create($"cannot set '__bases__' attribute of immutable type '{((PyType)self).FullName}'");
                     if (value is not PyTuple basesTuple)
                         throw PyTypeError.Create($"can only assign tuple to {heap.Name}.__bases__, not {value.GetTypeName()}");
                     if (basesTuple.Items.Length == 0)
@@ -2225,7 +2229,7 @@ namespace SharpPy
                     heap.SetBases(newBases);
                     heap.InvalidateTypeCache();
                 },
-                deleter: self => throw PyTypeError.Create($"cannot delete '__bases__' attribute of immutable type '{((PyType)self).Name}'")
+                deleter: self => throw PyTypeError.Create($"cannot delete '__bases__' attribute of immutable type '{((PyType)self).FullName}'")
             );
 
             // type.__mro__ - CPython type_mro (read-only)
@@ -2279,11 +2283,11 @@ namespace SharpPy
             (self, value) =>
             {
                 if (self is not PyClass heap)
-                    throw PyTypeError.Create($"cannot set '__doc__' attribute of immutable type '{((PyType)self).Name}'");
+                    throw PyTypeError.Create($"cannot set '__doc__' attribute of immutable type '{((PyType)self).FullName}'");
                 heap.ClassDict["__doc__"] = value;
                 heap.InvalidateTypeCache();
             },
-            deleter: self => throw PyTypeError.Create($"cannot delete '__doc__' attribute of immutable type '{((PyType)self).Name}'"));
+            deleter: self => throw PyTypeError.Create($"cannot delete '__doc__' attribute of immutable type '{((PyType)self).FullName}'"));
 
             // CPython 3.12: Objects/typeobject.c:1063-1091 (type_module / type_set_module)
             // type.__module__ - returns module name for the type
@@ -2335,13 +2339,13 @@ namespace SharpPy
                     }
                     else
                     {
-                        throw PyTypeError.Create($"cannot set '__module__' attribute of immutable type '{type.Name}'");
+                        throw PyTypeError.Create($"cannot set '__module__' attribute of immutable type '{type.FullName}'");
                     }
                 },
                 deleter: self => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__module__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    throw PyTypeError.Create($"cannot delete '__module__' attribute of immutable type '{type.Name}'");
+                    throw PyTypeError.Create($"cannot delete '__module__' attribute of immutable type '{type.FullName}'");
                 }
             );
 
@@ -2360,7 +2364,7 @@ namespace SharpPy
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
 
                     if (self is not PyClass cls)
-                        throw PyTypeError.Create($"cannot set '{nameStr.Value}' attribute of immutable type '{((PyType)self).Name}'");
+                        throw PyTypeError.Create($"cannot set '{nameStr.Value}' attribute of immutable type '{((PyType)self).FullName}'");
                     cls.TypeSetAttribute(nameStr.Value, args[1]);
                     return PyNone.Instance;
                 },
@@ -2378,7 +2382,7 @@ namespace SharpPy
                     if (args[0] is not PyString nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
                     if (self is not PyClass cls)
-                        throw PyTypeError.Create($"cannot set '{nameStr.Value}' attribute of immutable type '{((PyType)self).Name}'");
+                        throw PyTypeError.Create($"cannot set '{nameStr.Value}' attribute of immutable type '{((PyType)self).FullName}'");
                     cls.TypeDeleteAttribute(nameStr.Value);
                     return PyNone.Instance;
                 },

@@ -747,7 +747,7 @@ namespace SharpPy
                     nativeType.TypeDict["__module__"] = value;
                     return;
                 }
-                throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{nativeType.Name}'");
+                throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{nativeType.FullName}'");
             }
             SubclassInstanceSupport.GenericSetAttrWithDict(this, GetPyType(), name, value, null, this as IInstanceDictStore);
         }

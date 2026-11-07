@@ -160,9 +160,11 @@ namespace SharpPy
             {
                 var type = (PyType)self;
                 long flags = type.HasFeature(PyTypeFlags.BaseType) ? 1L << 10 : 0;
+                flags |= type.CollectionFlags;
+                if (type.IsHeapType)
+                    flags |= 1L << 9;
                 if (type is PyClass cls && cls.IsHeapType)
                 {
-                    flags |= 1L << 9;
                     if (cls.ClassDict.TryGetValue("__abstractmethods__", out var abstractMethods) && abstractMethods.IsTrue())
                         flags |= 1L << 20;
                 }
