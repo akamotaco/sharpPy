@@ -1330,16 +1330,12 @@ namespace SharpPy
         /// </summary>
         internal PyObject LookupOwnDict(string name, out bool written)
         {
+            // written: the dict of a class that type_new made, which a class body filled.
             written = false;
-            if (this is SharpPy.PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out var classValue))
-            {
-                // type is a static type whose dict this runtime keeps in a class body.
-                written = this is not PyTypeMetaclass;
-                return classValue;
-            }
-            if (TypeDict != null && TypeDict.TryGetValue(name, out var typeValue))
-                return typeValue;
-            return null;
+            if (TypeDict == null || !TypeDict.TryGetValue(name, out var value))
+                return null;
+            written = MadeByTypeNew;
+            return value;
         }
 
         /// <summary>_PyType_Lookup. written tells whether a Python class body holds the name.</summary>
@@ -2281,7 +2277,7 @@ namespace SharpPy
             {
                 if (self is PyType withDoc && PyDocs.Of(withDoc) is { Doc: not null } internalDoc)
                     return PyDocs.DocFromInternal(internalDoc.Name, internalDoc.Doc);
-                var dict = self is PyClass heap ? heap.ClassDict : ((PyType)self).TypeDict;
+                var dict = ((PyType)self).TypeDict;
                 return dict.TryGetValue("__doc__", out var doc) ? PyClassInstance.CallDescriptorGet(doc, null, self) : PyNone.Instance;
             },
             (self, value) =>

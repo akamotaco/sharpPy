@@ -61,6 +61,7 @@
 - 2-1. `type_comments`와 `compile(..., "func_type")`: 토크나이저와 파서가 `TYPE_COMMENT`, `TYPE_IGNORE`를 내지 않는다.
 - 2-2. 원본이 UTF-8이 아닌 바이트 소스의 끝 열: 깨진 바이트를 U+DC80~DCFF로 들고 있어 폭이 1바이트 어긋난다.
 - 2-3. test_string_literals는 `os.open`이 없어 먼저 막힌다.
+- 2-4. 파일 모드 토크나이저: 주 스크립트도 `compile()`처럼 문자열로 토큰화한다. CPython은 `tok_underflow_file`로 읽고, 오류 줄은 `_PyPegen_raise_error_known_location`이 `_PyErr_ProgramDecodedTextObject`로 파일에서 다시 읽는다. 그래서 파일 끝의 `\`는 CPython에서 `offset` 0(캐럿 없음), `text`에 줄바꿈 없음이고 SharpPy는 문자열 모드 값(`offset` 2)이다. test_eof의 bpo2180 하나.
 
 ## 3. 타입과 디스크립터
 
@@ -75,6 +76,7 @@
 - 3-5. 비교와 동등성: slot wrapper와 바인드 메서드 비교 (P0-56, P0-67, P0-69).
 - 3-6. `raise`한 객체와 `except`에서 받은 객체의 동일성 (P0-70).
 - 3-7. 내장 이터레이터를 상속한 클래스, `set` 하위 클래스의 `repr` 경로, `__bases__` 대입 검사 (P0-83).
+- 3-8. `type_setattro`가 둘이다: `PyClass.TypeSetAttribute`/`PyDelAttribute`(메타타입 데이터 디스크립터, 클래스 사전)와 `PyObject.GenericSetOrDelete`(정적 타입 거절, 그 밖은 인스턴스 사전). CPython은 하나다(불변 검사, `_PyObject_GenericSetAttrWithDict(type, ..., NULL)`, `PyType_Modified`). 이것을 `PyType` 하나로 합쳐야 `PyStructSequence_NewType`으로 만드는 힙 타입(`time.struct_time`, `os.stat_result`, `os.terminal_size`, `nt.times_result`)을 `Py_TPFLAGS_HEAPTYPE`으로 표시할 수 있다. 지금은 정적 타입으로 남아 속성 쓰기를 거절한다(test_structseq `test_reference_cycle`). `IsHeapType`은 이미 플래그 하나로 답한다.
 
 ## 4. 이터레이터와 제너레이터
 
