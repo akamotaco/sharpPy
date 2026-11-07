@@ -701,52 +701,35 @@ namespace SharpPy
                 // Handle slice assignment: list[start:stop] = values
                 // CPython 3.12: Objects/listobject.c:716-856 - list_ass_subscript
                 // Must accept any iterable, not just lists
-                PyList valueList;
-                if (value is PyList pl)
-                {
-                    valueList = pl;
-                }
-                else
-                {
-                    try
-                    {
-                        valueList = FromIterable(value);
-                    }
-                    catch (PythonException ex) when (ex.PyException is PyTypeError te
-                                 && te.Message.EndsWith("object is not iterable", StringComparison.Ordinal))
-                    {
-                        // CPython list_ass_subscript: PySequence_Fast wording
-                        // "must assign iterable to extended slice".
-                        throw PyTypeError.Create("must assign iterable to extended slice");
-                    }
-                }
+                // list_ass_subscript: a list is its own copy first, then PySequence_Fast (measured: the
+                // extended-slice wording also for a step of 1).
+                // PySlice_Unpack, PySequence_Fast, then PySlice_AdjustIndices to the size the list
+                // has after the value ran (gh-120384).
+                var (start, stop, step) = slice.UnpackStorage();
+                PyObject[] values = ReferenceEquals(this, value) ? _items.ToArray()
+                    : SequenceFast(value, "must assign iterable to extended slice");
+                (start, stop, step) = PySlice.AdjustStorageIndices(_items.Count, start, stop, step);
 
-                var (start, stop, step) = slice.StorageIndices(_items.Count);
 
                 if (step == 1)
                 {
                     // list_ass_slice: an empty slice is an insertion point, and a list can be its own value.
                     if (stop < start)
                         stop = start;
-                    var inserted = ReferenceEquals(this, valueList) ? _items.ToArray() : valueList.Items;
                     _items.RemoveRange(start, stop - start);
-                    _items.InsertRange(start, inserted);
+                    _items.InsertRange(start, values);
                 }
                 else
                 {
                     // Extended slice assignment: must have same number of items
                     int sliceLength = PySlice.GetLength(start, stop, step);
-                    if (sliceLength != valueList._items.Count)
+                    if (sliceLength != values.Length)
                     {
-                        throw PyValueError.Create($"attempt to assign sequence of size {valueList._items.Count} to extended slice of size {sliceLength}");
+                        throw PyValueError.Create($"attempt to assign sequence of size {values.Length} to extended slice of size {sliceLength}");
                     }
-                    // CPython snapshots self-assignment before writing. Other
-                    // lists can be read directly: this loop invokes no Python.
-                    var replacement = ReferenceEquals(this, valueList)
-                        ? new List<PyObject>(_items) : valueList._items;
                     for (int i = 0, position = start; i < sliceLength; i++, position = unchecked(position + step))
                     {
-                        _items[position] = replacement[i];
+                        _items[position] = values[i];
                     }
                 }
             }
@@ -803,6 +786,30 @@ namespace SharpPy
         }
 
         /// <summary>PySequence_List: everything that drains an iterable into a list comes here.</summary>
+        /// <summary>
+        /// PySequence_Fast (Objects/abstract.c): an exact list or tuple as it is, anything else
+        /// PySequence_List of its iterator; a TypeError from PyObject_GetIter becomes message.
+        /// </summary>
+        internal static PyObject[] SequenceFast(PyObject v, string message)
+        {
+            if (v is PyList { IsExact: true } list) return list.Items;
+            if (v is PyTuple { IsExact: true } tuple) return tuple.Items;
+            PyObject iterator;
+            try { iterator = v.GetIterator(); }
+            catch (PythonException error) when (error.PyException is PyTypeError)
+            { throw PyTypeError.Create(message); }
+            var cursor = iterator.GetIterator();
+            long hint = iterator.LengthHint(8);
+            if (hint > Array.MaxLength) throw PyMemoryError.Create();
+            var collected = new List<PyObject>((int)hint);
+            while (true)
+            {
+                try { collected.Add(cursor.Next()); }
+                catch (PythonException error) when (error.PyException is PyStopIteration) { break; }
+            }
+            return collected.ToArray();
+        }
+
         internal static PyList FromIterable(PyObject iterable)
         {
             var list = new PyList();

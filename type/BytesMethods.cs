@@ -574,11 +574,7 @@ namespace SharpPy
             array?.HoldExport();
             try
             {
-                items = iterable is PyList list ? list.Items : iterable is PyTuple tuple ? tuple.Items : Items(iterable);
-            }
-            catch (PythonException error) when (error.PyException is PyTypeError && !iterable.HasTypeSlot("__iter__"))
-            {
-                throw PyTypeError.Create("can only join an iterable");
+                items = PyList.SequenceFast(iterable, "can only join an iterable");
             }
             finally
             {
@@ -601,23 +597,6 @@ namespace SharpPy
                 result.AddRange(part);
             }
             return New(self, result.ToArray());
-        }
-
-        private static PyObject[] Items(PyObject iterable)
-        {
-            var items = new List<PyObject>();
-            var iterator = iterable.GetIterator();
-            while (true)
-            {
-                try
-                {
-                    items.Add(iterator.Next());
-                }
-                catch (PythonException error) when (error.PyException is PyStopIteration)
-                {
-                    return items.ToArray();
-                }
-            }
         }
 
         private static bool All(byte[] text, Func<byte, bool> test)

@@ -3081,28 +3081,8 @@ namespace SharpPy
 
         public PyString Join(PyObject iterable)
         {
-            PyObject[] values;
-            if (iterable.GetType() == typeof(PyList)) values = ((PyList)iterable).Items;
-            else if (iterable.GetType() == typeof(PyTuple)) values = ((PyTuple)iterable).Items;
-            else
-            {
-                PyObject iterator;
-                try { iterator = iterable.GetIterator(); }
-                catch (PythonException error) when (error.PyException is PyTypeError)
-                { throw PyTypeError.Create("can only join an iterable"); }
-                // PySequence_Fast consumes the iterable before checking element
-                // types. A later iterator exception wins over an earlier non-str.
-                var cursor = iterator.GetIterator();
-                long hint = iterator.LengthHint(8);
-                if (hint > Array.MaxLength) throw PyMemoryError.Create();
-                var collected = new List<PyObject>((int)hint);
-                while (true)
-                {
-                    try { collected.Add(cursor.Next()); }
-                    catch (PythonException error) when (error.PyException is PyStopIteration) { break; }
-                }
-                values = collected.ToArray();
-            }
+            // stringlib join: PySequence_Fast consumes the iterable before checking element types.
+            PyObject[] values = PyList.SequenceFast(iterable, "can only join an iterable");
             if (values.Length == 0) return StringCache.GetOrCreate("");
             if (values.Length == 1 && values[0].GetType() == typeof(PyString)) return (PyString)values[0];
             var strings = new string[values.Length];
