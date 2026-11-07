@@ -170,23 +170,8 @@ namespace SharpPy
             // func_closure, which COPY_FREE_VARS copies into the free slots.
             Closure = closure ?? Array.Empty<PyCell>();
 
-            // 함수 스코프 생성 (모듈 실행인 경우 제외)
-            if (!IsModuleExecution(code.Name))
-            {
-                if ((code.Flags & PyCodeObject.CO_OPTIMIZED) != 0)
-                    ScopeChain.PushFastLocalScope(this, code.Name);
-                else
-                    ScopeChain.PushScope(ScopeType.Local, code.Name);
-#if DEBUG_LOG
-                Console.WriteLine($"📁 스코프 추가: Local Scope '{code.Name}': 0 variables");
-#endif
-            }
-            else
-            {
-#if DEBUG_LOG
-                Console.WriteLine($"📦 모듈 실행 감지: '{code.Name}' - Local 스코프 생성 생략");
-#endif
-            }
+            // A function's locals are its localsplus slots, a class body's and exec's are its
+            // mapping; neither is a scope pushed on the chain, which holds the globals.
 
             // CPython 3.12 호환: 매개변수 바인딩 (키워드 인수 지원)
             BindArgumentsToParametersCPython312(args, code, parentFrame, defaults, kwdefaults, keywordNames);
@@ -3179,28 +3164,11 @@ namespace SharpPy
 
                 case ByteCodeOp.RETURN_VALUE:
                     var returnValue = frame.ValueStack.Count > 0 ? frame.ValueStack.Pop() : PyNone.Instance;
-                    // 🔧 함수 종료 시 scope cleanup
-                    if (frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 RETURN_VALUE: Cleaning up function scope '{frame.ScopeChain.CurrentScope.Name}'");
-                        #endif
-
-                        frame.ScopeChain.PopScope();
-                    }
                     return returnValue;
 
                 case ByteCodeOp.RETURN_CONST:
                     // CPython 3.12: Return constant value directly
                     var constValue = frame.Code.Constants[argument];
-                    // 🔧 함수 종료 시 scope cleanup
-                    if (frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 RETURN_CONST: Cleaning up function scope '{frame.ScopeChain.CurrentScope.Name}'");
-                        #endif
-                        frame.ScopeChain.PopScope();
-                    }
                     return constValue;
 
                 case ByteCodeOp.GET_AWAITABLE:
