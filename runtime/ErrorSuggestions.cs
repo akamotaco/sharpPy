@@ -219,56 +219,101 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12: Python/suggestions.c offer_suggestions_for_name_error -
-        /// the DISPLAY-time path used by PyErr_Display. Reads the innermost traceback
-        /// frame, tries locals (with the "self." hint first), then globals, then
-        /// builtins as separate candidate pools (C ordering matters: an earlier pool
-        /// with a valid suggestion wins over a closer name in a later pool).
+        /// _Py_Offer_Suggestions (Python/suggestions.c): the trailer the exception writer adds to an
+        /// AttributeError, NameError or ImportError of exactly that type, or null.
         /// </summary>
-        public static string? GetDisplaySuggestionForNameError(PyObject? tracebackObj, string name)
+        internal static string? Offer(PyObject exception)
         {
-            try
+            if (exception.IsExactly(PyType.AttributeErrorType))
+                return OfferForAttributeError((PyBaseException)exception);
+            if (exception.IsExactly(PyType.NameErrorType))
+                return OfferForNameError((PyBaseException)exception);
+            if (exception.IsExactly(PyType.ImportErrorType))
+                return OfferForImportError((PyBaseException)exception);
+            return null;
+        }
+
+        private static PyObject? Member(PyBaseException exception, string name) =>
+            exception.TryGetMember(name, out var value) ? value : null;
+
+        // offer_suggestions_for_attribute_error / get_suggestions_for_attribute_error
+        private static string? OfferForAttributeError(PyBaseException exception)
+        {
+            var name = Member(exception, "name");
+            var obj = Member(exception, "obj");
+            if (name == null || obj == null || !name.IsExactly(PyType.StrType))
+                return null;
+            var suggestion = CalculateSuggestions(DirNames(PyBuiltinFunction.ObjectDir(obj)), ((PyString)name).Value);
+            return suggestion == null ? null : $". Did you mean: {PyString.From(suggestion).ToRepr().Value}?";
+        }
+
+        // offer_suggestions_for_name_error: the innermost frame of the traceback.
+        private static string? OfferForNameError(PyBaseException exception)
+        {
+            var name = Member(exception, "name");
+            if (name == null || !name.IsExactly(PyType.StrType) || exception.__traceback__ is not PyTraceback traceback)
+                return null;
+            while (traceback.Next != null)
+                traceback = traceback.Next;
+            var frame = traceback.Frame;
+            string text = ((PyString)name).Value;
+            string? suggestion = SuggestionsForNameError(text, frame);
+            string quoted = PyString.From(text).ToRepr().Value;
+            if (!StdlibModuleNames.Contains(text))
+                return suggestion == null ? null : $". Did you mean: {PyString.From(suggestion).ToRepr().Value}?";
+            if (suggestion == null)
+                return $". Did you forget to import {quoted}?";
+            return $". Did you mean: {PyString.From(suggestion).ToRepr().Value}? Or did you forget to import {quoted}?";
+        }
+
+        // get_suggestions_for_name_error: co_varnames (and self's attributes), then the globals,
+        // then the builtins; an earlier pool with an answer wins.
+        private static string? SuggestionsForNameError(string name, PyFrame frame)
+        {
+            var varnames = DirNames(frame.Code.GetAttribute("co_varnames"));
+            if (varnames.Contains("self"))
             {
-                if (tracebackObj is not PyTraceback tb) return null;
-                while (tb.Next != null) tb = tb.Next!;
-                var frame = tb.Frame;
-                if (frame == null) return null;
-
-                var localsObj = frame.GetAttribute("f_locals");
-                var localsNames = AsNameList(localsObj);
-                var globalsNames = AsNameList(frame.GetAttribute("f_globals"));
-                var builtinsNames = AsNameList(frame.GetAttribute("f_builtins"));
-
-                // Are we inside a method and the instance has an attribute called 'name'?
-                if (localsNames != null && localsNames.Contains("self") && localsObj is PyDict localsDict)
+                var locals = frame.GetAttribute("f_locals");
+                if (locals is PyDict dict && dict.TryGetStoredValue(PyString.From("self"), out var self))
                 {
-                    var selfObj = localsDict.Get(PyString.From("self"));
-                    if (selfObj != null && !ReferenceEquals(selfObj, PyNone.Instance))
+                    try
                     {
-                        try
-                        {
-                            selfObj.GetAttribute(name);
-                            return "self." + name;
-                        }
-                        catch (PythonException)
-                        {
-                            // no such attribute; continue with name candidates
-                        }
+                        self.GetAttribute(name);
+                        return "self." + name;
+                    }
+                    catch (PythonException error) when (error.PyException is PyAttributeError)
+                    {
                     }
                 }
+            }
+            return CalculateSuggestions(varnames, name)
+                ?? CalculateSuggestions(DirNames(frame.GetAttribute("f_globals")), name)
+                ?? CalculateSuggestions(DirNames(frame.GetAttribute("f_builtins")), name);
+        }
 
-                foreach (var pool in new[] { localsNames, globalsNames, builtinsNames })
-                {
-                    if (pool == null) continue;
-                    var suggestion = CalculateSuggestions(pool, name);
-                    if (suggestion != null) return suggestion;
-                }
-            }
-            catch (PythonException)
-            {
-                // suggestions must never break the traceback display
-            }
-            return null;
+        // offer_suggestions_for_import_error: dir() of the module the name was wanted from.
+        private static string? OfferForImportError(PyBaseException exception)
+        {
+            var moduleName = Member(exception, "name");
+            var name = Member(exception, "name_from");
+            if (name == null || moduleName == null || name is PyNone ||
+                !name.IsExactly(PyType.StrType) || !moduleName.IsExactly(PyType.StrType))
+                return null;
+            var modules = PyImportSystem.Import("sys").GetAttribute("modules");
+            if (modules is not PyDict table || !table.TryGetStoredValue(moduleName, out var module))
+                return null;
+            var suggestion = CalculateSuggestions(DirNames(PyBuiltinFunction.ObjectDir(module)), ((PyString)name).Value);
+            return suggestion == null ? null : $". Did you mean: {PyString.From(suggestion).ToRepr().Value}?";
+        }
+
+        // PySequence_List of names: what the candidates are, in their order.
+        private static List<string> DirNames(PyObject names)
+        {
+            var result = new List<string>();
+            foreach (var item in PyObject.IterateItems(names))
+                if (item is PyString text)
+                    result.Add(text.Value);
+            return result;
         }
 
         private static List<string>? AsNameList(PyObject? value)

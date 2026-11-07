@@ -1590,8 +1590,12 @@ namespace SharpPy
                 return sortedLocals;
             }
 
-            var obj = args[0];
-            // _dir_object
+            return ObjectDir(args[0]);
+        }
+
+        /// <summary>PyObject_Dir of an object (_dir_object): its __dir__, as a sorted list.</summary>
+        internal static PyObject ObjectDir(PyObject obj)
+        {
             var dirMethod = obj.LookupSpecialMethodUncached("__dir__") ??
                 throw PyTypeError.Create("object does not provide __dir__");
             var listing = PyList.FromIterable(obj.BindSpecialMethod(dirMethod).Call(Array.Empty<PyObject>(), null));

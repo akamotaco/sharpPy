@@ -80,7 +80,7 @@
 
 ## 1a. 예외 출력
 
-- 1a-1. 출력 경로가 둘이고 둘 다 CPython 3.12의 것이 아니다. `sys.excepthook`/`sys.__excepthook__`는 `traceback.print_exception`(Python 쪽 포매터)을 부르고, 훅이 실패하면 `runtime/PyInterpreter.cs`의 손으로 쓴 출력기(`PrintPythonStyleTraceback`, `ShowSourceLineWithMarkers`, `PrintCurrentFrameFallback`)가 쓴다. CPython 3.12는 둘 다 C의 `_PyErr_Display`(`Python/pythonrun.c` `print_exception_recursive`, `print_exception_file_and_line`, `print_error_text`; `Python/traceback.c` `tb_displayline`)다. 3.12의 `traceback.py`는 SyntaxError의 범위를 다르게 그린다: 끝 열이 음수이거나 시작 열보다 앞이면 C는 `^` 하나, 끝 열이 줄 길이+1을 넘으면 C는 거기서 자르고, 끝 줄이 다음 줄이면 C는 줄 끝까지 칠한다(test_exceptions `test_range_of_offsets`). 할 일: `_PyErr_Display`를 C#으로 옮겨 두 경로를 그것 하나로.
+- 1a-1. 예외 출력은 `runtime/PyErrorDisplay.cs` 하나다: `_PyErr_Display`(`print_exception_recursive`, 체인, 그룹, 노트, `print_exception_file_and_line`/`print_error_text`, `_Py_Offer_Suggestions`)와 `traceback.c`의 `tb_printinternal`/`tb_displayline`(소스 줄, AST 앵커, 캐럿, 반복 줄 접기). `sys.excepthook`, `sys.__excepthook__`, `PyErr_PrintEx`(훅 실패 시 "Error in sys.excepthook")가 이것을 부른다. `traceback.py`는 라이브러리의 포매터로 따로 남는다(CPython과 같다).
 
 ## 4. 이터레이터와 제너레이터
 

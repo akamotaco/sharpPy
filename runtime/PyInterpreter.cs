@@ -354,293 +354,67 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Print Python-style traceback with filename, line numbers, and source code
-        /// CPython 3.12 compatible: Prints full call stack with traceback chain
+        /// _PyErr_PrintEx (Python/pythonrun.c): sys.last_* are set and sys.excepthook reports; a hook
+        /// that fails is reported in its turn, then the original exception, both by PyErr_Display.
         /// </summary>
         private void PrintPythonStyleTraceback(Exception e)
         {
-            // PyErr_PrintEx: sys.excepthook reports, and a failing hook is reported in its turn.
-            if (e is PythonException { PyException: not null } raised)
+            // The parser's own host fault says SyntaxError; any other host fault is the VM's conversion.
+            PyBaseException exception = e is PySyntaxErrorException syntax
+                ? new PySyntaxError(syntax.Message)
+                : PyVM.ConvertToPythonException(e);
+            PyObject type = exception.GetPyType();
+            PyObject traceback = (PyObject)exception.__traceback__ ?? PyNone.Instance;
+            var sys = PyImportSystem.Import("sys");
+            foreach (var (name, value) in new[] { ("last_exc", (PyObject)exception), ("last_type", type), ("last_value", exception), ("last_traceback", traceback) })
             {
-                var exception = raised.PyException;
-                var arguments = new PyObject[]
-                {
-                    exception.GetPyType(), exception, (PyObject)exception.__traceback__ ?? PyNone.Instance,
-                };
                 try
                 {
-                    var sys = PyImportSystem.Import("sys");
-                    sys.SetAttribute("last_exc", exception);
-                    sys.SetAttribute("last_type", arguments[0]);
-                    sys.SetAttribute("last_value", exception);
-                    sys.SetAttribute("last_traceback", arguments[2]);
-                    sys.GetAttribute("excepthook").Call(arguments, null);
+                    sys.SetAttribute(name, value);
+                }
+                catch (PythonException)
+                {
+                }
+            }
+            if (!sys.ModuleDict.TryGetValue("excepthook", out var hook))
+            {
+                WriteStderr("sys.excepthook is missing\n");
+                PyErrorDisplay.Display(exception, null);
+                return;
+            }
+            try
+            {
+                hook.Call(new[] { type, exception, traceback }, null);
+            }
+            catch (PythonException failure)
+            {
+                if (PySystemExit.Matches(failure.PyException))
+                    throw;
+                Console.Out.Flush();
+                WriteStderr("Error in sys.excepthook:\n");
+                PyErrorDisplay.Display(failure.PyException, null);
+                WriteStderr("\nOriginal exception was:\n");
+                PyErrorDisplay.Display(exception, null);
+            }
+        }
+
+        // PySys_WriteStderr: to sys.stderr, or to the process's stderr when there is none.
+        private static void WriteStderr(string text)
+        {
+            try
+            {
+                if (PyImportSystem.Import("sys").ModuleDict.TryGetValue("stderr", out var stderr) && stderr is not PyNone)
+                {
+                    stderr.GetAttribute("write").Call(new PyObject[] { PyString.From(text) }, null);
                     return;
                 }
-                catch (PythonException failure)
-                {
-                    if (PySystemExit.Matches(failure.PyException))
-                        throw;
-                    Console.Error.WriteLine("Error in sys.excepthook:");
-                    Console.Error.WriteLine($"{failure.PyException.GetTypeName()}: {failure.PyException.AsString().Value}");
-                    Console.Error.WriteLine();
-                    Console.Error.WriteLine("Original exception was:");
-                }
             }
-            Console.Error.WriteLine("Traceback (most recent call last):");
-
-            // CPython 3.12: Use traceback chain from exception if available
-            if (e is PythonException pyEx && pyEx.PyException.__traceback__ != null)
+            catch (PythonException)
             {
-                // CPython 3.12: Chain is already in outermost-first order
-                // __traceback__ points to outermost frame, next points to progressively inner frames
-                // e.g., <module> → outer → middle → inner → NULL
-                var tb = pyEx.PyException.__traceback__;
-                while (tb != null)
-                {
-                    PrintTracebackFrame(tb);
-                    tb = tb.Next;
-                }
             }
-            else
-            {
-                // Fallback: Print current frame only (old behavior)
-                PrintCurrentFrameFallback(e);
-            }
-
-            // CPython 3.12: Print exception chaining (__cause__ and __context__)
-            if (e is PythonException pyEx2 && pyEx2.PyException != null)
-            {
-                PrintExceptionChaining(pyEx2.PyException);
-            }
-
-            // Print exception type and message
-            PrintExceptionMessage(e);
+            Console.Error.Write(text);
         }
 
-        /// <summary>
-        /// Print a single traceback frame (CPython 3.12 format)
-        /// </summary>
-        private void PrintTracebackFrame(PyTraceback tb)
-        {
-            var frame = tb.Frame;
-            var fileName = frame.CurrentFileName ?? _currentFileName ?? "<stdin>";
-            var functionName = frame.Code.Name ?? "<module>";
-            var lineNumber = tb.LineNo;
-
-            Console.Error.WriteLine($"  File \"{fileName}\", line {lineNumber}, in {functionName}");
-
-            // Show source line with ^^^ markers using column info from traceback
-            var colOffset = tb.ColNo >= 0 ? tb.ColNo : frame.CurrentColumnOffset;
-            var endColOffset = tb.EndColNo >= 0 ? tb.EndColNo : colOffset;
-            ShowSourceLineWithMarkers(fileName, lineNumber, colOffset, endColOffset);
-        }
-
-        /// <summary>
-        /// Show source line with ^^^ markers (CPython 3.12 format)
-        /// </summary>
-        private void ShowSourceLineWithMarkers(string fileName, int lineNumber, int columnOffset, int endColumnOffset = -1)
-        {
-            // Try to get source line
-            string? sourceLine = null;
-
-            if (_sourceLines != null && lineNumber > 0 && lineNumber <= _sourceLines.Length)
-            {
-                sourceLine = _sourceLines[lineNumber - 1];
-            }
-
-            if (!string.IsNullOrEmpty(sourceLine))
-            {
-                var trimmedLine = sourceLine.Trim();
-                Console.Error.WriteLine($"    {trimmedLine}");
-
-                // Add ^^^ markers if column information is available
-                if (columnOffset >= 0)
-                {
-                    var leadingSpaces = sourceLine.Length - trimmedLine.Length;
-                    var adjustedStartColumn = Math.Max(0, columnOffset - leadingSpaces);
-
-                    // Calculate marker length (CPython 3.12 style)
-                    int markerLength = 1;
-                    if (endColumnOffset > columnOffset)
-                    {
-                        var adjustedEndColumn = Math.Max(0, endColumnOffset - leadingSpaces);
-                        markerLength = Math.Max(1, adjustedEndColumn - adjustedStartColumn);
-                    }
-
-                    // Clamp to line length
-                    adjustedStartColumn = Math.Min(adjustedStartColumn, trimmedLine.Length);
-                    markerLength = Math.Min(markerLength, trimmedLine.Length - adjustedStartColumn);
-
-                    var markers = new string(' ', adjustedStartColumn) + new string('^', Math.Max(1, markerLength));
-                    Console.Error.WriteLine($"    {markers}");
-                }
-            }
-            else
-            {
-                Console.Error.WriteLine($"    # Source line not available (line {lineNumber})");
-            }
-        }
-
-        /// <summary>
-        /// Print current frame only (fallback for exceptions without traceback)
-        /// </summary>
-        private void PrintCurrentFrameFallback(Exception e)
-        {
-            var currentFrame = PyVM.CurrentFrame;
-
-            if (currentFrame != null && currentFrame.CurrentLineNumber > 0)
-            {
-                var fileName = _currentFileName ?? "<stdin>";
-                var functionName = currentFrame.Code.Name ?? "<module>";
-                var lineNumber = currentFrame.CurrentLineNumber;
-
-                Console.Error.WriteLine($"  File \"{fileName}\", line {lineNumber}, in {functionName}");
-                ShowSourceLineWithMarkers(fileName, lineNumber, currentFrame.CurrentColumnOffset);
-            }
-            else if (e is PySyntaxErrorException syntaxEx && syntaxEx.LineNumber > 0)
-            {
-                // SyntaxError special handling
-                var fileName = syntaxEx.FileName ?? _currentFileName ?? "<stdin>";
-                Console.Error.WriteLine($"  File \"{fileName}\", line {syntaxEx.LineNumber}");
-
-                var sourceLine = syntaxEx.SourceLine;
-                if (string.IsNullOrEmpty(sourceLine) && _sourceLines != null && syntaxEx.LineNumber <= _sourceLines.Length)
-                {
-                    sourceLine = _sourceLines[syntaxEx.LineNumber - 1];
-                }
-
-                if (!string.IsNullOrEmpty(sourceLine))
-                {
-                    Console.Error.WriteLine($"    {sourceLine}");
-                    if (syntaxEx.ColumnOffset >= 0)
-                    {
-                        var markerLength = syntaxEx.EndColumnOffset > syntaxEx.ColumnOffset
-                            ? syntaxEx.EndColumnOffset - syntaxEx.ColumnOffset : 3;
-                        var marker = new string(' ', syntaxEx.ColumnOffset) + new string('^', markerLength);
-                        Console.Error.WriteLine($"    {marker}");
-                    }
-                }
-            }
-            else
-            {
-                // No frame info available
-                Console.Error.WriteLine($"  File \"{_currentFileName ?? "<stdin>"}\", line ?, in <module>");
-                Console.Error.WriteLine($"    # Line information not available");
-            }
-        }
-
-        /// <summary>
-        /// Print exception chaining (__cause__ and __context__)
-        /// CPython 3.12: Recursive exception printing
-        /// </summary>
-        private void PrintExceptionChaining(PyBaseException exception)
-        {
-            // Print __cause__ first (explicit chaining with "raise ... from ...")
-            if (exception.__cause__ != null)
-            {
-                // Recursively print the cause
-                PrintChainedException(exception.__cause__, isContext: false);
-                return; // __cause__ takes precedence over __context__
-            }
-
-            // Print __context__ if no __cause__ and __suppress_context__ is False
-            if (!exception.__suppress_context__ && exception.__context__ != null)
-            {
-                PrintChainedException(exception.__context__, isContext: true);
-            }
-        }
-
-        /// <summary>
-        /// Print a chained exception
-        /// </summary>
-        private void PrintChainedException(PyBaseException chainedException, bool isContext)
-        {
-            // CPython 3.12: Print chained exceptions recursively first (oldest first)
-            // Recursively handle chaining BEFORE printing this exception
-            PrintExceptionChaining(chainedException);
-
-            Console.Error.WriteLine();
-
-            // Print traceback for the chained exception
-            if (chainedException.__traceback__ != null)
-            {
-                Console.Error.WriteLine("Traceback (most recent call last):");
-
-                // CPython 3.12: Chain is already in outermost-first order
-                // __traceback__ points to outermost frame, next points to progressively inner frames
-                var tb = chainedException.__traceback__;
-                while (tb != null)
-                {
-                    PrintTracebackFrame(tb);
-                    tb = tb.Next;
-                }
-            }
-
-            // Print exception message
-            Console.Error.WriteLine($"{chainedException.GetTypeName()}: {chainedException.ToStr().Value}");
-            Console.Error.WriteLine();
-
-            // Print transition message
-            if (isContext)
-            {
-                Console.Error.WriteLine("During handling of the above exception, another exception occurred:");
-                Console.Error.WriteLine();
-            }
-            else
-            {
-                Console.Error.WriteLine("The above exception was the direct cause of the following exception:");
-                Console.Error.WriteLine();
-            }
-        }
-
-        /// <summary>
-        /// Print exception type and message
-        /// </summary>
-        private void PrintExceptionMessage(Exception e)
-        {
-            string pythonExceptionType;
-            string exceptionMessage;
-
-            if (e is PythonException pyEx && pyEx.PyException != null)
-            {
-                pythonExceptionType = pyEx.PyException.GetTypeName();
-                exceptionMessage = pyEx.PyException.ToStr().Value;
-            }
-            else if (e is PySyntaxErrorException)
-            {
-                // The compiler's own route, as in the VM (IsHostFailure).
-                pythonExceptionType = "SyntaxError";
-                exceptionMessage = e.Message;
-            }
-            else
-            {
-                // A host fault: the VM's one conversion (SystemError for what no Python code causes).
-                var converted = PyVM.ConvertToPythonException(e);
-                pythonExceptionType = converted.GetTypeName();
-                exceptionMessage = converted.ToStr().Value;
-            }
-
-            // CPython 3.12: PyErr_Display appends suggestions for NameError at
-            // display time (Python/suggestions.c offer_suggestions_for_name_error).
-            // Caught exceptions keep the plain message; only this display gains the suffix.
-            if (e is PythonException pyExSug && pyExSug.PyException is PyNameError displayErr &&
-                displayErr.GetAttribute("name") is PyString wrongName && wrongName.Value.Length > 0)
-            {
-                string? displaySuggestion = ErrorSuggestions.GetDisplaySuggestionForNameError(
-                    pyExSug.PyException.__traceback__, wrongName.Value);
-                bool stdlibModule = StdlibModuleNames.Contains(wrongName.Value);
-                if (displaySuggestion != null && stdlibModule)
-                    exceptionMessage += $". Did you mean: '{displaySuggestion}'? Or did you forget to import '{wrongName.Value}'?";
-                else if (displaySuggestion != null)
-                    exceptionMessage += $". Did you mean: '{displaySuggestion}'?";
-                else if (stdlibModule)
-                    exceptionMessage += $". Did you forget to import '{wrongName.Value}'?";
-            }
-
-            Console.Error.WriteLine($"{pythonExceptionType}: {exceptionMessage}");
-        }
-        
         // 대화형 실행 (REPL 스타일)
         public void Interactive()
         {
