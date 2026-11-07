@@ -322,7 +322,7 @@ namespace SharpPy
                 }
                 catch (Exception ex)
                 {
-                    ReportIgnored(Describe(callback), null, ex.Message);
+                    PyUnraisable.Report(new PythonException(PyVM.ConvertToPythonException(ex)), callback);
                 }
                 finally
                 {
@@ -521,7 +521,7 @@ namespace SharpPy
                 }
                 catch (Exception ex)
                 {
-                    ReportIgnored(Describe(generator), null, ex.Message);
+                    PyUnraisable.Report(new PythonException(PyVM.ConvertToPythonException(ex)), generator);
                 }
                 finally
                 {
@@ -557,7 +557,7 @@ namespace SharpPy
             }
             catch (Exception ex)
             {
-                ReportIgnored(Describe(hook), null, ex.Message);
+                PyUnraisable.Report(new PythonException(PyVM.ConvertToPythonException(ex)), hook);
             }
             finally
             {
@@ -822,34 +822,5 @@ namespace SharpPy
         ///   Traceback (most recent call last):
         ///   ValueError: boom in del
         /// </summary>
-        private static string Describe(PyObject context)
-        {
-            try { return context == null ? "__del__" : context.ToRepr().Value; }
-            catch { return "__del__"; }
-        }
-
-        private static void ReportIgnored(string context, PythonException pythonError, string message = null)
-        {
-            try
-            {
-                Console.Error.WriteLine("Exception ignored in: " + context);
-                Console.Error.WriteLine("Traceback (most recent call last):");
-                if (pythonError != null)
-                {
-                    var value = pythonError.PyException;
-                    Console.Error.WriteLine(value == null
-                        ? pythonError.Message
-                        : value.GetTypeName() + ": " + value.ToStr().Value);
-                }
-                else if (message != null)
-                {
-                    Console.Error.WriteLine(message);
-                }
-            }
-            catch
-            {
-                // A failing report must not replace the program's own outcome.
-            }
-        }
     }
 }

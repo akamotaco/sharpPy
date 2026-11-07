@@ -54,158 +54,139 @@ namespace SharpPy.Modules
             return t;
         }
 
+        private static readonly string[] DialectArgs =
+            { "dialect", "delimiter", "doublequote", "escapechar", "lineterminator", "quotechar", "quoting", "skipinitialspace", "strict" };
+
+        // dialect_new (Modules/_csv.c): the one place a Dialect is made; reader, writer and
+        // register_dialect come here through _call_dialect.
         private static PyObject DialectNew(PyObject cls, PyObject[] args, PyDict kwargs)
         {
-            var d = new PyDialect();
-            d.Delimiter = PyString.From(",");
-            d.DoubleQuote = PyBool.FromBool(true);
-            d.EscapeChar = PyNone.Instance;
-            d.LineTerminator = PyString.From("\r\n");
-            d.QuoteChar = PyString.From("\"");
-            d.Quoting = PyInt.From(0);
-            d.SkipInitialSpace = PyBool.FromBool(false);
-            d.Strict = PyBool.FromBool(false);
-
-            PyObject dialectArg = null;
-            if (args.Length > 0)
-                dialectArg = args[0];
-
-            if (dialectArg != null && dialectArg != PyNone.Instance)
-            {
-                if (dialectArg is PyString nameStr)
-                {
-                    if (!_dialects.TryGetStoredValue(nameStr, out var reg))
-                        throw PyExceptionSlots.Raise(ErrorType, "unknown dialect");
-                    dialectArg = reg;
-                }
-                CopyDialectAttrs(d, dialectArg);
-            }
-
+            // PyArg_ParseTupleAndKeywords(args, kwargs, "|OOOOOOOOO", ...)
+            if (args.Length > DialectArgs.Length)
+                throw PyTypeError.Create($"function takes at most {DialectArgs.Length} arguments ({args.Length + (kwargs?.InternalDict.Count ?? 0)} given)");
+            var v = new PyObject[DialectArgs.Length];
+            Array.Copy(args, v, args.Length);
             if (kwargs != null)
-            {
                 foreach (var key in kwargs.Keys().Items)
                 {
-                    var k = key.ToStr().Value;
-                    if (k == "delimiter") d.Delimiter = ValidateChar(kwargs.GetItem(key), "delimiter");
-                    else if (k == "doublequote") d.DoubleQuote = PyBool.FromBool(kwargs.GetItem(key).IsTrue());
-                    else if (k == "escapechar") d.EscapeChar = ValidateOptionalChar(kwargs.GetItem(key), "escapechar");
-                    else if (k == "lineterminator") d.LineTerminator = ValidateString(kwargs.GetItem(key), "lineterminator");
-                    else if (k == "quotechar") d.QuoteChar = ValidateOptionalChar(kwargs.GetItem(key), "quotechar");
-                    else if (k == "quoting") d.Quoting = ValidateQuoting(kwargs.GetItem(key));
-                    else if (k == "skipinitialspace") d.SkipInitialSpace = PyBool.FromBool(kwargs.GetItem(key).IsTrue());
-                    else if (k == "strict") d.Strict = PyBool.FromBool(kwargs.GetItem(key).IsTrue());
+                    int i = key is PyString k ? Array.IndexOf(DialectArgs, k.Value) : -1;
+                    if (i < 0)
+                        throw PyTypeError.Create($"'{key.ToStr().Value}' is an invalid keyword argument for this function");
+                    if (i < args.Length)
+                        throw PyTypeError.Create($"argument for function given by name ('{DialectArgs[i]}') and position ({i + 1})");
+                    v[i] = kwargs.GetItem(key);
                 }
-            }
-
-            ValidateDialect(d);
-            return d;
-        }
-
-        private static void CopyDialectAttrs(PyDialect d, PyObject src)
-        {
-            if (src is PyDialect pd)
-            {
-                d.Delimiter = pd.Delimiter; d.DoubleQuote = pd.DoubleQuote;
-                d.EscapeChar = pd.EscapeChar; d.LineTerminator = pd.LineTerminator;
-                d.QuoteChar = pd.QuoteChar; d.Quoting = pd.Quoting;
-                d.SkipInitialSpace = pd.SkipInitialSpace; d.Strict = pd.Strict;
-                return;
-            }
-            try { d.Delimiter = ValidateChar(src.GetAttribute("delimiter"), "delimiter"); } catch { }
-            try { d.DoubleQuote = PyBool.FromBool(src.GetAttribute("doublequote").IsTrue()); } catch { }
-            try { d.EscapeChar = ValidateOptionalChar(src.GetAttribute("escapechar"), "escapechar"); } catch { }
-            try { d.LineTerminator = ValidateString(src.GetAttribute("lineterminator"), "lineterminator"); } catch { }
-            try { d.QuoteChar = ValidateOptionalChar(src.GetAttribute("quotechar"), "quotechar"); } catch { }
-            try { d.Quoting = ValidateQuoting(src.GetAttribute("quoting")); } catch { }
-            try { d.SkipInitialSpace = PyBool.FromBool(src.GetAttribute("skipinitialspace").IsTrue()); } catch { }
-            try { d.Strict = PyBool.FromBool(src.GetAttribute("strict").IsTrue()); } catch { }
-        }
-
-        private static PyObject ValidateChar(PyObject val, string name)
-        {
-            if (val is PyString s && s.Value.Length == 1) return val;
-            throw PyTypeError.Create("\"" + name + "\" must be a 1-character string");
-        }
-
-        private static PyObject ValidateOptionalChar(PyObject val, string name)
-        {
-            if (val == PyNone.Instance) return val;
-            return ValidateChar(val, name);
-        }
-
-        private static PyObject ValidateString(PyObject val, string name)
-        {
-            if (val is PyString) return val;
-            throw PyTypeError.Create(name + " must be set");
-        }
-
-        private static PyObject ValidateQuoting(PyObject val)
-        {
-            int q = (int)val.ToInt();
-            if (q < 0 || q > 5) throw PyTypeError.Create("bad \"quoting\" value");
-            return PyInt.From(q);
-        }
-
-        private static void ValidateDialect(PyDialect d)
-        {
-            int quoting = (int)d.Quoting.ToInt();
-            if (quoting != 3 && d.QuoteChar == PyNone.Instance)
+            var dialect = v[0];
+            if (dialect is PyString name)
+                dialect = GetDialectFromRegistry(name);
+            // Can we reuse this instance?
+            if (dialect is PyDialect existing && Array.TrueForAll(v[1..], x => x == null))
+                return existing;
+            // DIALECT_GETATTR: an attribute the dialect cannot give is cleared and keeps the default.
+            if (dialect != null)
+                for (int i = 1; i < v.Length; i++)
+                    v[i] ??= DialectAttr(dialect, DialectArgs[i]);
+            PyObject delimiter = v[1], doublequote = v[2], escapechar = v[3], lineterminator = v[4],
+                quotechar = v[5], quoting = v[6], skipinitialspace = v[7], strict = v[8];
+            // quotechar=None without a quoting is QUOTE_NONE.
+            bool quoteNone = quotechar == PyNone.Instance && quoting == null;
+            var d = new PyDialect();
+            d.Delimiter = SetChar("delimiter", delimiter, ",");
+            d.DoubleQuote = PyBool.FromBool(doublequote == null || doublequote.IsTrue());
+            d.EscapeChar = SetCharOrNone("escapechar", escapechar, null);
+            d.LineTerminator = SetStr("lineterminator", lineterminator, "\r\n");
+            d.QuoteChar = SetCharOrNone("quotechar", quotechar, "\"");
+            d.Quoting = SetInt("quoting", quoting, 0);
+            d.SkipInitialSpace = PyBool.FromBool(skipinitialspace != null && skipinitialspace.IsTrue());
+            d.Strict = PyBool.FromBool(strict != null && strict.IsTrue());
+            if (quoteNone)
+                d.Quoting = PyInt.From(3);
+            // dialect_check_quoting
+            int q = (int)((PyInt)d.Quoting).Value;
+            if (q < 0 || q > 5)
+                throw PyTypeError.Create("bad \"quoting\" value");
+            if (q != 3 && d.QuoteChar == PyNone.Instance)
                 throw PyTypeError.Create("quotechar must be set if quoting enabled");
             if (d.LineTerminator == PyNone.Instance)
                 throw PyTypeError.Create("lineterminator must be set");
+            return d;
         }
+
+        // _call_dialect
+        private static PyDialect CallDialect(PyObject dialect, PyDict kwargs) =>
+            (PyDialect)DialectNew(DialectType, dialect == null ? Array.Empty<PyObject>() : new[] { dialect }, kwargs);
+
+        // get_dialect_from_registry
+        private static PyObject GetDialectFromRegistry(PyObject name) =>
+            _dialects.TryGetStoredValue(name, out var found) ? found : throw PyExceptionSlots.Raise(ErrorType, "unknown dialect");
+
+        // PyObject_GetAttrString, with whatever it raises cleared.
+        private static PyObject DialectAttr(PyObject src, string name)
+        {
+            try { return src.GetAttribute(name); }
+            catch (PythonException) { return null; }
+        }
+
+        // _set_char: a str of one code point.
+        private static PyObject SetChar(string name, PyObject src, string dflt)
+        {
+            if (src == null) return PyString.From(dflt);
+            if (src is not PyString text)
+                throw PyTypeError.Create($"\"{name}\" must be string, not {src.GetTypeName()}");
+            if (text.CodePointLength() != 1)
+                throw PyTypeError.Create($"\"{name}\" must be a 1-character string");
+            return src;
+        }
+
+        // _set_char_or_none
+        private static PyObject SetCharOrNone(string name, PyObject src, string dflt)
+        {
+            if (src == null) return dflt == null ? PyNone.Instance : PyString.From(dflt);
+            if (src == PyNone.Instance) return src;
+            if (src is not PyString text)
+                throw PyTypeError.Create($"\"{name}\" must be string or None, not {src.GetTypeName()}");
+            if (text.CodePointLength() != 1)
+                throw PyTypeError.Create($"\"{name}\" must be a 1-character string");
+            return src;
+        }
+
+        // _set_str
+        private static PyObject SetStr(string name, PyObject src, string dflt)
+        {
+            if (src == null) return PyString.From(dflt);
+            if (src == PyNone.Instance) return src;
+            if (src is not PyString)
+                throw PyTypeError.Create($"\"{name}\" must be a string");
+            return src;
+        }
+
+        // _set_int: PyLong_CheckExact, then _PyLong_AsInt.
+        private static PyObject SetInt(string name, PyObject src, int dflt)
+        {
+            if (src == null) return PyInt.From(dflt);
+            if (!src.IsExactly(PyType.IntType))
+                throw PyTypeError.Create($"\"{name}\" must be an integer");
+            return PyInt.From(PyArgs.Int(src));
+        }
+
+
+
+
+
+
+
+
 
         // --- Reader ---
         private static PyObject ReaderFunc(PyObject[] args, PyDict kwargs)
         {
             if (args.Length < 1) throw PyTypeError.Create("reader() requires an iterable argument");
             var iterable = args[0];
-            var dialect = ParseDialect(args, kwargs);
+            if (args.Length > 2) throw PyTypeError.Create($" expected at most 2 arguments, got {args.Length}");
+            var dialect = CallDialect(args.Length > 1 ? args[1] : null, kwargs);
             return new PyReader(iterable, dialect);
         }
 
-        private static PyDialect ParseDialect(PyObject[] args, PyDict kwargs)
-        {
-            var dialectArg = args.Length > 1 ? args[1] : PyNone.Instance;
-            var d = new PyDialect();
-            d.Delimiter = PyString.From(",");
-            d.DoubleQuote = PyBool.FromBool(true);
-            d.EscapeChar = PyNone.Instance;
-            d.LineTerminator = PyString.From("\r\n");
-            d.QuoteChar = PyString.From("\"");
-            d.Quoting = PyInt.From(0);
-            d.SkipInitialSpace = PyBool.FromBool(false);
-            d.Strict = PyBool.FromBool(false);
-
-            if (dialectArg != PyNone.Instance)
-            {
-                if (dialectArg is PyString nameStr)
-                {
-                    if (!_dialects.TryGetStoredValue(nameStr, out var reg))
-                        throw PyExceptionSlots.Raise(ErrorType, "unknown dialect");
-                    dialectArg = reg;
-                }
-                CopyDialectAttrs(d, dialectArg);
-            }
-
-            if (kwargs != null)
-            {
-                foreach (var key in kwargs.Keys().Items)
-                {
-                    var k = key.ToStr().Value;
-                    if (k == "delimiter") d.Delimiter = ValidateChar(kwargs.GetItem(key), "delimiter");
-                    else if (k == "doublequote") d.DoubleQuote = PyBool.FromBool(kwargs.GetItem(key).IsTrue());
-                    else if (k == "escapechar") d.EscapeChar = ValidateOptionalChar(kwargs.GetItem(key), "escapechar");
-                    else if (k == "lineterminator") d.LineTerminator = ValidateString(kwargs.GetItem(key), "lineterminator");
-                    else if (k == "quotechar") d.QuoteChar = ValidateOptionalChar(kwargs.GetItem(key), "quotechar");
-                    else if (k == "quoting") d.Quoting = ValidateQuoting(kwargs.GetItem(key));
-                    else if (k == "skipinitialspace") d.SkipInitialSpace = PyBool.FromBool(kwargs.GetItem(key).IsTrue());
-                    else if (k == "strict") d.Strict = PyBool.FromBool(kwargs.GetItem(key).IsTrue());
-                }
-            }
-            ValidateDialect(d);
-            return d;
-        }
 
         // --- Writer ---
         private static PyObject WriterFunc(PyObject[] args, PyDict kwargs)
@@ -215,7 +196,8 @@ namespace SharpPy.Modules
             // csv_writer: PyObject_GetAttr(output_file, "write"); only its absence is this TypeError.
             if (fileobj.LookupAttribute("write") == null)
                 throw PyTypeError.Create("argument 1 must have a \"write\" method");
-            var dialect = ParseDialect(args, kwargs);
+            if (args.Length > 2) throw PyTypeError.Create($" expected at most 2 arguments, got {args.Length}");
+            var dialect = CallDialect(args.Length > 1 ? args[1] : null, kwargs);
             return new PyWriter(fileobj, dialect);
         }
 
@@ -224,12 +206,10 @@ namespace SharpPy.Modules
         {
             if (args.Length < 1) throw PyTypeError.Create("register_dialect() requires a name");
             var name = args[0];
-            PyObject dialect;
-            if (args.Length > 1 && args[1] != PyNone.Instance)
-                dialect = args[1];
-            else
-                dialect = DialectNew(DialectType, Array.Empty<PyObject>(), kwargs);
-            _dialects.SetItem(name, dialect);
+            // _csv_register_dialect: the name is a str, the dialect is what _call_dialect makes.
+            if (name is not PyString)
+                throw PyTypeError.Create("dialect name must be a string");
+            _dialects.SetItem(name, CallDialect(args.Length > 1 ? args[1] : null, kwargs));
             return PyNone.Instance;
         }
 

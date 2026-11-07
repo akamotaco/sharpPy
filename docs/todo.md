@@ -112,3 +112,10 @@
 - 객체 수명은 참조 카운트가 아니라 CLR GC를 따른다. `del` 직후 `weakref`, `__del__` 시점, 버려진 제너레이터의 `finally` 시점이 CPython과 다르다.
 - 네이티브 재귀 한계는 `TryEnsureSufficientExecutionStack`로 판단하므로 `RecursionError`가 나는 깊이가 CPython과 다르다.
 - `str` 인덱싱의 UTF-16 문제는 P0-34에 기록되어 있다.
+
+원칙: 이 아래의 차이는 플랫폼 때문에 감수하지만, 어떤 경우에도 **조용히 다른 결과를 내지 않고 예외로 드러나야** 한다. 예외로 드러나지 않는 항목은 그 사실을 명시한다.
+
+- **객체 크기 한계 (예외로 드러남).** CPython은 주소 공간에 들어가는 만큼 만들지만, CLR 문자열은 `String.MaxLength`(0x3FFFFFDF UTF-16 단위, 약 10억 7천만 자), 배열은 `Array.MaxLength`에서 멈춘다. `gcAllowVeryLargeObjects`도 문자열 한계는 올리지 않는다. 그 사이 크기는 할당 단계에서 메시지 없는 `MemoryError`가 된다(`core/PyAllocation.cs` 한 곳). `Py_ssize_t`를 넘는 크기는 CPython과 같은 `OverflowError`다. 예: `"ab" * 2**31`, `"a".center(2**31)`, `bytes(2**31)`는 CPython에서 성공하고 SharpPy에서 `MemoryError`.
+- **인접한 단독 서로게이트 (예외로 드러나지 않음).** CPython에서 `"\ud83d" + "\ude00"`은 코드 포인트 2개지만, .NET 문자열(UTF-16)에서는 한 쌍(U+1F600 한 글자)이 된다. `len`, 인덱싱, `strip`, `split` 등이 이 입력에서 CPython과 다른 값을 낸다. 문자열 저장 방식을 바꾸지 않는 한 감지할 수 없으므로 여기 명시한다.
+- **참조 카운트에 의존하는 판정 (예외로 드러남, 문구만 다를 수 있음).** `BytesIO`의 `SHARED_BUF`는 CPython에서 버퍼의 참조 카운트가 1보다 큰지로 정해진다. .NET에는 참조 카운트가 없으므로 "공유 bytes를 내준 적이 있거나 버퍼가 비어 있음"으로 근사한다. 차이는 `PY_SSIZE_T_MAX` 근처에서 나는 `SystemError`의 문구에만 나타난다.
+- **OS 오류 코드 (예외로 드러남, 코드 값만 다를 수 있음).** nt 모듈의 OS 오류는 .NET 예외에서 만들어진다. `FileNotFoundException`은 실제 Win32 코드를 담지 않아, 드라이브가 없는 경로의 `stat`/`remove`가 CPython의 `winerror` 3(경로 없음) 대신 2(파일 없음)를 낸다. 예외 종류(`FileNotFoundError`)와 `errno`(2)는 같다.

@@ -148,9 +148,9 @@ namespace SharpPy.Modules
             {
                 return PyString.From(Directory.GetCurrentDirectory());
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsOsFailure(ex))
             {
-                throw PyOSError.Create($"[Errno 2] {ex.Message}");
+                throw Failed(ex, null);
             }
         }
 
@@ -171,7 +171,7 @@ namespace SharpPy.Modules
             {
                 throw WindowsOr(3, path);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsOsFailure(ex))
             {
                 throw Failed(ex, path);
             }
@@ -203,7 +203,7 @@ namespace SharpPy.Modules
             {
                 throw WindowsOr(3, path);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsOsFailure(ex))
             {
                 throw Failed(ex, path);
             }
@@ -234,7 +234,7 @@ namespace SharpPy.Modules
             {
                 throw;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsOsFailure(ex))
             {
                 throw Failed(ex, path);
             }
@@ -264,7 +264,7 @@ namespace SharpPy.Modules
             {
                 throw WindowsOr(145, path);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsOsFailure(ex))
             {
                 throw Failed(ex, path);
             }
@@ -329,6 +329,12 @@ namespace SharpPy.Modules
         }
 
         // win32_error: what .NET threw, as the code GetLastError held.
+        // What a failing system call looks like from the CLR: only this becomes OSError (posix_error);
+        // a Python exception propagates, and a host fault is the VM's to convert.
+        private static bool IsOsFailure(Exception error) =>
+            error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException
+                or System.Security.SecurityException;
+
         private static PythonException Failed(Exception error, string path)
         {
             int code = error switch
@@ -659,7 +665,7 @@ namespace SharpPy.Modules
             {
                 throw WindowsOr(2, path);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsOsFailure(ex))
             {
                 throw Failed(ex, path);
             }
@@ -697,7 +703,8 @@ namespace SharpPy.Modules
                 bool canRead = (info.Attributes & FileAttributes.ReadOnly) == 0 || (mode & 4) != 0;
                 return canRead ? PyBool.True : PyBool.False;
             }
-            catch
+            // os_access_impl answers False for any failure of the system call, and only for that.
+            catch (Exception ex) when (IsOsFailure(ex))
             {
                 return PyBool.False;
             }

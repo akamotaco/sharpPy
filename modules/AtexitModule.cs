@@ -157,47 +157,18 @@ namespace SharpPy.Modules
                 {
                     entry.Func.Call(entry.Args, entry.Kwargs);
                 }
+                // atexit_callfuncs: _PyErr_WriteUnraisableMsg("in atexit callback", the_func); a host
+                // fault is first what the VM makes of it.
                 catch (PythonException ex)
                 {
-                    ReportIgnored(entry.Func, ex);
+                    PyUnraisable.Report(ex, entry.Func, "Exception ignored in atexit callback");
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not PythonException)
                 {
-                    ReportIgnored(entry.Func, null, ex.Message);
+                    PyUnraisable.Report(new PythonException(PyVM.ConvertToPythonException(ex)), entry.Func, "Exception ignored in atexit callback");
                 }
             }
             lock (Callbacks) Callbacks.Clear();
-        }
-
-        /// <summary>
-        /// The measured shape on stderr; stdout and the exit status are untouched:
-        ///   Exception ignored in atexit callback: &lt;function raising at 0x...&gt;
-        ///   ValueError: from atexit
-        /// </summary>
-        private static void ReportIgnored(PyObject func, PythonException pythonError, string message = null)
-        {
-            try
-            {
-                string context;
-                try { context = func.ToRepr().Value; }
-                catch { context = func.GetTypeName(); }
-                Console.Error.WriteLine("Exception ignored in atexit callback: " + context);
-                if (pythonError != null)
-                {
-                    var value = pythonError.PyException;
-                    Console.Error.WriteLine(value == null
-                        ? pythonError.Message
-                        : value.GetTypeName() + ": " + value.ToStr().Value);
-                }
-                else if (message != null)
-                {
-                    Console.Error.WriteLine(message);
-                }
-            }
-            catch
-            {
-                // A failing report must not replace the program's outcome.
-            }
         }
     }
 }
