@@ -3101,7 +3101,7 @@ namespace SharpPy
                         throw PyTypeError.Create(
                             "dict.__new__(" + foreign + "): " + foreign + " is not a subtype of dict");
                     }
-                    return new PyClassInstance(dictClass);
+                    return new PyDictSubclass(dictClass);
                 },
                 minArgs: 0,
                 maxArgs: int.MaxValue

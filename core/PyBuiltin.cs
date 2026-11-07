@@ -1098,10 +1098,10 @@ namespace SharpPy
         {
             if (globals == null)
                 return (null, locals != null && locals.GetType() != typeof(PyDict) ? locals : null);
-            bool plain = globals is PyDict;
-            var storage = plain ? (PyDict)globals : PyNativeStorage.ForDict(globals);
+            bool plain = globals is PyDict { HasCustomType: false };
+            var storage = PyNativeStorage.ForDict(globals);
             if (locals != null)
-                return (storage, locals is PyDict ? null : locals);
+                return (storage, locals is PyDict { HasCustomType: false } ? null : locals);
             return (storage, plain ? null : globals);
         }
 
@@ -1662,7 +1662,7 @@ namespace SharpPy
                 var names = new List<PyObject>();
                 // PyMapping_Keys: a mapping as locals is asked for its keys.
                 var locals = PyVM.CurrentFrame.GetAttribute("f_locals");
-                var keys = locals is PyDict ? locals : locals.GetAttribute("keys").Call(new PyObject[0], null);
+                var keys = locals is PyDict { HasCustomType: false } ? locals : locals.GetAttribute("keys").Call(new PyObject[0], null);
                 foreach (var name in PySet.IterableItems(keys)) names.Add(name);
                 var sortedLocals = new PyList(names);
                 sortedLocals.GetAttribute("sort").Call(new PyObject[0], null);

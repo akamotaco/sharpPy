@@ -220,7 +220,7 @@ namespace SharpPy
         }
 
         private static PyObject StoredText(PyObject self) =>
-            (self as PyStrSubclass)?.GetStrValue() ?? PyNativeStorage.Unwrap(self);
+            (self as PyStrSubclass)?.GetStrValue() ?? self;
 
         // _Py_union_type_or with the operands as written: None | int.
         private static PyObject UnionOnTheRight(PyObject self, PyObject left) => PyUnionType.Or(left, self);

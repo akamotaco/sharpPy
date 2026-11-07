@@ -63,11 +63,7 @@ namespace SharpPy
         /// (Include/dictobject.h).</summary>
         internal static PyDict ForDict(PyObject self)
         {
-            if (self is PyDict dict)
-                return dict;
-            if (self.GetPyType().HasFeature(PyTypeFlags.DictSubclass))
-                return (self as PyClassInstance)?.GetDictStorage();
-            return null;
+            return self as PyDict;
         }
 
         /// <summary>
@@ -77,15 +73,6 @@ namespace SharpPy
         /// inherited slot's value for every protocol operation at once: length, containment,
         /// iteration and repr.
         /// </summary>
-        /// <summary>
-        /// The value a comparison has to look at. CPython's equality functions test the right-hand
-        /// operand with PyList_Check / PyDict_Check / PySet_Check (Objects/listobject.c
-        /// list_richcompare, Objects/dictobject.c dict_equal, Objects/setobject.c set_richcompare),
-        /// and those macros accept subclasses, so [1, 2] == C([1, 2]) compares contents even though
-        /// the right side is a user-class object.
-        /// </summary>
-        internal static PyObject Unwrap(PyObject value) =>
-            value is PyClassInstance instance ? instance.NativeStorage() ?? value : value;
 
     }
 }

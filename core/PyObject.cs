@@ -83,7 +83,7 @@ namespace SharpPy
                 recursion.Depth--;
             }
             // PyUnicode_Check: a str subclass instance answers too.
-            return result as PyString ?? PyNativeStorage.Unwrap(result) as PyString ??
+            return result as PyString ??
                 throw PyTypeError.Create($"__repr__ returned non-string (type {result.GetPyType().FullName})");
         }
 
@@ -114,7 +114,7 @@ namespace SharpPy
             {
                 recursion.Depth--;
             }
-            return result as PyString ?? PyNativeStorage.Unwrap(result) as PyString ??
+            return result as PyString ??
                 throw PyTypeError.Create($"__str__ returned non-string (type {result.GetPyType().FullName})");
         }
 

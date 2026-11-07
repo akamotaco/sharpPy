@@ -37,7 +37,7 @@ namespace SharpPy
                     continue;
                 var inner = wrapper._implementation;
                 table[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) =>
-                    inner(self, new PyObject[] { PyArgs.RepeatCount(PyNativeStorage.Unwrap(self), PyArgs.IndexSsize(args[0])) }, kwargs))
+                    inner(self, new PyObject[] { PyArgs.RepeatCount(self, PyArgs.IndexSsize(args[0])) }, kwargs))
                 {
                     CallsVirtual = wrapper.CallsVirtual,
                 };
@@ -122,7 +122,7 @@ namespace SharpPy
             // The arity of the slot is checked by the wrapper descriptor (CheckSlotArguments).
             if (ReferenceEquals(owner, PyType.ObjectType))
                 return RunObject(self, name, args);
-            var value = PyNativeStorage.Unwrap(self);
+            var value = self;
             switch (name)
             {
                 case "__eq__":
@@ -131,7 +131,7 @@ namespace SharpPy
                 case "__le__":
                 case "__gt__":
                 case "__ge__":
-                    return value.TpRichCompare(PyNativeStorage.Unwrap(args[0]), Comparison(name));
+                    return value.TpRichCompare(args[0], Comparison(name));
                 case "__hash__": return new PyInt(value.Hash());
                 case "__repr__": return value.Repr();
                 case "__str__": return value.Str();

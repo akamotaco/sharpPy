@@ -26,27 +26,11 @@ namespace SharpPy
             // __hash__-is-None branch, so mutable builtins used as dict keys raise
             // "unhashable type: 'list'" etc. instead of silently hashing by identity.
             dictType.TypeDict["__hash__"] = PyNone.Instance;
-            // NOTE: dict.__iter__/__len__/__contains__/__reversed__ are intentionally
-            // NOT registered here. The VM's special-method lookup consults TypeDict, so
-            // a user dict subclass (e.g. collections.OrderedDict, modelled as a
-            // PyClassInstance with no CLR PyDict storage) would either recurse through
-            // the virtual GetIterator() or hit a wrong-self error, breaking iteration.
-            // Adding them requires a GetDictStorage() resolver (like PyList's
-            // GetListStorage) first; deferred. dir(dict) therefore still omits these.
-
             // Helper to get PyDict from self (handles both PyDict and PyClassInstance dict subclasses)
             static PyDict GetDict(PyObject self, PyType dictType)
             {
                 if (self is PyDict dict)
                     return dict;
-
-                if (self is PyClassInstance ci)
-                {
-                    var storage = ci.GetDictStorage();
-                    if (storage != null)
-                        return storage;
-                }
-
                 throw PyTypeError.Create($"descriptor requires a 'dict' object but received a '{self.GetTypeName()}'");
             }
 
@@ -275,7 +259,8 @@ namespace SharpPy
                         throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     var left = RequireDictOperand(self, "__eq__");
                     if (!IsDictLike(args[0])) return PyNotImplemented.Instance;
-                    return PyBool.FromBool(CompareBool(left, args[0], CompareOp.EQ));
+                    // dict_richcompare: dict_equal on the two tables.
+                    return PyBool.FromBool(left.CheckDictEquality((PyDict)args[0]));
                 }
             );
             dictType.TypeDict["__ne__"] = new PyWrapperDescriptor(
@@ -285,7 +270,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     var left = RequireDictOperand(self, "__ne__");
                     if (!IsDictLike(args[0])) return PyNotImplemented.Instance;
-                    return PyBool.FromBool(!CompareBool(left, args[0], CompareOp.EQ));
+                    return PyBool.FromBool(!left.CheckDictEquality((PyDict)args[0]));
                 }
             );
             foreach (var ordering in new[] { "__lt__", "__le__", "__gt__", "__ge__" })
@@ -309,7 +294,8 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
-                    if (self is PyDict dict) return dict.Copy();
+                    // PyDict_Copy: an exact dict copies its table; a subclass goes through dict_merge.
+                    if (self is PyDict { HasCustomType: false } dict) return dict.Copy();
                     return CopySubclass(self, GetDict(self, dictType));
                 },
                 minArgs: 0, maxArgs: 0
@@ -348,54 +334,14 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"dict.__getitem__() takes exactly one argument ({args.Length} given)");
 
-                    // CPython 3.12: PyDict_GetItem checks PyDict_Check then accesses internal storage
-                    // For PyDict: access _dict directly
-                    // For dict subclasses (PyClassInstance): access _dictStorage field via reflection
+                    // dict_subscript: the table, then __missing__ when the type is not exactly dict.
                     if (self is PyDict pyDict)
                     {
-                        // Real PyDict: use internal _dict
-                        return pyDict.TryGetStoredValue(args[0], out var value)
-                            ? value
-                            : throw PyKeyError.Create(args[0]);
-                    }
-                    else if (self is PyClassInstance classInstance)
-                    {
-                        // Dict subclass: use GetDictStorage() which is now properly initialized
-                        var dictStorage = classInstance.GetDictStorage();
-                        if (dictStorage != null)
-                        {
-                            #if DEBUG
-                            var keyStr = args[0] is PyString ps ? ps.Value : args[0]?.ToString() ?? "null";
-                            if (classInstance.GetTypeName() == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
-                            {
-                                Console.WriteLine($"[DEBUG-DICT-GETITEM] dict.__getitem__ for _EnumDict['{keyStr}']:");
-                                Console.WriteLine($"  dictStorage != null: true");
-                                Console.WriteLine($"  dictStorage._dict != null: {dictStorage._dict != null}");
-                                try
-                                {
-                                    var hasKey = dictStorage._dict.TryGetValue(args[0], out var debugValue);
-                                    Console.WriteLine($"  dictStorage._dict.ContainsKey: {hasKey}");
-                                    if (hasKey)
-                                    {
-                                        Console.WriteLine($"  Value: {debugValue}, type={debugValue?.GetType().Name}");
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    Console.WriteLine($"  Exception during TryGetValue: {ex.Message}");
-                                }
-                            }
-                            #endif
-                            if (dictStorage._dict.TryGetValue(args[0], out var value))
-                                return value;
-
-                            // CPython 3.12: Objects/dictobject.c:2143-2157 - call __missing__ if key not found
-                            var missing = classInstance.LookupSpecialMethodUncached("__missing__");
-                            if (missing != null)
-                                return classInstance.CallSpecial(missing, args[0]);
-
-                            throw PyKeyError.Create(args[0]);
-                        }
+                        if (pyDict.TryGetStoredValue(args[0], out var value))
+                            return value;
+                        if (pyDict.HasCustomType && pyDict.LookupSpecialMethodUncached("__missing__") is { } missing)
+                            return pyDict.CallSpecial(missing, args[0]);
+                        throw PyKeyError.Create(args[0]);
                     }
 
                     // CPython 3.12.15 measured: dict methods are method_descriptors
@@ -420,29 +366,11 @@ namespace SharpPy
                     if (args.Length != 2)
                         throw PyTypeError.Create($" expected 2 arguments, got {args.Length}");
 
-                    // CPython 3.12: PyDict_SetItem checks PyDict_Check then writes to internal storage
+                    // dict_ass_sub: the table itself.
                     if (self is PyDict pyDict)
                     {
-                        // Real PyDict: write to _dict directly
-                        pyDict.MpAssSubscript(args[0], args[1]);  // Use SetItem to maintain _keys order
+                        pyDict.MpAssSubscript(args[0], args[1]);
                         return PyNone.Instance;
-                    }
-                    else if (self is PyClassInstance classInstance)
-                    {
-                        // Dict subclass: use GetDictStorage() which is now properly initialized
-                        var dictStorage = classInstance.GetDictStorage();
-                        if (dictStorage != null)
-                        {
-                            #if DEBUG
-                            var keyStr = args[0] is PyString ps ? ps.Value : args[0]?.ToString() ?? "null";
-                            if (classInstance.GetTypeName() == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
-                            {
-                                Console.WriteLine($"[DEBUG-DICT-SETITEM] dict.__setitem__ for _EnumDict['{keyStr}'] = {args[1]}, type={args[1]?.GetType().Name}");
-                            }
-                            #endif
-                            dictStorage.SetItem(args[0], args[1]);  // Use SetItem to maintain _keys order
-                            return PyNone.Instance;
-                        }
                     }
 
                     throw PyTypeError.Create($"descriptor '__setitem__' for 'dict' objects doesn't apply to a '{self.GetTypeName()}' object");
@@ -464,22 +392,11 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
 
-                    // CPython 3.12: PyDict_DelItem checks PyDict_Check then deletes from internal storage
+                    // dict_ass_sub without a value: the table itself.
                     if (self is PyDict pyDict)
                     {
-                        // Real PyDict: delete from _dict directly
-                        pyDict.DelItem(args[0]);
+                        pyDict.MpDelSubscript(args[0]);
                         return PyNone.Instance;
-                    }
-                    else if (self is PyClassInstance classInstance)
-                    {
-                        // Dict subclass: use GetDictStorage() which is now properly initialized
-                        var dictStorage = classInstance.GetDictStorage();
-                        if (dictStorage != null)
-                        {
-                            dictStorage.DelItem(args[0]);
-                            return PyNone.Instance;
-                        }
                     }
 
                     throw PyTypeError.Create($"descriptor '__delitem__' for 'dict' objects doesn't apply to a '{self.GetTypeName()}' object");
@@ -567,8 +484,8 @@ namespace SharpPy
             _keys = new OrderedKeyList(items.Keys);
         }
 
-        public override PyType GetPyType() => PyType.DictType;
-        public override string GetTypeName() => "dict";
+        public override PyType GetPyType() => _customType ?? PyType.DictType;
+        public override string GetTypeName() => _customType?.Name ?? "dict";
 
         // CPython 3.12: Objects/dictobject.c - dict_bool
         // Optimized: Direct count check, no MRO traversal
@@ -656,7 +573,7 @@ namespace SharpPy
         // {'a': 1} == D({'a': 1}) compares contents.
         protected override PyObject PyEquals(PyObject other)
         {
-            return PyNativeStorage.Unwrap(other) switch
+            return other switch
             {
                 PyDict otherDict => PyBool.FromBool(CheckDictEquality(otherDict)),
                 // dict_richcompare: both must be dicts, or the other side is asked.
@@ -665,7 +582,7 @@ namespace SharpPy
         }
 
         // Performance: Eliminated LINQ (.All) - manual iteration
-        private bool CheckDictEquality(PyDict otherDict)
+        internal bool CheckDictEquality(PyDict otherDict)
         {
             if (_dict.Count != otherDict._dict.Count)
                 return false;
@@ -823,10 +740,9 @@ namespace SharpPy
         // Merge-style write. Must stay virtual so PyGlobalsDict keeps its
         // module-namespace synchronization (enum.global_enum injects re.I via
         // sys.modules[...].__dict__.update(...)).
-        public virtual void SetItemStorage(PyObject key, PyObject value) => SetItem(key, value);
+        public virtual void SetItemStorage(PyObject key, PyObject value) => MpAssSubscript(key, value);
 
-        internal static bool IsDictLike(PyObject value) =>
-            value is PyDict || (value is PyClassInstance ci && ci.GetDictStorage() != null);
+        internal static bool IsDictLike(PyObject value) => value is PyDict;
 
         /// <summary>
         /// dict_merge (Objects/dictobject.c): PyDict_Check(b) and Py_TYPE(b)->tp_iter == dict_iter,
@@ -839,12 +755,6 @@ namespace SharpPy
         {
             if (self is PyDict dict)
                 return dict;
-            if (self is PyClassInstance ci)
-            {
-                var storage = ci.GetDictStorage();
-                if (storage != null)
-                    return storage;
-            }
             throw PyTypeError.Create($"descriptor '{name}' requires a 'dict' object but received a '{self.GetTypeName()}'");
         }
 
@@ -859,18 +769,10 @@ namespace SharpPy
             if (ReferenceEquals(target, source))
                 return;
 
-            if (source is PyDict exact)
-            {
-                target.Update(exact);
-                return;
-            }
-
-            // dict_merge reads the storage unless the subclass has its own __iter__.
+            // dict_merge reads the table unless the subclass has its own __iter__.
             if (IterIsDictIter(source))
             {
-                var storage = source is PyDict sd ? sd : ((PyClassInstance)source).GetDictStorage()!;
-                foreach (var entry in storage.GetInternalDict())
-                    target.SetItemStorage(entry.Key, entry.Value);
+                target.Update(source);
                 return;
             }
 
@@ -1134,7 +1036,8 @@ namespace SharpPy
         {
             // PyDict_Copy skips callbacks for empty storage. Otherwise an
             // overridden iteration slot selects dict_merge's mapping path.
-            if (storage.Length() == 0 || IterIsDictIter(source))
+            // ma_used, not a subclass's __len__.
+            if (storage._dict.Count == 0 || IterIsDictIter(source))
                 return storage.Copy();
 
             var output = source.GetAttribute("keys").Call(Array.Empty<PyObject>(), null);
@@ -1292,33 +1195,13 @@ namespace SharpPy
         /// </summary>
         public override PyObject BitwiseOr(PyObject other)
         {
-            // CPython: Objects/dictobject.c:3149-3152 - Type check. dict_or (PEP 584) tests with
-            // PyDict_Check, which accepts subclasses, so {'a': 1} | D({'b': 2}) merges.
-            other = PyNativeStorage.Unwrap(other);
-            if (other is not PyDict otherDict)
-            {
+            // dict_or (Objects/dictobject.c): both PyDict_Check; new = PyDict_Copy(self), then
+            // dict_update_arg(new, other). Both copies are dict_merge, which reads a subclass
+            // with its own __iter__ through keys().
+            if (other is not PyDict)
                 return PyNotImplemented.Instance;
-            }
-
-            // CPython: Objects/dictobject.c:3154-3159 - Create new dict and merge
-            // result = PyDict_Copy(self)
-            var result = new PyDict();
-
-            // Copy self's items (maintain insertion order)
-            foreach (var key in _keys)
-            {
-                result._dict.SetKnownHash(key, _dict.StoredValue(key), _dict.StoredHash(key));
-                result.AddOrderedKey(key);
-            }
-
-            // CPython: Objects/dictobject.c:3164-3168 - Merge other's items (rightmost wins)
-            // PyDict_Merge(result, other, 1)
-            foreach (var key in otherDict._keys)
-            {
-                if (result._dict.SetKnownHash(key, otherDict._dict.StoredValue(key), otherDict._dict.StoredHash(key)))
-                    result.AddOrderedKey(key);
-            }
-
+            var result = HasCustomType ? CopySubclass(this, this) : Copy();
+            UpdateCommon(result, other);
             return result;
         }
 
@@ -1736,5 +1619,19 @@ namespace SharpPy
             else _nonStringCount--;
             return result;
         }
+    }
+
+    /// <summary>
+    /// An instance of a Python class deriving from dict: dict_new allocates the dict layout with
+    /// ob_type set to the subclass (Objects/dictobject.c dict_new), so it is a dict whose
+    /// _customType is the class, with the __dict__ a heap type adds.
+    /// </summary>
+    public sealed class PyDictSubclass : PyDict, IDictBackedInstance, IHeapInstance
+    {
+        public PyDictSubclass(PyClass cls) => SetCustomType(cls);
+
+        public Dictionary<string, PyObject> InstanceDict { get; } = new();
+
+        public void ChangeClass(PyClass target) => SetCustomType(target);
     }
 }

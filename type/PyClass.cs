@@ -891,13 +891,6 @@ namespace SharpPy
             }
         }
 
-        // CPython 3.12: Dict subclasses have internal dict storage
-        private PyDict _dictStorage;
-
-        // CPython 3.12: List subclasses have internal list storage
-
-
-
         // CPython 3.12: _PyObject_MaterializeManagedDict — exactly one of _attrs / _materialized is live.
         private Dictionary<string, PyObject> _attrs;
         private PyDict _materialized;
@@ -906,46 +899,6 @@ namespace SharpPy
         {
             InstanceType = instanceType;
             _attrs = new Dictionary<string, PyObject>();
-
-            // CPython 3.12: If this is a dict subclass, create internal dict storage
-            if (IsDictSubclass())
-            {
-                _dictStorage = new PyDict();
-            }
-        }
-
-        // "Is this instance a dict/list?" is a type question, so it is answered from the type
-        // flags rather than by walking the MRO per call, exactly as CPython's PyDict_Check and
-        // PyList_Check read Py_TPFLAGS_DICT_SUBCLASS / Py_TPFLAGS_LIST_SUBCLASS off ob_type
-        // (Include/dictobject.h, Include/listobject.h:24). Multi-level inheritance comes for free
-        // because inherit_special propagates the bit to every subtype
-        // (Objects/typeobject.c:6726) - TracedOrderedDict -> OrderedDict -> dict carries it.
-        public bool IsDictSubclass() => InstanceType.HasFeature(PyTypeFlags.DictSubclass);
-
-        // set and frozenset have no family bit in CPython: PySet_Check (Include/setobject.h:36)
-        // and PyAnySet_Check (:30) are PyType_IsSubtype tests, so the MRO walk is the faithful
-        // answer for these two and is kept.
-
-
-
-
-        /// <summary>
-        /// The builtin container value this instance carries, or null for a plain class. CPython
-        /// answers this with slot inheritance (PyType_Ready installs the base's C slot on the
-        /// subclass); here the value lives in a storage object, and a class can carry at most one
-        /// variable-size builtin base - CPython refuses the combination with "multiple bases have
-        /// instance lay-out conflict". Every protocol operation (length, containment, iteration,
-        /// repr) asks this one question instead of repeating the per-type branch.
-        /// </summary>
-        internal PyObject NativeStorage()
-        {
-            return _dictStorage;
-        }
-
-        // CPython 3.12: Provide access to internal dict storage for dict subclasses
-        public PyDict GetDictStorage()
-        {
-            return _dictStorage;
         }
 
         public override string ToString()
@@ -1034,64 +987,6 @@ namespace SharpPy
             // No magic method found - fall back to base implementation (will throw TypeError)
             return null;
         }
-
-        /// <summary>
-        /// The operator slot a subclass inherits from its builtin base. CPython installs it through
-        /// slot inheritance, so C([1]) + [2], C([1]) * 2, S([1]) | {2} and D({'a':1}) | {'b':2} work
-        /// even though the class never mentions an operator (Objects/listobject.c list_add /
-        /// list_repeat, Objects/setobject.c set_or/set_and/set_sub/set_xor, Objects/dictobject.c
-        /// dict_or). The other operand is seen through as well, because those slots test with
-        /// PyList_Check / PySet_Check / PyDict_Check, which accept subclasses.
-        /// Null means "no such slot", which lets the caller produce the normal TypeError.
-        /// </summary>
-        private PyObject InheritedSlotBinary(PyObject other, Func<PyObject, PyObject, PyObject> slot)
-        {
-            var container = NativeStorage();
-            if (container == null)
-                return null;
-            var value = slot(container, PyNativeStorage.Unwrap(other));
-            return ReferenceEquals(value, PyNotImplemented.Instance) ? null : value;
-        }
-
-        // The operators are binary_op1 in the VM. These are the slots the storage gives.
-        public override PyObject Add(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.Add(b)) ?? PyNotImplemented.Instance;
-
-        public override PyObject Subtract(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.Subtract(b)) ?? PyNotImplemented.Instance;
-
-        public override PyObject Multiply(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.Multiply(b)) ?? PyNotImplemented.Instance;
-
-        public override PyObject Divide(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.Divide(b)) ?? PyNotImplemented.Instance;
-
-        public override PyObject FloorDivide(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.FloorDivide(b)) ?? PyNotImplemented.Instance;
-
-        public override PyObject Modulo(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.Modulo(b)) ?? PyNotImplemented.Instance;
-
-        public override PyObject Power(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.Power(b)) ?? PyNotImplemented.Instance;
-
-        public override PyObject LeftShift(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.LeftShift(b)) ?? PyNotImplemented.Instance;
-
-        public override PyObject RightShift(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.RightShift(b)) ?? PyNotImplemented.Instance;
-
-        public override PyObject BitwiseAnd(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.BitwiseAnd(b)) ?? PyNotImplemented.Instance;
-
-        public override PyObject BitwiseOr(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.BitwiseOr(b)) ?? PyNotImplemented.Instance;
-
-        public override PyObject BitwiseXor(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.BitwiseXor(b)) ?? PyNotImplemented.Instance;
-
-        public override PyObject MatrixMultiply(PyObject other) =>
-            InheritedSlotBinary(other, (a, b) => a.MatrixMultiply(b)) ?? PyNotImplemented.Instance;
 
         public override PyObject DivMod(PyObject other)
         {

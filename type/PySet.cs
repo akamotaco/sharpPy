@@ -126,7 +126,7 @@ namespace SharpPy
         // subclasses, so {1,2} == C({1,2}) has to see through the user object to its storage.
         protected override PyObject PyEquals(PyObject other)
         {
-            return PyNativeStorage.Unwrap(other) switch
+            return other switch
             {
                 PySet otherSet => PyBool.FromBool(_items.SetEquals(otherSet._items)),
                 PyFrozenSet frozenSet => PyBool.FromBool(_items.SetEquals(frozenSet.Items)),
@@ -364,7 +364,7 @@ namespace SharpPy
         // set_or / set_and / set_sub / set_xor test both operands with PyAnySet_Check, which accepts
         // subclasses, so {1} | C({2}) is a union; anything else declines.
         internal static bool IsAnySetOperand(PyObject other) =>
-            PyNativeStorage.Unwrap(other) is PySet or PyFrozenSet;
+            other is PySet or PyFrozenSet;
 
         #endregion
 
@@ -435,9 +435,6 @@ namespace SharpPy
         /// </summary>
         protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
-            // set_richcompare tests the operands with PySet_Check / PyAnySet_Check, which accept
-            // subclasses, so F([1]) < S([2]) has to see through both user objects to their values.
-            other = PyNativeStorage.Unwrap(other);
 
             // CPython: Objects/setobject.c:1923-1925 - Type check
             if (other is not PySet && other is not PyFrozenSet)
@@ -650,7 +647,7 @@ namespace SharpPy
         protected override PyObject PyEquals(PyObject other)
         {
             // PyFrozenSet_Check accepts subclasses: frozenset({1}) == C({1}) compares contents.
-            return PyNativeStorage.Unwrap(other) switch
+            return other switch
             {
                 PyFrozenSet otherFrozen => PyBool.FromBool(_items.SetEquals(otherFrozen._items)),
                 PySet set => PyBool.FromBool(_items.SetEquals(set.Items)),
@@ -683,9 +680,6 @@ namespace SharpPy
         /// </summary>
         protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
-            // set_richcompare tests the operands with PySet_Check / PyAnySet_Check, which accept
-            // subclasses, so F([1]) < S([2]) has to see through both user objects to their values.
-            other = PyNativeStorage.Unwrap(other);
 
             // CPython: Objects/setobject.c:1923-1925 - Type check
             if (other is not PySet && other is not PyFrozenSet)

@@ -1029,9 +1029,6 @@ namespace SharpPy
         /// </summary>
         protected override PyObject PyEquals(PyObject other)
         {
-            // list_richcompare tests the other operand with PyList_Check, which accepts subclasses,
-            // so [1, 2] == C([1, 2]) has to see through the user object to its storage.
-            other = PyNativeStorage.Unwrap(other);
             if (other is not PyList otherList)
                 return PyBool.False;
 
@@ -1054,9 +1051,6 @@ namespace SharpPy
         /// </summary>
         public override PyObject Add(PyObject other)
         {
-            // list_concat tests the right operand with PyList_Check, which accepts subclasses, so
-            // [2] + C([1]) is [2, 1] (a plain list, which is what CPython returns).
-            other = PyNativeStorage.Unwrap(other);
             if (other is not PyList otherList)
                 throw PyTypeError.Create($"can only concatenate list (not \"{other.GetTypeName()}\") to list");
 

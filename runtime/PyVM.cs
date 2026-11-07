@@ -1851,7 +1851,8 @@ namespace SharpPy
             try
             {
                 var key = new PyString(name);
-                if (frame.ClassLocalsDict is PyDict dict) dict.DelItem(key);
+                // PyDict_CheckExact(ns) ? PyDict_DelItem : PyObject_DelItem
+                if (frame.ClassLocalsDict is PyDict { HasCustomType: false } dict) dict.DelItem(key);
                 else frame.ClassLocalsDict.DelItem(key);
             }
             catch (PythonException)
@@ -3047,7 +3048,7 @@ namespace SharpPy
                     }
                     // dict_merge: a mapping is read through keys(), which may repeat one.
                     var mergedEntries = new List<KeyValuePair<PyObject, PyObject>>();
-                    if (sourceDict is PyDict plainSource)
+                    if (PyDict.IterIsDictIter(sourceDict) && sourceDict is PyDict plainSource)
                     {
                         foreach (var entry in plainSource.InternalDict)
                             mergedEntries.Add(new KeyValuePair<PyObject, PyObject>(entry.Key, entry.Value));
@@ -5727,7 +5728,7 @@ namespace SharpPy
         // list, tuple, str, bytes and bytearray have sq_concat and sq_repeat, and no nb_add or nb_multiply.
         private static bool HasOnlySequenceSlot(PyObject value, BinaryOpType operation) =>
             operation is BinaryOpType.ADD or BinaryOpType.MULTIPLY &&
-            PyNativeStorage.Unwrap(value) is PyList or PyTuple or PyString or PyStrSubclass or PyBytes
+            value is PyList or PyTuple or PyString or PyStrSubclass or PyBytes
                 or PyBytesSubclass or PyByteArray or SharpPy.Modules.PyDeque;
 
         // SQSLOT("__add__", sq_concat, NULL, ...): __add__ written in Python leaves the slot empty.
@@ -5929,7 +5930,7 @@ namespace SharpPy
         {
             if (HasOnlySequenceSlot(s, BinaryOpType.ADD))
             {
-                var joined = PyNativeStorage.Unwrap(s).Add(PyNativeStorage.Unwrap(o));
+                var joined = s.Add(o);
                 if (!ReferenceEquals(joined, PyNotImplemented.Instance))
                     return joined;
                 return Instance.ExecuteBinaryOpType(s, o, BinaryOpType.ADD);
@@ -5952,7 +5953,7 @@ namespace SharpPy
         {
             if (operation == BinaryOpType.ADD && HasSequenceSlot(left, operation))
             {
-                var joined = PyNativeStorage.Unwrap(left).Add(PyNativeStorage.Unwrap(right));
+                var joined = left.Add(right);
                 if (!ReferenceEquals(joined, PyNotImplemented.Instance))
                     return joined;
                 // PyUnicode_Concat, Objects/unicodeobject.c.
@@ -5975,7 +5976,7 @@ namespace SharpPy
         {
             if (!PyObject.IndexCheck(count))
                 throw PyTypeError.Create($"can't multiply sequence by non-int of type '{count.GetTypeName()}'");
-            var native = PyNativeStorage.Unwrap(sequence);
+            var native = sequence;
             return native.Multiply(PyArgs.RepeatCount(native, PyArgs.IndexSsize(count)));
         }
 
