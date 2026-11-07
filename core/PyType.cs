@@ -764,8 +764,10 @@ namespace SharpPy
             // CPython 3.12: Initialize tp_dict (unified type dictionary)
             TypeDict = new PyTypeDictionary();
 
-            // 타입별 descriptor 초기화 (Phase 3: Directly populates TypeDict)
-            InitializeDescriptors();
+            // type_ready_fill_dict of a static type: its tp_methods, tp_members and tp_getset. A type
+            // that type_new made starts from its class body alone, whatever its name.
+            if (!MadeByTypeNew)
+                InitializeDescriptors();
         }
 
         #endregion
@@ -788,12 +790,14 @@ namespace SharpPy
 
         internal List<PyType> CalculateC3MRO()
         {
-            if (Name == "object")
+            // object is the one type without a base; type is the metaclass itself. A class that
+            // type_new made under either name is linearized like any other.
+            if (BaseTypes.Length == 0 && !MadeByTypeNew)
             {
                 return new List<PyType> { this };
             }
 
-            if (Name == "type")
+            if (this is PyTypeMetaclass)
             {
                 return new List<PyType> { this, ObjectType };
             }

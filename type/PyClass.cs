@@ -478,6 +478,10 @@ namespace SharpPy
             
             // PEP 698: typing.override only marks the function; nothing is checked at class creation.
 
+            // One tp_dict. For type, a static type, it also holds what its table installed.
+            foreach (var entry in TypeDict)
+                ClassDict.TryAdd(entry.Key, entry.Value);
+            TypeDict = ClassDict;
         }
 
         // _PyType_Lookup

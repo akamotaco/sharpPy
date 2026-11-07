@@ -38,10 +38,6 @@ namespace SharpPy
         {
             // type is its own metaclass
             this.Metaclass = this;
-            // type is a static type with one tp_dict: what its table and its body hold, one dict.
-            foreach (var entry in TypeDict)
-                ClassDict.TryAdd(entry.Key, entry.Value);
-            TypeDict = ClassDict;
         }
 
         // CPython 3.12: Objects/typeobject.c:7163-7182 (type_ready_fill_dict)
