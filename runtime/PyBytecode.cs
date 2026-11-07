@@ -432,7 +432,6 @@ namespace SharpPy
         public int PosonlyArgCount { get; }           // co_posonlyargcount (positional-only 매개변수 개수)
         public int KwonlyArgCount { get; }            // co_kwonlyargcount (keyword-only 매개변수 개수)
         public int Flags { get; }                     // co_flags (CPython 호환)
-        public bool IsOptimized { get; }              // 바이트코드 최적화 여부
         public string? FileName { get; private set; }              // co_filename (CPython 호환)
 
         // update_code_filenames: this code and the code among its constants.
@@ -503,7 +502,6 @@ namespace SharpPy
             PosonlyArgCount = posonlyArgCount;
             KwonlyArgCount = kwonlyArgCount;
             Flags = flags;
-            IsOptimized = isOptimized;
             FileName = fileName;
             SourceLines = sourceLines;
             FreeVars = freeVars ?? new List<string>();

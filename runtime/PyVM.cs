@@ -908,7 +908,6 @@ namespace SharpPy
         private readonly PyScopeChain _globalScope;
 
         // CPython 3.12: Adaptive Specialization System (PEP 659)
-        private readonly AdaptiveSpecializer _specializer;
 
         // Current frame for zero-argument super() calls
         public static PyFrame? CurrentFrame => Instance._frameStack.Count > 0 ? Instance._frameStack.Peek() : null;
@@ -980,7 +979,6 @@ namespace SharpPy
             BoundState = new PyThreadState { IsMain = true };
             _frameStack = BoundState.Frames;
             _globalScope = new PyScopeChain(); // 기존 LEGB 시스템 사용!
-            _specializer = new AdaptiveSpecializer(); // CPython 3.12: PEP 659
         }
 
         // 메인 모듈 실행
@@ -1017,47 +1015,6 @@ namespace SharpPy
             Console.WriteLine($"   Exception Table entries: {codeObject.ExceptionTable.Count}");
             #endif
 
-            // 🔍 실제 VM에서 실행할 바이트코드 출력 (디버그용)
-#if DEBUG_LOG
-            Console.WriteLine($"\n📋 VM에서 실제 실행할 바이트코드 ({codeObject.Instructions.Count}개 명령어):");
-#endif
-            for (int i = 0; i < codeObject.Instructions.Count; i++)
-            {
-                var instr = codeObject.Instructions[i];
-                int byteOffset = PyJumpBackwardUtil.CalculateByteOffset(i, codeObject.Instructions);
-
-                // CPython 스타일로 포맷팅
-                string line = $"          {byteOffset,3}";
-                if (i % 2 == 0) line += " >> ";
-                else line += "    ";
-
-                line += $"{instr.OpCode,-20}";
-                if (instr.Argument != 0)
-                {
-                    line += $"{instr.Argument,8}";
-
-                    // 상수나 이름 표시
-                    if (instr.OpCode == ByteCodeOp.LOAD_CONST && instr.Argument < codeObject.Constants.Count)
-                    {
-                        var constant = codeObject.Constants[instr.Argument];
-                        line += $" ({constant?.ToString() ?? "None"})";
-                    }
-                    else if ((instr.OpCode == ByteCodeOp.LOAD_NAME || instr.OpCode == ByteCodeOp.STORE_NAME) &&
-                             instr.Argument < codeObject.Names.Count)
-                    {
-                        line += $" ({codeObject.Names[instr.Argument]})";
-                    }
-                }
-
-#if DEBUG_LOG
-                Console.WriteLine(line);
-#endif
-
-                // List comprehension 관련 명령어만 출력 (너무 길어지지 않도록)
-                if (i > 20 && instr.OpCode != ByteCodeOp.FOR_ITER && instr.OpCode != ByteCodeOp.JUMP_BACKWARD &&
-                    instr.OpCode != ByteCodeOp.LIST_APPEND && instr.OpCode != ByteCodeOp.END_FOR) continue;
-                if (i > 40) break;
-            }
 #if DEBUG_LOG
             Console.WriteLine("📋 실제 바이트코드 출력 완료\n");
 #endif
@@ -1392,10 +1349,6 @@ namespace SharpPy
                     }
 #endif
 
-                    // CPython 3.12: Attempt adaptive specialization (PEP 659)
-                    // NOTE: TrySpecialize is currently a no-op (skeleton implementation)
-                    // When Enabled=false, this call returns immediately without any work
-                    _specializer.TrySpecialize(frame, frame.InstructionPointer, instruction.OpCode);
 
                     try
                     {
@@ -3336,28 +3289,8 @@ namespace SharpPy
                     }
                     #endif
 
-                    if (frame.Code is PyQuickenedCodeObject quickenedJumpCode)
-                    {
-                        // Quickened Code: instruction offset 사용
-                        targetInstrPos = quickenedJumpCode.CalculateJumpBackwardTarget(currentInstrPos, argument);
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"    🔙 JUMP_BACKWARD: QuickenedCode {currentInstrPos} → {targetInstrPos}");
-                        #endif
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔙 JUMP_BACKWARD: QuickenedCode {currentInstrPos} → {targetInstrPos}");
-                        #endif
-                    }
-                    else
-                    {
-                        // 레거시 방식: PyJumpBackwardUtil 사용
-                        targetInstrPos = PyJumpBackwardUtil.CalculateJumpBackwardTarget(currentInstrPos, argument, frame.Code.Instructions);
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"    🔙 JUMP_BACKWARD: Legacy (Util) {currentInstrPos} → {targetInstrPos}");
-                        #endif
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔙 JUMP_BACKWARD: Legacy {currentInstrPos} → {targetInstrPos}");
-                        #endif
-                    }
+                    // bytecodes.c JUMP_BACKWARD: JUMPBY(-oparg), next_instr already past this one.
+                    targetInstrPos = currentInstrPos + 1 - argument;
 
                     // Validate target instruction position
                     if (targetInstrPos < 0 || targetInstrPos >= frame.Code.Instructions.Count)
@@ -3390,7 +3323,6 @@ namespace SharpPy
 
                     // CPython 3.12 호환: 점프 후 main loop가 ++하므로 -1 필요
                     // 하지만 FOR_ITER같은 경우는 target이 정확해야 함
-                    // PyJumpBackwardUtil이 이미 올바른 target을 계산했으므로 -1 적용
                     frame.InstructionPointer = targetInstrPos - 1;
                     #if DEBUG_VM_LOG
                     Console.WriteLine($"    🎯 Setting IP to {targetInstrPos - 1}, after main loop++ will be {targetInstrPos}");
@@ -3716,40 +3648,9 @@ namespace SharpPy
                         #endif
 
                         // CPython 3.12: QuickenedCodeObject 방식으로 점프 계산
-                        if (frame.Code is PyQuickenedCodeObject quickenedCode)
-                        {
-                            // Quickened Code: instruction offset 사용
-                            int forIterQuickenedTarget = quickenedCode.CalculateForIterTarget(frame.InstructionPointer, argument);
-
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterQuickenedTarget} (QuickenedCode)");
-                            #endif
-                            frame.InstructionPointer = forIterQuickenedTarget - 1; // main loop will increment
-                        }
-                        else if (!frame.Code.IsOptimized)
-                        {
-                            // CPython 3.12 호환: FOR_ITER StopIteration 점프
-                            // bytecodes.c:2341: JUMPBY(INLINE_CACHE_ENTRIES_FOR_ITER + oparg + 1)
-                            // INLINE_CACHE_ENTRIES_FOR_ITER = 1 (one CACHE instruction)
-                            // Jump amount = 1 + oparg + 1 = oparg + 2 instruction indices
-                            // Main loop will ++, so set to: current + oparg + 2 - 1 = current + oparg + 1
-                            int targetIndex = frame.InstructionPointer + argument + 1;
-                            #if DEBUG_VM_LOG
-                            Console.WriteLine($"    🔚 FOR_ITER: Jumping from IP={frame.InstructionPointer} to IP={targetIndex + 1} (no-optimize, arg={argument})");
-                            #endif
-                            frame.InstructionPointer = targetIndex; // main loop will increment
-                        }
-                        else
-                        {
-                            // CPython 3.12 호환: FOR_ITER arg → current_instruction + arg + 1 위치로 점프
-                            // 메인 루프에서 +1하므로 실제로는 current + arg로 설정
-                            int forIterTargetInstrPos = frame.InstructionPointer + argument;
-
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterTargetInstrPos} (CPython 3.12 compatible)");
-                            #endif
-                            frame.InstructionPointer = forIterTargetInstrPos; // main loop will increment to correct position
-                        }
+                        // bytecodes.c FOR_ITER: JUMPBY(INLINE_CACHE_ENTRIES_FOR_ITER + oparg + 1); the main
+                        // loop adds the one.
+                        frame.InstructionPointer += argument + 1;
 
                         // DON'T return null - continue execution
                     }
@@ -3783,27 +3684,8 @@ namespace SharpPy
                             #endif
                             frame.ValueStack.Pop(); // Remove exhausted iterator
 
-                            // CPython 3.12: QuickenedCodeObject 방식으로 점프 계산
-                            if (frame.Code is PyQuickenedCodeObject quickenedListCode)
-                            {
-                                // Quickened Code: instruction offset 사용
-                                int listQuickenedTarget = quickenedListCode.CalculateForIterTarget(frame.InstructionPointer, argument);
-
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔚 FOR_ITER_LIST: Jumping to position {listQuickenedTarget} (QuickenedCode)");
-                                #endif
-                                frame.InstructionPointer = listQuickenedTarget - 1;
-                            }
-                            else
-                            {
-                                // CPython 3.12 호환: FOR_ITER_LIST arg → current_instruction + arg + 1 위치로 점프
-                                int listIterTargetInstrPos = frame.InstructionPointer + argument;
-
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔚 FOR_ITER_LIST: Jumping to position {listIterTargetInstrPos} (CPython 3.12 compatible)");
-                                #endif
-                                frame.InstructionPointer = listIterTargetInstrPos; // main loop will increment to correct position
-                            }
+                            // the jump of FOR_ITER, which this specialization keeps
+                            frame.InstructionPointer += argument + 1;
                         }
                     }
                     else
@@ -3833,27 +3715,8 @@ namespace SharpPy
                             #endif
                             frame.ValueStack.Pop();
 
-                            // CPython 3.12: QuickenedCodeObject 방식으로 점프 계산
-                            if (frame.Code is PyQuickenedCodeObject quickenedTupleCode)
-                            {
-                                // Quickened Code: instruction offset 사용
-                                int tupleQuickenedTarget = quickenedTupleCode.CalculateForIterTarget(frame.InstructionPointer, argument);
-
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔚 FOR_ITER_TUPLE: Jumping to position {tupleQuickenedTarget} (QuickenedCode)");
-                                #endif
-                                frame.InstructionPointer = tupleQuickenedTarget - 1;
-                            }
-                            else
-                            {
-                                // CPython 3.12 호환: FOR_ITER_TUPLE arg → current_instruction + arg + 1 위치로 점프
-                                int tupleIterTargetInstrPos = frame.InstructionPointer + argument;
-
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔚 FOR_ITER_TUPLE: Jumping to position {tupleIterTargetInstrPos} (CPython 3.12 compatible)");
-                                #endif
-                                frame.InstructionPointer = tupleIterTargetInstrPos; // main loop will increment to correct position
-                            }
+                            // the jump of FOR_ITER, which this specialization keeps
+                            frame.InstructionPointer += argument + 1;
                         }
                     }
                     else
@@ -6437,19 +6300,6 @@ namespace SharpPy
             return callable.Call(args[..positional], kwargs);
         }
 
-        /// <summary>
-        /// Calculate cumulative byte offset for given instruction index (CPython 3.12 compatible)
-        /// </summary>
-        private int CalculateByteOffset(int instructionIndex, List<ByteCodeInstruction> instructions)
-        {
-            int byteOffset = 0;
-            for (int i = 0; i < instructionIndex && i < instructions.Count; i++)
-            {
-                var instruction = instructions[i];
-                byteOffset += PyJumpBackwardUtil.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
-            }
-            return byteOffset;
-        }
 
         /// <summary>
         /// Check if an exception is an instance of the expected exception type or its parent types
