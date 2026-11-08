@@ -985,9 +985,8 @@ namespace SharpPy
                 }
                 throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{FullName}'");
             }
-            var metatype = GetPyType();
-            var descriptor = (metatype as SharpPy.PyClass)?.LookupInMRO(name) ?? SharpPy.PyClass.GetTypeAttribute(metatype, name);
-            if (descriptor != null && PyClassInstance.IsDataDescriptor(descriptor))
+            // _PyType_Lookup(Py_TYPE(type), name): a data descriptor of the metatype sets.
+            if (PyClassInstance.FindDataDescriptorInMro(GetPyType(), name) is { } descriptor)
             {
                 if (value == null)
                     PyClassInstance.CallDescriptorDelete(descriptor, this);
@@ -1670,7 +1669,7 @@ namespace SharpPy
         }
 
         internal static bool TypeInitIsObjectInit(PyType type) =>
-            ReferenceEquals(type is PyClass cls ? cls.LookupInMRO("__init__") : type.LookupSpecial("__init__"), ObjectInitDescriptor());
+            ReferenceEquals(type is PyClass cls ? cls.FindNameInMro("__init__") : type.LookupSpecial("__init__"), ObjectInitDescriptor());
 
         private static PyObject AttributeOrNull(PyObject self, string name)
         {

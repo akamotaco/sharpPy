@@ -254,8 +254,8 @@ namespace SharpPy
                         throw PyTypeError.Create($"list expected at most 1 argument, got {args.Length}");
                     // list___init__: keywords are refused unless a subclass has its own __new__.
                     if (kwargs != null && kwargs.Length() != 0 &&
-                        (self.GetPyType() is not PyClass heap || ReferenceEquals(heap.LookupInMRO("__new__"), PyType.ObjectType.TypeDict["__new__"]) ||
-                         ReferenceEquals(heap.LookupInMRO("__new__"), listType.TypeDict.GetValueOrDefault("__new__"))))
+                        (self.GetPyType() is not PyClass heap || ReferenceEquals(heap.FindNameInMro("__new__"), PyType.ObjectType.TypeDict["__new__"]) ||
+                         ReferenceEquals(heap.FindNameInMro("__new__"), listType.TypeDict.GetValueOrDefault("__new__"))))
                         throw PyTypeError.Create("list() takes no keyword arguments");
 
                     // CPython 3.12: Get actual list storage (works for subclasses)

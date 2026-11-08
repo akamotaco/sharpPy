@@ -322,7 +322,7 @@ namespace SharpPy
         /// ordinary instance costs one field comparison (this is SharpPy's stand-in for the
         /// tp_finalize slot C fills at type creation, Objects/typeobject.c:9499).
         ///
-        /// The re-check walks the class dictionaries instead of LookupInMRO: the global method cache
+        /// The re-check walks the class dictionaries instead of FindNameInMro: the global method cache
         /// still holds the negative answer recorded before a late `P.__del__ = ...`, and
         /// InvalidateTypeCache does not spread to subclasses, so a subclass would keep answering
         /// "no finalizer" from a stale cache entry (probe G, parent assigned after subclass used).
@@ -484,17 +484,14 @@ namespace SharpPy
             TypeDict = ClassDict;
         }
 
-        // _PyType_Lookup
-        public PyObject LookupInMRO(string name) => FindNameInMro(name);
-
         // 클래스 호출 시 인스턴스 생성
         // Py_TYPE(cls)->tp_call: a metaclass __call__ comes before type_call.
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             if (Metaclass != null && !ReferenceEquals(Metaclass, PyTypeMetaclass.Instance))
             {
-                var call = Metaclass.LookupInMRO("__call__");
-                if (call != null && !ReferenceEquals(call, PyTypeMetaclass.Instance.LookupInMRO("__call__")))
+                var call = Metaclass.FindNameInMro("__call__");
+                if (call != null && !ReferenceEquals(call, PyTypeMetaclass.Instance.FindNameInMro("__call__")))
                     return BindSpecialMethod(call).Call(args, kwargs);
             }
             return TypeCall(args, kwargs);
@@ -547,27 +544,6 @@ namespace SharpPy
 
 
 
-        /// <summary>
-        /// CPython 3.12 compatible: Safe type attribute lookup without recursion
-        /// </summary>
-        private static readonly Dictionary<string, PyObject> ObjectSlots = new Dictionary<string, PyObject>();
-
-        /// <summary>
-        /// A slot of object is one object in CPython, so getattr(cls, "__lt__") can be compared with
-        /// getattr(object, "__lt__"), as functools.total_ordering does. The lookup below builds them.
-        /// </summary>
-        public static PyObject? GetTypeAttribute(PyType pyType, string name)
-        {
-            if (!ReferenceEquals(pyType, PyType.ObjectType)) return BuildTypeAttribute(pyType, name);
-            lock (ObjectSlots)
-            {
-                if (ObjectSlots.TryGetValue(name, out var slot)) return slot;
-                slot = BuildTypeAttribute(pyType, name);
-                if (slot != null) ObjectSlots[name] = slot;
-                return slot;
-            }
-        }
-
         // object_repr: the default, whatever the object's own type declares.
         internal static PyString ObjectRepr(PyObject self)
         {
@@ -580,13 +556,6 @@ namespace SharpPy
         }
 
         // A builtin type's own dict, which holds its slot wrappers too.
-        private static PyObject? BuildTypeAttribute(PyType pyType, string name)
-        {
-            if (pyType.TypeDict != null && pyType.TypeDict.TryGetValue(name, out PyObject descriptor))
-                return descriptor;
-            return ReferenceEquals(pyType, PyType.ObjectType) && name == "__class__" ? PyType.TypeType : null;
-        }
-
         /// <summary>
         /// object_new's Py_TPFLAGS_IS_ABSTRACT refusal (Objects/typeobject.c:5459). The flag follows
         /// the truth of the type's own __abstractmethods__ (type_set_abstractmethods), and the message
@@ -837,9 +806,9 @@ namespace SharpPy
             if (obj is PyClassInstance instance)
             {
                 var objType = instance.InstanceType;
-                // Use LookupInMRO to bypass __getattribute__ (like _PyType_Lookup)
-                return objType.LookupInMRO("__set__") != null ||
-                       objType.LookupInMRO("__delete__") != null;
+                // Use FindNameInMro to bypass __getattribute__ (like _PyType_Lookup)
+                return objType.FindNameInMro("__set__") != null ||
+                       objType.FindNameInMro("__delete__") != null;
             }
 
             return false;
@@ -861,7 +830,7 @@ namespace SharpPy
             if (obj is PyClassInstance instance)
             {
                 var objType = instance.InstanceType;
-                return objType.LookupInMRO("__get__") != null;
+                return objType.FindNameInMro("__get__") != null;
             }
 
             return false;
@@ -883,7 +852,7 @@ namespace SharpPy
             if (descriptor is PyClassInstance descInstance)
             {
                 var objType = descInstance.InstanceType;
-                var getMethod = objType.LookupInMRO("__get__");
+                var getMethod = objType.FindNameInMro("__get__");
 
                 if (getMethod != null)
                 {
@@ -928,7 +897,7 @@ namespace SharpPy
             if (descriptor is PyClassInstance descInstance)
             {
                 var objType = descInstance.InstanceType;
-                var setMethod = objType.LookupInMRO("__set__");
+                var setMethod = objType.FindNameInMro("__set__");
 
                 if (setMethod != null)
                 {

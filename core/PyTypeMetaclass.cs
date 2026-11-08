@@ -225,8 +225,8 @@ namespace SharpPy
             if (!ReferenceEquals(winner, metatype))
             {
                 // A more derived metaclass with its own tp_new takes over.
-                var winnerNew = winner.LookupInMRO("__new__");
-                if (!ReferenceEquals(winnerNew, Instance.LookupInMRO("__new__")))
+                var winnerNew = winner.FindNameInMro("__new__");
+                if (!ReferenceEquals(winnerNew, Instance.FindNameInMro("__new__")))
                     return winnerNew.Call(new[] { winner, args[1], args[2], args[3] }, kwargs);
                 metatype = winner;
             }
@@ -331,8 +331,8 @@ namespace SharpPy
         /// <summary>mro_invoke and mro_check: what a metaclass's mro() answers, null without one.</summary>
         internal static List<PyType> MroInvoke(PyClass type)
         {
-            var method = type.Metaclass?.LookupInMRO("mro");
-            if (method == null || ReferenceEquals(method, Instance.LookupInMRO("mro")))
+            var method = type.Metaclass?.FindNameInMro("mro");
+            if (method == null || ReferenceEquals(method, Instance.FindNameInMro("mro")))
                 return null;
             var order = new List<PyType>();
             var iterator = type.BindSpecialMethod(method).Call(new PyObject[0], null).GetIterator();
