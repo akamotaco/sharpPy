@@ -381,6 +381,8 @@ namespace SharpPy
                     length *= Math.Exp(-angle * bi);
                     phase += bi * Math.Log(magnitude);
                 }
+                // cos and sin of an infinite argument are a domain error of libm: errno EDOM.
+                domain = double.IsInfinity(phase);
                 real = length * Math.Cos(phase);
                 imag = length * Math.Sin(phase);
             }

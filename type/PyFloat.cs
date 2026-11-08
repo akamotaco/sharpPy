@@ -649,7 +649,7 @@ namespace SharpPy
                 PyFloat otherFloat => new PyFloat(Value + otherFloat.Value),
                 PyInt otherInt => new PyFloat(Value + Modules.PyMathFunction.RealNumber(otherInt)),
                 PyBool otherBool => new PyFloat(Value + (otherBool.Value ? 1.0 : 0.0)),
-                PyComplex otherComplex => new PyComplex(Value + otherComplex.Real, otherComplex.Imag),
+                PyComplex otherComplex => new PyComplex(Value, 0.0).Add(otherComplex),  // to_complex, then complex_add
                 _ => PyNotImplemented.Instance
             };
         }
@@ -662,7 +662,7 @@ namespace SharpPy
                 PyFloat otherFloat => new PyFloat(Value - otherFloat.Value),
                 PyInt otherInt => new PyFloat(Value - Modules.PyMathFunction.RealNumber(otherInt)),
                 PyBool otherBool => new PyFloat(Value - (otherBool.Value ? 1.0 : 0.0)),
-                PyComplex otherComplex => new PyComplex(Value - otherComplex.Real, -otherComplex.Imag),
+                PyComplex otherComplex => new PyComplex(Value, 0.0).Subtract(otherComplex),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -675,7 +675,7 @@ namespace SharpPy
                 PyFloat otherFloat => new PyFloat(Value * otherFloat.Value),
                 PyInt otherInt => new PyFloat(Value * Modules.PyMathFunction.RealNumber(otherInt)),
                 PyBool otherBool => new PyFloat(Value * (otherBool.Value ? 1.0 : 0.0)),
-                PyComplex otherComplex => new PyComplex(Value * otherComplex.Real, Value * otherComplex.Imag),
+                PyComplex otherComplex => new PyComplex(Value, 0.0).Multiply(otherComplex),
                 _ => PyNotImplemented.Instance
             };
         }
