@@ -154,12 +154,8 @@ namespace SharpPy.Modules
                     $"{name}() takes from 1 to 3 positional arguments but {args.Length} were given");
         }
 
-        private static byte[] ByteArrayOf(PyObject obj)
-        {
-            if (obj is PyBytes b) return b.Value;
-            if (obj is PyByteArray ba) return ba.ToByteArrayCopy();
-            throw PyTypeError.Create($"decode() argument must be bytes, not {obj.GetTypeName()}");
-        }
+        // Py_buffer
+        private static byte[] ByteArrayOf(PyObject obj) => BytesMethods.RequireBuffer(obj);
 
         // CPython 3.12: Python/codecs.c:381-398 (PyCodec_RegisterError)
         private static PyObject PyRegisterError(PyObject[] args, PyDict kwargs = null)
@@ -201,7 +197,7 @@ namespace SharpPy.Modules
         /// ("a", 4) - the mark is consumed, not decoded.
         /// </summary>
         private static byte[] BufferArgument(PyObject[] args, string name) =>
-            BytesMethods.Buffer(args[0]) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
+            BytesMethods.RequireBuffer(args[0]);
 
         private static PyObject Decoded(PyObject[] args, string codec, string name)
         {
@@ -550,7 +546,8 @@ namespace SharpPy.Modules
         // PyBytes_Repr without the quotes around it
         private static PyObject PyEscapeEncode(PyObject[] args, PyDict kwargs = null)
         {
-            var data = ByteArrayOf(args[0]);
+            var data = (args[0] as PyBytes)?.Value
+                ?? throw PyTypeError.Create($"escape_encode() argument 1 must be bytes, not {args[0].GetTypeName()}");
             var text = new StringBuilder(data.Length);
             foreach (byte b in data)
             {
@@ -570,7 +567,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyEscapeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            var data = args[0] is PyString text ? Encoding.UTF8.GetBytes(text.Value) : ByteArrayOf(args[0]);
+            var data = BytesMethods.StrOrBuffer(args[0]);
             var decoded = SharpPy.Generated.EscapeDecoders.DecodeBytesEscape(Encoding.Latin1.GetString(data), out _, message => PyValueError.Create(message));
             return Result(PyBytes.From(decoded), data.Length);
         }
@@ -610,7 +607,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUnicodeEscapeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            var data = args[0] is PyString text ? Encoding.UTF8.GetBytes(text.Value) : ByteArrayOf(args[0]);
+            var data = BytesMethods.StrOrBuffer(args[0]);
             string decoded = SharpPy.Generated.EscapeDecoders.DecodeUnicodeEscape(Encoding.Latin1.GetString(data), out _,
                 (start, end, reason) => EscapeFailure("unicodeescape", data, start, end, reason));
             return Result(PyString.From(decoded), data.Length);
@@ -638,7 +635,7 @@ namespace SharpPy.Modules
         // not escaped, and everything else is Latin-1.
         private static PyObject PyRawUnicodeEscapeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            var data = args[0] is PyString text ? Encoding.UTF8.GetBytes(text.Value) : ByteArrayOf(args[0]);
+            var data = BytesMethods.StrOrBuffer(args[0]);
             var result = new StringBuilder(data.Length);
             int position = 0;
             while (position < data.Length)

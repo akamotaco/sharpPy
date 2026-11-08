@@ -60,8 +60,13 @@ namespace SharpPy
                 ?? throw PyTypeError.Create($"__bytes__ returned non-bytes (type {result.GetTypeName()})");
         }
 
-        private static byte[] RequireBuffer(PyObject value) =>
+        /// <summary>PyObject_GetBuffer, the Py_buffer converter: what any buffer holds, else its refusal.</summary>
+        internal static byte[] RequireBuffer(PyObject value) =>
             Buffer(value) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{value.GetTypeName()}'");
+
+        /// <summary>Py_buffer(accept={str, buffer}): a str is its UTF-8 (PyUnicode_AsUTF8AndSize).</summary>
+        internal static byte[] StrOrBuffer(PyObject value) =>
+            value is PyString text ? text.Encode("utf-8").Value : RequireBuffer(value);
 
         private static bool HasIndex(PyObject value) => PyObject.IndexCheck(value);
 
@@ -195,7 +200,7 @@ namespace SharpPy
             {
                 foreach (var item in tuple.Items)
                 {
-                    var part = Buffer(item) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{item.GetTypeName()}'");
+                    var part = RequireBuffer(item);
                     if (TailMatch(text, part, start, end, front))
                         return PyBool.True;
                 }

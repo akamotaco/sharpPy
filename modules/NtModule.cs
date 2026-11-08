@@ -500,8 +500,7 @@ namespace SharpPy.Modules
         private static PyObject Write(PyObject[] args)
         {
             var stream = PyFileDescriptors.Get(Descriptor(args[0]));
-            var data = BytesMethods.Buffer(args[1])
-                ?? throw PyTypeError.Create($"a bytes-like object is required, not '{args[1].GetTypeName()}'");
+            var data = BytesMethods.RequireBuffer(args[1]);
             PyGil.AllowThreads(() =>
             {
                 stream.Write(data, 0, data.Length);

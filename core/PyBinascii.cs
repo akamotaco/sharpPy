@@ -30,7 +30,7 @@ namespace SharpPy
         /// <summary>binascii.hexlify - accepts bytes-like input only.</summary>
         internal static byte[] Hexlify(PyObject obj)
         {
-            byte[] data = ToBytes(obj, requireStrAllowed: false, strWording: BytesLikeRequired);
+            byte[] data = Buffer(obj);
             var outBytes = new byte[data.Length * 2];
             for (int i = 0; i < data.Length; i++)
             {
@@ -41,14 +41,12 @@ namespace SharpPy
         }
 
         // The two refusals differ per function in CPython and both are measured.
-        private const string BytesLikeRequired = "a bytes-like object is required, not {TYPE}";
         // binascii's other refusal names the type without quotes: not str, not int.
-        private const string ExpectedBytesLike = "expected bytes-like object, not {BARETYPE}";
 
         /// <summary>binascii.unhexlify - str or bytes, even length, hex digits only.</summary>
         internal static byte[] Unhexlify(PyObject obj)
         {
-            byte[] data = ToBytes(obj, requireStrAllowed: true, strWording: BytesLikeRequired);
+            byte[] data = AsciiBuffer(obj);
             if (data.Length % 2 != 0) throw PyBinasciiError.Create("Odd-length string");
             var outBytes = new byte[data.Length / 2];
             for (int i = 0; i < data.Length; i++)
@@ -63,7 +61,7 @@ namespace SharpPy
         /// <summary>binascii.b2a_base64 with newline=True: padded, with a trailing LF.</summary>
         internal static byte[] B2aBase64(PyObject obj, bool newline = true)
         {
-            byte[] data = ToBytes(obj, requireStrAllowed: false, strWording: ExpectedBytesLike);
+            byte[] data = Buffer(obj);
             if (data.Length == 0) return newline ? new[] { (byte)'\n' } : Array.Empty<byte>();
             var sb = new StringBuilder((data.Length + 2) / 3 * 4 + 1);
             int i = 0;
@@ -97,9 +95,7 @@ namespace SharpPy
         /// </summary>
         internal static byte[] A2bBase64(PyObject obj, bool strict = false)
         {
-            byte[] data = obj is PyString ? ToBytes(PyBytes.From(Encoding.ASCII.GetBytes(((PyString)obj).Value)),
-                requireStrAllowed: false, strWording: ExpectedBytesLike)
-                : ToBytes(obj, requireStrAllowed: false, strWording: ExpectedBytesLike);
+            byte[] data = AsciiBuffer(obj);
             var bits = new List<int>();
             bool padded = false;
             foreach (byte b in data)
@@ -147,20 +143,21 @@ namespace SharpPy
             return -1;
         }
 
-        /// <summary>
-        /// bytes/bytearray always; str only where binascii allows it (unhexlify). The wording is
-        /// per function in CPython, so both shapes are kept: "a bytes-like object is required,
-        /// not 'str'" and "expected bytes-like object, not str".
-        /// </summary>
-        private static byte[] ToBytes(PyObject obj, bool requireStrAllowed, string strWording)
+        // Py_buffer
+        private static byte[] Buffer(PyObject obj) => BytesMethods.RequireBuffer(obj);
+
+        // ascii_buffer_converter: an ASCII str, or any buffer.
+        private static byte[] AsciiBuffer(PyObject obj)
         {
-            if (obj is PyBytes b) return b.Value;
-            if (obj is PyByteArray ba) return ba.ToByteArrayCopy();
-            if (obj is PyString s && requireStrAllowed)
-                return Encoding.ASCII.GetBytes(s.Value);
-            string typeText = obj is PyString ? "'str'" : obj.GetTypeName();
-            string bareType = obj is PyString ? "str" : obj.GetTypeName();
-            throw PyTypeError.Create(strWording.Replace("{TYPE}", typeText).Replace("{BARETYPE}", bareType));
+            if (obj is PyString text)
+            {
+                foreach (char c in text.Value)
+                    if (c > 0x7F)
+                        throw PyValueError.Create("string argument should contain only ASCII characters");
+                return Encoding.ASCII.GetBytes(text.Value);
+            }
+            return BytesMethods.Buffer(obj)
+                ?? throw PyTypeError.Create($"argument should be bytes, buffer or ASCII string, not '{obj.GetTypeName()}'");
         }
 
         public static PyModule CreateBinasciiModule()
@@ -181,7 +178,7 @@ namespace SharpPy
             {
                 uint crc = a.Length > 1 ? (uint)(new System.Numerics.BigInteger(uint.MaxValue) & ((PyInt)a[1]).Value) : 0;
                 crc = ~crc;
-                foreach (byte b in ToBytes(a[0], requireStrAllowed: false, strWording: ExpectedBytesLike))
+                foreach (byte b in Buffer(a[0]))
                 {
                     crc ^= b;
                     for (int bit = 0; bit < 8; bit++) crc = (crc >> 1) ^ (0xEDB88320u & (uint)-(int)(crc & 1));

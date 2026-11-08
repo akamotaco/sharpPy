@@ -66,11 +66,7 @@ namespace SharpPy.Modules
             return module;
         }
 
-        private static byte[] Bytes(PyObject value) => value switch
-        {
-            PyBytes bytes => bytes.Value,
-            PyByteArray array => array.ToByteArrayCopy(),
-            _ => throw PyTypeError.Create($"a bytes-like object is required, not '{value.GetTypeName()}'"),
-        };
+        // Py_buffer
+        private static byte[] Bytes(PyObject value) => BytesMethods.RequireBuffer(value);
     }
 }

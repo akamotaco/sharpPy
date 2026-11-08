@@ -427,8 +427,7 @@ public sealed class PyFileIO : PyIOBaseInstance
             self.CheckOpen();
             if (!self._writable)
                 throw ErrMode("writing");
-            var data = BytesMethods.Buffer(args[0])
-                ?? throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
+            var data = BytesMethods.RequireBuffer(args[0]);
             var stream = PyFileDescriptors.Get(self.Fd);
             try
             {

@@ -927,12 +927,8 @@ namespace SharpPy.Modules
             type.TypeDict["frombytes"] = new PyMethodDescriptor("frombytes", type, (self, args, kwargs) =>
             {
                 var arr = (PyArray)self;
-                if (args[0] is PyBytes pb)
-                    arr.FromBytes(pb.Value);
-                else if (args[0] is PyByteArray pba)
-                    arr.FromBytes(pba.ToByteArrayCopy());
-                else
-                    throw PyTypeError.Create($"a bytes-like object is required, not \"{args[0].GetTypeName()}\"");
+                // array.frombytes(buffer: Py_buffer)
+                arr.FromBytes(BytesMethods.RequireBuffer(args[0]));
                 return PyNone.Instance;
             }, 1, 1);
 

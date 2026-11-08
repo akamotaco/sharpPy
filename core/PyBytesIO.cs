@@ -105,8 +105,7 @@ public class PyBytesIO : PyIOBaseInstance
             Array.Resize(ref _buf, length);
     }
 
-    private static byte[] Contiguous(PyObject value) => BytesMethods.Buffer(value)
-        ?? throw PyTypeError.Create($"a bytes-like object is required, not '{value.GetTypeName()}'");
+    private static byte[] Contiguous(PyObject value) => BytesMethods.RequireBuffer(value);
 
     // write_bytes
     private long WriteBytes(PyObject value)

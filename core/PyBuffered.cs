@@ -508,7 +508,7 @@ public sealed class PyBuffered : PyIOBaseInstance
     private PyObject Write(PyObject argument)
     {
         CheckInitialized();
-        var data = BytesMethods.Buffer(argument) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{argument.GetTypeName()}'");
+        var data = BytesMethods.RequireBuffer(argument);
         return Locked<PyObject>(() =>
         {
             if (IsClosed)
