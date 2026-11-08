@@ -61,7 +61,6 @@
 - 2-1. `type_comments`와 `compile(..., "func_type")`: 토크나이저와 파서가 `TYPE_COMMENT`, `TYPE_IGNORE`를 내지 않는다.
 - 2-2. 원본이 UTF-8이 아닌 바이트 소스의 끝 열: 깨진 바이트를 U+DC80~DCFF로 들고 있어 폭이 1바이트 어긋난다.
 - 2-3. test_string_literals는 `os.open`이 없어 먼저 막힌다.
-- 2-4. 파일 모드 토크나이저: 주 스크립트도 `compile()`처럼 문자열로 토큰화한다. CPython은 `tok_underflow_file`로 읽고, 오류 줄은 `_PyPegen_raise_error_known_location`이 `_PyErr_ProgramDecodedTextObject`로 파일에서 다시 읽는다. 그래서 파일 끝의 `\`는 CPython에서 `offset` 0(캐럿 없음), `text`에 줄바꿈 없음이고 SharpPy는 문자열 모드 값(`offset` 2)이다. test_eof의 bpo2180 하나.
 
 ## 3. 타입과 디스크립터
 

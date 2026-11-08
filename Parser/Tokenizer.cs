@@ -334,9 +334,11 @@ namespace SharpPy.Generated
             c >= 0 && c < 128 && c2 >= 0 && c2 < 128 && c3 >= 0 && c3 < 128 ? Operator(c << 14 | c2 << 7 | c3) : PyToken.Type.OP;
 
         // _PyTokenizer_FromUTF8
-        public Tokenizer(string source, bool execInput = true, bool extraTokens = false, string filename = "<string>", bool preserveCrlf = false)
+        public Tokenizer(string source, bool execInput = true, bool extraTokens = false, string filename = "<string>", bool preserveCrlf = false,
+            bool fileInput = false)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
+            _fileInput = fileInput;
             _str = TranslateNewlines(source, execInput, preserveCrlf);
             _filename = filename;
             _extraTokens = extraTokens;
@@ -585,9 +587,20 @@ namespace SharpPy.Generated
             return length;
         }
 
-        // tok_underflow_string
+        // _PyTokenizer_FromFile: the source of a script run from its file (pyrun_file), read line by
+        // line into one buffer.
+        private readonly bool _fileInput;
+
+        // tok_underflow_string, and tok_underflow_file for a file: there the buffer starts again
+        // where the next line is read whenever no token is open, so at the end of the file the
+        // position is the buffer's start (an error there is at column 0).
         private bool Underflow()
         {
+            if (_fileInput && Start == -1 && !InsideFString)
+            {
+                Buf = Inp;
+                Cur = Inp;
+            }
             int end = _str.IndexOf('\n', Inp);
             if (end >= 0)
                 end++;

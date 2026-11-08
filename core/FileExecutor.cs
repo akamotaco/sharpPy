@@ -84,7 +84,7 @@ namespace SharpPy.Core
                 {
                     // CPython 3.12: python -m py_compile file.py behavior
                     // Compile to bytecode but don't execute
-                    interpreter.CompileOnly(code, pythonFile, showTokenize, showAst, showBytecode);
+                    interpreter.CompileOnly(code, pythonFile, showTokenize, showAst, showBytecode, fromFile: true);
                 }
                 else
                 {
@@ -97,7 +97,7 @@ namespace SharpPy.Core
                         if (searchPath.Length() == 0) searchPath.Append(PyString.From(directory));
                         else searchPath.SetItem(PyInt.From(0), PyString.From(directory));
                     }
-                    interpreter.Execute(code, pythonFile, showTokenize, showAst, showBytecode);
+                    interpreter.Execute(code, pythonFile, showTokenize, showAst, showBytecode, fromFile: true);
                 }
                 // CPython runs pending __del__ hooks while it tears the interpreter down, after the
                 // program's own output and without changing the exit status. The order it follows is

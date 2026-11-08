@@ -675,9 +675,15 @@ namespace SharpPy.Generated
             {
                 if (lineno < 1 || !System.IO.File.Exists(filename))
                     return null;
-                var lines = Tokenizer.DecodeFile(System.IO.File.ReadAllBytes(filename), filename).Split('\n');
-                if (lineno <= lines.Length)
-                    return lines[lineno - 1].TrimEnd('\r') + "\n";
+                // err_programtext: universal newlines, and the line with its newline only when
+                // the file has one there.
+                string text = Tokenizer.DecodeFile(System.IO.File.ReadAllBytes(filename), filename)
+                    .Replace("\r\n", "\n").Replace('\r', '\n');
+                var lines = text.Split('\n');
+                if (lineno < lines.Length)
+                    return lines[lineno - 1] + "\n";
+                if (lineno == lines.Length && lines[lineno - 1].Length > 0)
+                    return lines[lineno - 1];
             }
             catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or PythonException)
             {

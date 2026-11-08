@@ -99,13 +99,15 @@ namespace SharpPy
             return Execute(expression, "<eval>", false, false, false, CompileMode.Eval);
         }
 
-        public PyObject Execute(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode, CompileMode mode = CompileMode.File)
+        // fromFile: the script pyrun_file runs, tokenized as a file.
+        public PyObject Execute(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode, CompileMode mode = CompileMode.File,
+            bool fromFile = false)
         {
             using var hostScope = PyHost.Enter();
             // A host reads the console when a run returns, so what the streams buffered is out by then.
             try
             {
-                return ExecuteUnflushed(sourceCode, fileName, showTokenize, showAst, showBytecode, mode);
+                return ExecuteUnflushed(sourceCode, fileName, showTokenize, showAst, showBytecode, mode, fromFile);
             }
             finally
             {
@@ -113,7 +115,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject ExecuteUnflushed(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode, CompileMode mode)
+        private PyObject ExecuteUnflushed(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode, CompileMode mode, bool fromFile)
         {
             // CPython 3.12: Python/pythonrun.c - co_filename uses absolute path for file execution
             // Convert relative paths to absolute paths (like CPython does for __file__)
@@ -187,7 +189,7 @@ namespace SharpPy
 #endif
                 // CPython 3.12: Python/bltinmodule.c:776-781
                 // "exec" → Py_file_input, "eval" → Py_eval_input, "single" → Py_single_input
-                var codeObject = Compiler.CompileSource(sourceCode, fileName ?? "<string>", mode);
+                var codeObject = Compiler.CompileSource(sourceCode, fileName ?? "<string>", mode, fileInput: fromFile);
 
 #if DEBUG_LOG
                 Console.WriteLine($"🔍 컴파일 직후 Exception Table entries: {codeObject.ExceptionTable.Count}");
@@ -258,7 +260,7 @@ namespace SharpPy
         /// <param name="showAst">Show AST output</param>
         /// <param name="showBytecode">Show bytecode disassembly</param>
         /// <returns>Compiled code object (not executed)</returns>
-        public PyCodeObject CompileOnly(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode)
+        public PyCodeObject CompileOnly(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode, bool fromFile = false)
         {
             // Store filename and source lines for Python-like error reporting
 
@@ -312,7 +314,7 @@ namespace SharpPy
                 Console.WriteLine("2️⃣ 컴파일: AST → 바이트코드 (실행 안 함)");
                 Console.WriteLine(new string('=', 30));
 #endif
-                var codeObject = Compiler.CompileSource(sourceCode, fileName ?? "<string>");
+                var codeObject = Compiler.CompileSource(sourceCode, fileName ?? "<string>", fileInput: fromFile);
 
 #if DEBUG_LOG
                 Console.WriteLine($"🔍 컴파일 완료: {codeObject.Instructions.Count} instructions");
