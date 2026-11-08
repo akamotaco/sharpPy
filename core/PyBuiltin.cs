@@ -1609,7 +1609,7 @@ namespace SharpPy
             if (nameArgument == null)
                 throw PyTypeError.Create("__import__() missing required argument 'name' (pos 1)");
             if (nameArgument is not PyString)
-                throw PyTypeError.Create($"__import__() argument 1 must be str, not {nameArgument.GetTypeName()}");
+                throw PyTypeError.Create("module name must be a string");  // PyImport_ImportModuleLevelObject
             var levelArgument = args.Length >= 5 ? args[4] : KwValue(kwargs, "level");
             if (nameArgument.Length() == 0 && (levelArgument == null || !levelArgument.IsTrue()))
                 throw PyValueError.Create("Empty module name");
@@ -1838,7 +1838,7 @@ namespace SharpPy
             {
                 // super(type) -> unbound super object (obj_type == NULL).
                 if (args[0] is not PyType single)
-                    throw PyTypeError.Create($"super() argument 1 must be a type, not {args[0].GetTypeName()}");
+                    throw PyArgs.BadArgument("super", "argument 1", "a type", args[0]);
                 return new PySuper(single, null);
             }
             else if (args.Length == 2)
@@ -1848,7 +1848,7 @@ namespace SharpPy
                 var obj = args[1];
 
                 if (type is not PyType pyType)
-                    throw PyTypeError.Create($"super() argument 1 must be a type, not {type.GetTypeName()}");
+                    throw PyArgs.BadArgument("super", "argument 1", "a type", type);
 
                 // CPython: obj == None is treated as an unbound super.
                 return new PySuper(pyType, obj == PyNone.Instance ? null : obj);

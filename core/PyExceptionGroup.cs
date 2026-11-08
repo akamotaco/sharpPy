@@ -263,8 +263,7 @@ namespace SharpPy
                 throw PyTypeError.Create(
                     $"BaseExceptionGroup.__new__() takes exactly 2 arguments ({callArgs.Length} given)");
             if (!(callArgs[0] is PyString message))
-                throw PyTypeError.Create(
-                    $"BaseExceptionGroup.__new__() argument 1 must be str, not {callArgs[0].GetTypeName()}");
+                throw PyArgs.BadArgument("BaseExceptionGroup.__new__", "argument 1", "str", callArgs[0]);
 
             PyObject[] items = ItemsOf(callArgs[1]);
             if (items.Length == 0)

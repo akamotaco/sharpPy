@@ -173,7 +173,7 @@ namespace SharpPy
                 if (fmtArg is not PyString fmtStr)
                     // CPython names the None type "None" in this message and uses the
                     // ordinary tp_name for everything else.
-                    throw PyTypeError.Create($"cast() argument 'format' must be str, not {(fmtArg is PyNone ? "None" : fmtArg.GetTypeName())}");
+                    throw PyArgs.BadArgument("cast", "argument 'format'", "str", fmtArg);
 
                 // memoryview_cast_impl
                 view.CheckReleased();

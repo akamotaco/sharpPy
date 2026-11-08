@@ -412,7 +412,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         if (value == null || value is PyNone)
             return null;
         if (value is not PyString text)
-            throw PyTypeError.Create($"TextIOWrapper() argument '{what}' must be str or None, not {value.GetTypeName()}");
+            throw PyArgs.BadArgument("TextIOWrapper", $"argument '{what}'", "str or None", value);
         if (text.Value.Contains('\0'))
             throw PyValueError.Create("embedded null character");
         return text.Value;
@@ -449,7 +449,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         if (errorsObject is PyNone)
             errorsObject = PyString.From("strict");
         else if (errorsObject is not PyString)
-            throw PyTypeError.Create($"TextIOWrapper() argument 'errors' must be str or None, not {errorsObject.GetTypeName()}");
+            throw PyArgs.BadArgument("TextIOWrapper", "argument 'errors'", "str or None", errorsObject);
         string errors = ((PyString)errorsObject).Value;
         if (errors.Contains('\0'))
             throw PyValueError.Create("embedded null character");
@@ -535,11 +535,11 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
                     default: throw PyTypeError.Create($"'{pair.Key.ToStr().Value}' is an invalid keyword argument for reconfigure()");
                 }
         if (encoding is not PyNone && encoding is not PyString)
-            throw PyTypeError.Create($"reconfigure() argument 'encoding' must be str or None, not {encoding.GetTypeName()}");
+            throw PyArgs.BadArgument("reconfigure", "argument 'encoding'", "str or None", encoding);
         if (errors is not PyNone && errors is not PyString)
-            throw PyTypeError.Create($"reconfigure() argument 'errors' must be str or None, not {errors.GetTypeName()}");
+            throw PyArgs.BadArgument("reconfigure", "argument 'errors'", "str or None", errors);
         if (newline != null && newline is not PyNone && newline is not PyString)
-            throw PyTypeError.Create($"reconfigure() argument 'newline' must be str or None, not {newline.GetTypeName()}");
+            throw PyArgs.BadArgument("reconfigure", "argument 'newline'", "str or None", newline);
         if (_decoded != null && (encoding is not PyNone || errors is not PyNone || newline != null))
             throw Unsupported("It is not possible to set the encoding or newline of stream after the first read");
         string newlineText = newline is PyString text ? text.Value : null;
@@ -575,7 +575,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     }
 
     private static PyObject TextArgument(PyObject value, string method) => value is PyString ? value
-        : throw PyTypeError.Create($"{method}() argument must be str, not {value.GetTypeName()}");
+        : throw PyArgs.BadArgument(method, "argument", "str", value);
 
     // _io_TextIOWrapper_write_impl
     private PyObject Write(PyObject textObject)

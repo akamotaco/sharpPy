@@ -400,7 +400,7 @@ namespace SharpPy
                 return bytes.Value[0];
             if (fill is PyByteArray array && array.Length() == 1)
                 return array.ToByteArrayCopy()[0];
-            throw PyTypeError.Create($"{name}() argument 2 must be a byte string of length 1, not {fill.GetTypeName()}");
+            throw PyArgs.BadArgument(name, "argument 2", "a byte string of length 1", fill);
         }
 
         // pad
@@ -730,7 +730,7 @@ namespace SharpPy
         private static byte[] FromHex(PyObject argument)
         {
             if (argument is not PyString text)
-                throw PyTypeError.Create($"fromhex() argument must be str, not {argument.GetTypeName()}");
+                throw PyArgs.BadArgument("fromhex", "argument", "str", argument);
             var result = new List<byte>();
             string s = text.Value;
             int i = 0;
@@ -778,9 +778,9 @@ namespace SharpPy
             PyObject encoding = args.Length > 0 ? args[0] : kwargs != null ? PyObject.KwValue(kwargs, "encoding") : null;
             PyObject errors = args.Length > 1 ? args[1] : kwargs != null ? PyObject.KwValue(kwargs, "errors") : null;
             if (encoding != null && encoding is not PyString)
-                throw PyTypeError.Create($"decode() argument 'encoding' must be str, not {encoding.GetTypeName()}");
+                throw PyArgs.BadArgument("decode", "argument 'encoding'", "str", encoding);
             if (errors != null && errors is not PyString)
-                throw PyTypeError.Create($"decode() argument 'errors' must be str, not {errors.GetTypeName()}");
+                throw PyArgs.BadArgument("decode", "argument 'errors'", "str", errors);
             return PyString.From(PyStringNewArguments.DecodeBytes(Self(self), (encoding as PyString)?.Value ?? "utf-8", (errors as PyString)?.Value ?? "strict"));
         }
 
@@ -862,9 +862,9 @@ namespace SharpPy
             encoding = args.Length > 1 ? args[1] : kwargs != null ? PyObject.KwValue(kwargs, "encoding") : null;
             errors = args.Length > 2 ? args[2] : kwargs != null ? PyObject.KwValue(kwargs, "errors") : null;
             if (encoding != null && encoding is not PyString)
-                throw PyTypeError.Create($"{kind}() argument 'encoding' must be str, not {encoding.GetTypeName()}");
+                throw PyArgs.BadArgument(kind, "argument 'encoding'", "str", encoding);
             if (errors != null && errors is not PyString)
-                throw PyTypeError.Create($"{kind}() argument 'errors' must be str, not {errors.GetTypeName()}");
+                throw PyArgs.BadArgument(kind, "argument 'errors'", "str", errors);
         }
 
         // A size from __index__, or -1 when it is not an integer after all.

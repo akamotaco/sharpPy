@@ -252,7 +252,7 @@ namespace SharpPy
         {
             VarArgs("strftime", args, kwargs, 1, 2);
             if (args[0] is not PyString formatArg)
-                throw PyTypeError.Create($"strftime() argument 1 must be str, not {args[0].GetTypeName()}");
+                throw PyArgs.BadArgument("strftime", "argument 1", "str", args[0]);
             CTm buf;
             if (args.Length < 2)
             {
@@ -362,7 +362,7 @@ namespace SharpPy
         {
             VarArgs("get_clock_info", args, kwargs, 1, 1);
             if (args[0] is not PyString nameArg)
-                throw PyTypeError.Create($"get_clock_info() argument 1 must be str, not {args[0].GetTypeName()}");
+                throw PyArgs.BadArgument("get_clock_info", "argument 1", "str", args[0]);
             string name = nameArg.Value;
             if (name.IndexOf('\0') >= 0)
                 throw PyValueError.Create("embedded null character");

@@ -27,7 +27,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"formatter_parser() takes exactly one argument ({args.Length} given)");
 
             if (args[0] is not PyString s)
-                throw PyTypeError.Create($"formatter_parser() argument must be str, not {args[0].GetTypeName()}");
+                throw PyTypeError.Create($"expected str, got {args[0].GetPyType().FullName}");
 
             return new FormatterParserIterator(s.Value);
         }
@@ -42,7 +42,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"formatter_field_name_split() takes exactly one argument ({args.Length} given)");
 
             if (args[0] is not PyString s)
-                throw PyTypeError.Create($"formatter_field_name_split() argument must be str, not {args[0].GetTypeName()}");
+                throw PyTypeError.Create($"expected str, got {args[0].GetPyType().FullName}");
 
             string name = s.Value;
             if (name.Length == 0)

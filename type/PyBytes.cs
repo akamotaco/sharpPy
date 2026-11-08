@@ -368,7 +368,7 @@ namespace SharpPy
                         throw PyTypeError.Create("bytes.fromhex() takes no keyword arguments");
 
                     if (args[0] is not PyString hexStr)
-                        throw PyTypeError.Create($"fromhex() argument must be str, not {args[0].GetTypeName()}");
+                        throw PyArgs.BadArgument("fromhex", "argument", "str", args[0]);
 
                     // CPython 3.12 Objects/bytesobject.c bytes_fromhex scans the original string, skips
                     // ASCII whitespace, and reports the position in that original string. A dangling

@@ -455,7 +455,7 @@ namespace SharpPy
                     if (!PyFloat.TryFloatSelf(self, out var floatObj))
                         throw PyTypeError.Create($"descriptor '__format__' requires a 'float' object but received a '{self.GetTypeName()}'");
                     if (args[0] is not PyString specStr)
-                        throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
+                        throw PyArgs.BadArgument("__format__", "argument", "str", args[0]);
 
                     // _PyFloat_FormatAdvancedWriter: an empty spec is str(self).
                     return specStr.Value.Length == 0 ? self.ToStr() : PyString.From(FormatFloat(floatObj.Value, specStr.Value));

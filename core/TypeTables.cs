@@ -119,7 +119,7 @@ namespace SharpPy
                 var next = values[0] is PyNone ? null : values[0] as PyTraceback
                     ?? throw PyTypeError.Create($"expected traceback object or None, got '{values[0].GetTypeName()}'");
                 var frame = values[1] as PyFrame
-                    ?? throw PyTypeError.Create($"TracebackType() argument 'tb_frame' must be frame, not {values[1].GetTypeName()}");
+                    ?? throw PyArgs.BadArgument("TracebackType", "argument 'tb_frame'", "frame", values[1]);
                 return new PyTraceback(frame, PyArgs.Int(values[2]), PyArgs.Int(values[3]), next);
             }, 0, int.MaxValue, acceptsKwargs: true);
 

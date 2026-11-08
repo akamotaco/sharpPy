@@ -91,7 +91,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"{function}() takes at least 1 argument (0 given)");
             if (args[0] is PyString text && text.CodePointLength() == 1)
                 return text.Value.Length == 1 ? text.Value[0] : char.ConvertToUtf32(text.Value, 0);
-            throw PyTypeError.Create($"{function}() argument must be a unicode character, not {args[0].GetTypeName()}");
+            throw PyArgs.BadArgument(function, "argument", "a unicode character", args[0]);
         }
 
         private static List<int> CodePoints(string text)
@@ -208,9 +208,9 @@ namespace SharpPy.Modules
         private static string Normalize(PyObject form, PyObject input, string function)
         {
             if (form is not PyString name)
-                throw PyTypeError.Create($"{function}() argument 1 must be str, not {form.GetTypeName()}");
+                throw PyArgs.BadArgument(function, "argument 1", "str", form);
             if (input is not PyString text)
-                throw PyTypeError.Create($"{function}() argument 2 must be str, not {input.GetTypeName()}");
+                throw PyArgs.BadArgument(function, "argument 2", "str", input);
             return name.Value switch
             {
                 "NFC" => Text(Composed(Decomposed(text.Value, false))),

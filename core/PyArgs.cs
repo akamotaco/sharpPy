@@ -53,6 +53,13 @@ internal static class PyArgs
             throw PyTypeError.Create($"{funcstr}() takes no keyword arguments");
     }
 
+    /// <summary>
+    /// _PyArg_BadArgument (Python/getargs.c): "fname() displayname must be expected, not T", T the
+    /// argument's tp_name, or None for None.
+    /// </summary>
+    internal static Exception BadArgument(string fname, string displayname, string expected, PyObject arg) =>
+        PyTypeError.Create($"{fname}() {displayname} must be {expected}, not {(arg is PyNone ? "None" : arg.GetPyType().FullName)}");
+
     // _PyObject_FunctionStr of a module-level builtin: "module.name", a builtins one bare.
     private static string FunctionStr(string module, string name) => module == "builtins" ? name : module + "." + name;
 

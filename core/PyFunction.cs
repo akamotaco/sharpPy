@@ -89,9 +89,9 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             if (given[i] == null)
                 throw PyTypeError.Create($"function() missing required argument '{names[i]}' (pos {i + 1})");
         if (given[0] is not PyCodeObject code)
-            throw PyTypeError.Create($"function() argument 'code' must be code, not {given[0].GetTypeName()}");
+            throw PyArgs.BadArgument("function", "argument 'code'", "code", given[0]);
         if (given[1] is not PyDict globals)
-            throw PyTypeError.Create($"function() argument 'globals' must be dict, not {given[1].GetTypeName()}");
+            throw PyArgs.BadArgument("function", "argument 'globals'", "dict", given[1]);
         var name = given[2] ?? PyNone.Instance;
         var defaults = given[3] ?? PyNone.Instance;
         var closure = given[4] ?? PyNone.Instance;

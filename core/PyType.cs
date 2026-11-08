@@ -2027,7 +2027,7 @@ namespace SharpPy
                 objectType,
                 (self, args, kwargs) => {
                     if (args[0] is not PyString specStr)
-                        throw PyTypeError.Create($"__format__() argument must be str, not {args[0].GetTypeName()}");
+                        throw PyArgs.BadArgument("__format__", "argument", "str", args[0]);
 
                     // CPython: empty format_spec returns str(self)
                     if (specStr.Value == "")

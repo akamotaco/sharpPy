@@ -50,7 +50,7 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"complex.__format__() takes exactly one argument ({args.Length} given)");
                     if (args[0] is not PyString specStr)
-                        throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
+                        throw PyArgs.BadArgument("__format__", "argument", "str", args[0]);
                     if (self is not PyComplex cx)
                         throw WrongComplexSelf("__format__", self);
                     return PyString.From(FormatComplex(cx.Real, cx.Imag, specStr.Value));

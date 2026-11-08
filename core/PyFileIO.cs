@@ -92,7 +92,7 @@ public sealed class PyFileIO : PyIOBaseInstance
         if (nameobj == null)
             throw PyTypeError.Create("FileIO() missing required argument 'file' (pos 1)");
         string mode = modeobj == null ? "r" : modeobj is PyString text ? text.Value
-            : throw PyTypeError.Create($"FileIO() argument 'mode' must be str, not {modeobj.GetTypeName()}");
+            : throw PyArgs.BadArgument("FileIO", "argument 'mode'", "str", modeobj);
         bool closefd = closefdobj == null || closefdobj.IsTrue();
         opener ??= PyNone.Instance;
 

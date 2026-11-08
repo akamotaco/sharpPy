@@ -854,7 +854,7 @@ namespace SharpPy.Modules
 
                 PyObject typecodeArg = args[0];
                 if (!(typecodeArg is PyString ps) || ps.Value.Length != 1)
-                    throw PyTypeError.Create($"array() argument 1 must be a unicode character, not {typecodeArg.GetTypeName()}");
+                    throw PyArgs.BadArgument("array", "argument 1", "a unicode character", typecodeArg);
 
                 char tc = ps.Value[0];
                 if (!TypeCodeTable.ContainsKey(tc))

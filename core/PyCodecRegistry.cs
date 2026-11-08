@@ -152,8 +152,7 @@ namespace SharpPy
             if (!IsTextEncoding(entry)) return CodecResult(entry, "encode", obj, errors);
             if (!IsNativeTextCodec(encoding)) return CodecResult(entry, "encode", obj, errors);
             if (!(obj is PyString text))
-                throw PyTypeError.Create(
-                    $"{StatelessEncoderName(encoding)}() argument 1 must be str, not {obj.GetTypeName()}");
+                throw PyArgs.BadArgument(StatelessEncoderName(encoding), "argument 1", "str", obj);
             return text.Encode(encoding, errors);
         }
 
@@ -166,7 +165,7 @@ namespace SharpPy
             byte[] data;
             if (obj is PyBytes b) data = b.Value;
             else if (obj is PyByteArray ba) data = ba.ToByteArrayCopy();
-            else throw PyTypeError.Create($"decode() argument must be bytes, not {obj.GetTypeName()}");
+            else throw PyArgs.BadArgument("decode", "argument", "bytes", obj);
             string decoded = PyStringNewArguments.DecodeBytes(data, encoding, errors);
             return PyTuple.From(new PyObject[] { PyString.From(decoded), PyInt.From(data.Length) });
         }

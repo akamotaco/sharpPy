@@ -133,7 +133,7 @@ namespace SharpPy
         internal static PyMappingProxy New(PyObject mapping)
         {
             if (mapping is PyList or PyTuple || !(mapping is PyDict || mapping is PyMappingProxy || mapping.HasTypeSlot("__getitem__")))
-                throw PyTypeError.Create($"mappingproxy() argument must be a mapping, not {mapping.GetTypeName()}");
+                throw PyArgs.BadArgument("mappingproxy", "argument", "a mapping", mapping);
             return new PyMappingProxy(mapping);
         }
     }

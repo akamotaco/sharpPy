@@ -620,7 +620,7 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"__format__() takes 1 positional argument ({args.Length} given)");
                     if (args[0] is not PyString specStr)
-                        throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
+                        throw PyArgs.BadArgument("__format__", "argument", "str", args[0]);
 
                     if (specStr.Value.Length == 0)
                         return self.ToStr();

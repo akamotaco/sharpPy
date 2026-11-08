@@ -142,12 +142,12 @@ public static class PyIOBaseSlots
     internal static PyMemoryView WritableBytes(PyObject argument, string function)
     {
         if (!argument.SupportsBuffer())
-            throw PyTypeError.Create($"{function}() argument must be read-write bytes-like object, not {argument.GetTypeName()}");
+            throw PyArgs.BadArgument(function, "argument", "read-write bytes-like object", argument);
         var view = argument.GetBuffer(0);
         if (view.ReadOnly)
         {
             view.Release();
-            throw PyTypeError.Create($"{function}() argument must be read-write bytes-like object, not {argument.GetTypeName()}");
+            throw PyArgs.BadArgument(function, "argument", "read-write bytes-like object", argument);
         }
         if (view.ItemSize == 1)
             return view;

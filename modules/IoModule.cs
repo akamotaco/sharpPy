@@ -95,7 +95,7 @@ namespace SharpPy.Modules
                 if (args.Length != 1)
                     throw PyTypeError.Create($"open_code() takes exactly one argument ({args.Length} given)");
                 if (args[0] is not PyString pathStr)
-                    throw PyTypeError.Create($"open_code() argument must be str, not {args[0].GetTypeName()}");
+                    throw PyArgs.BadArgument("open_code", "argument", "str", args[0]);
                 if (pathStr.Value.Contains('\0'))
                     throw PyValueError.Create("embedded null character");
                 return Open(new PyObject[] { pathStr, PyString.From("rb") }, null);

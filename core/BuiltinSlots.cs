@@ -117,7 +117,7 @@ namespace SharpPy
                 if (name == null)
                     throw PyTypeError.Create("module() missing required argument 'name' (pos 1)");
                 if (name is not PyString text)
-                    throw PyTypeError.Create($"module() argument 'name' must be str, not {name.GetTypeName()}");
+                    throw PyArgs.BadArgument("module", "argument 'name'", "str", name);
                 PyObject doc = args.Length > 1 ? args[1] : null;
                 if (doc == null && kwargs != null && kwargs.ContainsKey(PyString.From("doc")))
                     doc = kwargs.GetItem(PyString.From("doc"));

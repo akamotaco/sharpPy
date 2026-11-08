@@ -70,11 +70,9 @@ namespace SharpPy
             if (objectArg is PyString)
                 throw PyTypeError.Create("decoding str is not supported");
             if (encodingArg != null && encodingArg is not PyString)
-                throw PyTypeError.Create(
-                    $"str() argument 'encoding' must be str, not {encodingArg.GetTypeName()}");
+                throw PyArgs.BadArgument("str", "argument 'encoding'", "str", encodingArg);
             if (errorsArg != null && errorsArg is not PyString)
-                throw PyTypeError.Create(
-                    $"str() argument 'errors' must be str, not {errorsArg.GetTypeName()}");
+                throw PyArgs.BadArgument("str", "argument 'errors'", "str", errorsArg);
 
             byte[] data = RawBytesOrNull(objectArg);
             if (data == null)
@@ -1329,8 +1327,7 @@ namespace SharpPy
                         if (paEnc[0] is PyString encodingStr)
                             encoding = encodingStr.Value;
                         else
-                            throw PyTypeError.Create(
-                                $"encode() argument 'encoding' must be str, not {paEnc[0].GetTypeName()}");
+                            throw PyArgs.BadArgument("encode", "argument 'encoding'", "str", paEnc[0]);
                     }
 
                     if (paEnc.Length >= 2 && paEnc[1] != null)
@@ -1338,8 +1335,7 @@ namespace SharpPy
                         if (paEnc[1] is PyString errorsStr)
                             errors = errorsStr.Value;
                         else
-                            throw PyTypeError.Create(
-                                $"encode() argument 'errors' must be str, not {paEnc[1].GetTypeName()}");
+                            throw PyArgs.BadArgument("encode", "argument 'errors'", "str", paEnc[1]);
                     }
 
                     // One encoder. This descriptor kept its own codec table, so str.encode had two
@@ -1531,7 +1527,7 @@ namespace SharpPy
                         }
                     }
                     if (args[0] is not PyString specStr)
-                        throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
+                        throw PyArgs.BadArgument("__format__", "argument", "str", args[0]);
 
                     // unicode__format__: an empty spec is str(self).
                     return specStr.Value.Length == 0 ? self.ToStr() : PyString.From(FormatString(strObj.Value, specStr.Value));

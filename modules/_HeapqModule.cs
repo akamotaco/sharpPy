@@ -41,7 +41,7 @@ namespace SharpPy.Modules
 
         // _PyArg_BadArgument
         private static PyList ListArg(string name, PyObject value) =>
-            value as PyList ?? throw PyTypeError.Create($"{name}() argument 1 must be list, not {value.GetTypeName()}");
+            value as PyList ?? throw PyArgs.BadArgument(name, "argument 1", "list", value);
 
         private static Exception ChangedSize() => PyRuntimeError.Create("list changed size during iteration");
 

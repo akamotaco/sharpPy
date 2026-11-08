@@ -609,7 +609,7 @@ namespace SharpPy.Modules
             // format_spec must be a string
             if (formatSpec is not PyString formatStr)
             {
-                throw PyTypeError.Create($"format() argument 2 must be str, not {formatSpec.GetTypeName()}");
+                throw PyArgs.BadArgument("format", "argument 2", "str", formatSpec);
             }
 
             return value.Format(formatStr);

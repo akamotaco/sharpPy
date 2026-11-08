@@ -191,7 +191,7 @@ namespace SharpPy.Modules
                 if (args.Length != 2)
                     throw PyTypeError.Create($"call_tracing expected 2 arguments, got {args.Length}");
                 if (args[1] is not PyTuple arguments)
-                    throw PyTypeError.Create($"call_tracing() argument 2 must be tuple, not {args[1].GetTypeName()}");
+                    throw PyArgs.BadArgument("call_tracing", "argument 2", "tuple", args[1]);
                 return args[0].Call(arguments.Items, null);
             });
             module.ModuleDict["_clear_type_cache"] = new PyBuiltinFunction("_clear_type_cache", args => PyNone.Instance);
@@ -803,7 +803,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"sys.intern() takes exactly one argument ({args.Length} given)");
             if (args[0] is not PyString s)
-                throw PyTypeError.Create($"intern() argument must be str, not {args[0].GetTypeName()}");
+                throw PyArgs.BadArgument("intern", "argument", "str", args[0]);
             if (!s.IsExact)
                 throw PyTypeError.Create($"can't intern {s.GetPyType().FullName}");
             return Intern(s);

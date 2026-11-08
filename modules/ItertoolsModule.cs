@@ -92,9 +92,8 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"{name}() takes no keyword arguments");
         }
 
-        // _PyArg_BadArgument
         internal static Exception BadArgument(string fname, string displayname, string expected, PyObject arg) =>
-            PyTypeError.Create($"{fname}() {displayname} must be {expected}, not {arg.GetPyType().Name}");
+            PyArgs.BadArgument(fname, displayname, expected, arg);
 
         // PyIter_Next: the next item, or null once the iterator is done.
         internal static PyObject IterNext(PyObject it)

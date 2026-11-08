@@ -96,10 +96,7 @@ namespace SharpPy.Modules
         {
 
             if (!(args[0] is PyString encodingStr))
-                // CPython writes None here, not NoneType: measured
-                // "lookup() argument must be str, not None".
-                throw PyTypeError.Create("lookup() argument must be str, not " +
-                    (args[0] is PyNone ? "None" : args[0].GetTypeName()));
+                throw PyArgs.BadArgument("lookup", "argument", "str", args[0]);
 
             return PyCodecRegistry.Lookup(encodingStr.Value);
         }
@@ -258,7 +255,7 @@ namespace SharpPy.Modules
             if (args.Length < 1)
                 throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
             if (!(args[0] is PyString pyStr))
-                throw PyTypeError.Create($"{name}() argument 1 must be str, not {args[0].GetTypeName()}");
+                throw PyArgs.BadArgument(name, "argument 1", "str", args[0]);
             string errors = args.Length > 1 && args[1] is PyString errorName ? errorName.Value : null;
             return PyTuple.From(new PyObject[] { pyStr.Encode(codec, errors), PyInt.From(pyStr.CodePointLength()) });
         }
@@ -270,7 +267,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"utf_8_encode expected at most 2 arguments, got {args.Length}");
 
             if (!(args[0] is PyString pyStr))
-                throw PyTypeError.Create($"utf_8_encode() argument 1 must be str, not {args[0].GetTypeName()}");
+                throw PyArgs.BadArgument("utf_8_encode", "argument 1", "str", args[0]);
 
             return Encoded(args, "utf-8", "utf_8_encode");
         }
@@ -398,7 +395,7 @@ namespace SharpPy.Modules
 
         private static string TextOf(PyObject obj, string name) =>
             obj is PyString text ? text.Value
-                : throw PyTypeError.Create($"{name}() argument 1 must be str, not {obj.GetTypeName()}");
+                : throw PyArgs.BadArgument(name, "argument 1", "str", obj);
 
         private static PyObject Result(PyObject value, int consumed) => PyTuple.From(new[] { value, PyInt.From(consumed) });
 
@@ -547,7 +544,7 @@ namespace SharpPy.Modules
         private static PyObject PyEscapeEncode(PyObject[] args, PyDict kwargs = null)
         {
             var data = (args[0] as PyBytes)?.Value
-                ?? throw PyTypeError.Create($"escape_encode() argument 1 must be bytes, not {args[0].GetTypeName()}");
+                ?? throw PyArgs.BadArgument("escape_encode", "argument 1", "bytes", args[0]);
             var text = new StringBuilder(data.Length);
             foreach (byte b in data)
             {

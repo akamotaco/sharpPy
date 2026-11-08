@@ -35,7 +35,9 @@ namespace SharpPy.Modules
                 }
                 if (args[0] is not PyString nameStr)
                 {
-                    throw PyTypeError.Create($"__import__() argument 1 must be str, not {args[0].GetTypeName()}");
+                    // import_module reads name.startswith('.') first; then _bootstrap._sanity_check.
+                    args[0].GetAttribute("startswith").Call(new PyObject[] { PyString.From(".") }, null);
+                    throw PyTypeError.Create($"module name must be str, not {args[0].GetPyType().ToRepr().Value}");
                 }
                 // import_module and _resolve_name: the module named, not its top package.
                 string name = nameStr.Value;

@@ -208,12 +208,12 @@ namespace SharpPy
             if (args.Length != 4)
                 throw PyTypeError.Create($"type.__new__() takes exactly 3 arguments ({args.Length - 1} given)");
             if (args[1] is not PyString name)
-                throw PyTypeError.Create($"type.__new__() argument 1 must be str, not {args[1].GetTypeName()}");
+                throw PyArgs.BadArgument("type.__new__", "argument 1", "str", args[1]);
             if (args[2] is not PyTuple bases)
-                throw PyTypeError.Create($"type.__new__() argument 2 must be tuple, not {args[2].GetTypeName()}");
+                throw PyArgs.BadArgument("type.__new__", "argument 2", "tuple", args[2]);
             var ns = args[3] as PyDict;
             if (ns == null)
-                throw PyTypeError.Create($"type.__new__() argument 3 must be dict, not {args[3].GetTypeName()}");
+                throw PyArgs.BadArgument("type.__new__", "argument 3", "dict", args[3]);
             if (name.Value.Contains('\0'))
                 throw PyValueError.Create("type name must not contain null characters");
 
