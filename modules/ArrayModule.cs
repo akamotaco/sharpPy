@@ -851,6 +851,18 @@ namespace SharpPy.Modules
 
             protected override string IteratorName => "arrayiterator";
 
+            // array_arrayiterator___reduce___impl: (iter, (array,), index), or iter(()) once exhausted.
+            internal override PyObject Reduce() =>
+                _array == null ? ReduceExhausted(PyTuple.From(System.Array.Empty<PyObject>())) : ReduceIter(_array, _index);
+
+            // array_arrayiterator___setstate__: PyLong_AsSsize_t, clipped to the array, if any.
+            internal override void SetState(PyObject state)
+            {
+                long index = ClippedIndex(state, _array?.Count ?? 0);
+                if (_array != null)
+                    _index = (int)index;
+            }
+
             protected internal override PyObject IterNext()
             {
                 if (_array == null || _index >= _array.Count)
@@ -1108,6 +1120,46 @@ namespace SharpPy.Modules
             PySlotWrappers.IndexArgRepeat(type);
             module.ModuleDict["array"] = type;
             module.ModuleDict["ArrayType"] = type;
+
+            // array_array_fromfile_impl: f.read(n * itemsize), which must be bytes, frombytes of it, and
+            // EOFError when it came back short (what it held is kept).
+            type.TypeDict["fromfile"] = PyArgs.Method(type, "fromfile", PyCall.Defining, (self, args) =>
+            {
+                var arr = (PyArray)self;
+                long n = PyArgs.Ssize(args[1]);
+                if (n < 0)
+                    throw PyValueError.Create("negative count");
+                if (n > long.MaxValue / arr.ItemSize)
+                    throw PyMemoryError.Create();
+                long nbytes = n * arr.ItemSize;
+                var read = args[0].GetAttribute("read").Call(new PyObject[] { PyInt.From(nbytes) }, null);
+                if (read is not PyBytes bytes)
+                    throw PyTypeError.Create("read() didn't return bytes");
+                arr.FromBytes(bytes.Value);
+                if (bytes.Value.Length != nbytes)
+                    throw PyEOFError.Create("read() didn't return enough bytes");
+                return PyNone.Instance;
+            }, 2, 2);
+
+            // array_array_tofile_impl: f.write of 64K blocks.
+            type.TypeDict["tofile"] = PyArgs.Method(type, "tofile", PyCall.Defining, (self, args) =>
+            {
+                var arr = (PyArray)self;
+                const int BlockSize = 64 * 1024;
+                int nbytes = arr.Count * arr.ItemSize;
+                var write = args[0].GetAttribute("write");
+                for (int offset = 0; offset < nbytes; offset += BlockSize)
+                {
+                    var block = new byte[Math.Min(BlockSize, nbytes - offset)];
+                    Array.Copy(arr.Buffer, offset, block, 0, block.Length);
+                    write.Call(new PyObject[] { PyBytes.From(block) }, null);
+                }
+                return PyNone.Instance;
+            }, 1, 1);
+
+            // array_modexec: collections.abc.MutableSequence.register(array)
+            var mutableSequence = PyImportSystem.Import("collections.abc").GetAttribute("MutableSequence");
+            mutableSequence.GetAttribute("register").Call(new PyObject[] { type }, null);
             PyArray.Type = type;
             module.ModuleDict["_array_reconstructor"] = PyArray.Reconstructor;
             module.ModuleDict["typecodes"] = PyString.From("bBuhHiIlLqQfd");

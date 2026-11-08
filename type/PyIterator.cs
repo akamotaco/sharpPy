@@ -100,6 +100,10 @@ namespace SharpPy
                 case "set_iterator":
                     InstallMethods(type, true, true, false);
                     break;
+                // array_iter_methods: __reduce__ and __setstate__, no __length_hint__.
+                case "arrayiterator":
+                    InstallMethods(type, false, true, true);
+                    break;
                 case "enumerate":
                 // ga_iter_methods: __reduce__ only.
                 case "generic_alias_iterator":
