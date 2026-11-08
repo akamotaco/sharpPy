@@ -548,7 +548,8 @@ namespace SharpPy
 
         // tp_dictoffset of the builtin itself (function, BaseException, classmethod, the io objects,
         // SimpleNamespace): a heap subclass uses that dict, there is no second one beside it.
-        private bool HasOwnDict => this is IObjectDict;
+        // The CLR object keeps its attributes itself (a class instance, or one with tp_dictoffset).
+        private bool HasOwnDict => this is IInstanceDictStore;
 
         // The __slots__ of a Python class over a builtin, beside its __dict__ (PyMemberDescriptor of
         // type_new_descriptors); a PyClassInstance keeps its own.
@@ -558,17 +559,6 @@ namespace SharpPy
         /// <summary>tp_setattro of the CLR type: PyObject_GenericSetAttr by default.</summary>
         protected internal virtual void TpSetattro(string name, PyObject value)
         {
-            // object_set_class: a heap type to a compatible heap type.
-            if (name == "__class__")
-            {
-                if (_customType is SharpPy.PyClass current && value != null)
-                {
-                    SetCustomType(SubclassInstanceSupport.ClassAssignment(current, value));
-                    return;
-                }
-                throw PyTypeError.Create(value is PyType ? "__class__ assignment only supported for mutable types or ModuleType subclasses" : $"__class__ must be set to a class, not '{value.GetTypeName()}' object");
-            }
-
             if (_customType is PyClass heap && !HasOwnDict)
                 SubclassInstanceSupport.GenericSetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, value);
             else

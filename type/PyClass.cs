@@ -618,7 +618,12 @@ namespace SharpPy
     /// </summary>
     public class PyClassInstance : PyObject, IInstanceDictStore
     {
-        public PyClass InstanceType { get; private set; }
+        // ob_type: the one field every object keeps its type in.
+        public PyClass InstanceType
+        {
+            get => (PyClass)_customType;
+            private set => _customType = value;
+        }
 
         // --- Attribute-store API (CPython 3.12: _PyObject_MaterializeManagedDict pattern) ---
 
@@ -1004,14 +1009,8 @@ namespace SharpPy
             return SubclassInstanceSupport.GenericGetAttrWithDict(this, InstanceType, name, null, this) ?? base.TpGetattro(name);
         }
 
-        // PyObject_GenericSetAttr; object_set_class answers __class__.
-        internal override void GenericSetAttr(string name, PyObject value)
-        {
-            if (name == "__class__")
-                InstanceType = SubclassInstanceSupport.ClassAssignment(InstanceType, value);
-            else
-                SetAttributeDefault(name, value);
-        }
+        // PyObject_GenericSetAttr: __class__ is object's data descriptor, object_set_class.
+        internal override void GenericSetAttr(string name, PyObject value) => SetAttributeDefault(name, value);
 
         // _PyObject_GenericSetAttrWithDict over the instance's own store; also object.__delattr__.
         public void SetAttributeDefault(string name, PyObject value) =>

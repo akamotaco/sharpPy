@@ -39,14 +39,22 @@ namespace SharpPy
         /// a str, and says so when it did not.
         /// </summary>
         // object_set_class
-        internal static PyClass ClassAssignment(PyClass current, PyObject value)
+        /// <summary>
+        /// object_set_class (Objects/typeobject.c): the setter of object.__class__, which the generic
+        /// setattr of every object reaches. Both types mutable, or both module types, and then
+        /// compatible_for_assignment.
+        /// </summary>
+        internal static void ObjectSetClass(PyObject self, PyObject value)
         {
-            if (value is not PyType target)
-                throw PyTypeError.Create($"__class__ must be set to a class, not '{value.GetTypeName()}' object");
-            if (target is not PyClass heapTarget || !heapTarget.IsHeapType)
+            if (value is not PyType newTo)
+                throw PyTypeError.Create($"__class__ must be set to a class, not '{value.GetPyType().FullName}' object");
+            var oldTo = self.GetPyType();
+            bool modules = newTo.IsSubclassOf(PyType.ModuleType) && oldTo.IsSubclassOf(PyType.ModuleType);
+            // A type's own type stays: SharpPy keeps no metatype per type object.
+            if (!modules && (!newTo.IsHeapType || !oldTo.IsHeapType || self is PyType))
                 throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses");
-            PyTypeMetaclass.CheckAssignment(current, heapTarget, "__class__");
-            return heapTarget;
+            PyTypeMetaclass.CheckAssignment(oldTo, newTo, "__class__");
+            self.SetCustomType(newTo as PyClass);
         }
 
         /// <summary>
@@ -131,12 +139,6 @@ namespace SharpPy
         internal static void GenericSetAttribute(PyObject self, PyClass instanceType,
             Dictionary<string, PyObject> instanceDict, string name, PyObject value)
         {
-            // object_set_class
-            if (name == "__class__" && value != null)
-            {
-                self.SetCustomType(ClassAssignment(instanceType, value));
-                return;
-            }
             GenericSetAttrWithDict(self, instanceType, name, value, instanceDict, null);
         }
 

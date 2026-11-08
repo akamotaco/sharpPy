@@ -210,17 +210,6 @@ public class PyModule : PyObject
 
     internal void ModuleSetAttro(string name, PyObject value)
     {
-        // object_set_class: a module's type may change, to another module type.
-        if (name == "__class__")
-        {
-            if (value is not PyType target)
-                throw PyTypeError.Create($"__class__ must be set to a class, not '{value.GetTypeName()}' object");
-            if (!ReferenceEquals(target, PyType.ModuleType) && !target.IsSubclassOf(PyType.ModuleType))
-                throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses");
-            PyTypeMetaclass.CheckAssignment(GetPyType(), target, "__class__");
-            SetCustomType(target as PyClass);
-            return;
-        }
         // _PyObject_GenericSetAttrWithDict: a data descriptor of the type (the READONLY __dict__,
         // the __annotations__ getset, a subclass's own) first, then md_dict.
         if (PyClassInstance.FindDataDescriptorInMro(GetPyType(), name) is { } descriptor)
@@ -250,8 +239,6 @@ public class PyModule : PyObject
     {
         // _PyObject_GenericSetAttrWithDict over md_dict: __dict__ is a READONLY member, __class__
         // object's getset, a data descriptor of a subclass deletes.
-        if (name == "__class__")
-            throw PyTypeError.Create("can't delete __class__ attribute");
         if (PyClassInstance.FindDataDescriptorInMro(GetPyType(), name) is { } descriptor)
         {
             PyClassInstance.CallDescriptorDelete(descriptor, this);

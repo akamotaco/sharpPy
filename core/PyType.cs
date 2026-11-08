@@ -985,9 +985,6 @@ namespace SharpPy
                 }
                 throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{FullName}'");
             }
-            // object_set_class refuses deleting __class__ (Objects/typeobject.c:5712-5719).
-            if (value == null && name == "__class__")
-                throw PyTypeError.Create("can't delete __class__ attribute");
             var metatype = GetPyType();
             var descriptor = (metatype as SharpPy.PyClass)?.LookupInMRO(name) ?? SharpPy.PyClass.GetTypeAttribute(metatype, name);
             if (descriptor != null && PyClassInstance.IsDataDescriptor(descriptor))
@@ -2020,16 +2017,9 @@ namespace SharpPy
             // visible through GenericGetAttribute/MRO for builtin instances too.
             objectType.TypeDict["__class__"] = new PyGetSetDescriptor("__class__", objectType,
                 self => self.GetPyType(),
-                (self, value) =>
-                {
-                    // object_set_class: both types heap types with compatible layouts.
-                    if (self.GetPyType() is PyClass current && self is not PyType)
-                    {
-                        self.SetCustomType(SubclassInstanceSupport.ClassAssignment(current, value));
-                        return;
-                    }
-                    throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses");
-                });
+                SubclassInstanceSupport.ObjectSetClass,
+                // object_set_class with NULL
+                deleter: self => throw PyTypeError.Create("can't delete __class__ attribute"));
 
             // object.__format__(format_spec) - CPython 3.12: Objects/typeobject.c:6257 (object___format__)
             // Default implementation: if format_spec is empty, return str(self), else raise TypeError
