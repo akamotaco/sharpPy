@@ -517,7 +517,7 @@ namespace SharpPy.Generated
                 }
                 else
                 {
-                    imagValue = double.Parse(imagPart, System.Globalization.CultureInfo.InvariantCulture);
+                    imagValue = PyFloat.Strtod(imagPart);
                 }
                 // Create complex with real=0, imag=parsed value
                 constant.Value = new GeneratedPyConstantComplex(0.0, imagValue);
@@ -550,7 +550,7 @@ namespace SharpPy.Generated
             // Check for floating point (MUST come after hex/octal/binary checks!)
             else if (cleanValue.Contains(".") || cleanValue.Contains("e", StringComparison.OrdinalIgnoreCase))
             {
-                constant.Value = new GeneratedPyConstantFloat(double.Parse(cleanValue, System.Globalization.CultureInfo.InvariantCulture));
+                constant.Value = new GeneratedPyConstantFloat(PyFloat.Strtod(cleanValue));
             }
             // Decimal integer
             else

@@ -885,8 +885,7 @@ namespace SharpPy
             // Mirror CPython's "%s0%se%d" buffer + strtod: parse decimal text with correct rounding.
             string text = (negative ? "-" : "") + q.ToString() + "e" +
                           (-ndigits).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            double rounded = double.Parse(text, System.Globalization.NumberStyles.Float,
-                                          System.Globalization.CultureInfo.InvariantCulture);
+            double rounded = Strtod(text);
             if (double.IsInfinity(rounded))
                 throw PyOverflowError.Create("rounded value too large to represent");
             return rounded;
@@ -1201,8 +1200,64 @@ namespace SharpPy
                 if (exponent != first) cursor = exponent;
             }
             position = cursor;
-            return double.TryParse(text.AsSpan(start, cursor - start), System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out value);
+            value = Strtod(text.Substring(start, cursor - start));
+            return true;
+        }
+
+        /// <summary>
+        /// _Py_dg_strtod for a decimal numeral already checked ([sign] digits [. digits] [e [sign]
+        /// digits], no underscore): correctly rounded whatever its length. A short significand is
+        /// the CLR's parse, which rounds correctly there; a long one is the exact ratio of integers,
+        /// rounded once (long_true_divide). An exponent far past the range is 0 or inf at once.
+        /// </summary>
+        internal static double Strtod(string text)
+        {
+            int i = 0;
+            bool negative = false;
+            if (i < text.Length && (text[i] == '+' || text[i] == '-'))
+                negative = text[i++] == '-';
+            var digits = new System.Text.StringBuilder();
+            int fraction = 0;
+            bool point = false;
+            for (; i < text.Length && (char.IsAsciiDigit(text[i]) || text[i] == '.' && !point); i++)
+            {
+                if (text[i] == '.') { point = true; continue; }
+                digits.Append(text[i]);
+                if (point) fraction++;
+            }
+            BigInteger exponent = 0;
+            if (i < text.Length && (text[i] == 'e' || text[i] == 'E'))
+                exponent = BigInteger.Parse(text.AsSpan(i + 1), System.Globalization.NumberStyles.AllowLeadingSign,
+                    System.Globalization.CultureInfo.InvariantCulture);
+            string d = digits.ToString().TrimStart('0');
+            int kept = d.Length;
+            d = d.TrimEnd('0');
+            BigInteger e = exponent - fraction + (kept - d.Length);
+            double signed(double v) => negative ? -v : v;
+            if (d.Length == 0)
+                return signed(0.0);
+            // The value lies in [10**(m-1), 10**m).
+            BigInteger magnitude = d.Length + e;
+            if (magnitude > 310)
+                return signed(double.PositiveInfinity);
+            if (magnitude < -330)
+                return signed(0.0);
+            if (d.Length <= 17)
+                return signed(double.Parse(d + "e" + e.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture));
+            var significand = BigInteger.Parse(d, System.Globalization.CultureInfo.InvariantCulture);
+            int scale = (int)BigInteger.Abs(e);
+            var power = BigInteger.Pow(10, scale);
+            try
+            {
+                var quotient = e >= 0 ? PyInt.BigIntTrueDivide(significand * power, BigInteger.One)
+                                      : PyInt.BigIntTrueDivide(significand, power);
+                return signed(((PyFloat)quotient).Value);
+            }
+            catch (PythonException error) when (error.PyException is PyOverflowError)
+            {
+                return signed(double.PositiveInfinity);
+            }
         }
 
         private static bool TryParseDouble(string text, out double value)
