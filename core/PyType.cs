@@ -300,7 +300,8 @@ namespace SharpPy
         public static readonly PyType IteratorType = new PyType("iterator", new[] { ObjectType });
         public static readonly PyType GeneratorType = new PyType("generator", new[] { IteratorType });
         public static readonly PyType MapType = new PyType("map", new[] { ObjectType });
-        public static readonly PyType WeakRefType = new PyType("ReferenceType", new[] { ObjectType });
+        // tp_name "weakref.ReferenceType"
+        public static readonly PyType WeakRefType = new PyType("ReferenceType", new[] { ObjectType }, "weakref");
         public static readonly PyType ProxyType = new PyType("ProxyType", new[] { ObjectType }, "weakref");
         public static readonly PyType CallableProxyType = new PyType("CallableProxyType", new[] { ObjectType }, "weakref");
         public static readonly PyType ZipType = new PyType("zip", new[] { ObjectType });

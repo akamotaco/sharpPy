@@ -108,19 +108,35 @@ namespace SharpPy.Modules
                 minArgs: 0,
                 maxArgs: int.MaxValue);
 
-            type.TypeDict["__init__"] = new PyMethodDescriptor("__init__", type,
-                (self, args, kwargs) => PyNone.Instance, 0, int.MaxValue);
+            // weakref___init__: no keywords, and the arguments __new__ took (PyArg_UnpackTuple 1..2).
+            type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("ref() takes no keyword arguments");
+                if (args.Length < 1)
+                    throw PyTypeError.Create($"__init__ expected at least 1 argument, got {args.Length}");
+                if (args.Length > 2)
+                    throw PyTypeError.Create($"__init__ expected at most 2 arguments, got {args.Length}");
+                return PyNone.Instance;
+            });
 
-            type.TypeDict["__call__"] = new PyMethodDescriptor("__call__", type,
-                (self, args, kwargs) => ((PyWeakRef)self).SlotCall(args), 0, 0);
-            type.TypeDict["__repr__"] = new PyMethodDescriptor("__repr__", type,
-                (self, args, kwargs) => ((PyWeakRef)self).SlotRepr(), 0, 0);
-            type.TypeDict["__hash__"] = new PyMethodDescriptor("__hash__", type,
-                (self, args, kwargs) => PyInt.From(((PyWeakRef)self).SlotHash()), 0, 0);
-            type.TypeDict["__eq__"] = new PyMethodDescriptor("__eq__", type,
-                (self, args, kwargs) => ((PyWeakRef)self).SlotCompare(args[0], PyObject.CompareOp.EQ), 1, 1);
-            type.TypeDict["__ne__"] = new PyMethodDescriptor("__ne__", type,
-                (self, args, kwargs) => ((PyWeakRef)self).SlotCompare(args[0], PyObject.CompareOp.NE), 1, 1);
+            // tp_call, tp_repr, tp_hash and tp_richcompare are slots: their wrappers.
+            type.TypeDict["__call__"] = new PyWrapperDescriptor("__call__", type,
+                (self, args, kwargs) => ((PyWeakRef)self).SlotCall(args));
+            type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type,
+                (self, args, kwargs) => ((PyWeakRef)self).SlotRepr(), minArgs: 0, maxArgs: 0);
+            type.TypeDict["__hash__"] = new PyWrapperDescriptor("__hash__", type,
+                (self, args, kwargs) => PyInt.From(((PyWeakRef)self).SlotHash()), minArgs: 0, maxArgs: 0);
+            foreach (var (name, op) in new[]
+            {
+                ("__lt__", PyObject.CompareOp.LT), ("__le__", PyObject.CompareOp.LE), ("__eq__", PyObject.CompareOp.EQ),
+                ("__ne__", PyObject.CompareOp.NE), ("__gt__", PyObject.CompareOp.GT), ("__ge__", PyObject.CompareOp.GE),
+            })
+            {
+                var compareOp = op;
+                type.TypeDict[name] = new PyWrapperDescriptor(name, type,
+                    (self, args, kwargs) => ((PyWeakRef)self).SlotCompare(args[0], compareOp), minArgs: 1, maxArgs: 1);
+            }
 
             // weakref_members (Objects/weakrefobject.c:356): {"__callback__", T_OBJECT, wr_callback, READONLY}.
             type.TypeDict["__callback__"] = new PyMemberDescriptor("__callback__", type,
