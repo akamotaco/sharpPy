@@ -995,7 +995,7 @@ namespace SharpPy
                 return;
             foreach (var key in kwargs.Keys().Items)
                 if (key is PyString text && Array.IndexOf(names, text.Value) < 0)
-                    throw PyTypeError.Create($"{function}() got an unexpected keyword argument '{text.Value}'");
+                    throw PyArgs.InvalidKeyword(function, text);
         }
 
         // PyNumber_AsSsize_t(index, PyExc_IndexError)

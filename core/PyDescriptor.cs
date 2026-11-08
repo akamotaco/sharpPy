@@ -29,11 +29,23 @@ namespace SharpPy
         private PyArity.Convention _convention;
         private bool _conventionKnown;
 
+        /// <summary>The calling convention the method's PyMethodDef declares, where it is not in the table.</summary>
+        internal PyArity.Convention Convention
+        {
+            init
+            {
+                _convention = value;
+                _conventionKnown = true;
+            }
+        }
+
         /// <summary>
         /// method_vectorcall_*: the checks of the method's calling convention, after descr_check
         /// and before the body. Without a known convention, the descriptor's own keyword rule.
         /// </summary>
-        internal void CheckCall(PyObject[] args, PyDict kwargs, bool bound = false)
+        /// <param name="self">For a bound call (cfunction_vectorcall_*), what it is bound to: the method
+        /// is then named by meth_get__qualname__, after self when self is a type, else after its type.</param>
+        internal void CheckCall(PyObject[] args, PyDict kwargs, bool bound = false, PyObject self = null)
         {
             if (!_conventionKnown)
             {
@@ -41,7 +53,8 @@ namespace SharpPy
                 _conventionKnown = true;
             }
             if (_convention != null)
-                PyArity.Check(_convention, OwnerType, Name, args, kwargs, bound);
+                PyArity.Check(_convention, OwnerType, Name, args, kwargs, bound,
+                    self == null ? null : self is PyType ? self : self.GetPyType());
             else
                 RejectUnwantedKeywords(kwargs);
         }
@@ -268,7 +281,7 @@ namespace SharpPy
                 Array.Copy(args, 0, withClass, 1, args.Length);
                 return Callable.Call(withClass, kwargs);
             }
-            MethodDescriptor.CheckCall(args, kwargs, bound: true);
+            MethodDescriptor.CheckCall(args, kwargs, bound: true, self: Instance);
             return MethodDescriptor._implementation(Instance, args, kwargs);
         }
 

@@ -53,6 +53,10 @@ internal static class PyArgs
             throw PyTypeError.Create($"{funcstr}() takes no keyword arguments");
     }
 
+    /// <summary>error_unexpected_keyword_arg (Python/getargs.c): a keyword a C function does not have.</summary>
+    internal static Exception InvalidKeyword(string fname, PyObject keyword) =>
+        PyTypeError.Create($"'{keyword.ToStr().Value}' is an invalid keyword argument for {fname}()");
+
     /// <summary>
     /// _PyArg_BadArgument (Python/getargs.c): "fname() displayname must be expected, not T", T the
     /// argument's tp_name, or None for None.
@@ -163,7 +167,7 @@ internal static class PyArgs
                 if (pair.Key is not PyString key)
                     throw PyTypeError.Create("keywords must be strings");
                 if (Array.IndexOf(names, key.Value, posonly) < 0)
-                    throw PyTypeError.Create($"'{key.Value}' is an invalid keyword argument for {fname}()");
+                    throw InvalidKeyword(fname, key);
             }
             throw PyTypeError.Create($"invalid keyword argument for {fname}()");
         }
@@ -178,22 +182,17 @@ internal static class PyArgs
         type.TypeDict[name] = Method(type, name, kind, body, min, max);
 
     /// <summary>PyDescr_NewMethod of one PyMethodDef: the method_descriptor Define stores.</summary>
-    internal static PyMethodDescriptor Method(PyType type, string name, PyCall kind, Func<PyObject, PyObject[], PyObject> body, int min = 0, int max = 0)
-    {
-        string qualname = type.Name + "." + name;
-        var names = new string[max];
-        return new PyMethodDescriptor(name, type, (self, args, kwargs) =>
+    /// The checks are the descriptor's (CheckCall), where a bound call is named after what it is bound to.
+    internal static PyMethodDescriptor Method(PyType type, string name, PyCall kind, Func<PyObject, PyObject[], PyObject> body, int min = 0, int max = 0) =>
+        new PyMethodDescriptor(name, type, (self, args, kwargs) => body(self, args), minArgs: 0, maxArgs: int.MaxValue, acceptsKwargs: true)
         {
-            switch (kind)
+            Convention = kind switch
             {
-                case PyCall.NoArgs: NoArgs(qualname, args, kwargs); break;
-                case PyCall.One: One(qualname, args, kwargs); break;
-                case PyCall.Fast: Positional(name, args, kwargs, min, max); break;
-                default: Unpack(name, args, kwargs, names, max, min, max); break;
-            }
-            return body(self, args);
-        }, minArgs: 0, maxArgs: int.MaxValue, acceptsKwargs: true);
-    }
+                PyCall.NoArgs or PyCall.One => new PyArity.Convention(kind, 0, 0),
+                PyCall.Fast => new PyArity.Convention(kind, min, max, QualifiedKeywordRefusal: true),
+                _ => new PyArity.Convention(PyCall.Defining, min, max, new string[max], PositionalOnly: max),
+            },
+        };
 
     // _Py_convert_optional_to_ssize_t: None, or an index that fits.
     internal static long OptionalSsize(PyObject value, long fallback = -1)

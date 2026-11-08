@@ -168,8 +168,8 @@ namespace SharpPy
             }, readOnly: true);
 
             // type___subclasses___impl
-            typeClass.ClassDict["__subclasses__"] = new PyMethodDescriptor("__subclasses__", typeClass, (self, args, kwargs) =>
-                new PyList(((PyType)self).LiveSubclasses().ConvertAll(subclass => (PyObject)subclass)), minArgs: 0, maxArgs: 0);
+            typeClass.ClassDict["__subclasses__"] = PyArgs.Method(typeClass, "__subclasses__", PyCall.NoArgs, (self, args) =>
+                new PyList(((PyType)self).LiveSubclasses().ConvertAll(subclass => (PyObject)subclass)));
 
             // type_get_text_signature: from the internal doc of a static type.
             typeClass.ClassDict["__text_signature__"] = new PyGetSetDescriptor("__text_signature__", typeClass,

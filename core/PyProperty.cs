@@ -50,7 +50,7 @@ public interface IDescriptor
                 {
                     int index = entry.Key is PyString key ? Array.IndexOf(names, key.Value) : -1;
                     if (index < 0)
-                        throw PyTypeError.Create($"property() got an unexpected keyword argument {entry.Key.ToRepr().Value}");
+                        throw PyArgs.InvalidKeyword("property", entry.Key);
                     if (index < args.Length)
                         throw PyTypeError.Create($"argument for property() given by name ('{names[index]}') and position ({index + 1})");
                     given[index] = entry.Value;

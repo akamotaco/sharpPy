@@ -219,10 +219,11 @@ namespace SharpPy
             Compared(PyType.NoneType);
 
             // A metaclass reaches these by super(): type's own answer, with no hook asked again.
-            PyType.TypeType.TypeDict["__instancecheck__"] = new PyMethodDescriptor("__instancecheck__", PyType.TypeType,
-                (self, args, kwargs) => BuiltinsModule.RealIsInstance(args[0], self), 1, 1);
-            PyType.TypeType.TypeDict["__subclasscheck__"] = new PyMethodDescriptor("__subclasscheck__", PyType.TypeType,
-                (self, args, kwargs) => BuiltinsModule.RealIsSubclass(args[0], self), 1, 1);
+            // type___instancecheck__ and type___subclasscheck__: METH_O
+            PyType.TypeType.TypeDict["__instancecheck__"] = PyArgs.Method(PyType.TypeType, "__instancecheck__", PyCall.One,
+                (self, args) => BuiltinsModule.RealIsInstance(args[0], self));
+            PyType.TypeType.TypeDict["__subclasscheck__"] = PyArgs.Method(PyType.TypeType, "__subclasscheck__", PyCall.One,
+                (self, args) => BuiltinsModule.RealIsSubclass(args[0], self));
             PyType.TypeType.TypeDict["__abstractmethods__"] = new PyGetSetDescriptor("__abstractmethods__", PyType.TypeType,
                 self => !ReferenceEquals(self, PyType.TypeType) && self is PyClass cls && cls.ClassDict.TryGetValue("__abstractmethods__", out var names)
                     ? names : throw PyAttributeError.Create("__abstractmethods__"),

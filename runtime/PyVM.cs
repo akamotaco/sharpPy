@@ -2898,8 +2898,11 @@ namespace SharpPy
                         {
                             // _PyObject_GetMethod (Objects/object.c): tp_getattro has bound what it
                             // found; a method descriptor bound to this very object is the unbound
-                            // descriptor and self, which CALL joins again (meth_found).
-                            if (attr is PyBoundMethodDescriptor { MethodDescriptor: not null } boundDescriptor && ReferenceEquals(boundDescriptor.Instance, obj))
+                            // descriptor and self, which CALL joins again (meth_found). Only for a
+                            // type whose tp_getattro is PyObject_GenericGetAttr: a type object
+                            // (type_getattro) and a module (module_getattro) keep the bound method.
+                            if (attr is PyBoundMethodDescriptor { MethodDescriptor: not null } boundDescriptor && ReferenceEquals(boundDescriptor.Instance, obj)
+                                && obj is not PyType && obj is not PyModule)
                             {
                                 frame.ValueStack.Push(boundDescriptor.MethodDescriptor);
                                 frame.ValueStack.Push(obj);

@@ -368,7 +368,7 @@ namespace SharpPy
                 foreach (var key in kwargs.Keys().Items)
                 {
                     if (!(key is PyString ks && ks.Value == "strict"))
-                        throw PyTypeError.Create($"zip() has got an unexpected keyword argument '{key.ToStr().Value}'");
+                        throw PyArgs.InvalidKeyword("zip", key);
                 }
                 if (kwargs.Contains(PyString.From("strict")).ToBool())
                     strict = kwargs.GetItem(PyString.From("strict")).IsTrue();
@@ -1169,7 +1169,7 @@ namespace SharpPy
                 foreach (var key in kwargs.Keys().Items)
                 {
                     if (key is not PyString { Value: "closure" })
-                        throw PyTypeError.Create($"exec() got an unexpected keyword argument '{key.AsString().Value}'");
+                        throw PyArgs.InvalidKeyword("exec", key);
                     closure = kwargs.GetItem(key);
                 }
             if (closure is PyNone)

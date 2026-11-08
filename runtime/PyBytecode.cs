@@ -793,7 +793,7 @@ namespace SharpPy
                         case "co_filename": fileName = ((PyString)value).Value; break;
                         case "co_name": name = ((PyString)value).Value; break;
                         case "co_qualname": qualName = ((PyString)value).Value; break;
-                        default: throw PyTypeError.Create($"replace() got an unexpected keyword argument '{field}'");
+                        default: throw PyArgs.InvalidKeyword("replace", PyString.From(field));
                     }
                 }
             }

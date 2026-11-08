@@ -80,7 +80,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             {
                 int position = Array.IndexOf(names, (entry.Key as PyString)?.Value);
                 if (position < 0)
-                    throw PyTypeError.Create($"function() got an unexpected keyword argument '{entry.Key.AsString().Value}'");
+                    throw PyArgs.InvalidKeyword("function", entry.Key);
                 if (given[position] != null)
                     throw PyTypeError.Create($"argument for function() given by name ('{names[position]}') and position ({position + 1})");
                 given[position] = entry.Value;

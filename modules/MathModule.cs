@@ -798,7 +798,7 @@ namespace SharpPy.Modules
                 foreach (var pair in kwargs.InternalDict)
                 {
                     if ((pair.Key as PyString)?.Value != "start")
-                        throw PyTypeError.Create($"prod() got an unexpected keyword argument '{pair.Key.ToStr().Value}'");
+                        throw PyArgs.InvalidKeyword("prod", pair.Key);
                     result = pair.Value;
                 }
             var iterator = args[0].GetIterator();
@@ -920,7 +920,7 @@ namespace SharpPy.Modules
                 foreach (var pair in kwargs.InternalDict)
                 {
                     if ((pair.Key as PyString)?.Value != "steps")
-                        throw PyTypeError.Create($"nextafter() got an unexpected keyword argument '{pair.Key.ToStr().Value}'");
+                        throw PyArgs.InvalidKeyword("nextafter", pair.Key);
                     steps = pair.Value;
                 }
             if (steps == null || steps is PyNone)

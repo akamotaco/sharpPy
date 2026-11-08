@@ -61,8 +61,8 @@ namespace SharpPy
             // ellipsis_reduce, notimplemented_reduce
             Method(PyType.EllipsisType, "__reduce__", (self, args) => PyString.From("Ellipsis"));
             Method(PyNotImplemented.Instance.GetPyType(), "__reduce__", (self, args) => PyString.From("NotImplemented"));
-            // range_reduce, slice_reduce
-            Method(PyType.RangeType, "__reduce__", (self, args) => PyTuple.From(new PyObject[]
+            // range_reduce is METH_VARARGS and reads none of them; slice_reduce is METH_NOARGS.
+            PyType.RangeType.TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", PyType.RangeType, (self, args, kwargs) => PyTuple.From(new PyObject[]
             {
                 PyType.RangeType,
                 PyTuple.From(new[] { self.GetAttribute("start"), self.GetAttribute("stop"), self.GetAttribute("step") }),
@@ -135,28 +135,17 @@ namespace SharpPy
                 type.TypeDict[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) => operation(self, args));
         }
 
+        // METH_NOARGS and METH_O: the descriptor checks the convention (PyArgs.Method).
         private static void Method(PyType type, string name, Func<PyObject, PyObject[], PyObject> operation)
         {
-            if (type.TypeDict.ContainsKey(name))
-                return;
-            type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) =>
-            {
-                if (args.Length != 0)
-                    throw PyTypeError.Create($"{type.Name}.{name}() takes no arguments ({args.Length} given)");
-                return operation(self, args);
-            });
+            if (!type.TypeDict.ContainsKey(name))
+                type.TypeDict[name] = PyArgs.Method(type, name, PyCall.NoArgs, operation);
         }
 
         private static void MethodO(PyType type, string name, Func<PyObject, PyObject[], PyObject> operation)
         {
-            if (type.TypeDict.ContainsKey(name))
-                return;
-            type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) =>
-            {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"{type.Name}.{name}() takes exactly one argument ({args.Length} given)");
-                return operation(self, args);
-            });
+            if (!type.TypeDict.ContainsKey(name))
+                type.TypeDict[name] = PyArgs.Method(type, name, PyCall.One, operation);
         }
 
         private static void InstallObject()

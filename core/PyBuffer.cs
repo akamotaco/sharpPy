@@ -84,8 +84,15 @@ namespace SharpPy
             {
                 if (self is not PyMemoryView view)
                     throw PyTypeError.Create($"descriptor 'tobytes' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
-                if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
-                    throw PyTypeError.Create($"tobytes() takes no arguments ({args.Length} given)");
+                // memoryview.tobytes(order='C'): the clinic's arguments, then CHECK_RELEASED
+                var order = PyArgs.Unpack("tobytes", args, kwargs, new[] { "order" }, 0, 0, 1)[0];
+                if (order != null && order is not PyNone)
+                {
+                    if (order is not PyString orderText)
+                        throw PyArgs.BadArgument("tobytes", "argument 'order'", "str or None", order);
+                    if (orderText.Value is not ("C" or "F" or "A"))
+                        throw PyValueError.Create("order must be 'C', 'F' or 'A'");
+                }
                 view.CheckReleased();
                 return PyBytes.From(view.Data);
             });
@@ -111,6 +118,8 @@ namespace SharpPy
             {
                 if (self is not PyMemoryView view)
                     throw PyTypeError.Create($"descriptor 'hex' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                // memoryview.hex(sep=<unrepresentable>, bytes_per_sep=1): the clinic, then CHECK_RELEASED
+                PyArgs.Unpack("hex", args, kwargs, new[] { "sep", "bytes_per_sep" }, 0, 0, 2);
                 view.CheckReleased();
                 return BytesMethods.HexMethod(view.Data, args, kwargs);
             }, acceptsKwargs: true);
@@ -139,7 +148,6 @@ namespace SharpPy
             {
                 if (self is not PyMemoryView view)
                     throw PyTypeError.Create($"descriptor 'cast' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
-                view.CheckReleased();
 
                 // CPython 3.12 Objects/memoryobject.c memory_cast is
                 // METH_FASTCALL|METH_KEYWORDS with parameter names "format" and "shape".
