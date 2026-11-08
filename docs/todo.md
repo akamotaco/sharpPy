@@ -105,6 +105,7 @@
 - 5-10. `nt`의 키워드 clinic 함수(`chdir`, `rmdir`, `remove`/`unlink`, `rename`/`replace`, `access`, `fspath`)는 인자를 위치로만 받는다. CPython은 `METH_FASTCALL|METH_KEYWORDS`와 `_PyArg_UnpackKeywords`(SharpPy `PyArgs.Unpack`)로 `path=`와 `dir_fd`, `effective_ids`, `follow_symlinks`를 받고, Windows에서 지원하지 않는 것은 NotImplementedError로 알린다(`dir_fd_unavailable`, `follow_symlinks_specified`). 경로: 각 함수를 `PyArgs.Unpack`으로 등록하고 그 거부를 옮긴다.
 - 5-11. `collections.OrderedDict`와 `defaultdict`는 `Lib/collections`의 파이썬 구현(heap 타입)이라 `tp_name`이 `OrderedDict`다. CPython은 `_collections`의 C 정적 타입이라 메시지가 `collections.OrderedDict`를 쓴다(`unhashable type: ...`, `descriptor ... requires ...`). 경로: `_collections`에 C# 타입으로 두면 이름은 `deque`처럼 맞는다. `decimal`도 `_pydecimal`이라 같다: 타입 이름이 `Decimal`이고(CPython `decimal.Decimal`), 신호의 메시지가 `x / 0`처럼 파이썬 구현의 것이다(CPython `[<class 'decimal.DivisionByZero'>]`).
 - 5-12. `binascii`에 `a2b_qp`, `b2a_qp`, `a2b_uu`, `b2a_uu`, `crc_hqx`가 없다. `zlib.decompress`는 잘리거나 끝나지 않은 스트림을 거부하지 않는다(CPython: `error: Error -5 while decompressing data: incomplete or truncated stream`). 경로: `Modules/binascii.c`, `Modules/zlibmodule.c`의 `zlib_decompress_impl`(Z_BUF_ERROR, `Z_STREAM_END` 확인).
+- 5-13. `array`의 `'u'`는 4바이트다(UCS-4, Linux의 `wchar_t`와 같다). Windows의 CPython은 `wchar_t`가 2바이트라 `itemsize`가 2이고, `array('u', b'ab')`는 한 글자가 된다(SharpPy: `bytes length not a multiple of item size`). 플랫폼마다 다른 CPython 쪽 차이라 4바이트로 둔다.
 
 ## 6. PEP 695
 

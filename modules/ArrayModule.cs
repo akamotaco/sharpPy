@@ -172,7 +172,7 @@ namespace SharpPy.Modules
             }
         }
 
-        public sealed class PyArray : PyObject
+        public sealed class PyArray : PyObject, IBufferExporter
         {
             /// <summary>array.array; what slicing, concatenation, repetition and copying build
             /// (newarrayobject(state->ArrayType, ...)), whatever the operand's class.</summary>
@@ -197,12 +197,23 @@ namespace SharpPy.Modules
             public override PyType GetPyType() => _customType ?? ArrayType;
             public override string GetTypeName() => GetPyType().FullName;
 
-            // array_buffer_getbuf: the view is over the items themselves, with no spare capacity.
-            public override PyMemoryView GetBuffer(int flags)
+            // array_buffer_getbuf: the view is over the items themselves and counts as an export
+            // (ob_exports) until it is released.
+            public override PyMemoryView GetBuffer(int flags) =>
+                PyMemoryView.FromExporter(this, _count * ItemSize).Reinterpret(_typecode.ToString(), ItemSize);
+
+            public override void ReleaseBuffer(PyMemoryView buffer) => buffer.Release();
+
+            private int _exports;
+            public void AcquireBufferExport() => System.Threading.Interlocked.Increment(ref _exports);
+            public void ReleaseBufferExport() => System.Threading.Interlocked.Decrement(ref _exports);
+            public Span<byte> BufferSpan => _buffer.AsSpan(0, _count * ItemSize);
+
+            // array_resize: a size change while a buffer is exported is refused, before anything moves.
+            internal void CheckResize(long newCount)
             {
-                if (_buffer.Length != _count * ItemSize)
-                    Array.Resize(ref _buffer, _count * ItemSize);
-                return new PyMemoryView(_buffer, false, 1, this).Reinterpret(_typecode.ToString(), ItemSize);
+                if (newCount != _count && BufferExports.Held(() => System.Threading.Volatile.Read(ref _exports) > 0))
+                    throw PyBufferError.Create("cannot resize an array that is exporting buffers");
             }
 
             public override bool SupportsBuffer() => true;
@@ -281,9 +292,11 @@ namespace SharpPy.Modules
                         throw PyTypeError.Create($"can only assign array (not \"{value.GetTypeName()}\") to array slice");
                     if (other._typecode != _typecode)
                         throw PyTypeError.Create("bad argument type for built-in operation");  // PyErr_BadArgument
+                    if (ReferenceEquals(other, this))
+                        other = (PyArray)MpSubscript(new PySlice(PyNone.Instance, PyNone.Instance, PyNone.Instance));
                     if (step != 1)
                     {
-                        var va = (PyArray)value;
+                        var va = other;
                         if (va._count != count)
                             throw PyValueError.Create($"attempt to assign array of size {va._count} to extended slice of size {count}");
                         int idx = start;
@@ -295,6 +308,7 @@ namespace SharpPy.Modules
                         return;
                     }
                     var arr = other;
+                    CheckResize(_count - count + arr._count);
 
                     int newCount = _count - count + arr._count;
                     int itemSize = ItemSize;
@@ -321,6 +335,7 @@ namespace SharpPy.Modules
                     // PySlice_Unpack and PySlice_AdjustIndices, once
                     var (start, stop, step) = slice.StorageIndices(_count);
                     int count = PySlice.GetLength(start, stop, step);
+                    CheckResize(_count - count);
                     if (step == 1)
                     {
                         int width = ItemSize;
@@ -354,6 +369,7 @@ namespace SharpPy.Modules
                     return;
                 }
                 int i2 = NormalizeIndex(index);
+                CheckResize(_count - 1);
                 int itemSize = ItemSize;
                 int tailLen = _count - i2 - 1;
                 if (tailLen > 0)
@@ -432,54 +448,42 @@ namespace SharpPy.Modules
                 return result;
             }
 
+            // array_richcompare: lengths first for == and !=, then the first index where the items
+            // differ (PyObject_RichCompareBool), whose items decide; equal up to the shorter, the sizes.
             protected internal override PyObject TpRichCompare(PyObject other, PyObject.CompareOp op)
             {
-                if (!(other is PyArray arr))
+                if (other is not PyArray arr)
                     return PyNotImplemented.Instance;
-                if (_typecode != arr._typecode)
+                if (_count != arr._count && op is PyObject.CompareOp.EQ or PyObject.CompareOp.NE)
+                    return PyBool.FromBool(op == PyObject.CompareOp.NE);
+                int common = Math.Min(_count, arr._count);
+                for (int i = 0; i < common; i++)
                 {
-                    switch (op)
+                    var vi = ReadItem(_buffer, i, _typecode);
+                    var wi = ReadItem(arr._buffer, i, arr._typecode);
+                    if (PyObject.CompareBool(vi, wi, PyObject.CompareOp.EQ))
+                        continue;
+                    return op switch
                     {
-                        case PyObject.CompareOp.EQ: return PyBool.FromBool(false);
-                        case PyObject.CompareOp.NE: return PyBool.FromBool(true);
-                        default: return PyNotImplemented.Instance;
-                    }
+                        PyObject.CompareOp.EQ => PyBool.False,
+                        PyObject.CompareOp.NE => PyBool.True,
+                        _ => PyObject.Compare(vi, wi, op),
+                    };
                 }
-                int minLen = Math.Min(_count, arr._count);
-                for (int i = 0; i < minLen; i++)
+                return PyBool.FromBool(op switch
                 {
-                    var a = ReadItem(_buffer, i, _typecode);
-                    var b = ReadItem(arr._buffer, i, arr._typecode);
-                    var cmp = PyObject.Compare(a, b, PyObject.CompareOp.EQ);
-                    if (!cmp.IsTrue())
-                    {
-                        var lt = PyObject.Compare(a, b, PyObject.CompareOp.LT);
-                        bool aLess = lt.IsTrue();
-                        switch (op)
-                        {
-                            case PyObject.CompareOp.LT: return PyBool.FromBool(aLess);
-                            case PyObject.CompareOp.LE: return PyBool.FromBool(aLess);
-                            case PyObject.CompareOp.EQ: return PyBool.FromBool(false);
-                            case PyObject.CompareOp.NE: return PyBool.FromBool(true);
-                            case PyObject.CompareOp.GT: return PyBool.FromBool(!aLess);
-                            case PyObject.CompareOp.GE: return PyBool.FromBool(!aLess);
-                        }
-                    }
-                }
-                switch (op)
-                {
-                    case PyObject.CompareOp.LT: return PyBool.FromBool(_count < arr._count);
-                    case PyObject.CompareOp.LE: return PyBool.FromBool(_count <= arr._count);
-                    case PyObject.CompareOp.EQ: return PyBool.FromBool(_count == arr._count);
-                    case PyObject.CompareOp.NE: return PyBool.FromBool(_count != arr._count);
-                    case PyObject.CompareOp.GT: return PyBool.FromBool(_count > arr._count);
-                    case PyObject.CompareOp.GE: return PyBool.FromBool(_count >= arr._count);
-                }
-                return PyNotImplemented.Instance;
+                    PyObject.CompareOp.LT => _count < arr._count,
+                    PyObject.CompareOp.LE => _count <= arr._count,
+                    PyObject.CompareOp.GT => _count > arr._count,
+                    PyObject.CompareOp.GE => _count >= arr._count,
+                    PyObject.CompareOp.EQ => true,
+                    _ => false,
+                });
             }
 
             internal void Append(PyObject value)
             {
+                CheckResize(_count + 1);
                 EnsureCapacity(_count + 1);
                 WriteItem(_buffer, _count, value, _typecode);
                 _count++;
@@ -491,6 +495,7 @@ namespace SharpPy.Modules
                 {
                     if (arr._typecode != _typecode)
                         throw PyTypeError.Create("can only extend with array of same kind");
+                    CheckResize(_count + arr._count);
                     int itemSize = ItemSize;
                     EnsureCapacity(_count + arr._count);
                     Array.Copy(arr._buffer, 0, _buffer, _count * itemSize, arr._count * itemSize);
@@ -511,6 +516,7 @@ namespace SharpPy.Modules
                 if (idx < 0) idx = 0;
                 if (idx > _count) idx = _count;
 
+                CheckResize(_count + 1);
                 int itemSize = ItemSize;
                 EnsureCapacity(_count + 1);
                 int tailLen = _count - (int)idx;
@@ -534,6 +540,7 @@ namespace SharpPy.Modules
                     throw PyIndexError.Create("pop index out of range");
                 int i = (int)idx;
                 var result = ReadItem(_buffer, i, _typecode);
+                CheckResize(_count - 1);
                 int itemSize = ItemSize;
                 int tailLen = _count - i - 1;
                 if (tailLen > 0)
@@ -548,6 +555,7 @@ namespace SharpPy.Modules
                 {
                     if (PyObject.CompareBool(ReadItem(_buffer, i, _typecode), value, PyObject.CompareOp.EQ))
                     {
+                        CheckResize(_count - 1);
                         int itemSize = ItemSize;
                         int tailLen = _count - i - 1;
                         if (tailLen > 0)
@@ -639,6 +647,7 @@ namespace SharpPy.Modules
                 if (data.Length % itemSize != 0)
                     throw PyValueError.Create("bytes length not a multiple of item size");
                 int newItems = data.Length / itemSize;
+                CheckResize(_count + newItems);
                 EnsureCapacity(_count + newItems);
                 Array.Copy(data, 0, _buffer, _count * itemSize, data.Length);
                 _count += newItems;
@@ -663,7 +672,7 @@ namespace SharpPy.Modules
             internal PyString ToUnicode()
             {
                 if (_typecode != 'u')
-                    throw PyTypeError.Create("tounicode() requires an array of unicode characters");
+                    throw PyValueError.Create("tounicode() may only be called on unicode type arrays");
                 var sb = new StringBuilder();
                 for (int i = 0; i < _count; i++)
                 {
@@ -676,7 +685,7 @@ namespace SharpPy.Modules
             internal void FromUnicode(string s)
             {
                 if (_typecode != 'u')
-                    throw PyTypeError.Create("fromunicode() requires an array of unicode characters");
+                    throw PyValueError.Create("fromunicode() may only be called on unicode type arrays");
                 for (int i = 0; i < s.Length; )
                 {
                     int cp = char.ConvertToUtf32(s, i);
@@ -784,8 +793,18 @@ namespace SharpPy.Modules
                 return arrayType.Call(new PyObject[] { typecode, new PyList(items) }, null);
             }
 
+            // array_new: a str is refused but for 'u', and a 'u' array but by one; then a list, tuple,
+            // bytes, bytearray, str or array of this typecode is read at once, and anything else
+            // (another array, None, a generator) is iterated (array_iter_extend).
             internal void InitializeFrom(PyObject initializer)
             {
+                if (_typecode != 'u')
+                {
+                    if (initializer is PyString)
+                        throw PyTypeError.Create($"cannot use a str to initialize an array with typecode '{_typecode}'");
+                    if (initializer is PyArray { _typecode: 'u' })
+                        throw PyTypeError.Create($"cannot use a unicode array to initialize an array with typecode '{_typecode}'");
+                }
                 if (initializer is PyBytes pb)
                 {
                     FromBytes(pb.Value);
@@ -796,15 +815,10 @@ namespace SharpPy.Modules
                 }
                 else if (initializer is PyString ps)
                 {
-                    if (_typecode == 'u')
-                        FromUnicode(ps.Value);
-                    else
-                        throw PyTypeError.Create($"cannot use '{initializer.GetTypeName()}' as array initializer");
+                    FromUnicode(ps.Value);
                 }
-                else if (initializer is PyArray arr)
+                else if (initializer is PyArray arr && arr._typecode == _typecode)
                 {
-                    if (arr._typecode != _typecode)
-                        throw PyTypeError.Create("array typecode not as specified");
                     int itemSize = ItemSize;
                     EnsureCapacity(_count + arr._count);
                     Array.Copy(arr._buffer, 0, _buffer, _count * itemSize, arr._count * itemSize);
@@ -826,7 +840,7 @@ namespace SharpPy.Modules
 
         private sealed class PyArrayIterator : PyIterator
         {
-            private readonly PyArray _array;
+            private PyArray _array;
             private int _index;
 
             public PyArrayIterator(PyArray array)
@@ -839,8 +853,11 @@ namespace SharpPy.Modules
 
             protected internal override PyObject IterNext()
             {
-                if (_index >= _array.Count)
+                if (_array == null || _index >= _array.Count)
+                {
+                    _array = null;
                     throw PyStopIteration.Create();
+                }
                 var item = ReadItem(_array.Buffer, _index, _array._typecode);
                 _index++;
                 return item;
@@ -869,7 +886,7 @@ namespace SharpPy.Modules
 
                 var arr = new PyArray((PyType)cls, tc);
 
-                if (args.Length >= 2 && args[1] is not PyNone)
+                if (args.Length >= 2)
                     arr.InitializeFrom(args[1]);
 
                 return arr;
@@ -1017,6 +1034,7 @@ namespace SharpPy.Modules
                 int origCount = arr.Count;
                 // array_inplace_repeat: a size past Py_ssize_t is PyErr_NoMemory.
                 int total = n == 0 ? 0 : PyAllocation.RepeatedItems((long)origCount * itemSize, n) / itemSize;
+                arr.CheckResize(total);
                 var newBuf = new byte[total * itemSize];
                 for (long r = 0; r < n; r++)
                     Array.Copy(arr.Buffer, 0, newBuf, (int)r * origCount * itemSize, origCount * itemSize);
