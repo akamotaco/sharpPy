@@ -152,12 +152,12 @@ namespace SharpPy.Modules
             // Built-in functions (commonly used in standard library)
             module.ModuleDict["abs"] = new PyBuiltinFunction("abs", Abs);
             module.ModuleDict["len"] = new PyBuiltinFunction("len", Len);
-            module.ModuleDict["isinstance"] = new PyBuiltinFunction("isinstance", IsInstance);
+            module.ModuleDict["isinstance"] = PyArgs.FastCall("builtins", "isinstance", 2, 2, IsInstance);
             module.ModuleDict["aiter"] = new PyBuiltinFunction("aiter", args => PyVM.Aiter(args));
             module.ModuleDict["anext"] = new PyBuiltinFunction("anext", args => PyVM.Anext(args));
             if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
                 module.ModuleDict["WindowsError"] = module.ModuleDict["OSError"];
-            module.ModuleDict["issubclass"] = new PyBuiltinFunction("issubclass", IsSubclass);
+            module.ModuleDict["issubclass"] = PyArgs.FastCall("builtins", "issubclass", 2, 2, IsSubclass);
             // hasattr/getattr/setattr used to have a second implementation here as well, and this one
             // won because it was passed as the delegate. It caught every exception, so
             // getattr(obj, "x", "D") returned "D" for a ValueError raised inside a user __getattr__.
@@ -297,15 +297,11 @@ namespace SharpPy.Modules
 
         internal static PyObject IsInstance(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"isinstance() takes exactly 2 arguments ({args.Length} given)");
             return PyBool.FromBool(ObjectRecursiveIsInstance(args[0], args[1]));
         }
 
         internal static PyObject IsSubclass(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"issubclass() takes exactly 2 arguments ({args.Length} given)");
             return PyBool.FromBool(ObjectIsSubclass(args[0], args[1]));
         }
 

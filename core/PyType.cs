@@ -2026,9 +2026,6 @@ namespace SharpPy
                 "__format__",
                 objectType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"__format__() takes exactly 1 argument ({args.Length} given)");
-
                     if (args[0] is not PyString specStr)
                         throw PyTypeError.Create($"__format__() argument must be str, not {args[0].GetTypeName()}");
 
@@ -2585,8 +2582,6 @@ namespace SharpPy
                 "discard",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"discard() takes exactly 1 argument ({args.Length} given)");
                     var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'discard' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.Discard(args[0]);
                 },
@@ -2703,8 +2698,6 @@ namespace SharpPy
                 "issubset",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"issubset() takes exactly 1 argument ({args.Length} given)");
                     var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'issubset' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.IsSubset(args[0]);
                 },
@@ -2717,8 +2710,6 @@ namespace SharpPy
                 "issuperset",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"issuperset() takes exactly 1 argument ({args.Length} given)");
                     var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'issuperset' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.IsSuperset(args[0]);
                 },
@@ -2731,8 +2722,6 @@ namespace SharpPy
                 "isdisjoint",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"isdisjoint() takes exactly 1 argument ({args.Length} given)");
                     var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'isdisjoint' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.IsDisjoint(args[0]);
                 },
@@ -3294,8 +3283,6 @@ namespace SharpPy
                 "__getitem__",
                 mappingProxyType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"__getitem__() takes exactly 1 argument ({args.Length} given)");
                     if (self is not PyMappingProxy mappingProxy)
                         throw PyTypeError.Create($"descriptor '__getitem__' for 'mappingproxy' objects doesn't apply to a '{self.GetTypeName()}' object");
 
@@ -3313,8 +3300,6 @@ namespace SharpPy
                 "__contains__",
                 mappingProxyType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"__contains__() takes exactly 1 argument ({args.Length} given)");
                     if (self is not PyMappingProxy mappingProxy)
                         throw PyTypeError.Create($"descriptor '__contains__' for 'mappingproxy' objects doesn't apply to a '{self.GetTypeName()}' object");
 

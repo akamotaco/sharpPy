@@ -20,12 +20,12 @@ namespace SharpPy.Modules
 
             // CPython 3.12: Modules/_codecsmodule.c:1077-1127
             module.ModuleDict["register"] = new PyBuiltinFunction("register", PyRegister);
-            module.ModuleDict["lookup"] = new PyBuiltinFunction("lookup", PyLookup);
+            module.ModuleDict["lookup"] = PyArgs.MethO("_codecs", "lookup", args => PyLookup(args));
             module.ModuleDict["unregister"] = new PyBuiltinFunction("unregister", PyUnregister);
             module.ModuleDict["encode"] = new PyBuiltinFunction("encode", PyEncode);
             module.ModuleDict["decode"] = new PyBuiltinFunction("decode", PyDecode);
-            module.ModuleDict["register_error"] = new PyBuiltinFunction("register_error", PyRegisterError);
-            module.ModuleDict["lookup_error"] = new PyBuiltinFunction("lookup_error", PyLookupError);
+            module.ModuleDict["register_error"] = PyArgs.FastCall("_codecs", "register_error", 2, 2, args => PyRegisterError(args));
+            module.ModuleDict["lookup_error"] = PyArgs.MethO("_codecs", "lookup_error", args => PyLookupError(args));
 
             // Encoding functions - UTF-8
             module.ModuleDict["utf_8_encode"] = new PyBuiltinFunction("utf_8_encode", PyUtf8Encode);
@@ -94,8 +94,6 @@ namespace SharpPy.Modules
         // CPython 3.12: Python/codecs.c:110-186 (PyCodec_Lookup)
         private static PyObject PyLookup(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"lookup() takes exactly 1 argument ({args.Length} given)");
 
             if (!(args[0] is PyString encodingStr))
                 // CPython writes None here, not NoneType: measured
@@ -166,8 +164,6 @@ namespace SharpPy.Modules
         // CPython 3.12: Python/codecs.c:381-398 (PyCodec_RegisterError)
         private static PyObject PyRegisterError(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"register_error() takes exactly 2 arguments ({args.Length} given)");
 
             if (!(args[0] is PyString nameStr))
                 throw PyTypeError.Create("first argument must be a string");
@@ -181,8 +177,6 @@ namespace SharpPy.Modules
         // CPython 3.12: Python/codecs.c:400-410 (PyCodec_LookupError)
         private static PyObject PyLookupError(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"lookup_error() takes exactly 1 argument ({args.Length} given)");
 
             if (!(args[0] is PyString nameStr))
                 throw PyTypeError.Create("argument must be a string");

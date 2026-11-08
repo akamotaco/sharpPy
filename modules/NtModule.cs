@@ -124,11 +124,11 @@ namespace SharpPy.Modules
             module.ModuleDict["stat"] = new PyBuiltinFunction("stat", Stat);
             module.ModuleDict["access"] = new PyBuiltinFunction("access", Access);
             module.ModuleDict["getenv"] = new PyBuiltinFunction("getenv", Getenv);
-            module.ModuleDict["putenv"] = new PyBuiltinFunction("putenv", Putenv);
+            module.ModuleDict["putenv"] = PyArgs.FastCall("nt", "putenv", 2, 2, Putenv);
             module.ModuleDict["unsetenv"] = new PyBuiltinFunction("unsetenv", Unsetenv);
             module.ModuleDict["getpid"] = new PyBuiltinFunction("getpid", Getpid);
             module.ModuleDict["fspath"] = new PyBuiltinFunction("fspath", Fspath);
-            module.ModuleDict["urandom"] = new PyBuiltinFunction("urandom", Urandom);
+            module.ModuleDict["urandom"] = PyArgs.MethO("nt", "urandom", Urandom);
 
             // CPython 3.12: environ is a mapping
             module.ModuleDict["environ"] = CreateEnvironDict();
@@ -777,8 +777,6 @@ namespace SharpPy.Modules
 
         private static PyObject Putenv(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"putenv() takes exactly 2 arguments ({args.Length} given)");
 
             string key = args[0].ToStr().Value;
             string value = args[1].ToStr().Value;
@@ -832,8 +830,6 @@ namespace SharpPy.Modules
         // Generate n random bytes using cryptographically strong random number generator
         private static PyObject Urandom(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"urandom() takes exactly 1 argument ({args.Length} given)");
 
             int n = (int)args[0].ToInt();
 

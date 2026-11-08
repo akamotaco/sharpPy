@@ -38,8 +38,6 @@ namespace SharpPy
             baType.TypeDict["__setitem__"] = new PyWrapperDescriptor(
                 "__setitem__", baType,
                 (self, args, kwargs) => {
-                    if (args.Length != 2)
-                        throw PyTypeError.Create($"__setitem__() takes exactly 2 arguments ({args.Length} given)");
                     if (self is not PyByteArray baSelf)
                         throw PyTypeError.Create($"descriptor '__setitem__' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
                     baSelf.MpAssSubscript(args[0], args[1]);
@@ -92,8 +90,6 @@ namespace SharpPy
             baType.TypeDict["insert"] = new PyMethodDescriptor(
                 "insert", baType,
                 (self, args, kwargs) => {
-                    if (args.Length != 2)
-                        throw PyTypeError.Create($"insert() takes exactly 2 arguments ({args.Length} given)");
                     if (self is not PyByteArray ba)
                         throw PyTypeError.Create($"descriptor 'insert' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
 

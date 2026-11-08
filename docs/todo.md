@@ -100,6 +100,7 @@
 - 5-8. `sys.path_hooks`, `sys.path_importer_cache`는 빈 목록이다. C# 내장 모듈(`math` 등)에 `__spec__`이 없다. 파일 찾기는 C# `PathFinder` 하나다. 테스트 드라이버 밖의 자식 SharpPy에서 `import test.test_threading`은 CPython `importlib/_bootstrap_external.py`가 `winreg`를 찾다 실패한다(`test_4_daemon_threads`를 드라이버에서 건너뛰는 이유). `importlib.util.cache_from_source`는 `__pycache__`와 태그 없이 `a/b.pyc`를 돌려준다.
 
 - 5-9. 경로: dotnet 쪽 `platform/helper_dotnet.cs`는 OS 구분자를 그대로 둔다(`sys.path`, 모듈의 `__file__`과 `__path__`가 Windows에서 `\`). Godot 쪽은 `res://` 때문에 `/`다. 주 스크립트는 `config_run_filename_abspath`대로 절대 경로다. `sys.prefix`, `sys.exec_prefix`, `sys.base_prefix`, `sys.base_exec_prefix`는 `Lib`를 담은 디렉터리, `sys._stdlib_dir`은 그 `Lib`다(`SysModule.PrefixPath` 하나).
+- 5-10. `nt`의 키워드 clinic 함수(`chdir`, `rmdir`, `remove`/`unlink`, `rename`/`replace`, `access`, `fspath`)는 인자를 위치로만 받는다. CPython은 `METH_FASTCALL|METH_KEYWORDS`와 `_PyArg_UnpackKeywords`(SharpPy `PyArgs.Unpack`)로 `path=`와 `dir_fd`, `effective_ids`, `follow_symlinks`를 받고, Windows에서 지원하지 않는 것은 NotImplementedError로 알린다(`dir_fd_unavailable`, `follow_symlinks_specified`). 경로: 각 함수를 `PyArgs.Unpack`으로 등록하고 그 거부를 옮긴다.
 
 ## 6. PEP 695
 

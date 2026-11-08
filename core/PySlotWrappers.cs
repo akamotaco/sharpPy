@@ -27,19 +27,37 @@ namespace SharpPy
         /// wrap_indexargfunc: the __mul__, __rmul__ and __imul__ of a type whose slot is sq_repeat or
         /// sq_inplace_repeat take a count, PyNumber_AsSsize_t(arg, PyExc_OverflowError), not an operand.
         /// </summary>
+        /// The one place a repeat slot becomes its wrapper: each sequence type passes its __mul__,
+        /// __rmul__ and __imul__ through here once its own table is in (a wrapper already made is
+        /// left as it is).
         internal static void IndexArgRepeat(PyType type)
         {
             foreach (var name in new[] { "__mul__", "__rmul__", "__imul__" })
             {
-                if (!type.TypeDict.TryGetValue(name, out var present) || present is not PyWrapperDescriptor wrapper)
+                if (!type.TypeDict.TryGetValue(name, out var present))
                     continue;
-                var table = type.TypeDict;
-                var inner = wrapper._implementation;
-                table[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) =>
+                Func<PyObject, PyObject[], PyDict, PyObject> inner;
+                bool callsVirtual = false;
+                switch (present)
+                {
+                    case PyWrapperDescriptor { IndexArgument: true }:
+                        continue;
+                    case PyWrapperDescriptor wrapper:
+                        inner = wrapper._implementation;
+                        callsVirtual = wrapper.CallsVirtual;
+                        break;
+                    // A slot registered as a method (array's __imul__) is a slot wrapper all the same.
+                    case PyMethodDescriptor method when method.GetType() == typeof(PyMethodDescriptor):
+                        inner = method._implementation;
+                        break;
+                    default:
+                        continue;
+                }
+                type.TypeDict[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) =>
                     inner(self, new PyObject[] { PyInt.From(PyArgs.IndexSsize(args[0])) }, kwargs))
                 {
                     IndexArgument = true,
-                    CallsVirtual = wrapper.CallsVirtual,
+                    CallsVirtual = callsVirtual,
                 };
             }
         }

@@ -103,6 +103,8 @@ namespace SharpPy.Modules
             type.TypeDict["__mul__"] = new PyWrapperDescriptor("__mul__", type, (self, args, kwargs) => Self(self).Repeat(PyArgs.IndexSsize(args[0])));
             type.TypeDict["__rmul__"] = new PyWrapperDescriptor("__rmul__", type, (self, args, kwargs) => Self(self).Repeat(PyArgs.IndexSsize(args[0])));
             type.TypeDict["__imul__"] = new PyWrapperDescriptor("__imul__", type, (self, args, kwargs) => Self(self).InplaceRepeat(PyArgs.IndexSsize(args[0])));
+            // sq_repeat and sq_inplace_repeat: wrap_indexargfunc
+            PySlotWrappers.IndexArgRepeat(type);
             if (PyDocs.Lookup("collections.deque") is { } doc)
                 type.TypeDict["__doc__"] = PyDocs.DocFromInternal("deque", doc);
             type.CollectionFlags = PyType.TPFLAGS_SEQUENCE;
