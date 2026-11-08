@@ -77,6 +77,14 @@ namespace SharpPy.Modules
             if (end > Items.Length) end = Items.Length;
             if (end < start) end = start;
             if (start == 0 && end == Items.Length && Source is PyString or PyBytes) return Source;
+            if (IsBytes && Source is not PyBytes)
+            {
+                // match_getslice_by_index's getstring: a mutable buffer is read as it is now, and the
+                // bounds clipped to its length.
+                var current = BytesMethods.Buffer(Source) ?? Array.Empty<byte>();
+                int from = Math.Min(start, current.Length), to = Math.Min(end, current.Length);
+                return PyBytes.From(current.AsSpan(from, to - from).ToArray());
+            }
             if (IsBytes)
             {
                 var data = new byte[end - start];
@@ -321,28 +329,11 @@ namespace SharpPy.Modules
             return (Join(pieces, text), count);
         }
 
-        private static PyObject Join(List<PyObject> pieces, SreText text)
-        {
-            if (text.IsBytes)
-            {
-                var output = new List<byte>();
-                for (int i = 0; i < pieces.Count; i++)
-                {
-                    if (pieces[i] is PyBytes bytes) output.AddRange(bytes.Value);
-                    else if (pieces[i] is PyByteArray array) output.AddRange(array.ToByteArrayCopy());
-                    else throw PyTypeError.Create(
-                        $"sequence item {i}: expected a bytes-like object, {pieces[i].GetTypeName()} found");
-                }
-                return PyBytes.From(output.ToArray());
-            }
-            var builder = new StringBuilder();
-            for (int i = 0; i < pieces.Count; i++)
-            {
-                if (pieces[i] is PyString piece) builder.Append(piece.Value);
-                else throw PyTypeError.Create($"sequence item {i}: expected str instance, {pieces[i].GetTypeName()} found");
-            }
-            return PyString.From(builder.ToString());
-        }
+        // pattern_subx's join: _PyBytes_Join or PyUnicode_Join with an empty separator, the joins
+        // bytes.join and str.join are.
+        private static PyObject Join(List<PyObject> pieces, SreText text) => text.IsBytes
+            ? BytesMethods.Join(PyBytes.From(System.Array.Empty<byte>()), new PyList(pieces))
+            : PyString.From("").Join(new PyList(pieces));
 
         private PyObject Scanner(PyObject[] args, PyDict kwargs)
         {

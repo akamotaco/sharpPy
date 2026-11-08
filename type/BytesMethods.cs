@@ -559,8 +559,8 @@ namespace SharpPy
             return changed || anyDelete && result.Count != text.Length ? NewFresh(self, result.ToArray()) : ReturnSelf(self, text);
         }
 
-        // stringlib_bytes_join
-        private static PyObject Join(PyObject self, PyObject iterable)
+        // stringlib_bytes_join (_PyBytes_Join)
+        internal static PyObject Join(PyObject self, PyObject iterable)
         {
             PyObject[] items;
             // bytearray_join: the buffer of self stays exported while the iterable runs.
