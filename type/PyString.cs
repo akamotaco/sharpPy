@@ -2552,10 +2552,9 @@ namespace SharpPy
                 {
                     if (!positional)
                     {
-                        // Mapping lookup goes through the object's __getitem__.
-                        // CPython gates on PyMapping_Check: dict/list/user objects;
-                        // str/int/float raise "format requires a mapping" instead.
-                        if (!(arg is PyDict || arg is PyList || arg is PyClassInstance))
+                        // unicode_format: the argument is the dict when its type has mp_subscript and it
+                        // is no tuple or str (PyMapping_Check); anything else has no (key).
+                        if (arg is PyString || !arg.HasTypeSlot("__getitem__"))
                             throw PyTypeError.Create("format requires a mapping");
                         i++;
                         int keyStart = i;
@@ -2585,13 +2584,8 @@ namespace SharpPy
                 }
                 else
                 {
-                    if (!positional && !(arg is PyTuple))
-                    {
-                        // Mapping argument but no (key): CPython requires the key.
-                        if (IsMappingLike(arg))
-                            throw PyTypeError.Create("format requires a mapping");
-                    }
-                    // Values are consumed after the spec is parsed (CPython order),
+                    // A spec with no (key) takes the next argument, which for a mapping is the
+                    // mapping itself (unicode_format's args, arglen -1). Values are consumed after the spec is parsed (CPython order),
                     // so a '*' width claims its argument before the conversion value.
                 }
 
@@ -2824,7 +2818,6 @@ namespace SharpPy
             return sb.ToString();
         }
 
-        private static bool IsMappingLike(PyObject o) => o is PyDict;
 
         private static string ToBase(BigInteger v, int radix, bool upper)
         {
