@@ -386,16 +386,9 @@ namespace SharpPy.Modules
                 if (_count > 0)
                 {
                     sb.Append(", ");
+                    // array_repr: a 'u' array shows tounicode() by its repr (%R).
                     if (_typecode == 'u')
-                    {
-                        sb.Append('\'');
-                        for (int i = 0; i < _count; i++)
-                        {
-                            var item = ReadItem(_buffer, i, _typecode);
-                            sb.Append(((PyString)item).Value);
-                        }
-                        sb.Append('\'');
-                    }
+                        sb.Append(ToUnicode().ToRepr().Value);
                     else
                     {
                         sb.Append('[');
@@ -710,14 +703,17 @@ namespace SharpPy.Modules
             }
 
             // typecode_to_mformat_code
-            private int MachineFormat() => _typecode switch
+            private int MachineFormat() => MachineFormatOf(_typecode);
+
+            // typecode_to_mformat_code, for this little-endian machine
+            private static int MachineFormatOf(char typecode) => typecode switch
             {
                 'B' => 0,
                 'b' => 1,
-                'u' => ItemSize == 2 ? 18 : 20,
+                'u' => TypeCodeTable['u'].Size == 2 ? 18 : 20,
                 'f' => 14,
                 'd' => 16,
-                _ => ItemSize switch { 2 => 2, 4 => 6, _ => 10 } + (char.IsLower(_typecode) ? 2 : 0),
+                _ => TypeCodeTable[typecode].Size switch { 2 => 2, 4 => 6, _ => 10 } + (char.IsLower(typecode) ? 2 : 0),
             };
 
             // array___reduce_ex___impl
@@ -739,58 +735,79 @@ namespace SharpPy.Modules
                 });
             }
 
-            internal static readonly PyBuiltinFunction Reconstructor = new("_array_reconstructor", Reconstruct);
+            // array._array_reconstructor(arraytype, typecode: int(accept={str}), mformat_code: int, items, /)
+            internal static readonly PyBuiltinFunction Reconstructor = PyArgs.FastCall("array", "_array_reconstructor", 4, 4, Reconstruct);
 
             // array__array_reconstructor_impl: the items as written on another machine, read here.
             internal static PyType Type;
 
             private static PyObject Reconstruct(PyObject[] args)
             {
-                if (args.Length != 4)
-                    throw PyTypeError.Create($"_array_reconstructor expected 4 arguments, got {args.Length}");
                 if (args[0] is not PyType arrayType)
                     throw PyTypeError.Create($"first argument must be a type object, not {args[0].GetTypeName()}");
                 if (!arrayType.IsSubclassOf(Type))
                     throw PyTypeError.Create($"{arrayType.Name} is not a subtype of array.array");
-                if (args[1] is not PyString { Value.Length: 1 } typecode || !"bBuhHiIlLqQfd".Contains(typecode.Value))
+                if (args[1] is not PyString { Value.Length: 1 } typecode)
+                    throw PyArgs.BadArgument("_array_reconstructor", "argument 2", "a unicode character", args[1]);
+                if (!"bBuhHiIlLqQfd".Contains(typecode.Value))
                     throw PyValueError.Create("second argument must be a valid type code");
-                int code = args[2].ToInt();
+                int code = PyArgs.Int(args[2]);
                 if (code is < 0 or > 21)
-                    throw PyValueError.Create("third argument must be a valid machine format code");
+                    throw PyValueError.Create("third argument must be a valid machine format code.");
                 if (args[3] is not PyBytes bytes)
-                    throw PyTypeError.Create($"fourth argument should be bytes, not {args[3].GetTypeName()}");
+                    throw PyTypeError.Create($"fourth argument should be bytes, not {args[3].GetPyType().FullName}");
+                char tc = typecode.Value[0];
+                // Fast path: the items are in this machine's format for the typecode (make_array).
+                if (code == MachineFormatOf(tc))
+                    return arrayType.Call(new PyObject[] { typecode, bytes }, null);
+                // Slow path: decoded by the format code, as pickled on another machine.
                 int size = code switch { 0 or 1 => 1, >= 2 and <= 5 => 2, >= 6 and <= 9 or 14 or 15 => 4, 18 or 19 => 2, 20 or 21 => 4, _ => 8 };
                 var data = bytes.Value;
                 if (data.Length % size != 0)
-                    throw PyValueError.Create("bytes length not a multiple of item size");
+                    throw PyValueError.Create("string length not a multiple of item size");
                 bool bigEndian = code >= 2 && code % 2 == 1;
-                var cell = new byte[size];
-                PyObject Item(int offset)
+                PyObject converted;
+                if (code >= 18)
                 {
-                    for (int i = 0; i < size; i++)
-                        cell[i] = data[offset + (bigEndian ? size - 1 - i : i)];
-                    return code switch
-                    {
-                        0 => PyInt.From(cell[0]),
-                        1 => PyInt.From((sbyte)cell[0]),
-                        2 or 3 => PyInt.From(BitConverter.ToUInt16(cell)),
-                        4 or 5 => PyInt.From(BitConverter.ToInt16(cell)),
-                        6 or 7 => PyInt.From(BitConverter.ToUInt32(cell)),
-                        8 or 9 => PyInt.From(BitConverter.ToInt32(cell)),
-                        10 or 11 => PyInt.From((System.Numerics.BigInteger)BitConverter.ToUInt64(cell)),
-                        12 or 13 => PyInt.From(BitConverter.ToInt64(cell)),
-                        14 or 15 => new PyFloat(BitConverter.ToSingle(cell)),
-                        16 or 17 => new PyFloat(BitConverter.ToDouble(cell)),
-                        18 or 19 => PyString.From(((char)BitConverter.ToUInt16(cell)).ToString()),
-                        _ => PyString.From(char.ConvertFromUtf32(BitConverter.ToInt32(cell))),
-                    };
+                    // PyUnicode_DecodeUTF16 / PyUnicode_DecodeUTF32, strict
+                    string codec = (code <= 19 ? "utf-16-" : "utf-32-") + (bigEndian ? "be" : "le");
+                    converted = PyString.From(PyStringNewArguments.DecodeBytes(data, codec, "strict"));
                 }
-                if (code >= 18 && typecode.Value != "u" || code < 18 && typecode.Value == "u")
-                    throw PyValueError.Create("bad typecode (must be b, B, u, h, H, i, I, l, L, q, Q, f or d)");
-                var items = new PyObject[data.Length / size];
-                for (int i = 0; i < items.Length; i++)
-                    items[i] = Item(i * size);
-                return arrayType.Call(new PyObject[] { typecode, new PyList(items) }, null);
+                else
+                {
+                    bool integer = code < 14;
+                    bool signedInt = integer && (code == 1 || (code >= 4 && code % 4 is 0 or 1));
+                    // An integer format picks the first integer typecode of its size and signedness.
+                    if (integer)
+                        foreach (char candidate in "bBhHiIlLqQ")
+                            if (TypeCodeTable[candidate].Size == size && TypeCodeTable[candidate].IsSigned == signedInt)
+                            {
+                                tc = candidate;
+                                break;
+                            }
+                    var cell = new byte[size];
+                    var items = new PyObject[data.Length / size];
+                    for (int n = 0; n < items.Length; n++)
+                    {
+                        for (int i = 0; i < size; i++)
+                            cell[i] = data[n * size + (bigEndian ? size - 1 - i : i)];
+                        items[n] = code switch
+                        {
+                            0 => PyInt.From(cell[0]),
+                            1 => PyInt.From((sbyte)cell[0]),
+                            2 or 3 => PyInt.From(BitConverter.ToUInt16(cell)),
+                            4 or 5 => PyInt.From(BitConverter.ToInt16(cell)),
+                            6 or 7 => PyInt.From(BitConverter.ToUInt32(cell)),
+                            8 or 9 => PyInt.From(BitConverter.ToInt32(cell)),
+                            10 or 11 => PyInt.From((System.Numerics.BigInteger)BitConverter.ToUInt64(cell)),
+                            12 or 13 => PyInt.From(BitConverter.ToInt64(cell)),
+                            14 or 15 => new PyFloat(BitConverter.ToSingle(cell)),
+                            _ => new PyFloat(BitConverter.ToDouble(cell)),
+                        };
+                    }
+                    converted = new PyList(items);
+                }
+                return arrayType.Call(new PyObject[] { PyString.From(tc.ToString()), converted }, null);
             }
 
             // array_new: a str is refused but for 'u', and a 'u' array but by one; then a list, tuple,
