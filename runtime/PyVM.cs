@@ -76,12 +76,12 @@ namespace SharpPy
         public PyScope? LocalScope => ScopeChain?.CurrentScope;
 
         // CPython-style error location tracking
-        // PyCode_Addr2Line(code, lasti): the line of the last instruction, -1 when it has none or
-        // nothing has run yet. Computed when asked, as PyFrame_GetLineNumber does.
+        // PyFrame_GetLineNumber: PyCode_Addr2Line(code, lasti), the line of the last instruction (-1
+        // when it has none), and co_firstlineno before anything has run. Computed when asked.
         internal bool HasRun;
         // An error an inlined callee left: the caller raises it with its lasti on the CALL's caches.
         internal bool UnwindingFromCall;
-        public int CurrentLineNumber => HasRun ? LineAt(Code, LastInstruction) : -1;
+        public int CurrentLineNumber => HasRun ? LineAt(Code, LastInstruction) : Code.GetFirstLineNo();
 
         internal static int LineAt(PyCodeObject code, int instruction) =>
             instruction >= 0 && instruction < code.Instructions.Count ? code.Instructions[instruction].LineNumber : -1;
@@ -724,7 +724,8 @@ namespace SharpPy
                 "f_back" => ParentFrame != null ? ParentFrame : PyNone.Instance,
 
                 // f_lineno: current line number in Python source code
-                "f_lineno" => CurrentLineNumber >= 0 ? PyInt.From(CurrentLineNumber) : LastInstruction > 0 ? (PyObject)PyNone.Instance : PyInt.From(Code.GetFirstLineNo()),
+                // frame_getlineno: PyFrame_GetLineNumber, None when the instruction has no line
+                "f_lineno" => CurrentLineNumber is int line && line >= 0 ? PyInt.From(line) : PyNone.Instance,
 
                 // f_locals: local namespace dictionary
                 "f_locals" => BuildLocalsDict(),
