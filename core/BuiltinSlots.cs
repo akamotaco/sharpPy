@@ -72,7 +72,6 @@ namespace SharpPy
                 PyType.SliceType,
                 PyTuple.From(new[] { self.GetAttribute("start"), self.GetAttribute("stop"), self.GetAttribute("step") }),
             }));
-            Slot(PyType.GenericAliasType, "__repr__", (self, args) => PyGenericAlias.Repr(self));
             Slot(PyType.GenericAliasType, "__getitem__", (self, args) => PyGenericAlias.GetItemSlot(self, args[0]));
             MethodO(PyType.GenericAliasType, "__mro_entries__", (self, args) => PyGenericAlias.MroEntries(self));
             Method(PyType.GenericAliasType, "__reduce__", (self, args) => PyGenericAlias.Reduce(self));
@@ -93,7 +92,6 @@ namespace SharpPy
                 self => ((SharpPy.Core.PyCoroutine)self).YieldFrom ?? PyNone.Instance);
             PyCallableWrapper.Install(PyType.ClassMethodType, "classmethod");
             PyCallableWrapper.Install(PyType.StaticMethodType, "staticmethod");
-            Slot(PyType.TypeType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
             Slot(PyType.GenericAliasType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
             Slot(PyType.UnionType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
             Slot(PyType.UnionType, "__or__", (self, args) => PyUnionType.Or(self, args[0]));
