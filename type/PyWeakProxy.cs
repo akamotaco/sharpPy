@@ -33,9 +33,8 @@ namespace SharpPy
 
         public override string ToClrString() => Target.ToClrString();
 
-        public override int ToHash() => throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
-
-        protected internal override long Hash() => throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
+        // A proxy's type is not weakref's: its tp_hash is PyObject_HashNotImplemented, not weakref_hash.
+        protected internal override long Hash() => HashNotImplemented(this);
 
         protected internal override PyObject TpRichCompare(PyObject other, CompareOp op) => Compare(Target, Unwrap(other), op);
 
@@ -150,6 +149,9 @@ namespace SharpPy
         {
             Install(PyType.ProxyType);
             Install(PyType.CallableProxyType);
+            // tp_hash PyObject_HashNotImplemented: type_ready writes __hash__ = None.
+            PyType.ProxyType.TypeDict["__hash__"] = PyNone.Instance;
+            PyType.CallableProxyType.TypeDict["__hash__"] = PyNone.Instance;
             PyType.CallableProxyType.TypeDict["__call__"] = new PyWrapperDescriptor("__call__", PyType.CallableProxyType,
                 (self, args, kwargs) => self.Call(args, kwargs), 0, int.MaxValue);
         }

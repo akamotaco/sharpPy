@@ -165,11 +165,14 @@ namespace SharpPy
         /// </summary>
         protected internal virtual long Hash()
         {
-            var type = GetPyType();
-            if (type.FindNameInMro("__hash__") is PyNone)
-                throw PyTypeError.Create($"unhashable type: '{type.FullName}'");
+            if (GetPyType().FindNameInMro("__hash__") is PyNone)
+                return HashNotImplemented(this);
             return ToHash();
         }
+
+        /// <summary>PyObject_HashNotImplemented (Objects/object.c), the tp_hash of an unhashable type.</summary>
+        internal static long HashNotImplemented(PyObject v) =>
+            throw PyTypeError.Create($"unhashable type: '{v.GetPyType().FullName}'");
 
         /// <summary>
         /// PyObject_Hash (Objects/object.c): Py_TYPE(v)->tp_hash(v); a class written in Python has

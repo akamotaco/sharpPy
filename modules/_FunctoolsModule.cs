@@ -116,7 +116,6 @@ namespace SharpPy.Modules
         public override PyType GetPyType() => KeyWrapperType;
         public override string GetTypeName() => "functools.KeyWrapper";
 
-        protected internal override long Hash() => throw PyTypeError.Create("unhashable type: 'functools.KeyWrapper'");
 
         // keyobject_call: PyArg_ParseTupleAndKeywords(args, kwds, "O:K", {"obj"}).
         public override PyObject Call(PyObject[] args, PyDict? kwargs)

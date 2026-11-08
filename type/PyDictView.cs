@@ -45,8 +45,6 @@ namespace SharpPy
         public override string GetTypeName() => GetPyType().Name;
         protected internal override long Len() => _dictionary.Length();
         protected internal override bool Bool() => Len() != 0;
-        public override int ToHash() => _kind == DictViewKind.Values ? base.ToHash()
-            : throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
 
         protected internal override PyObject Iter() => _kind switch
         {

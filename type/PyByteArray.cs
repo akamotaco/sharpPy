@@ -341,11 +341,6 @@ namespace SharpPy
         protected internal override long Len() => _bytes.Count;
         protected internal override bool Bool() => _bytes.Count > 0;
 
-        // bytearray is unhashable (mutable type)
-        public override int GetHashCode()
-        {
-            throw PyTypeError.Create("unhashable type: 'bytearray'");
-        }
 
         #endregion
 

@@ -175,30 +175,5 @@ namespace SharpPy
             return false;
         }
 
-        public override int GetHashCode()
-        {
-            // Union types with same args should have same hash regardless of order
-            // Performance: Eliminated LINQ - manual sorting and aggregation instead of Select + OrderBy + Aggregate
-            if (Args.Length == 0)
-                return 0;
-
-            var hashes = new int[Args.Length];
-            for (int i = 0; i < Args.Length; i++)
-            {
-                hashes[i] = Args[i].GetHashCode();
-            }
-
-            // Sort hashes for order-independent hashing
-            Array.Sort(hashes);
-
-            // Aggregate with XOR
-            int result = hashes[0];
-            for (int i = 1; i < hashes.Length; i++)
-            {
-                result ^= hashes[i];
-            }
-
-            return result;
-        }
     }
 }

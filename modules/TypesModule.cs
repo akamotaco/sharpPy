@@ -90,6 +90,5 @@ namespace SharpPy.Modules
             : PyNotImplemented.Instance;
 
         public override bool Equals(object other) => other is PySimpleNamespace && RichCompare((PyObject)other, CompareOp.EQ).IsTrue();
-        public override int ToHash() => throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
     }
 }

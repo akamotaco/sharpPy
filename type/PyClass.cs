@@ -165,7 +165,7 @@ namespace SharpPy
                 return ((PyInt)slot.Specific._implementation(self, Array.Empty<PyObject>(), null)).ToLong();
             // update_one_slot: __hash__ = None is PyObject_HashNotImplemented.
             if (slot.Generic == null || slot.Generic is PyNone)
-                throw PyTypeError.Create($"unhashable type: '{Name}'");
+                return HashNotImplemented(self);
             // slot_tp_hash: a lookup that fails is unhashable, the answer must be an int, a value
             // outside Py_hash_t is long_hash of it, and -1 is reserved.
             // lookup_maybe_method binds, and what it answers is tested for None.
@@ -173,7 +173,7 @@ namespace SharpPy
             try { bound = self.BindSpecialMethod(slot.Generic); }
             catch (PythonException) { bound = null; }
             if (bound == null || bound is PyNone)
-                throw PyTypeError.Create($"unhashable type: '{Name}'");
+                return HashNotImplemented(self);
             var result = bound.Call(Array.Empty<PyObject>(), null);
             System.Numerics.BigInteger value = (PyInt.LongValue(result)
                 ?? throw PyTypeError.Create("__hash__ method should return an integer")).Value;
