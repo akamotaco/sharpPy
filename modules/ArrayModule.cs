@@ -249,8 +249,9 @@ namespace SharpPy.Modules
             {
                 if (index is PySlice slice)
                 {
-                    var (start, stop, step) = slice.Indices(_count);
-                    int count = slice.GetIndices(_count).Length;
+                    // PySlice_Unpack and PySlice_AdjustIndices, once
+                    var (start, stop, step) = slice.StorageIndices(_count);
+                    int count = PySlice.GetLength(start, stop, step);
                     var result = new PyArray(ArrayType, _typecode);
                     result.EnsureCapacity(count);
                     int idx = start;
@@ -271,12 +272,20 @@ namespace SharpPy.Modules
             {
                 if (index is PySlice slice)
                 {
-                    var (start, stop, step) = slice.Indices(_count);
-                    int count = slice.GetIndices(_count).Length;
+                    // PySlice_Unpack and PySlice_AdjustIndices, once
+                    var (start, stop, step) = slice.StorageIndices(_count);
+                    int count = PySlice.GetLength(start, stop, step);
+                    // array_ass_subscr: an array, or "can only assign array"; an extended slice takes
+                    // exactly as many items as it selects.
+                    if (value is not PyArray other)
+                        throw PyTypeError.Create($"can only assign array (not \"{value.GetTypeName()}\") to array slice");
+                    if (other._typecode != _typecode)
+                        throw PyTypeError.Create("bad argument type for built-in operation");  // PyErr_BadArgument
                     if (step != 1)
                     {
-                        if (!(value is PyArray va) || va._count != count)
-                            throw PyValueError.Create("attempt to assign sequence of size " + (value is PyArray va2 ? va2._count.ToString() : "?") + " to extended slice of size " + count);
+                        var va = (PyArray)value;
+                        if (va._count != count)
+                            throw PyValueError.Create($"attempt to assign array of size {va._count} to extended slice of size {count}");
                         int idx = start;
                         for (int i = 0; i < count; i++)
                         {
@@ -285,10 +294,7 @@ namespace SharpPy.Modules
                         }
                         return;
                     }
-                    if (!(value is PyArray arr))
-                        throw PyTypeError.Create($"can only assign array (not \"{value.GetTypeName()}\") to array slice");
-                    if (arr._typecode != _typecode)
-                        throw PyTypeError.Create($"can only assign array (not \"{value.GetTypeName()}\") to array slice");
+                    var arr = other;
 
                     int newCount = _count - count + arr._count;
                     int itemSize = ItemSize;
@@ -312,8 +318,9 @@ namespace SharpPy.Modules
             {
                 if (index is PySlice slice)
                 {
-                    var (start, stop, step) = slice.Indices(_count);
-                    int count = slice.GetIndices(_count).Length;
+                    // PySlice_Unpack and PySlice_AdjustIndices, once
+                    var (start, stop, step) = slice.StorageIndices(_count);
+                    int count = PySlice.GetLength(start, stop, step);
                     if (step == 1)
                     {
                         int width = ItemSize;
