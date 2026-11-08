@@ -394,6 +394,11 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     // CPython 3.12 호환: kwargs 지원 버전
     public override PyObject Call(PyObject[] args, PyDict kwargs)
     {
+        // PyObject_Call -> _PyStack_UnpackDict: the keywords of a dict become names, which must be str.
+        if (kwargs != null && kwargs.Length() != 0)
+            foreach (var pair in kwargs.InternalDict)
+                if (pair.Key is not PyString)
+                    throw PyTypeError.Create("keywords must be strings");
         // async generator 함수인지 먼저 확인
         if (CodeObject?.IsAsyncGenerator() == true)
         {
