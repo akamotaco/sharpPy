@@ -18,12 +18,16 @@ namespace SharpPy
         internal sealed record Convention(PyCall Kind, int Min, int Max, string[] Names = null,
             int PositionalOnly = 0, int RequiredKeywords = 0, bool QualifiedKeywordRefusal = false);
 
-        /// <summary>The convention of a method of a static builtin type, or null.</summary>
+        /// <summary>
+        /// The convention of a method of a type implemented in C# (a builtin, or a type of one of the
+        /// C modules, keyed by its module), or null. A class written in Python has none.
+        /// </summary>
         internal static Convention Of(PyType owner, string name)
         {
-            if (owner == null || owner is PyClass || (owner.Module != null && owner.Module != "builtins"))
+            if (owner == null || owner is PyClass { IsHeapType: true })
                 return null;
-            return Table.TryGetValue(owner.Name + "." + name, out var found) ? found : null;
+            string type = owner.Module == null || owner.Module == "builtins" ? owner.Name : owner.Module + "." + owner.Name;
+            return Table.TryGetValue(type + "." + name, out var found) ? found : null;
         }
 
         /// <summary>

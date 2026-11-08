@@ -116,17 +116,14 @@ namespace SharpPy
         /// ref() - the object, or None. tp_call of PyWeakReference_Type
         /// (Objects/weakrefobject.c weakref_call).
         /// </summary>
-        public override PyObject Call(PyObject[] args, PyDict kwargs)
+        public override PyObject Call(PyObject[] args, PyDict kwargs) => SlotCall(args, kwargs);
+
+        // weakref_call, the tp_call its __call__ wraps: _PyArg_NoKeywords("weakref", kw), then
+        // PyArg_UnpackTuple(args, "weakref", 0, 0).
+        internal PyObject SlotCall(PyObject[] args, PyDict kwargs)
         {
-            // _PyArg_NoKeywords("weakref", kw)
             if (kwargs != null && kwargs.Length() != 0)
                 throw PyTypeError.Create("weakref() takes no keyword arguments");
-            return SlotCall(args);
-        }
-
-        // PyArg_UnpackTuple(args, "weakref", 0, 0)
-        internal PyObject SlotCall(PyObject[] args)
-        {
             if (args != null && args.Length != 0)
                 throw PyTypeError.Create($"weakref expected 0 arguments, got {args.Length}");
             return Referent ?? PyNone.Instance;
@@ -151,7 +148,7 @@ namespace SharpPy
         // update_one_slot: a class that declares the method replaces the slot, otherwise the ref's own
         // slot stays. The type's method table calls the Slot* methods, so super().__call__() ends there.
         public override PyObject Call(PyObject[] args, PyDict kwargs) =>
-            this.CallUserSpecialOrNull("__call__", args) ?? SlotCall(args);
+            this.CallUserSpecialOrNull("__call__", args) ?? SlotCall(args, kwargs);
 
         protected internal override PyString Repr() => SlotRepr();
 

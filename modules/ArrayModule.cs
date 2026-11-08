@@ -986,7 +986,8 @@ namespace SharpPy.Modules
             type.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(type);
             TypeTables.Repr(type);
             TypeTables.Compared(type);
-            type.TypeDict["__iadd__"] = new PyMethodDescriptor("__iadd__", type, (self, args, kwargs) =>
+            // sq_inplace_concat: a slot, whose __iadd__ is its wrapper
+            type.TypeDict["__iadd__"] = new PyWrapperDescriptor("__iadd__", type, (self, args, kwargs) =>
             {
                 var arr = (PyArray)self;
                 if (args[0] is PyArray other && other._typecode == arr._typecode)

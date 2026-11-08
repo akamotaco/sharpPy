@@ -122,7 +122,7 @@ namespace SharpPy.Modules
 
             // tp_call, tp_repr, tp_hash and tp_richcompare are slots: their wrappers.
             type.TypeDict["__call__"] = new PyWrapperDescriptor("__call__", type,
-                (self, args, kwargs) => ((PyWeakRef)self).SlotCall(args));
+                (self, args, kwargs) => ((PyWeakRef)self).SlotCall(args, kwargs));
             type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type,
                 (self, args, kwargs) => ((PyWeakRef)self).SlotRepr(), minArgs: 0, maxArgs: 0);
             type.TypeDict["__hash__"] = new PyWrapperDescriptor("__hash__", type,

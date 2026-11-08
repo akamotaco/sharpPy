@@ -196,8 +196,83 @@ def classify(tname, mname, func):
     return None
 
 
+def module_sample(t):
+    """A sample of a type of one of the C modules, or None where none can be made."""
+    import _io, re, array, struct, itertools
+    io_samples = {
+        _io.TextIOWrapper: lambda: _io.TextIOWrapper(_io.BytesIO(b"ab")),
+        _io.BufferedReader: lambda: _io.BufferedReader(_io.BytesIO(b"ab")),
+        _io.BufferedWriter: lambda: _io.BufferedWriter(_io.BytesIO()),
+        _io.BufferedRandom: lambda: _io.BufferedRandom(_io.BytesIO(b"ab")),
+        _io.BufferedRWPair: lambda: _io.BufferedRWPair(_io.BytesIO(b"ab"), _io.BytesIO()),
+        _io.BytesIO: lambda: _io.BytesIO(b"ab"), _io.StringIO: lambda: _io.StringIO("ab"),
+        re.Pattern: lambda: re.compile("a"), re.Match: lambda: re.compile("a").match("a"),
+        array.array: lambda: array.array("b", [1, 2]), struct.Struct: lambda: struct.Struct("b"),
+        itertools.chain: lambda: itertools.chain([1]), itertools.repeat: lambda: itertools.repeat(1),
+        itertools.islice: lambda: itertools.islice([1], 1), itertools.cycle: lambda: itertools.cycle([1]),
+    }
+    import _thread, functools, operator
+    io_samples.update({
+        _thread.LockType: _thread.allocate_lock, _thread.RLock: _thread.RLock,
+        functools.partial: lambda: functools.partial(int),
+        operator.itemgetter: lambda: operator.itemgetter(1), operator.attrgetter: lambda: operator.attrgetter("a"),
+        operator.methodcaller: lambda: operator.methodcaller("a"),
+        type((lambda: 0).__code__): lambda: (lambda: 0).__code__,
+        type(iter([])): lambda: iter([]), type(reversed([])): lambda: reversed([]),
+        type(iter(())): lambda: iter(()), type(iter("")): lambda: iter(""), type(iter({})): lambda: iter({}),
+        type(iter(range(1))): lambda: iter(range(1)), type(iter(set())): lambda: iter(set()),
+        type(iter(b"")): lambda: iter(b""), type(iter(bytearray())): lambda: iter(bytearray()),
+        type({}.keys()): lambda: {1: 2}.keys(), type({}.values()): lambda: {1: 2}.values(), type({}.items()): lambda: {1: 2}.items(),
+        BaseExceptionGroup: lambda: BaseExceptionGroup("m", [ValueError()]),
+        ExceptionGroup: lambda: ExceptionGroup("m", [ValueError()]),
+    })
+    make = io_samples.get(t)
+    try:
+        return make() if make else t()
+    except Exception:
+        return None
+
+
+BLOCKING = {"acquire", "acquire_lock", "release", "release_lock", "_release_save", "_acquire_restore",
+            "__enter__", "__exit__", "_at_fork_reinit"}
+
+
+# The C modules whose types SharpPy has, and the types module's types that builtins does not name.
+MODULES = ("_io", "re", "array", "_thread", "operator", "itertools", "collections", "functools", "_struct", "types")
+
+
+def module_types():
+    import importlib
+    seen = set(v for v in vars(builtins).values() if isinstance(v, type))
+    # Types builtins has but does not name, and the exception groups its sample() cannot make.
+    for v in (type(iter([])), type(reversed([])), type(iter(())), type(iter("")), type(iter({})), type(iter(range(1))),
+              type(iter(set())), type(iter(b"")), type(iter(bytearray())), type({}.keys()), type({}.values()),
+              type({}.items()), BaseExceptionGroup, ExceptionGroup):
+        if v not in seen or v in (BaseExceptionGroup, ExceptionGroup):
+            seen.add(v)
+            yield v
+    for modname in MODULES:
+        for v in vars(importlib.import_module(modname)).values():
+            if isinstance(v, type) and v not in seen and not issubclass(v, BaseException) and v.__module__ != "types":
+                seen.add(v)
+                yield v
+
+
 def collect():
     entries = {}
+    # A type of a module other than builtins is keyed by its module too, as PyArity.Of looks it up.
+    for t in sorted(module_types(), key=lambda t: (t.__module__, t.__qualname__)):
+        obj = module_sample(t)
+        if obj is None or type(obj) is not t:
+            continue
+        key = t.__qualname__ if t.__module__ == "builtins" else f"{t.__module__}.{t.__qualname__}"
+        for mname, value in vars(t).items():
+            # A lock's acquiring methods would wait on the lock the previous call took.
+            if type(value).__name__ != "method_descriptor" or mname in BLOCKING:
+                continue
+            found = classify(t.__qualname__, mname, getattr(module_sample(t), mname))
+            if found:
+                entries[f"{key}.{mname}"] = found
     for t in sorted((v for v in vars(builtins).values() if isinstance(v, type)), key=lambda t: t.__name__):
         obj = sample(t)
         for mname, value in vars(t).items():
@@ -241,7 +316,8 @@ def main():
         hi = "int.MaxValue" if hi >= 10**6 else str(hi)
         if len(rest) == 3:
             names, posonly, minkw = rest
-            extra = ", Names: new[] { " + ", ".join(literal(n) for n in names) + " }, " + f"PositionalOnly: {posonly}, RequiredKeywords: {minkw}"
+            array = "new[] { " + ", ".join(literal(n) for n in names) + " }" if names else "System.Array.Empty<string>()"
+            extra = ", Names: " + array + ", " + f"PositionalOnly: {posonly}, RequiredKeywords: {minkw}"
         elif rest and rest[0]:
             extra = ", QualifiedKeywordRefusal: true"
         else:
