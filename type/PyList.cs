@@ -122,7 +122,7 @@ namespace SharpPy
                     if (args.Length > 1)
                         throw PyTypeError.Create($"pop() takes at most one argument ({args.Length} given)");
                     var list = GetListStorage(self);
-                    var index = args.Length == 0 ? -1 : (int)BytesMethods.AsSsize(args[0]);
+                    var index = args.Length == 0 ? -1 : PyArgs.SsizeCount(args[0]);
                     return list.Pop(index);
                 },
                 minArgs: 0, maxArgs: 1

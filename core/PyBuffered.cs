@@ -196,7 +196,7 @@ public sealed class PyBuffered : PyIOBaseInstance
             throw PyUnsupportedOperation.Create(message);
     }
 
-    private static int BufferSizeArgument(PyObject value) => value == null ? DefaultBufferSize : (int)BytesMethods.AsSsize(value);
+    private static int BufferSizeArgument(PyObject value) => value == null ? DefaultBufferSize : PyArgs.SsizeCount(value);
 
     // _io_BufferedReader___init___impl and the writer's and random's
     private void Initialize(Kind kind, PyObject[] args, PyDict kwargs)
@@ -265,7 +265,7 @@ public sealed class PyBuffered : PyIOBaseInstance
         long n;
         try
         {
-            n = (long)BytesMethods.AsSsize(result);
+            n = PyArgs.AsSsize(result, PyArgs.SsizeError.Value);
         }
         catch (PythonException error)
         {
@@ -446,7 +446,7 @@ public sealed class PyBuffered : PyIOBaseInstance
         var result = Call(_s.Raw, "write", view);
         if (result is PyNone)
             return -2;
-        long n = (long)BytesMethods.AsSsize(result);
+        long n = PyArgs.AsSsize(result, PyArgs.SsizeError.Value);
         if (n < 0 || n > length)
             throw new PythonException(PyOSError.FromArguments(new PyObject[]
             {
@@ -738,7 +738,7 @@ public sealed class PyBuffered : PyIOBaseInstance
     private PyObject Read(PyObject[] args)
     {
         CheckInitialized();
-        long n = args.Length > 0 && args[0] is not PyNone ? BytesMethods.AsSsize(args[0]) : -1;
+        long n = PyArgs.OptionalSsize(args.Length > 0 ? args[0] : null);
         if (n < -1)
             throw PyValueError.Create("read length must be non-negative or -1");
         CheckClosed("read of closed file");
@@ -753,7 +753,7 @@ public sealed class PyBuffered : PyIOBaseInstance
     private PyObject Read1(PyObject[] args)
     {
         CheckInitialized();
-        long n = args.Length > 0 && args[0] is not PyNone ? BytesMethods.AsSsize(args[0]) : -1;
+        long n = PyArgs.OptionalSsize(args.Length > 0 ? args[0] : null);
         if (n < 0)
             n = _s.BufferSize;
         CheckClosed("read of closed file");
@@ -1038,7 +1038,7 @@ public sealed class PyBuffered : PyIOBaseInstance
             Method("readline", (self, args) =>
             {
                 self.CheckInitialized();
-                return self.ReadLine(args.Length > 0 && args[0] is not PyNone ? BytesMethods.AsSsize(args[0]) : -1);
+                return self.ReadLine(PyArgs.OptionalSsize(args.Length > 0 ? args[0] : null));
             }, 0, 1);
         }
         if (kind != Kind.Reader)

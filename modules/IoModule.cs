@@ -207,7 +207,7 @@ namespace SharpPy.Modules
                     lineBuffering = true;
                 }
                 if (buffering < 0)
-                    buffering = (int)BytesMethods.AsSsize(raw.GetAttribute("_blksize"));
+                    buffering = PyArgs.SsizeCount(raw.GetAttribute("_blksize"));
                 if (buffering < 0)
                     throw PyValueError.Create("invalid buffering size");
                 if (buffering == 0)

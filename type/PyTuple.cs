@@ -403,17 +403,14 @@ namespace SharpPy
         /// </summary>
         protected internal override PyObject MpSubscript(PyObject key)
         {
-            if (key is PyInt index)
-                return GetItem((int)index.Value);
-
             if (key is PySlice slice)
             {
                 var (start, stop, step) = slice.StorageIndices(Items.Length);
                 return GetSlice(start, stop, step);
             }
 
-            if (TryGetIndex(key) is { } tupleIndex)
-                return GetItem(tupleIndex);
+            if (TrySequenceIndex(key, out int position))
+                return GetItem(position);
             throw PyTypeError.Create($"tuple indices must be integers or slices, not {key.GetTypeName()}");
         }
 

@@ -195,7 +195,7 @@ internal static class PyArgs
             return fallback;
         if (PyObject.TryGetIndex(value) == null)
             throw PyTypeError.Create($"argument should be integer or None, not '{value.GetTypeName()}'");
-        return BytesMethods.AsSsize(value);
+        return AsSsize(value, SsizeError.Overflow);
     }
 
     // The Py_ssize_t converter: _PyNumber_Index, then PyLong_AsSsize_t.
@@ -208,14 +208,28 @@ internal static class PyArgs
         return (long)index.Value;
     }
 
-    // PyNumber_AsSsize_t(value, PyExc_OverflowError): __index__, and an overflow named by the object.
-    internal static long IndexSsize(PyObject value)
+    /// <summary>The err of PyNumber_AsSsize_t; Clip is NULL, the value clipped to Py_ssize_t.</summary>
+    internal enum SsizeError { Clip, Overflow, Index, Value }
+
+    /// <summary>
+    /// PyNumber_AsSsize_t(item, err) (Objects/abstract.c): _PyNumber_Index, then a value past
+    /// Py_ssize_t is err, "cannot fit 'T' into an index-sized integer" naming the item's type.
+    /// </summary>
+    internal static long AsSsize(PyObject item, SsizeError err) => FitSsize(item, PyObject.IndexOrThrow(item).Value, err);
+
+    /// <summary>PyNumber_AsSsize_t after its _PyNumber_Index, for a caller that has the value.</summary>
+    internal static long FitSsize(PyObject item, System.Numerics.BigInteger value, SsizeError err)
     {
-        var index = PyObject.TryGetIndex(value)
-            ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
-        if (index.Value < long.MinValue || index.Value > long.MaxValue)
-            throw PyOverflowError.Create($"cannot fit '{value.GetTypeName()}' into an index-sized integer");
-        return (long)index.Value;
+        if (value >= long.MinValue && value <= long.MaxValue)
+            return (long)value;
+        var message = $"cannot fit '{item.GetTypeName()}' into an index-sized integer";
+        return err switch
+        {
+            SsizeError.Clip => value.Sign < 0 ? long.MinValue : long.MaxValue,
+            SsizeError.Overflow => throw PyOverflowError.Create(message),
+            SsizeError.Index => throw PyIndexError.Create(message),
+            _ => throw PyValueError.Create(message),
+        };
     }
 
 
@@ -258,16 +272,21 @@ internal static class PyArgs
     /// </summary>
     internal static int ParseInt(PyObject value)
     {
-        var index = PyObject.TryGetIndex(value)
-            ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
-        var number = index.Value;
-        if (OperatingSystem.IsWindows() ? number < int.MinValue || number > int.MaxValue : number < long.MinValue || number > long.MaxValue)
-            throw PyOverflowError.Create("Python int too large to convert to C long");
+        long number = CLong(value);
         if (number > int.MaxValue)
             throw PyOverflowError.Create("signed integer is greater than maximum");
         if (number < int.MinValue)
             throw PyOverflowError.Create("signed integer is less than minimum");
         return (int)number;
+    }
+
+    /// <summary>PyLong_AsLong: __index__, then a C long, which is 32 bits on Windows.</summary>
+    internal static long CLong(PyObject value)
+    {
+        var number = PyObject.IndexOrThrow(value).Value;
+        if (OperatingSystem.IsWindows() ? number < int.MinValue || number > int.MaxValue : number < long.MinValue || number > long.MaxValue)
+            throw PyOverflowError.Create("Python int too large to convert to C long");
+        return (long)number;
     }
 
     // The int converter: _PyLong_AsInt.

@@ -545,8 +545,8 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         string newlineText = newline is PyString text ? text.Value : null;
         if (newlineText != null)
             ValidateNewline(newlineText);
-        bool line = lineBuffering is PyNone ? _lineBuffering : !BytesMethods.AsSsize(lineBuffering).Equals(0L);
-        bool through = writeThrough is PyNone ? _writeThrough : !BytesMethods.AsSsize(writeThrough).Equals(0L);
+        bool line = lineBuffering is PyNone ? _lineBuffering : PyArgs.CLong(lineBuffering) != 0;
+        bool through = writeThrough is PyNone ? _writeThrough : PyArgs.CLong(writeThrough) != 0;
         Call(this, "flush");
         _b2cratio = 0;
         if (newline != null)
@@ -1150,7 +1150,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     }
 
     private static long SizeArgument(PyObject[] args) =>
-        args.Length > 0 && args[0] is not PyNone ? BytesMethods.AsSsize(args[0]) : -1;
+        PyArgs.OptionalSsize(args.Length > 0 ? args[0] : null);
 
     private static PyIOBaseType MakeType()
     {
@@ -1260,7 +1260,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         {
             var wrapper = (PyTextIOWrapper)self;
             wrapper.CheckAttached();
-            long n = BytesMethods.AsSsize(value);
+            long n = PyArgs.AsSsize(value, PyArgs.SsizeError.Value);
             if (n <= 0)
                 throw PyValueError.Create("a strictly positive integer is required");
             wrapper._chunkSize = (int)n;

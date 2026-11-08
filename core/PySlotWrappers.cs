@@ -54,7 +54,7 @@ namespace SharpPy
                         continue;
                 }
                 type.TypeDict[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) =>
-                    inner(self, new PyObject[] { PyInt.From(PyArgs.IndexSsize(args[0])) }, kwargs))
+                    inner(self, new PyObject[] { PyInt.From(PyArgs.AsSsize(args[0], PyArgs.SsizeError.Overflow)) }, kwargs))
                 {
                     IndexArgument = true,
                     CallsVirtual = callsVirtual,

@@ -346,7 +346,7 @@ public class PyStringIO : PyIOBaseInstance
         var position = tuple.Items[2];
         if (!PyInt.LongCheck(position))
             throw PyTypeError.Create($"third item of state must be an integer, got {position.GetTypeName()}");
-        long pos = BytesMethods.AsSsize(position);
+        long pos = PyArgs.Ssize(position);
         if (pos < 0)
             throw PyValueError.Create("position value cannot be negative");
         _pos = pos;

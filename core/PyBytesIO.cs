@@ -185,7 +185,7 @@ public class PyBytesIO : PyIOBaseInstance
         CheckClosed();
         long maxsize;
         if (PyInt.LongCheck(arg))
-            maxsize = BytesMethods.AsSsize(arg);
+            maxsize = PyArgs.Ssize(arg);
         else if (arg is PyNone)
             maxsize = -1;
         else
@@ -302,7 +302,7 @@ public class PyBytesIO : PyIOBaseInstance
         var position = tuple.Items[1];
         if (!PyInt.LongCheck(position))
             throw PyTypeError.Create($"second item of state must be an integer, not {position.GetTypeName()}");
-        long pos = BytesMethods.AsSsize(position);
+        long pos = PyArgs.Ssize(position);
         if (pos < 0)
             throw PyValueError.Create("position value cannot be negative");
         _pos = pos;

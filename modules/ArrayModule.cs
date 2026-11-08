@@ -220,7 +220,8 @@ namespace SharpPy.Modules
 
             private int NormalizeIndex(PyObject index)
             {
-                long i = (long)(TryGetIndex(index) ?? throw PyTypeError.Create($"array indices must be integers or slices, not {index.GetTypeName()}")).Value;
+                // array_subscr and array_ass_subscr
+                long i = TrySequenceIndex(index, out int position) ? position : throw PyTypeError.Create("array indices must be integers");
 
                 if (i < 0) i += _count;
                 if (i < 0 || i >= _count)

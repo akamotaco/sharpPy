@@ -229,7 +229,7 @@ public static class PyIOBaseSlots
         IOBaseType.TypeDict["readline"] = new PyMethodDescriptor(
             "readline", IOBaseType, (self, args, kwargs) =>
             {
-                long limit = args.Length > 0 && args[0] is not PyNone ? BytesMethods.AsSsize(args[0]) : -1;
+                long limit = PyArgs.OptionalSsize(args.Length > 0 ? args[0] : null);
                 CheckClosed(self);
                 PyObject peek = null;
                 try { peek = self.GetAttribute("peek"); }
@@ -271,7 +271,7 @@ public static class PyIOBaseSlots
             {
                 // _io__IOBase_readlines_impl: the lines are self iterated; hint <= 0 takes them
                 // all, otherwise it stops once a line overflows the remaining hint.
-                long hint = args.Length > 0 && args[0] is not PyNone ? BytesMethods.AsSsize(args[0]) : -1;
+                long hint = PyArgs.OptionalSsize(args.Length > 0 ? args[0] : null);
                 var result = new PyList();
                 if (hint <= 0)
                 {
@@ -406,14 +406,14 @@ public static class PyIOBaseSlots
         RawIOBaseType.TypeDict["read"] = new PyMethodDescriptor(
             "read", RawIOBaseType, (self, args, kw) =>
             {
-                long n = args.Length > 0 && args[0] is not PyNone ? BytesMethods.AsSsize(args[0]) : -1;
+                long n = PyArgs.OptionalSsize(args.Length > 0 ? args[0] : null);
                 if (n < 0)
                     return CallWith(self, "readall", Array.Empty<PyObject>());
                 var b = new PyByteArray(new byte[n]);
                 var res = CallWith(self, "readinto", One(b));
                 if (res is PyNone)
                     return res;
-                long got = BytesMethods.AsSsize(res);
+                long got = PyArgs.AsSsize(res, PyArgs.SsizeError.Value);
                 var data = b.ToByteArrayCopy();
                 if (got < 0 || got > data.Length)
                     throw PyValueError.Create($"readinto returned {got} outside buffer size {data.Length}");

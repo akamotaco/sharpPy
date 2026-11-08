@@ -68,14 +68,6 @@ namespace SharpPy
         private static BigInteger IndexValue(PyObject value) =>
             (PyObject.TryGetIndex(value) ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer")).Value;
 
-        // PyNumber_AsSsize_t(value, PyExc_OverflowError)
-        internal static long AsSsize(PyObject value)
-        {
-            var number = IndexValue(value);
-            if (number < long.MinValue || number > long.MaxValue)
-                throw PyOverflowError.Create("cannot fit 'int' into an index-sized integer");
-            return (long)number;
-        }
 
         // _PyEval_SliceIndex
         private static long SliceIndex(PyObject value, long missing)
@@ -239,7 +231,7 @@ namespace SharpPy
         {
             if (value == null)
                 return long.MaxValue;
-            long count = AsSsize(value);
+            long count = PyArgs.Ssize(value);
             return count < 0 ? long.MaxValue : count;
         }
 
@@ -421,7 +413,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"{name}() takes at least 1 argument (0 given)");
             if (args.Length > 2)
                 throw PyTypeError.Create($"{name} expected at most 2 arguments, got {args.Length}");
-            long width = AsSsize(args[0]);
+            long width = PyArgs.Ssize(args[0]);
             byte fill = FillByte(name, args);
             var text = Self(self);
             long missing = width - text.Length;
@@ -436,7 +428,7 @@ namespace SharpPy
 
         private static PyObject ZFill(PyObject self, PyObject widthArgument)
         {
-            long width = AsSsize(widthArgument);
+            long width = PyArgs.Ssize(widthArgument);
             var text = Self(self);
             if (width <= text.Length)
                 return ReturnSelf(self, text);
@@ -488,7 +480,7 @@ namespace SharpPy
                 throw PyTypeError.Create(args.Length < 2 ? $"replace expected at least 2 arguments, got {args.Length}" : $"replace expected at most 3 arguments, got {args.Length}");
             var from = RequireBuffer(args[0]);
             var to = RequireBuffer(args[1]);
-            long count = args.Length > 2 ? AsSsize(args[2]) : -1;
+            long count = args.Length > 2 ? PyArgs.Ssize(args[2]) : -1;
             var text = Self(self);
             if (count < 0)
                 count = long.MaxValue;
@@ -884,7 +876,7 @@ namespace SharpPy
             long count;
             try
             {
-                count = AsSsize(source);
+                count = PyArgs.AsSsize(source, PyArgs.SsizeError.Overflow);
             }
             catch (PythonException error) when (error.PyException is PyTypeError)
             {
@@ -1012,13 +1004,7 @@ namespace SharpPy
         // PyNumber_AsSsize_t(index, PyExc_IndexError)
         internal static bool IsIndex(PyObject index) => index is not PySlice && HasIndex(index);
 
-        internal static long AsIndex(PyObject index)
-        {
-            var number = IndexValue(index);
-            if (number < long.MinValue || number > long.MaxValue)
-                throw PyIndexError.Create("cannot fit 'int' into an index-sized integer");
-            return (long)number;
-        }
+        internal static long AsIndex(PyObject index) => PyArgs.AsSsize(index, PyArgs.SsizeError.Index);
 
         // bytes_concat and bytearray_concat: any buffer on the right, the type of the left.
         internal static PyObject Concat(PyObject self, PyObject other)
@@ -1048,7 +1034,7 @@ namespace SharpPy
             type.TypeDict["__hash__"] = PyNone.Instance;
             Zero(type, "__alloc__", self => PyInt.From(((PyByteArray)self).Allocated));
             Zero(type, "__reduce__", self => ReduceEx(self, 2));
-            Def(type, "__reduce_ex__", (self, args, kwargs) => ReduceEx(self, args.Length > 0 ? AsSsize(args[0]) : 3));
+            Def(type, "__reduce_ex__", (self, args, kwargs) => ReduceEx(self, args.Length > 0 ? PyArgs.Int(args[0]) : 3));
         }
 
         internal static void InstallBytes(PyType type)
@@ -1108,7 +1094,7 @@ namespace SharpPy
                     throw PyTypeError.Create($"expandtabs() takes at most 1 argument ({args.Length} given)");
                 CheckKeywords("expandtabs", kwargs, "tabsize");
                 var size = Named(args, 0, kwargs, "tabsize");
-                return ExpandTabs(self, size == null ? 8 : AsSsize(size));
+                return ExpandTabs(self, size == null ? 8 : PyArgs.Int(size));
             }, keywords: true);
             Def(type, "replace", (self, args, kwargs) => Replace(self, args));
             Def(type, "translate", Translate, keywords: true);

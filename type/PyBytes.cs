@@ -1158,16 +1158,7 @@ namespace SharpPy
         // CPython 3.12: Objects/bytesobject.c:1470-1510 - bytes_subscript
         protected internal override PyObject MpSubscript(PyObject index)
         {
-            if (index is PyInt pyInt)
-            {
-                var idx = pyInt.Value;
-                if (idx < 0) idx += Value.Length;
-                if (idx < 0 || idx >= Value.Length)
-                    throw PyIndexError.Create("index out of range");
-
-                return PyInt.From(Value[(int)idx]);
-            }
-            else if (index is PySlice slice)
+            if (index is PySlice slice)
             {
                 // Handle slice indexing
                 var (start, stop, step) = slice.StorageIndices(Value.Length);
@@ -1190,8 +1181,13 @@ namespace SharpPy
                 }
             }
             
-            if (TryGetIndex(index) is { } byteIndex)
-                return GetItem(byteIndex);
+            if (TrySequenceIndex(index, out int item))
+            {
+                if (item < 0) item += Value.Length;
+                if (item < 0 || item >= Value.Length)
+                    throw PyIndexError.Create("index out of range");
+                return PyInt.From(Value[item]);
+            }
             throw PyTypeError.Create($"byte indices must be integers or slices, not {index.GetTypeName()}");
         }
 

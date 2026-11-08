@@ -2911,15 +2911,9 @@ namespace SharpPy
                 // CPython 3.12: Objects/unicodeobject.c unicode_subscript uses
                 // PyNumber_AsSsize_t for non-slice keys (accepts __index__) and reports
                 // "string indices must be integers, not 'T'" - different wording from list.
-                try
-                {
-                    int idx = PyObject.GetIndex(index, "string");
-                    return GetItem(idx);
-                }
-                catch (PythonException)
-                {
-                    throw PyTypeError.Create($"string indices must be integers, not '{index.GetTypeName()}'");
-                }
+                if (TrySequenceIndex(index, out int position))
+                    return GetItem(position);
+                throw PyTypeError.Create($"string indices must be integers, not '{index.GetTypeName()}'");
             }
         }
 

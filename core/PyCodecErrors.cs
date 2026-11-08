@@ -96,7 +96,7 @@ namespace SharpPy
 
         private static int NewPosition(PyObject value, int length)
         {
-            long position = PyArgs.IndexSsize(value);
+            long position = PyArgs.AsSsize(value, PyArgs.SsizeError.Overflow);
             if (position < 0)
                 position += length;
             if (position < 0 || position > length)
@@ -122,7 +122,7 @@ namespace SharpPy
                 ? (PythonException)PyTypeError.Create($"don't know how to handle {exc.GetPyType().Name} in error callback")
                 : (PythonException)PyTypeError.Create("codec must pass exception instance");
 
-        private static int Field(PyObject exc, string name) => (int)PyArgs.IndexSsize(exc.GetAttribute(name));
+        private static int Field(PyObject exc, string name) => (int)PyArgs.AsSsize(exc.GetAttribute(name), PyArgs.SsizeError.Overflow);
 
         private static PyObject Answer(string replacement, int end) =>
             PyTuple.From(new PyObject[] { PyString.From(replacement), PyInt.From(end) });

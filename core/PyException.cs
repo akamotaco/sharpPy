@@ -1132,12 +1132,8 @@ namespace SharpPy
         }
         private static long AsWrittenCount(PyObject value)
         {
-            var index = TryGetIndex(value);
-            if (index == null)
-                throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
-            if (index.Value < nint.MinValue || index.Value > nint.MaxValue)
-                throw PyValueError.Create($"cannot fit '{value.GetTypeName()}' into an index-sized integer");
-            return (long)index.Value;
+            // characters_written_set: PyNumber_AsSsize_t(arg, PyExc_ValueError)
+            return PyArgs.AsSsize(value, PyArgs.SsizeError.Value);
         }
         private static bool IsBlockingErrno(System.Numerics.BigInteger code)
         {

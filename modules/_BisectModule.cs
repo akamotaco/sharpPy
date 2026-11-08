@@ -47,7 +47,7 @@ namespace SharpPy.Modules
                 // _Py_convert_optional_to_ssize_t
                 if (PyObject.TryGetIndex(parsed[3]) == null)
                     throw PyTypeError.Create($"argument should be integer or None, not '{parsed[3].GetTypeName()}'");
-                hi = PyArgs.IndexSsize(parsed[3]);
+                hi = PyArgs.AsSsize(parsed[3], PyArgs.SsizeError.Overflow);
             }
             return impl(parsed[0], parsed[1], lo, hi, parsed[4] ?? PyNone.Instance);
         });

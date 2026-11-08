@@ -661,11 +661,7 @@ namespace SharpPy
         // PyNumber_AsSsize_t(key, PyExc_IndexError)
         private static long IndexOf(PyObject key)
         {
-            var index = PyObject.TryGetIndex(key)
-                ?? throw PyTypeError.Create($"'{key.GetTypeName()}' object cannot be interpreted as an integer");
-            if (index.Value > long.MaxValue || index.Value < long.MinValue)
-                throw PyIndexError.Create($"cannot fit '{key.GetTypeName()}' into an index-sized integer");
-            return (long)index.Value;
+            return PyArgs.AsSsize(key, PyArgs.SsizeError.Index);
         }
 
         // lookup_dimension: the element offset an index makes along dim.
@@ -715,12 +711,7 @@ namespace SharpPy
         private int GetIndex(PyInt index, PyObject original = null)
         {
             // CPython converts an index to Py_ssize_t before adjusting negatives.
-            long position;
-            try { position = (long)index.Value; }
-            catch (OverflowException)
-            {
-                throw PyIndexError.Create($"cannot fit '{(original ?? index).GetTypeName()}' into an index-sized integer");
-            }
+            long position = PyArgs.FitSsize(original ?? index, index.Value, PyArgs.SsizeError.Index);
             if (position < 0) position += _length;
             if ((ulong)position >= (ulong)_length)
                 throw PyIndexError.Create("index out of bounds on dimension 1");

@@ -857,14 +857,7 @@ namespace SharpPy.Modules
         // PyNumber_AsSsize_t(value, IndexError or OverflowError)
         private static long IndexSsize(PyObject value, bool index)
         {
-            var number = PyObject.TryGetIndex(value)
-                ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
-            if (number.Value < long.MinValue || number.Value > long.MaxValue)
-            {
-                string message = $"cannot fit '{value.GetTypeName()}' into an index-sized integer";
-                throw index ? PyIndexError.Create(message) : PyOverflowError.Create(message);
-            }
-            return (long)number.Value;
+            return PyArgs.AsSsize(value, index ? PyArgs.SsizeError.Index : PyArgs.SsizeError.Overflow);
         }
 
         // Struct_unpack_impl

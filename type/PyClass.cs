@@ -207,9 +207,7 @@ namespace SharpPy
             var length = PyObject.IndexOrThrow(result);
             if (length.Value.Sign < 0)
                 throw PyValueError.Create("__len__() should return >= 0");
-            if (length.Value > long.MaxValue)
-                throw PyOverflowError.Create($"cannot fit '{length.GetPyType().FullName}' into an index-sized integer");
-            return (long)length.Value;
+            return PyArgs.FitSsize(length, length.Value, PyArgs.SsizeError.Overflow);
         }
 
         internal bool BoolSlot(PyObject self)

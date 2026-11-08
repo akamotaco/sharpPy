@@ -138,7 +138,7 @@ namespace SharpPy.Modules
         {
             try
             {
-                result = PyArgs.IndexSsize(value);
+                result = PyArgs.AsSsize(value, PyArgs.SsizeError.Overflow);
                 return true;
             }
             catch (PythonException)

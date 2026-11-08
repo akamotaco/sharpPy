@@ -408,8 +408,6 @@ namespace SharpPy
                 }
             }
 
-            if (TryGetIndex(index) is { } itemIndex)
-                return GetItem(itemIndex);
             throw PyTypeError.Create($"bytearray indices must be integers or slices, not {index.GetTypeName()}");
         }
 
@@ -484,11 +482,6 @@ namespace SharpPy
             }
             else
             {
-                if (TryGetIndex(index) is { } storeIndex)
-                {
-                    SetItem(storeIndex, value);
-                    return;
-                }
                 throw PyTypeError.Create($"bytearray indices must be integers or slices, not {index.GetTypeName()}");
             }
         }
@@ -530,11 +523,6 @@ namespace SharpPy
             }
             else
             {
-                if (TryGetIndex(index) is { } deleteIndex)
-                {
-                    DelItem(deleteIndex);
-                    return;
-                }
                 throw PyTypeError.Create($"bytearray indices must be integers or slices, not {index.GetTypeName()}");
             }
         }

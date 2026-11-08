@@ -5475,7 +5475,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"can't multiply sequence by non-int of type '{count.GetTypeName()}'");
             var native = sequence;
             // The type's own sq_repeat decides what the size means (OverflowError or MemoryError).
-            return native.Multiply(PyInt.From(PyArgs.IndexSsize(count)));
+            return native.Multiply(PyInt.From(PyArgs.AsSsize(count, PyArgs.SsizeError.Overflow)));
         }
 
         /// <summary>

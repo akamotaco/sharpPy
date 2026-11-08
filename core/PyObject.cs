@@ -246,14 +246,26 @@ namespace SharpPy
         /// A sequence subscript: _PyIndex_Check, then PyNumber_AsSsize_t(item, PyExc_IndexError). A
         /// Py_ssize_t that no CLR sequence can reach is clamped, so the caller's range check reports it.
         /// </summary>
-        public static int GetIndex(PyObject obj, string typeName)
+        public static int GetIndex(PyObject obj, string typeName) =>
+            TrySequenceIndex(obj, out int index) ? index
+                : throw PyTypeError.Create($"{typeName} indices must be integers or slices, not {obj.GetTypeName()}");
+
+        /// <summary>
+        /// The integer key of a sequence subscript (tuplesubscript, bytes_subscript, unicode_subscript,
+        /// array_subscr, ...): _PyIndex_Check, then PyNumber_AsSsize_t(item, PyExc_IndexError). False
+        /// when the key is no index, the type's own TypeError then.
+        /// </summary>
+        internal static bool TrySequenceIndex(PyObject item, out int index)
         {
-            var index = TryGetIndex(obj)
-                ?? throw PyTypeError.Create($"{typeName} indices must be integers or slices, not {obj.GetTypeName()}");
-            var value = index.Value;
-            if (value < long.MinValue || value > long.MaxValue)
-                throw PyIndexError.Create($"cannot fit '{obj.GetTypeName()}' into an index-sized integer");
-            return value > int.MaxValue ? int.MaxValue : value < int.MinValue ? int.MinValue : (int)value;
+            var value = TryGetIndex(item);
+            if (value == null)
+            {
+                index = 0;
+                return false;
+            }
+            long position = PyArgs.FitSsize(item, value.Value, PyArgs.SsizeError.Index);
+            index = position > int.MaxValue ? int.MaxValue : position < int.MinValue ? int.MinValue : (int)position;
+            return true;
         }
 
         #endregion
