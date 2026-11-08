@@ -15,6 +15,7 @@ import threading
 import time
 import traceback
 import warnings
+import weakref
 
 from . import constants
 from . import coroutines
@@ -100,6 +101,9 @@ class BaseEventLoop(events.AbstractEventLoop):
 
         # A weak set of all asynchronous generators that are
         # being iterated by the loop.
+        self._asyncgens = weakref.WeakSet()
+        # Set to True when `loop.shutdown_asyncgens` is called.
+        self._asyncgens_shutdown_called = False
 
     def __repr__(self):
         return (
@@ -617,12 +621,31 @@ class BaseEventLoop(events.AbstractEventLoop):
     def _set_coroutine_origin_tracking(self, enabled):
         pass
 
+    def _asyncgen_finalizer_hook(self, agen):
+        self._asyncgens.discard(agen)
+        if not self.is_closed():
+            self.call_soon_threadsafe(self.create_task, agen.aclose())
+
+    def _asyncgen_firstiter_hook(self, agen):
+        if self._asyncgens_shutdown_called:
+            warnings.warn(
+                f"asynchronous generator {agen!r} was scheduled after "
+                f"loop.shutdown_asyncgens() call",
+                ResourceWarning, source=self)
+
+        self._asyncgens.add(agen)
+
     def run_forever(self):
         """Run until stop() is called."""
         self._check_closed()
         self._check_running()
+
+        old_agen_hooks = sys.get_asyncgen_hooks()
         try:
             self._thread_id = threading.get_ident()
+            sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
+                                   finalizer=self._asyncgen_finalizer_hook)
+
             events._set_running_loop(self)
             while True:
                 self._run_once()
@@ -632,6 +655,7 @@ class BaseEventLoop(events.AbstractEventLoop):
             self._stopping = False
             self._thread_id = None
             events._set_running_loop(None)
+            sys.set_asyncgen_hooks(*old_agen_hooks)
 
     def run_in_executor(self, executor, func, *args):
         """No worker threads here: func runs on the loop, as the next callback."""
@@ -652,7 +676,29 @@ class BaseEventLoop(events.AbstractEventLoop):
         return future
 
     async def shutdown_asyncgens(self):
-        pass
+        """Shutdown all active asynchronous generators."""
+        self._asyncgens_shutdown_called = True
+
+        if not len(self._asyncgens):
+            # If Python version is <3.6 or we don't have any asynchronous
+            # generators alive.
+            return
+
+        closing_agens = list(self._asyncgens)
+        self._asyncgens.clear()
+
+        results = await tasks.gather(
+            *[ag.aclose() for ag in closing_agens],
+            return_exceptions=True)
+
+        for result, agen in zip(results, closing_agens):
+            if isinstance(result, Exception):
+                self.call_exception_handler({
+                    'message': f'an error occurred during closing of '
+                               f'asynchronous generator {agen!r}',
+                    'exception': result,
+                    'asyncgen': agen
+                })
 
     async def shutdown_default_executor(self, timeout=None):
         pass
