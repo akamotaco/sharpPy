@@ -433,7 +433,7 @@ namespace SharpPy.Modules
         }
 
         private static BigInteger Index(PyObject value) =>
-            (PyObject.TryGetIndex(value) ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer")).Value;
+            (PyObject.IndexOrThrow(value)).Value;
 
         private static PyObject Factorial(PyObject value)
         {

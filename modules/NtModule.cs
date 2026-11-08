@@ -350,7 +350,7 @@ namespace SharpPy.Modules
         }
 
         private static int Descriptor(PyObject value) =>
-            (int)(PyObject.TryGetIndex(value)?.Value ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer"));
+            (int)(PyObject.IndexOrThrow(value).Value);
 
         // path_converter
         private static string PathOf(PyObject value)

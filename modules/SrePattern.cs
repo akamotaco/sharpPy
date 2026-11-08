@@ -143,9 +143,8 @@ namespace SharpPy.Modules
         private static int Position(PyObject value, int fallback)
         {
             if (value == null) return fallback;
-            var number = (PyInt.LongValue(value)
-                ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer")).Value;
-            return (int)BigInteger.Max(int.MinValue, BigInteger.Min(int.MaxValue, number));
+            // pos and endpos: Py_ssize_t, clamped to what a CLR string can hold
+            return PyArgs.SsizeCount(value);
         }
 
         private PyObject Run(PyObject[] args, PyDict kwargs, string name, Func<SreState, bool> engine)

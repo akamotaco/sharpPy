@@ -580,8 +580,7 @@ namespace SharpPy.Modules
                     }
                 }
                 if (argument == null) throw PyTypeError.Create("set_int_max_str_digits() missing required argument 'maxdigits' (pos 1)");
-                var index = PyObject.TryGetIndex(argument);
-                if (index == null) throw PyTypeError.Create($"'{argument.GetTypeName()}' object cannot be interpreted as an integer");
+                var index = PyObject.IndexOrThrow(argument);
                 if (index.Value < int.MinValue || index.Value > int.MaxValue)
                     throw PyOverflowError.Create("Python int too large to convert to C int");
                 int limit = (int)index.Value;
@@ -786,9 +785,7 @@ namespace SharpPy.Modules
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"setrecursionlimit() takes exactly one argument ({args.Length} given)");
-            var idx = PyObject.TryGetIndex(args[0]);
-            if (idx == null)
-                throw PyTypeError.Create($"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
+            var idx = PyObject.IndexOrThrow(args[0]);
             if (idx.Value <= 0)
                 throw PyValueError.Create("recursion limit must be greater than zero");
             int limit = (int)Math.Min((long)idx.Value, (long)int.MaxValue);

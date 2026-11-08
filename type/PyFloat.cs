@@ -125,10 +125,7 @@ namespace SharpPy
                     PyObject places = args.Length > 0 ? args[0] : null;
                     if (places != null && places is not PyNone)
                     {
-                        var index = PyObject.TryGetIndex(places);
-                        if (index == null)
-                            throw PyTypeError.Create(
-                                $"'{places.GetTypeName()}' object cannot be interpreted as an integer");
+                        var index = PyObject.IndexOrThrow(places);
                         if (index.Value > (System.Numerics.BigInteger)int.MaxValue)
                             return new PyFloat(roundTarget.Value);
                         places = index;
@@ -828,8 +825,7 @@ namespace SharpPy
             }
 
             // PyNumber_AsSsize_t(o_ndigits, NULL): a huge value clamps, it does not raise.
-            var places = TryGetIndex(ndigits) ?? throw PyTypeError.Create(
-                $"'{ndigits.GetTypeName()}' object cannot be interpreted as an integer");
+            var places = IndexOrThrow(ndigits);
             long nd = (long)System.Numerics.BigInteger.Clamp(places.Value, -1000, 1000);
 
             return new PyFloat(CPythonDoubleRound(Value, (int)Math.Clamp(nd, -1000, 1000)));

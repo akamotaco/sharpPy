@@ -189,8 +189,7 @@ namespace SharpPy.Modules
         // PyLong_AsLong: __index__, then the range of a C long.
         private static BigInteger AsLong(PyObject value)
         {
-            var number = PyObject.TryGetIndex(value)
-                ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+            var number = PyObject.IndexOrThrow(value);
             if (number.Value < -LongMax - 1 || number.Value > LongMax)
                 throw PyOverflowError.Create("Python int too large to convert to C long");
             return number.Value;

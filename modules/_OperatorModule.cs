@@ -338,9 +338,7 @@ namespace SharpPy.Modules
             long defaultValue = 0;
             if (args.Length == 2)
             {
-                var integer = PyObject.TryGetIndex(args[1]);
-                if (integer == null)
-                    throw PyTypeError.Create($"'{args[1].GetTypeName()}' object cannot be interpreted as an integer");
+                var integer = PyObject.IndexOrThrow(args[1]);
                 try { defaultValue = (long)nint.CreateChecked(integer.Value); }
                 catch (OverflowException)
                 {

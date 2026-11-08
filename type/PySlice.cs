@@ -92,9 +92,7 @@ namespace SharpPy
                 throw PyTypeError.Create("slice.indices() takes no keyword arguments");
             if (args.Length != 1)
                 throw PyTypeError.Create($"slice.indices() takes exactly one argument ({args.Length} given)");
-            var length = PyObject.TryGetIndex(args[0]);
-            if (length == null)
-                throw PyTypeError.Create($"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
+            var length = PyObject.IndexOrThrow(args[0]);
             var (start, stop, step) = slice.ExactIndices(length.Value);
             return PyTuple.From(PyInt.From(start), PyInt.From(stop), PyInt.From(step));
         }

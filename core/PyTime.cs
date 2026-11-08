@@ -96,8 +96,7 @@ namespace SharpPy
         // PyLong_AsLongLong: __index__ for what is not an int, OverflowError past 64 bits.
         private static long AsLongLong(PyObject obj, Func<Exception> overflow)
         {
-            var index = PyObject.TryGetIndex(obj)
-                ?? throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
+            var index = PyObject.IndexOrThrow(obj);
             if (index.Value < long.MinValue || index.Value > long.MaxValue)
                 throw overflow();
             return (long)index.Value;

@@ -1830,8 +1830,8 @@ namespace SharpPy
                 {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"object.__reduce_ex__() takes exactly one argument ({args.Length} given)");
-                    if (args[0] is not PyInt)
-                        throw PyTypeError.Create($"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
+                    // object.__reduce_ex__(protocol: int): the int converter
+                    int protocol = PyArgs.Int(args[0]);
                     // object___reduce_ex___impl: a class that overrides __reduce__ decides.
                     foreach (var level in self.GetPyType().MRO)
                     {
@@ -1840,7 +1840,7 @@ namespace SharpPy
                             level.TypeDict.ContainsKey("__reduce__"))
                             return self.GetAttribute("__reduce__").Call(Array.Empty<PyObject>(), null);
                     }
-                    return CommonReduce(self, args[0].ToInt());
+                    return CommonReduce(self, protocol);
                 }, 1, 1);
 
             // object.__init__() - CPython object_init

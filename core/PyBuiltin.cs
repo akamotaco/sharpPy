@@ -321,9 +321,7 @@ namespace SharpPy
             [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
             static BigInteger Index(PyObject value)
             {
-                var integer = PyObject.TryGetIndex(value);
-                if (integer == null)
-                    throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+                var integer = PyObject.IndexOrThrow(value);
                 return integer.Value;
             }
             if (args.Length == 1) return PyRange.Create(BigInteger.Zero, Index(args[0]), BigInteger.One);
@@ -353,8 +351,7 @@ namespace SharpPy
             var start = System.Numerics.BigInteger.Zero;
             if (startValue != null)
             {
-                var index = PyObject.TryGetIndex(startValue);
-                if (index == null) throw PyTypeError.Create($"'{startValue.GetTypeName()}' object cannot be interpreted as an integer");
+                var index = PyObject.IndexOrThrow(startValue);
                 start = index.Value;
             }
 

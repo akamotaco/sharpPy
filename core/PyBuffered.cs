@@ -135,7 +135,7 @@ public sealed class PyBuffered : PyIOBaseInstance
     // PyNumber_AsOff_t
     private static long Offset(PyObject value, bool overflowIsValueError = true)
     {
-        var index = PyObject.TryGetIndex(value) ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+        var index = PyObject.IndexOrThrow(value);
         if (index.Value > long.MaxValue || index.Value < long.MinValue)
             throw overflowIsValueError ? PyValueError.Create("cannot fit 'int' into an offset-sized integer") : PyOverflowError.Create("Python int too large");
         return (long)index.Value;

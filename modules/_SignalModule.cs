@@ -59,8 +59,7 @@ namespace SharpPy.Modules
 
         private static int Number(PyObject value)
         {
-            var index = PyObject.TryGetIndex(value) ??
-                throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+            var index = PyObject.IndexOrThrow(value);
             if (index.Value < 1 || index.Value >= NSIG)
                 throw PyValueError.Create("signal number out of range");
             return (int)index.Value;

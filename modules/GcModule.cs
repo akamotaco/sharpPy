@@ -277,10 +277,7 @@ namespace SharpPy.Modules
         // Measured refusal: '<type>' object cannot be interpreted as an integer
         private static BigInteger Index(PyObject value)
         {
-            var integer = PyObject.TryGetIndex(value);
-            if (integer == null)
-                throw PyTypeError.Create(
-                    $"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+            var integer = PyObject.IndexOrThrow(value);
             return integer.Value;
         }
 

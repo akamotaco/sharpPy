@@ -269,7 +269,7 @@ public sealed class PyFileIO : PyIOBaseInstance
 
     private static long Offset(PyObject value)
     {
-        var index = PyObject.TryGetIndex(value) ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+        var index = PyObject.IndexOrThrow(value);
         if (index.Value > long.MaxValue || index.Value < long.MinValue)
             throw PyOverflowError.Create("Python int too large to convert to C long");
         return (long)index.Value;

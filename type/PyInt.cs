@@ -64,10 +64,7 @@ namespace SharpPy
             if (ndigits == null || ndigits is PyNone)
                 return PyInt.From(value.Value);
 
-            var index = PyObject.TryGetIndex(ndigits);
-            if (index == null)
-                throw PyTypeError.Create(
-                    $"'{ndigits.GetTypeName()}' object cannot be interpreted as an integer");
+            var index = PyObject.IndexOrThrow(ndigits);
 
             // Measured: round(5, 10**30) == 5. A positive ndigits beyond the digit count of the
             // value means "nothing to truncate", so it is answered without converting through a
@@ -1629,8 +1626,7 @@ namespace SharpPy
             int baseValue = 10;
             if (radix != null)
             {
-                var index = TryGetIndex(radix);
-                if (index == null) throw PyTypeError.Create($"'{radix.GetTypeName()}' object cannot be interpreted as an integer");
+                var index = IndexOrThrow(radix);
                 if (index.Value != 0 && (index.Value < 2 || index.Value > 36))
                     throw PyValueError.Create("int() base must be >= 2 and <= 36, or 0");
                 baseValue = (int)index.Value;

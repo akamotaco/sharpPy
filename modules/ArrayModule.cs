@@ -41,9 +41,8 @@ namespace SharpPy.Modules
 
         private static BigInteger GetIntValue(PyObject value, char typecode)
         {
-            if (value is PyInt pi) return pi.Value;
-            if (value is PyBool pb) return pb.Value ? BigInteger.One : BigInteger.Zero;
-            throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+            // the h, i, l, ... formats of the setitem functions: PyLong_AsLong and its kin, __index__ first
+            return PyObject.IndexOrThrow(value).Value;
         }
 
         private static double GetFloatValue(PyObject value, char typecode)
@@ -115,7 +114,8 @@ namespace SharpPy.Modules
                     BinaryPrimitives.WriteInt32LittleEndian(span, char.ConvertToUtf32(ps.Value, 0));
                     return;
                 }
-                throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+                // u_setitem: PyArg_Parse(v, "U;array item must be unicode character"), then one character
+                throw PyTypeError.Create("array item must be unicode character");
             }
 
             BigInteger bi = GetIntValue(value, typecode);

@@ -66,7 +66,7 @@ namespace SharpPy
         private static bool HasIndex(PyObject value) => PyObject.IndexCheck(value);
 
         private static BigInteger IndexValue(PyObject value) =>
-            (PyObject.TryGetIndex(value) ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer")).Value;
+            (PyObject.IndexOrThrow(value)).Value;
 
 
         // _PyEval_SliceIndex

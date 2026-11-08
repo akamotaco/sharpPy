@@ -201,8 +201,7 @@ internal static class PyArgs
     // The Py_ssize_t converter: _PyNumber_Index, then PyLong_AsSsize_t.
     internal static long Ssize(PyObject value)
     {
-        var index = PyObject.TryGetIndex(value)
-            ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+        var index = PyObject.IndexOrThrow(value);
         if (index.Value < long.MinValue || index.Value > long.MaxValue)
             throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
         return (long)index.Value;
@@ -310,8 +309,7 @@ internal static class PyArgs
     // The int converter: _PyLong_AsInt.
     internal static int Int(PyObject value)
     {
-        var index = PyObject.TryGetIndex(value)
-            ?? throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+        var index = PyObject.IndexOrThrow(value);
         if (index.Value < int.MinValue || index.Value > int.MaxValue)
             throw PyOverflowError.Create("Python int too large to convert to C int");
         return (int)index.Value;

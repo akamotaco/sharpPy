@@ -94,8 +94,7 @@ namespace SharpPy.Modules
             int old = _stackBytes;
             if (args.Length > 0)
             {
-                var size = PyObject.TryGetIndex(args[0]) ??
-                    throw PyTypeError.Create($"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
+                var size = PyObject.IndexOrThrow(args[0]);
                 if (size.Value < 0)
                     throw PyValueError.Create("size must be 0 or at least 32 KiB");
                 if (size.Value != 0 && size.Value < 32768)

@@ -143,13 +143,8 @@ namespace SharpPy.Modules
             int buffering = -1;
             if (values[2] != null)
             {
-                if (values[2] is PyFloat)
-                    throw PyTypeError.Create("'float' object cannot be interpreted as an integer");
-                var index = PyObject.TryGetIndex(values[2])
-                    ?? throw PyTypeError.Create($"'{values[2].GetTypeName()}' object cannot be interpreted as an integer");
-                if (index.Value < int.MinValue || index.Value > int.MaxValue)
-                    throw PyOverflowError.Create(index.Value < 0 ? "signed integer is less than minimum" : "signed integer is greater than maximum");
-                buffering = (int)index.Value;
+                // buffering: int, the int converter
+                buffering = PyArgs.Int(values[2]);
             }
             string encoding = Text(3, true), errors = Text(4, true), newline = Text(5, true);
             bool closefd = values[6] == null || values[6].IsTrue();

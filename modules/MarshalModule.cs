@@ -39,8 +39,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"{name} expected at most {position + 1} arguments, got {args.Length}");
             if (args.Length <= position)
                 return Version;
-            var index = PyObject.TryGetIndex(args[position]) ??
-                throw PyTypeError.Create($"'{args[position].GetTypeName()}' object cannot be interpreted as an integer");
+            var index = PyObject.IndexOrThrow(args[position]);
             return (int)index.Value;
         }
 
