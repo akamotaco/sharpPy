@@ -33,20 +33,11 @@ namespace SharpPy.Modules
 
         // METH_FASTCALL positional only: _PyArg_CheckPositional.
         private static PyBuiltinFunction Fast(string name, int count, Func<PyObject[], PyObject> body) =>
-            new(name, (args, kwargs) =>
-            {
-                PyArgs.NoKeywords("_heapq." + name, kwargs);
-                PyArgs.Positional(name, args, null, count, count);
-                return body(args);
-            });
+            PyArgs.FastCall("_heapq", name, count, count, body);
 
         // METH_O with the subclass_of='&PyList_Type' converter.
         private static PyBuiltinFunction One(string name, Func<PyList, PyObject> body) =>
-            new(name, (args, kwargs) =>
-            {
-                PyArgs.One("_heapq." + name, args, kwargs);
-                return body(ListArg(name, args[0]));
-            });
+            PyArgs.MethO("_heapq", name, args => body(ListArg(name, args[0])));
 
         // _PyArg_BadArgument
         private static PyList ListArg(string name, PyObject value) =>

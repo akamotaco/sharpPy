@@ -6,107 +6,11 @@ using SharpPy.Generated;
 
 namespace SharpPy
 {
-    /// <summary>
-    /// 내장 함수의 매개변수 정의
-    /// </summary>
-    public class BuiltinParameter
-    {
-        public string Name { get; }
-        public PyObject DefaultValue { get; }
-        public bool IsKeywordOnly { get; }
-        public bool IsPositionalOnly { get; }
-
-        public BuiltinParameter(string name, PyObject defaultValue = null, bool isKeywordOnly = false, bool isPositionalOnly = false)
-        {
-            Name = name;
-            DefaultValue = defaultValue;
-            IsKeywordOnly = isKeywordOnly;
-            IsPositionalOnly = isPositionalOnly;
-        }
-    }
-
-    /// <summary>
-    /// 내장 함수의 시그니처 정의
-    /// </summary>
-    public class BuiltinSignature
-    {
-        public List<BuiltinParameter> Parameters { get; }
-        public bool AcceptsVarArgs { get; }
-        public bool AcceptsKwArgs { get; }
-
-        public BuiltinSignature(bool acceptsVarArgs = false, bool acceptsKwArgs = false)
-        {
-            Parameters = new List<BuiltinParameter>();
-            AcceptsVarArgs = acceptsVarArgs;
-            AcceptsKwArgs = acceptsKwArgs;
-        }
-
-        /// <summary>
-        /// args와 kwargs를 처리하여 최종 인수 배열을 생성
-        /// </summary>
-        public PyObject[] ProcessArguments(PyObject[] args, PyDict kwargs)
-        {
-            var result = new PyObject[Parameters.Count];
-            var kwDict = kwargs?.InternalDict ?? new PyDictionaryStorage();
-
-            // 위치 인수 처리
-            for (int i = 0; i < Math.Min(args.Length, Parameters.Count); i++)
-            {
-                var param = Parameters[i];
-                if (param.IsKeywordOnly)
-                {
-                    throw PyTypeError.Create($"'{param.Name}' parameter is keyword-only");
-                }
-                result[i] = args[i];
-            }
-
-            // 키워드 인수 처리
-            foreach (var kvp in kwDict)
-            {
-                if (kvp.Key is PyString keyStr)
-                {
-                    var paramIndex = Parameters.FindIndex(p => p.Name == keyStr.Value);
-                    if (paramIndex >= 0)
-                    {
-                        if (paramIndex < args.Length)
-                        {
-                            throw PyTypeError.Create($"got multiple values for argument '{keyStr.Value}'");
-                        }
-                        result[paramIndex] = kvp.Value;
-                    }
-                    else if (!AcceptsKwArgs)
-                    {
-                        throw PyTypeError.Create($"got an unexpected keyword argument '{keyStr.Value}'");
-                    }
-                }
-            }
-
-            // 기본값 적용
-            for (int i = 0; i < Parameters.Count; i++)
-            {
-                if (result[i] == null)
-                {
-                    if (Parameters[i].DefaultValue != null)
-                    {
-                        result[i] = Parameters[i].DefaultValue;
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create($"missing required argument: '{Parameters[i].Name}'");
-                    }
-                }
-            }
-
-            return result;
-        }
-    }
-
     public class PyBuiltinFunction : PyObject, ICFunction
     {
         public string Name { get; }
         private readonly Func<PyObject[], PyObject>? _implementation;
         private readonly Func<PyObject[], PyDict, PyObject>? _kwargsImplementation;
-        private readonly BuiltinSignature? _signature;
 
         /// <summary>
         /// CPython 호환: 내장 함수 구현 테이블 (이름으로 직접 lookup하는 fallback용)
@@ -158,13 +62,6 @@ namespace SharpPy
         {
             Name = name;
             _kwargsImplementation = kwargsImplementation;
-        }
-
-        public PyBuiltinFunction(string name, BuiltinSignature signature, Func<PyObject[], PyObject> implementation)
-        {
-            Name = name;
-            _signature = signature;
-            _implementation = implementation;
         }
 
         public override string GetTypeName() => "builtin_function_or_method";
@@ -244,9 +141,10 @@ namespace SharpPy
             Console.WriteLine($"[PyBuiltinFunction.Call] Name={Name}, args.Length={args.Length}");
 #endif
 
-            // CPython: a positional-only signature has no way to receive a keyword, and the generic
-            // parser refuses it before looking at anything else.
-            if (kwargs != null && kwargs.Length() != 0 && PositionalOnlyBuiltins.Contains(Name))
+            // A positional-only function of builtins has no way to receive a keyword, and the clinic
+            // refuses it before looking at anything else; a function of another module of the same
+            // name (_operator.abs) has its own convention.
+            if (kwargs != null && kwargs.Length() != 0 && OwnerModule == "builtins" && PositionalOnlyBuiltins.Contains(Name))
                 throw PyTypeError.Create($"{Name}() takes no keyword arguments");
 
             // kwargs 지원 구현이 있으면 우선 사용
@@ -256,16 +154,6 @@ namespace SharpPy
                 Console.WriteLine($"[PyBuiltinFunction.Call] Using _kwargsImplementation for {Name}");
 #endif
                 return _kwargsImplementation(args, kwargs);
-            }
-
-            // 시그니처가 있으면 인수 처리 후 기존 구현 호출
-            if (_signature != null && _implementation != null)
-            {
-#if DEBUG_LOG
-                Console.WriteLine($"[PyBuiltinFunction.Call] Using _signature + _implementation for {Name}");
-#endif
-                var processedArgs = _signature.ProcessArguments(args, kwargs);
-                return _implementation(processedArgs);
             }
 
             // METH_FASTCALL and METH_O: a function that takes no keywords says so.
@@ -768,8 +656,7 @@ namespace SharpPy
 
         private static PyObject CallAny(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"any expected exactly 1 arguments ({args.Length} given)");
+            PyArgs.One("any", args, null);  // METH_O
 
             var iterable = args[0];
             var iterator = iterable.GetIterator();
@@ -793,8 +680,7 @@ namespace SharpPy
 
         private static PyObject CallAll(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"all expected exactly 1 arguments ({args.Length} given)");
+            PyArgs.One("all", args, null);  // METH_O
 
             var iterable = args[0];
             var iterator = iterable.GetIterator();
@@ -896,8 +782,7 @@ namespace SharpPy
 
         private static PyObject CallId(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"id expected exactly 1 arguments ({args.Length} given)");
+            PyArgs.One("id", args, null);  // METH_O
 
             // Not GetHashCode: a value-based hash makes two distinct objects share an id, which is
             // the identity observable (core/PyObjectId.cs).
@@ -1519,8 +1404,7 @@ namespace SharpPy
 
         private static PyObject CallOrd(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"ord expected exactly 1 arguments ({args.Length} given)");
+            PyArgs.One("ord", args, null);  // METH_O
 
             // PyUnicode_GET_LENGTH: the text, whatever __len__ a subclass declares.
             var text = args[0] as PyString;
@@ -1543,8 +1427,7 @@ namespace SharpPy
 
         private static PyObject CallChr(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"chr expected exactly 1 arguments ({args.Length} given)");
+            PyArgs.One("chr", args, null);  // METH_O
 
             if (args[0] is PyInt i)
             {

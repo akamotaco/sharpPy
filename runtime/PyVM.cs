@@ -5355,15 +5355,34 @@ namespace SharpPy
             _ => null,
         };
 
-        // binary_iop1 and PyNumber_InPlaceAdd: sq_inplace_concat comes after the numbers declined.
+        // PyNumber_InPlaceAdd and friends: binary_iop1, then sq_inplace_concat when the numbers declined.
         private PyObject InPlaceNumber(PyObject left, PyObject right, BinaryOpType operation, BinaryOpType regular)
         {
             var name = BinarySlotName(operation);
-            var method = left.LookupSpecialMethodUncached(name);
             bool sequence = HasOnlySequenceSlot(left, regular) && left.LookupUserSpecial(name) == null;
-            PyObject result;
+            var result = BinaryIop1(left, right, operation, regular, sequence);
+            if (!ReferenceEquals(result, PyNotImplemented.Instance))
+                return result;
+            if (sequence)
+            {
+                var method = left.LookupSpecialMethodUncached(name);
+                result = method != null
+                    ? left.BindSpecialMethod(method).Call(new[] { right }, null)
+                    : BuiltinInPlaceSlot(left, right, operation);
+                if (result != null && !ReferenceEquals(result, PyNotImplemented.Instance))
+                    return result;
+            }
+            return SequenceOrTypeError(left, right, regular, operation);
+        }
+
+        // binary_iop1: nb_inplace_<op> of the left operand, then binary_op1; NotImplemented when both
+        // decline. A sequence's in-place slot is its sq_inplace_concat, which comes after.
+        private PyObject BinaryIop1(PyObject left, PyObject right, BinaryOpType operation, BinaryOpType regular, bool sequence)
+        {
             if (!sequence)
             {
+                var method = left.LookupSpecialMethodUncached(BinarySlotName(operation));
+                PyObject result;
                 if (method != null)
                 {
                     result = left.BindSpecialMethod(method).Call(new[] { right }, null);
@@ -5374,18 +5393,27 @@ namespace SharpPy
                 if (result != null && !ReferenceEquals(result, PyNotImplemented.Instance))
                     return result;
             }
-            result = BinaryOp1(left, right, regular);
-            if (!ReferenceEquals(result, PyNotImplemented.Instance))
-                return result;
-            if (sequence)
+            return BinaryOp1(left, right, regular);
+        }
+
+        /// <summary>
+        /// PySequence_InPlaceConcat (Objects/abstract.c): sq_inplace_concat, else sq_concat, of the
+        /// left operand; for two other sequences binary_iop1 of +=; else "can't be concatenated".
+        /// </summary>
+        internal static PyObject SequenceInPlaceConcat(PyObject s, PyObject o)
+        {
+            if (HasOnlySequenceSlot(s, BinaryOpType.ADD))
             {
-                result = method != null
-                    ? left.BindSpecialMethod(method).Call(new[] { right }, null)
-                    : BuiltinInPlaceSlot(left, right, operation);
-                if (result != null && !ReferenceEquals(result, PyNotImplemented.Instance))
+                var inPlace = BuiltinInPlaceSlot(s, o, BinaryOpType.INPLACE_ADD);
+                return inPlace != null && !ReferenceEquals(inPlace, PyNotImplemented.Instance) ? inPlace : SequenceConcat(s, o);
+            }
+            if (IsSequence(s) && IsSequence(o))
+            {
+                var result = Instance.BinaryIop1(s, o, BinaryOpType.INPLACE_ADD, BinaryOpType.ADD, false);
+                if (!ReferenceEquals(result, PyNotImplemented.Instance))
                     return result;
             }
-            return SequenceOrTypeError(left, right, regular, operation);
+            throw PyTypeError.Create($"'{s.GetTypeName()}' object can't be concatenated");
         }
 
         /// <summary>

@@ -53,6 +53,29 @@ internal static class PyArgs
             throw PyTypeError.Create($"{funcstr}() takes no keyword arguments");
     }
 
+    // _PyObject_FunctionStr of a module-level builtin: "module.name", a builtins one bare.
+    private static string FunctionStr(string module, string name) => module == "builtins" ? name : module + "." + name;
+
+    /// <summary>A METH_O function of a module: cfunction_vectorcall_O checks the one argument.</summary>
+    internal static PyBuiltinFunction MethO(string module, string name, Func<PyObject[], PyObject> body) =>
+        new(name, (args, kwargs) =>
+        {
+            One(FunctionStr(module, name), args, kwargs);
+            return body(args);
+        });
+
+    /// <summary>
+    /// A positional METH_FASTCALL function of a module: cfunction_vectorcall_FASTCALL refuses
+    /// keywords, then the clinic's _PyArg_CheckPositional(name, nargs, min, max).
+    /// </summary>
+    internal static PyBuiltinFunction FastCall(string module, string name, int min, int max, Func<PyObject[], PyObject> body) =>
+        new(name, (args, kwargs) =>
+        {
+            NoKeywords(FunctionStr(module, name), kwargs);
+            Positional(name, args, null, min, max);
+            return body(args);
+        });
+
     // _PyArg_CheckPositional, after _PyArg_NoKwnames
     internal static void Positional(string name, PyObject[] args, PyDict kwargs, int min, int max)
     {

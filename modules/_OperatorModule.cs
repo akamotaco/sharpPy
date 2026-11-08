@@ -17,49 +17,73 @@ namespace SharpPy.Modules
             // every public name this module defines over the pure-Python ones.
 
             // Comparison operators
-            module.ModuleDict["lt"] = new PyBuiltinFunction("lt", Lt);
-            module.ModuleDict["le"] = new PyBuiltinFunction("le", Le);
-            module.ModuleDict["eq"] = new PyBuiltinFunction("eq", Eq);
-            module.ModuleDict["ne"] = new PyBuiltinFunction("ne", Ne);
-            module.ModuleDict["ge"] = new PyBuiltinFunction("ge", Ge);
-            module.ModuleDict["gt"] = new PyBuiltinFunction("gt", Gt);
+            module.ModuleDict["lt"] = PyArgs.FastCall("_operator", "lt", 2, 2, Lt);
+            module.ModuleDict["le"] = PyArgs.FastCall("_operator", "le", 2, 2, Le);
+            module.ModuleDict["eq"] = PyArgs.FastCall("_operator", "eq", 2, 2, Eq);
+            module.ModuleDict["ne"] = PyArgs.FastCall("_operator", "ne", 2, 2, Ne);
+            module.ModuleDict["ge"] = PyArgs.FastCall("_operator", "ge", 2, 2, Ge);
+            module.ModuleDict["gt"] = PyArgs.FastCall("_operator", "gt", 2, 2, Gt);
 
             // Logical operators
-            module.ModuleDict["not_"] = new PyBuiltinFunction("not_", Not);
-            module.ModuleDict["truth"] = new PyBuiltinFunction("truth", Truth);
-            module.ModuleDict["is_"] = new PyBuiltinFunction("is_", Is);
-            module.ModuleDict["is_not"] = new PyBuiltinFunction("is_not", IsNot);
+            module.ModuleDict["not_"] = PyArgs.MethO("_operator", "not_", Not);
+            module.ModuleDict["truth"] = PyArgs.MethO("_operator", "truth", Truth);
+            module.ModuleDict["is_"] = PyArgs.FastCall("_operator", "is_", 2, 2, Is);
+            module.ModuleDict["is_not"] = PyArgs.FastCall("_operator", "is_not", 2, 2, IsNot);
 
             // Arithmetic operators
-            module.ModuleDict["abs"] = new PyBuiltinFunction("abs", Abs);
-            module.ModuleDict["add"] = new PyBuiltinFunction("add", Add);
-            module.ModuleDict["and_"] = new PyBuiltinFunction("and_", And);
-            module.ModuleDict["floordiv"] = new PyBuiltinFunction("floordiv", FloorDiv);
-            module.ModuleDict["index"] = new PyBuiltinFunction("index", Index);
-            module.ModuleDict["inv"] = new PyBuiltinFunction("inv", Inv);
-            module.ModuleDict["invert"] = new PyBuiltinFunction("invert", Invert);
-            module.ModuleDict["lshift"] = new PyBuiltinFunction("lshift", LShift);
-            module.ModuleDict["mod"] = new PyBuiltinFunction("mod", Mod);
-            module.ModuleDict["mul"] = new PyBuiltinFunction("mul", Mul);
-            module.ModuleDict["matmul"] = new PyBuiltinFunction("matmul", MatMul);
-            module.ModuleDict["neg"] = new PyBuiltinFunction("neg", Neg);
-            module.ModuleDict["or_"] = new PyBuiltinFunction("or_", Or);
-            module.ModuleDict["pos"] = new PyBuiltinFunction("pos", Pos);
-            module.ModuleDict["pow"] = new PyBuiltinFunction("pow", Pow);
-            module.ModuleDict["rshift"] = new PyBuiltinFunction("rshift", RShift);
-            module.ModuleDict["sub"] = new PyBuiltinFunction("sub", Sub);
-            module.ModuleDict["truediv"] = new PyBuiltinFunction("truediv", TrueDiv);
-            module.ModuleDict["xor"] = new PyBuiltinFunction("xor", Xor);
+            module.ModuleDict["abs"] = PyArgs.MethO("_operator", "abs", Abs);
+            module.ModuleDict["add"] = PyArgs.FastCall("_operator", "add", 2, 2, Add);
+            module.ModuleDict["and_"] = PyArgs.FastCall("_operator", "and_", 2, 2, And);
+            module.ModuleDict["floordiv"] = PyArgs.FastCall("_operator", "floordiv", 2, 2, FloorDiv);
+            module.ModuleDict["index"] = PyArgs.MethO("_operator", "index", Index);
+            module.ModuleDict["inv"] = PyArgs.MethO("_operator", "inv", Inv);
+            module.ModuleDict["invert"] = PyArgs.MethO("_operator", "invert", Invert);
+            module.ModuleDict["lshift"] = PyArgs.FastCall("_operator", "lshift", 2, 2, LShift);
+            module.ModuleDict["mod"] = PyArgs.FastCall("_operator", "mod", 2, 2, Mod);
+            module.ModuleDict["mul"] = PyArgs.FastCall("_operator", "mul", 2, 2, Mul);
+            module.ModuleDict["matmul"] = PyArgs.FastCall("_operator", "matmul", 2, 2, MatMul);
+            module.ModuleDict["neg"] = PyArgs.MethO("_operator", "neg", Neg);
+            module.ModuleDict["or_"] = PyArgs.FastCall("_operator", "or_", 2, 2, Or);
+            module.ModuleDict["pos"] = PyArgs.MethO("_operator", "pos", Pos);
+            module.ModuleDict["pow"] = PyArgs.FastCall("_operator", "pow", 2, 2, Pow);
+            module.ModuleDict["rshift"] = PyArgs.FastCall("_operator", "rshift", 2, 2, RShift);
+            module.ModuleDict["sub"] = PyArgs.FastCall("_operator", "sub", 2, 2, Sub);
+            module.ModuleDict["truediv"] = PyArgs.FastCall("_operator", "truediv", 2, 2, TrueDiv);
+            module.ModuleDict["xor"] = PyArgs.FastCall("_operator", "xor", 2, 2, Xor);
 
             // Sequence operators
-            module.ModuleDict["concat"] = new PyBuiltinFunction("concat", Concat);
-            module.ModuleDict["contains"] = new PyBuiltinFunction("contains", Contains);
-            module.ModuleDict["countOf"] = new PyBuiltinFunction("countOf", CountOf);
-            module.ModuleDict["delitem"] = new PyBuiltinFunction("delitem", DelItem);
-            module.ModuleDict["getitem"] = new PyBuiltinFunction("getitem", GetItem);
-            module.ModuleDict["indexOf"] = new PyBuiltinFunction("indexOf", IndexOf);
-            module.ModuleDict["setitem"] = new PyBuiltinFunction("setitem", SetItem);
-            module.ModuleDict["length_hint"] = new PyBuiltinFunction("length_hint", LengthHint);
+            module.ModuleDict["concat"] = PyArgs.FastCall("_operator", "concat", 2, 2, Concat);
+            module.ModuleDict["contains"] = PyArgs.FastCall("_operator", "contains", 2, 2, Contains);
+            module.ModuleDict["countOf"] = PyArgs.FastCall("_operator", "countOf", 2, 2, CountOf);
+            module.ModuleDict["delitem"] = PyArgs.FastCall("_operator", "delitem", 2, 2, DelItem);
+            module.ModuleDict["getitem"] = PyArgs.FastCall("_operator", "getitem", 2, 2, GetItem);
+            module.ModuleDict["indexOf"] = PyArgs.FastCall("_operator", "indexOf", 2, 2, IndexOf);
+            module.ModuleDict["setitem"] = PyArgs.FastCall("_operator", "setitem", 3, 3, SetItem);
+            module.ModuleDict["length_hint"] = PyArgs.FastCall("_operator", "length_hint", 1, 2, LengthHint);
+
+            // In-place operators: PyNumber_InPlace*, and PySequence_InPlaceConcat for iconcat.
+            module.ModuleDict["iadd"] = PyArgs.FastCall("_operator", "iadd", 2, 2, args => Number(args, BinaryOpType.INPLACE_ADD));
+            module.ModuleDict["isub"] = PyArgs.FastCall("_operator", "isub", 2, 2, args => Number(args, BinaryOpType.INPLACE_SUBTRACT));
+            module.ModuleDict["imul"] = PyArgs.FastCall("_operator", "imul", 2, 2, args => Number(args, BinaryOpType.INPLACE_MULTIPLY));
+            module.ModuleDict["imatmul"] = PyArgs.FastCall("_operator", "imatmul", 2, 2, args => Number(args, BinaryOpType.INPLACE_MATRIX_MULTIPLY));
+            module.ModuleDict["ifloordiv"] = PyArgs.FastCall("_operator", "ifloordiv", 2, 2, args => Number(args, BinaryOpType.INPLACE_FLOOR_DIVIDE));
+            module.ModuleDict["itruediv"] = PyArgs.FastCall("_operator", "itruediv", 2, 2, args => Number(args, BinaryOpType.INPLACE_TRUE_DIVIDE));
+            module.ModuleDict["imod"] = PyArgs.FastCall("_operator", "imod", 2, 2, args => Number(args, BinaryOpType.INPLACE_MODULO));
+            module.ModuleDict["ilshift"] = PyArgs.FastCall("_operator", "ilshift", 2, 2, args => Number(args, BinaryOpType.INPLACE_LSHIFT));
+            module.ModuleDict["irshift"] = PyArgs.FastCall("_operator", "irshift", 2, 2, args => Number(args, BinaryOpType.INPLACE_RSHIFT));
+            module.ModuleDict["iand"] = PyArgs.FastCall("_operator", "iand", 2, 2, args => Number(args, BinaryOpType.INPLACE_AND));
+            module.ModuleDict["ixor"] = PyArgs.FastCall("_operator", "ixor", 2, 2, args => Number(args, BinaryOpType.INPLACE_XOR));
+            module.ModuleDict["ior"] = PyArgs.FastCall("_operator", "ior", 2, 2, args => Number(args, BinaryOpType.INPLACE_OR));
+            module.ModuleDict["ipow"] = PyArgs.FastCall("_operator", "ipow", 2, 2, args => Number(args, BinaryOpType.INPLACE_POWER));
+            module.ModuleDict["iconcat"] = PyArgs.FastCall("_operator", "iconcat", 2, 2,
+                args => PyVM.SequenceInPlaceConcat(args[0], args[1]));
+
+            // _operator_call: METH_FASTCALL | METH_KEYWORDS, obj then what it is called with.
+            module.ModuleDict["call"] = new PyBuiltinFunction("call", (args, kwargs) =>
+            {
+                PyArgs.Positional("call", args, null, 1, int.MaxValue);
+                return args[0].Call(args[1..], kwargs);
+            });
 
             return module;
         }
@@ -68,43 +92,31 @@ namespace SharpPy.Modules
 
         private static PyObject Lt(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"lt() takes exactly 2 arguments ({args.Length} given)");
             return PyObject.Compare(args[0], args[1], PyObject.CompareOp.LT);
         }
 
         private static PyObject Le(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"le() takes exactly 2 arguments ({args.Length} given)");
             return PyObject.Compare(args[0], args[1], PyObject.CompareOp.LE);
         }
 
         private static PyObject Eq(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"eq() takes exactly 2 arguments ({args.Length} given)");
             return PyObject.Compare(args[0], args[1], PyObject.CompareOp.EQ);
         }
 
         private static PyObject Ne(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"ne() takes exactly 2 arguments ({args.Length} given)");
             return PyObject.Compare(args[0], args[1], PyObject.CompareOp.NE);
         }
 
         private static PyObject Ge(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"ge() takes exactly 2 arguments ({args.Length} given)");
             return PyObject.Compare(args[0], args[1], PyObject.CompareOp.GE);
         }
 
         private static PyObject Gt(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"gt() takes exactly 2 arguments ({args.Length} given)");
             return PyObject.Compare(args[0], args[1], PyObject.CompareOp.GT);
         }
 
@@ -114,29 +126,21 @@ namespace SharpPy.Modules
 
         private static PyObject Not(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"not_() takes exactly 1 argument ({args.Length} given)");
             return PyBool.FromBool(!args[0].IsTrue());
         }
 
         private static PyObject Truth(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"truth() takes exactly 1 argument ({args.Length} given)");
             return PyBool.FromBool(args[0].IsTrue());
         }
 
         private static PyObject Is(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"is_() takes exactly 2 arguments ({args.Length} given)");
             return PyBool.FromBool(ReferenceEquals(args[0], args[1]));
         }
 
         private static PyObject IsNot(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"is_not() takes exactly 2 arguments ({args.Length} given)");
             return PyBool.FromBool(!ReferenceEquals(args[0], args[1]));
         }
 
@@ -146,12 +150,6 @@ namespace SharpPy.Modules
 
         private static PyObject Abs(PyObject[] args)
         {
-            // Measured arity text: "_operator.abs() takes exactly one argument (0 given)" - the
-            // module-qualified name and the word "one", not "abs() takes exactly 1 argument".
-            if (args.Length != 1)
-                throw PyTypeError.Create(
-                    $"_operator.abs() takes exactly one argument ({args.Length} given)");
-
             // CPython 3.12: Modules/_operator.c - _operator_abs goes through nb_absolute, the same
             // meaning builtins.abs has. It used to have its own exact-type switch here, which made
             // operator.abs(FSub(-2.5)) and operator.abs(a user class) fail while abs() worked.
@@ -163,33 +161,21 @@ namespace SharpPy.Modules
 
         private static PyObject Add(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"add() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.ADD);
         }
 
         private static PyObject And(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"and_() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.AND);
         }
 
         private static PyObject FloorDiv(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"floordiv() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.FLOOR_DIVIDE);
         }
 
         private static PyObject Index(PyObject[] args)
         {
-            // Measured text: "_operator.index() takes exactly one argument (0 given)" - the
-            // module-qualified name and the word "one".
-            if (args.Length != 1)
-                throw PyTypeError.Create(
-                    $"_operator.index() takes exactly one argument ({args.Length} given)");
-
             // One shared PyNumber_Index rule (see PyObject.IndexOrThrow). This copy resolved
             // __index__ through an instance-level GetAttribute and then caught failures by
             // sniffing the AttributeError message text, so an int subclass followed a user
@@ -200,8 +186,6 @@ namespace SharpPy.Modules
 
         private static PyObject Inv(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"inv() takes exactly 1 argument ({args.Length} given)");
             return args[0].BitwiseNot();
         }
 
@@ -212,85 +196,61 @@ namespace SharpPy.Modules
 
         private static PyObject LShift(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"lshift() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.LSHIFT);
         }
 
         private static PyObject Mod(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"mod() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.MODULO);
         }
 
         private static PyObject Mul(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"mul() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.MULTIPLY);
         }
 
         private static PyObject MatMul(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"matmul() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.MATRIX_MULTIPLY);
         }
 
         private static PyObject Neg(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"neg() takes exactly 1 argument ({args.Length} given)");
             return args[0].Negative();
         }
 
         private static PyObject Or(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"or_() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.OR);
         }
 
         private static PyObject Pos(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"pos() takes exactly 1 argument ({args.Length} given)");
             return args[0].Positive();
         }
 
         private static PyObject Pow(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"pow() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.POWER);
         }
 
         private static PyObject RShift(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"rshift() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.RSHIFT);
         }
 
         private static PyObject Sub(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"sub() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.SUBTRACT);
         }
 
         private static PyObject TrueDiv(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"truediv() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.TRUE_DIVIDE);
         }
 
         private static PyObject Xor(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"xor() takes exactly 2 arguments ({args.Length} given)");
             return Number(args, BinaryOpType.XOR);
         }
 
@@ -300,23 +260,16 @@ namespace SharpPy.Modules
 
         private static PyObject Concat(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"concat() takes exactly 2 arguments ({args.Length} given)");
             return PyVM.SequenceConcat(args[0], args[1]);
         }
 
         private static PyObject Contains(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"contains() takes exactly 2 arguments ({args.Length} given)");
             return args[0].Contains(args[1]);
         }
 
         private static PyObject CountOf(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"countOf() takes exactly 2 arguments ({args.Length} given)");
-
             // _PySequence_IterSearch, PY_ITERSEARCH_COUNT
             int count = 0;
             var iterator = args[0].GetIterator();
@@ -340,9 +293,6 @@ namespace SharpPy.Modules
 
         private static PyObject DelItem(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"delitem() takes exactly 2 arguments ({args.Length} given)");
-
             // PyObject_DelItem
             PyAbstract.DelItem(args[0], args[1]);
             return PyNone.Instance;
@@ -350,17 +300,12 @@ namespace SharpPy.Modules
 
         private static PyObject GetItem(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"getitem() takes exactly 2 arguments ({args.Length} given)");
             // PyObject_GetItem
             return PyAbstract.GetItem(args[0], args[1]);
         }
 
         private static PyObject IndexOf(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"indexOf() takes exactly 2 arguments ({args.Length} given)");
-
             // _PySequence_IterSearch, PY_ITERSEARCH_INDEX
             int index = 0;
             var iterator = args[0].GetIterator();
@@ -383,22 +328,13 @@ namespace SharpPy.Modules
 
         private static PyObject SetItem(PyObject[] args)
         {
-            if (args.Length != 3)
-                throw PyTypeError.Create($"setitem() takes exactly 3 arguments ({args.Length} given)");
-
             // PyObject_SetItem
             PyAbstract.SetItem(args[0], args[1], args[2]);
             return PyNone.Instance;
         }
 
-        private static PyObject LengthHint(PyObject[] args, PyDict kwargs)
+        private static PyObject LengthHint(PyObject[] args)
         {
-            if (kwargs != null && kwargs.Length() != 0)
-                throw PyTypeError.Create("_operator.length_hint() takes no keyword arguments");
-            if (args.Length < 1)
-                throw PyTypeError.Create("length_hint expected at least 1 argument, got 0");
-            if (args.Length > 2)
-                throw PyTypeError.Create($"length_hint expected at most 2 arguments, got {args.Length}");
             long defaultValue = 0;
             if (args.Length == 2)
             {
