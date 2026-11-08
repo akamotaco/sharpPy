@@ -49,7 +49,7 @@ namespace SharpPy.Modules
         {
             var key = PyString.From("item");
             if (args.Length == 0 && (kwargs == null || !kwargs.Contains(key).Value))
-                throw PyTypeError.Create("put() missing required argument 'item' (pos 1)");
+                throw PyArgs.MissingArgument("put", "item", 1);
             var item = args.Length > 0 ? args[0] : kwargs.GetItem(key);
             ((PySimpleQueue)self).Put(item);
             return PyNone.Instance;

@@ -183,7 +183,7 @@ namespace SharpPy.Modules
                         default: throw PyTypeError.Create($"'{pair.Key.ToStr().Value}' is an invalid keyword argument for isclose()");
                     }
             if (a == null || b == null)
-                throw PyTypeError.Create($"isclose() missing required argument '{(a == null ? "a" : "b")}' (pos {(a == null ? 1 : 2)})");
+                throw PyArgs.MissingArgument("isclose", (a == null ? "a" : "b"), (a == null ? 1 : 2));
             Pair left = Argument(a), right = Argument(b);
             double rel = relative == null ? 1e-9 : PyMathFunction.RealNumber(relative);
             double abs = absolute == null ? 0 : PyMathFunction.RealNumber(absolute);

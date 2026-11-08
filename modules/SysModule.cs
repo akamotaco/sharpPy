@@ -579,7 +579,7 @@ namespace SharpPy.Modules
                         argument = pair.Value;
                     }
                 }
-                if (argument == null) throw PyTypeError.Create("set_int_max_str_digits() missing required argument 'maxdigits' (pos 1)");
+                if (argument == null) throw PyArgs.MissingArgument("set_int_max_str_digits", "maxdigits", 1);
                 var index = PyObject.IndexOrThrow(argument);
                 if (index.Value < int.MinValue || index.Value > int.MaxValue)
                     throw PyOverflowError.Create("Python int too large to convert to C int");

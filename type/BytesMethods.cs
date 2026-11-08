@@ -528,7 +528,7 @@ namespace SharpPy
         {
             PyObject tableArgument = args.Length > 0 ? args[0] : null;
             if (tableArgument == null)
-                throw PyTypeError.Create("translate() missing required argument 'table' (pos 1)");
+                throw PyArgs.MissingArgument("translate", "table", 1);
             PyObject deleteArgument = args.Length > 1 ? args[1] : kwargs != null ? PyObject.KwValue(kwargs, "delete") : null;
             var text = Self(self);
             byte[] table = null;

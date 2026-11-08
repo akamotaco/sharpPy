@@ -177,7 +177,7 @@ namespace SharpPy
                 if (args.Length + extra > 2)
                     throw PyTypeError.Create($"cast() takes at most 2 arguments ({args.Length + extra} given)");
                 if (fmtArg == null)
-                    throw PyTypeError.Create("cast() missing required argument 'format' (pos 1)");
+                    throw PyArgs.MissingArgument("cast", "format", 1);
                 if (fmtArg is not PyString fmtStr)
                     // CPython names the None type "None" in this message and uses the
                     // ordinary tp_name for everything else.

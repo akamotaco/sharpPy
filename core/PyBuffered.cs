@@ -214,7 +214,7 @@ public sealed class PyBuffered : PyIOBaseInstance
                 else throw PyTypeError.Create($"'{key}' is an invalid keyword argument for {label}()");
             }
         if (raw == null)
-            throw PyTypeError.Create($"{label}() missing required argument 'raw' (pos 1)");
+            throw PyArgs.MissingArgument(label, "raw", 1);
         _s.Ok = false;
         _s.Detached = false;
         if (kind == Kind.Random)

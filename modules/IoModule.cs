@@ -125,7 +125,7 @@ namespace SharpPy.Modules
                         throw PyTypeError.Create($"argument for open() given by name ('{name}') and position ({position + 1})");
                     values[position] = pair.Value;
                 }
-            var file = values[0] ?? throw PyTypeError.Create("open() missing required argument 'file' (pos 1)");
+            var file = values[0] ?? throw PyArgs.MissingArgument("open", "file", 1);
 
             // The clinic converters, in order.
             string Text(int position, bool noneAllowed)

@@ -150,7 +150,7 @@ namespace SharpPy.Modules
         private PyObject Run(PyObject[] args, PyDict kwargs, string name, Func<SreState, bool> engine)
         {
             var subject = Argument(args, kwargs, 0, "string")
-                ?? throw PyTypeError.Create($"{name}() missing required argument 'string' (pos 1)");
+                ?? throw PyArgs.MissingArgument(name, "string", 1);
             var text = SreText.Of(subject);
             var state = NewState(text, Position(Argument(args, kwargs, 1, "pos"), 0),
                 Position(Argument(args, kwargs, 2, "endpos"), int.MaxValue));

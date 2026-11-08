@@ -53,6 +53,10 @@ internal static class PyArgs
             throw PyTypeError.Create($"{funcstr}() takes no keyword arguments");
     }
 
+    /// <summary>_PyArg_UnpackKeywords's refusal of a required parameter not given.</summary>
+    internal static Exception MissingArgument(string fname, string name, int position) =>
+        PyTypeError.Create($"{fname}() missing required argument '{name}' (pos {position})");
+
     /// <summary>error_unexpected_keyword_arg (Python/getargs.c): a keyword a C function does not have.</summary>
     internal static Exception InvalidKeyword(string fname, PyObject keyword) =>
         PyTypeError.Create($"'{keyword.ToStr().Value}' is an invalid keyword argument for {fname}()");
@@ -154,7 +158,7 @@ internal static class PyArgs
             if (current != null)
                 nkwargs--;
             else if (i < minpos || (maxpos <= i && i < reqlimit))
-                throw PyTypeError.Create($"{fname}() missing required argument '{names[i]}' (pos {i + 1})");
+                throw MissingArgument(fname, names[i], i + 1);
         }
         if (nkwargs > 0)
         {

@@ -215,7 +215,7 @@ namespace SharpPy.Modules
         private static PyObject Mkdir(PyObject[] args)
         {
             if (args.Length < 1)
-                throw PyTypeError.Create("mkdir() missing required argument: 'path' (pos 1)");
+                throw PyArgs.MissingArgument("mkdir", "path", 1);
 
             string path = PathOf(args[0]);
             // Note: .NET doesn't support Unix-style mode parameter
@@ -464,7 +464,7 @@ namespace SharpPy.Modules
         private static PyObject Open(PyObject[] args, PyDict kwargs)
         {
             if (args.Length < 2)
-                throw PyTypeError.Create($"open() missing required argument '{(args.Length == 0 ? "path" : "flags")}' (pos {args.Length + 1})");
+                throw PyArgs.MissingArgument("open", (args.Length == 0 ? "path" : "flags"), args.Length + 1);
             string path = PathOf(args[0]);
             try
             {
@@ -632,7 +632,7 @@ namespace SharpPy.Modules
         private static PyObject Stat(PyObject[] args)
         {
             if (args.Length < 1)
-                throw PyTypeError.Create("stat() missing required argument: 'path' (pos 1)");
+                throw PyArgs.MissingArgument("stat", "path", 1);
 
             string path = PathOf(args[0]);
             try
@@ -715,7 +715,7 @@ namespace SharpPy.Modules
         private static PyObject Getenv(PyObject[] args)
         {
             if (args.Length < 1)
-                throw PyTypeError.Create("getenv() missing required argument: 'key' (pos 1)");
+                throw PyArgs.MissingArgument("getenv", "key", 1);
 
             string key = args[0].ToStr().Value;
             string value = Environment.GetEnvironmentVariable(key);

@@ -3267,7 +3267,7 @@ namespace SharpPy
             TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__", (args, kwargs) =>
             {
                 if (args.Length < 2)
-                    throw PyTypeError.Create($"mappingproxy() missing required argument: 'mapping' (pos 1)");
+                    throw PyArgs.MissingArgument("mappingproxy", "mapping", 1);
 
                 // args[0] is the class (MappingProxyType)
                 // args[1] is the mapping object

@@ -87,7 +87,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             }
         for (int i = 0; i < 2; i++)
             if (given[i] == null)
-                throw PyTypeError.Create($"function() missing required argument '{names[i]}' (pos {i + 1})");
+                throw PyArgs.MissingArgument("function", names[i], i + 1);
         if (given[0] is not PyCodeObject code)
             throw PyArgs.BadArgument("function", "argument 'code'", "code", given[0]);
         if (given[1] is not PyDict globals)

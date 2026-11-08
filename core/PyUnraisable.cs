@@ -41,7 +41,7 @@ namespace SharpPy
                         else dictionary = entry.Value;
                     }
                 if (sequence == null)
-                    throw PyTypeError.Create("structseq() missing required argument 'sequence' (pos 1)");
+                    throw PyArgs.MissingArgument("structseq", "sequence", 1);
                 PyTuple tuple;
                 try { tuple = (PyTuple)PyType.TupleType.Call(new PyObject[] { sequence }, null); }
                 catch (PythonException error) when (error.PyException is PyTypeError)

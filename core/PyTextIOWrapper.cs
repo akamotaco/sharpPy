@@ -197,7 +197,7 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
                         default: throw PyTypeError.Create($"'{pair.Key.ToStr().Value}' is an invalid keyword argument for IncrementalNewlineDecoder()");
                     }
             if (inner == null || translate == null)
-                throw PyTypeError.Create($"IncrementalNewlineDecoder() missing required argument '{(inner == null ? "decoder" : "translate")}' (pos {(inner == null ? 1 : 2)})");
+                throw PyArgs.MissingArgument("IncrementalNewlineDecoder", (inner == null ? "decoder" : "translate"), (inner == null ? 1 : 2));
             decoder._errors = errors ?? PyString.From("strict");
             decoder.Decoder = inner;
             decoder._translate = translate.IsTrue();
@@ -210,7 +210,7 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
             PyObject input = args.Length > 0 ? args[0] : Keyword(kwargs, "input");
             PyObject final = args.Length > 1 ? args[1] : Keyword(kwargs, "final");
             if (input == null)
-                throw PyTypeError.Create("decode() missing required argument 'input' (pos 1)");
+                throw PyArgs.MissingArgument("decode", "input", 1);
             return PyString.From(((PyNewlineDecoder)self).Decode(input, final != null && final.IsTrue()));
         }, acceptsKwargs: true);
         type.TypeDict["getstate"] = new PyMethodDescriptor("getstate", type, (self, args, kwargs) => ((PyNewlineDecoder)self).GetState());
@@ -437,7 +437,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
                     throw PyTypeError.Create($"argument for TextIOWrapper() given by name ('{key}') and position ({index + 1})");
                 values[index] = pair.Value;
             }
-        var buffer = values[0] ?? throw PyTypeError.Create("TextIOWrapper() missing required argument 'buffer' (pos 1)");
+        var buffer = values[0] ?? throw PyArgs.MissingArgument("TextIOWrapper", "buffer", 1);
         string encoding = OptionalText(values[1], "encoding");
         var errorsObject = values[2] ?? PyNone.Instance;
         string newline = OptionalText(values[3], "newline");

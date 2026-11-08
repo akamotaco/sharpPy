@@ -982,8 +982,8 @@ namespace SharpPy.Modules
                         default: unknown ??= name; break;
                     }
                 }
-            if (a == null) throw PyTypeError.Create("isclose() missing required argument 'a' (pos 1)");
-            if (b == null) throw PyTypeError.Create("isclose() missing required argument 'b' (pos 2)");
+            if (a == null) throw PyArgs.MissingArgument("isclose", "a", 1);
+            if (b == null) throw PyArgs.MissingArgument("isclose", "b", 2);
             if (unknown != null) throw PyTypeError.Create($"'{unknown}' is an invalid keyword argument for isclose()");
             double left = RealNumber(a), right = RealNumber(b);
             double rel = relative == null ? 1e-9 : RealNumber(relative);

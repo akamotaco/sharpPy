@@ -628,7 +628,7 @@ namespace SharpPy.Modules
                     ? $"memoryview() takes at most 1 keyword argument ({keywordCount} given)"
                     : $"memoryview() takes at most 1 argument ({total} given)");
             var obj = args.Length == 1 ? args[0] : PyObject.KwValue(kwargs, "object")
-                ?? throw PyTypeError.Create("memoryview() missing required argument 'object' (pos 1)");
+                ?? throw PyArgs.MissingArgument("memoryview", "object", 1);
 
             // Try to get buffer from object using buffer protocol
             if (obj.SupportsBuffer())

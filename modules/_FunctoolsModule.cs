@@ -71,7 +71,7 @@ namespace SharpPy.Modules
                 compare = named;
             }
             if (compare == null)
-                throw PyTypeError.Create("cmp_to_key() missing required argument 'mycmp' (pos 1)");
+                throw PyArgs.MissingArgument("cmp_to_key", "mycmp", 1);
             if (args.Length + (kwargs?.Length() ?? 0) > 1)
                 throw PyTypeError.Create($"cmp_to_key() takes at most 1 argument ({args.Length + (kwargs?.Length() ?? 0)} given)");
             // functools_cmp_to_key_impl: a keyobject with no object yet.

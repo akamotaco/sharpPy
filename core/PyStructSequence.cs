@@ -66,7 +66,7 @@ namespace SharpPy
                     else throw PyTypeError.Create($"'{keyword}' is an invalid keyword argument for structseq()");
                 }
             if (sequence == null)
-                throw PyTypeError.Create("structseq() missing required argument 'sequence' (pos 1)");
+                throw PyArgs.MissingArgument("structseq", "sequence", 1);
             PyObject[] items;
             if (sequence is PyTuple tuple)
                 items = tuple.Items;

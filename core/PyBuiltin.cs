@@ -1025,7 +1025,7 @@ namespace SharpPy
                 Array.Copy(args, filled, args.Length);
                 for (int i = args.Length; i < 3; i++)
                     filled[i] = KwValue(kwargs, required[i]) ??
-                        throw PyTypeError.Create($"compile() missing required argument '{required[i]}' (pos {i + 1})");
+                        throw PyArgs.MissingArgument("compile", required[i], i + 1);
                 args = filled;
             }
 
@@ -1339,7 +1339,7 @@ namespace SharpPy
             var number = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "number");
             PyObject ndigits = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "ndigits");
             if (number == null)
-                throw PyTypeError.Create("round() missing required argument 'number' (pos 1)");
+                throw PyArgs.MissingArgument("round", "number", 1);
             RejectUnknownKeywords(kwargs, "round", "number", "ndigits");
 
             var rounder = number.LookupSpecialMethodUncached("__round__");
@@ -1365,9 +1365,9 @@ namespace SharpPy
             var exp = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "exp");
             var mod = args.Length > 2 ? args[2] : PyObject.KwValue(kwargs, "mod");
             if (base_ == null)
-                throw PyTypeError.Create("pow() missing required argument 'base' (pos 1)");
+                throw PyArgs.MissingArgument("pow", "base", 1);
             if (exp == null)
-                throw PyTypeError.Create("pow() missing required argument 'exp' (pos 2)");
+                throw PyArgs.MissingArgument("pow", "exp", 2);
             RejectUnknownKeywords(kwargs, "pow", "base", "exp", "mod");
 
             if (mod != null && mod is not PyNone)
@@ -1604,7 +1604,7 @@ namespace SharpPy
                 throw PyTypeError.Create("argument for __import__() given by name ('name') and position (1)");
             var nameArgument = args.Length >= 1 ? args[0] : KwValue(kwargs, "name");
             if (nameArgument == null)
-                throw PyTypeError.Create("__import__() missing required argument 'name' (pos 1)");
+                throw PyArgs.MissingArgument("__import__", "name", 1);
             if (nameArgument is not PyString)
                 throw PyTypeError.Create("module name must be a string");  // PyImport_ImportModuleLevelObject
             var levelArgument = args.Length >= 5 ? args[4] : KwValue(kwargs, "level");
@@ -1687,7 +1687,7 @@ namespace SharpPy
             }
 
             if (name == null)
-                throw PyTypeError.Create("__import__() missing required argument: 'name' (pos 1)");
+                throw PyArgs.MissingArgument("__import__", "name", 1);
 
             // CPython 3.12: Python/bltinmodule.c:276-277
             // _calc___package__: neither says where a relative import starts.

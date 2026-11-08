@@ -115,7 +115,7 @@ namespace SharpPy
                 var values = new PyObject[4];
                 for (int i = 0; i < 4; i++)
                     values[i] = i < args.Length ? args[i] : PyObject.KwValue(kwargs, names[i])
-                        ?? throw PyTypeError.Create($"TracebackType() missing required argument '{names[i]}' (pos {i + 1})");
+                        ?? throw PyArgs.MissingArgument("TracebackType", names[i], i + 1);
                 var next = values[0] is PyNone ? null : values[0] as PyTraceback
                     ?? throw PyTypeError.Create($"expected traceback object or None, got '{values[0].GetTypeName()}'");
                 var frame = values[1] as PyFrame

@@ -145,7 +145,7 @@ namespace SharpPy.Modules
         private static void RequireArgs(PyObject[] args, string name)
         {
             if (args.Length < 1)
-                throw PyTypeError.Create($"{name}() missing required argument 'obj' (pos 1)");
+                throw PyArgs.MissingArgument(name, "obj", 1);
             if (args.Length > 3)
                 throw PyTypeError.Create(
                     $"{name}() takes from 1 to 3 positional arguments but {args.Length} were given");
