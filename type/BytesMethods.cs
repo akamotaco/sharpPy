@@ -70,15 +70,7 @@ namespace SharpPy
 
 
         // _PyEval_SliceIndex
-        private static long SliceIndex(PyObject value, long missing)
-        {
-            if (value == null || value is PyNone)
-                return missing;
-            if (!HasIndex(value))
-                throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
-            var number = IndexValue(value);
-            return number < long.MinValue ? long.MinValue : number > long.MaxValue ? long.MaxValue : (long)number;
-        }
+        private static long SliceIndex(PyObject value, long missing) => PyArgs.SliceIndex(value, missing);
 
         // ADJUST_INDICES
         private static void Adjust(ref long start, ref long end, long length)

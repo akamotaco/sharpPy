@@ -93,7 +93,7 @@ namespace SharpPy
                     if (self is not PyByteArray ba)
                         throw PyTypeError.Create($"descriptor 'insert' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
 
-                    int index = (int)args[0].ToInt();
+                    int index = PyArgs.SsizeCount(args[0]);
                     int value = GetByteValue(args[1]);
                     ba.Insert(index, (byte)value);
                     return PyNone.Instance;
@@ -126,7 +126,7 @@ namespace SharpPy
                     if (self is not PyByteArray ba)
                         throw PyTypeError.Create($"descriptor 'pop' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
 
-                    int index = args.Length == 0 ? -1 : (int)args[0].ToInt();
+                    int index = args.Length == 0 ? -1 : PyArgs.SsizeCount(args[0]);
                     return ba.Pop(index);
                 },
                 minArgs: 0, maxArgs: 1

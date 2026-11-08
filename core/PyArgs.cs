@@ -240,11 +240,29 @@ internal static class PyArgs
     /// </summary>
     internal static int SliceIndex(PyObject value, int missing)
     {
+        long index = SliceIndex(value, (long)missing);
+        return index > int.MaxValue ? int.MaxValue : index < int.MinValue ? int.MinValue : (int)index;
+    }
+
+    /// <summary>_PyEval_SliceIndex as the Py_ssize_t it is: None (or nothing) is missing.</summary>
+    internal static long SliceIndex(PyObject value, long missing)
+    {
         if (value == null || value is PyNone)
             return missing;
-        var index = PyObject.TryGetIndex(value)
-            ?? throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
-        return index.Value > int.MaxValue ? int.MaxValue : index.Value < int.MinValue ? int.MinValue : (int)index.Value;
+        if (!PyObject.IndexCheck(value))
+            throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
+        return AsSsize(value, SsizeError.Clip);
+    }
+
+    /// <summary>
+    /// _PyEval_SliceIndexNotNone, the slice_index(accept={int}) converter: an index, clipped to
+    /// Py_ssize_t; None is refused like any other non-index.
+    /// </summary>
+    internal static long SliceIndexNotNone(PyObject value)
+    {
+        if (!PyObject.IndexCheck(value))
+            throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
+        return AsSsize(value, SsizeError.Clip);
     }
 
     /// <summary>The Py_ssize_t converter ("n"), clamped to the CLR range for a count or a limit.</summary>

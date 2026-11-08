@@ -95,7 +95,7 @@ namespace SharpPy
                     if (args.Length != 2)
                         throw PyTypeError.Create($"insert() takes exactly two arguments ({args.Length} given)");
                     var list = GetListStorage(self);
-                    var index = args[0].ToInt();
+                    var index = PyArgs.SsizeCount(args[0]);
                     list.Insert(index, args[1]);
                     return PyNone.Instance;
                 },
@@ -169,18 +169,12 @@ namespace SharpPy
                     long n = list.RawCount();
                     long start = 0, stop = n;
                     if (args.Length >= 2) {
-                        var si = PyObject.TryGetIndex(args[1]);
-                        if (si == null)
-                            throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
-                        start = (long)System.Numerics.BigInteger.Clamp(si.Value, long.MinValue, long.MaxValue);
+                        start = PyArgs.SliceIndexNotNone(args[1]);
                         if (start < 0) { start += n; if (start < 0) start = 0; }
                         else if (start > n) start = n;
                     }
-                    if (args.Length >= 3 && args[2] != PyNone.Instance) {
-                        var ti = PyObject.TryGetIndex(args[2]);
-                        if (ti == null)
-                            throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
-                        stop = (long)System.Numerics.BigInteger.Clamp(ti.Value, long.MinValue, long.MaxValue);
+                    if (args.Length >= 3) {
+                        stop = PyArgs.SliceIndexNotNone(args[2]);
                         if (stop < 0) { stop += n; if (stop < 0) stop = 0; }
                         else if (stop > n) stop = n;
                     }

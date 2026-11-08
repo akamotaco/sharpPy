@@ -498,10 +498,7 @@ namespace SharpPy.Modules
 
             internal void Insert(PyObject indexObj, PyObject value)
             {
-                long idx;
-                if (indexObj is PyInt pi) idx = (long)pi.Value;
-                else if (indexObj is PyBool pb) idx = pb.Value ? 1 : 0;
-                else throw PyTypeError.Create($"array indices must be integers or slices, not {indexObj.GetTypeName()}");
+                long idx = PyArgs.Ssize(indexObj);
 
                 if (idx < 0) idx += _count;
                 if (idx < 0) idx = 0;
@@ -523,9 +520,7 @@ namespace SharpPy.Modules
                 long idx = -1;
                 if (args.Length >= 1)
                 {
-                    if (args[0] is PyInt pi) idx = (long)pi.Value;
-                    else if (args[0] is PyBool pb) idx = pb.Value ? 1 : 0;
-                    else throw PyTypeError.Create($"array indices must be integers or slices, not {args[0].GetTypeName()}");
+                    idx = PyArgs.Ssize(args[0]);
                 }
                 if (idx < 0) idx += _count;
                 if (idx < 0 || idx >= _count)
@@ -563,15 +558,11 @@ namespace SharpPy.Modules
                 long start = 0, stop = _count;
                 if (args.Length >= 2)
                 {
-                    if (args[1] is PyInt pi) start = (long)pi.Value;
-                    else if (args[1] is PyBool pb) start = pb.Value ? 1 : 0;
-                    else throw PyTypeError.Create($"array indices must be integers or slices, not {args[1].GetTypeName()}");
+                    start = PyArgs.SliceIndexNotNone(args[1]);
                 }
                 if (args.Length >= 3)
                 {
-                    if (args[2] is PyInt pi) stop = (long)pi.Value;
-                    else if (args[2] is PyBool pb) stop = pb.Value ? 1 : 0;
-                    else throw PyTypeError.Create($"array indices must be integers or slices, not {args[2].GetTypeName()}");
+                    stop = PyArgs.SliceIndexNotNone(args[2]);
                 }
                 if (start < 0) start += _count;
                 if (stop < 0) stop += _count;
@@ -988,7 +979,9 @@ namespace SharpPy.Modules
 
             type.TypeDict["__reduce_ex__"] = new PyMethodDescriptor("__reduce_ex__", type, (self, args, kwargs) =>
             {
-                return ((PyArray)self).ReduceEx(args[0].ToInt());
+                if (!PyInt.LongCheck(args[0]))
+                    throw PyTypeError.Create("__reduce_ex__ argument should be an integer");
+                return ((PyArray)self).ReduceEx((int)PyArgs.CLong(args[0]));
             }, 1, 1);
 
             type.TypeDict["__add__"] = new PyWrapperDescriptor("__add__", type, (self, args, kwargs) => self.Add(args[0]));

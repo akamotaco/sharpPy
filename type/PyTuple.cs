@@ -92,23 +92,8 @@ namespace SharpPy
                     var value = args[0];
                     // CPython tuple.index uses PyNumber_Index for start/stop: bool and
                     // __index__ are accepted, non-integers raise with this wording.
-                    long start = 0;
-                    if (args.Length >= 2 && args[1] != PyNone.Instance)
-                    {
-                        var si = PyObject.TryGetIndex(args[1]);
-                        if (si == null)
-                            throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
-                        start = (long)System.Numerics.BigInteger.Clamp(si.Value, long.MinValue, long.MaxValue);
-                    }
-
-                    long? stop = null;
-                    if (args.Length >= 3 && args[2] != PyNone.Instance)
-                    {
-                        var si = PyObject.TryGetIndex(args[2]);
-                        if (si == null)
-                            throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
-                        stop = (long)System.Numerics.BigInteger.Clamp(si.Value, long.MinValue, long.MaxValue);
-                    }
+                    long start = args.Length >= 2 ? PyArgs.SliceIndexNotNone(args[1]) : 0;
+                    long? stop = args.Length >= 3 ? PyArgs.SliceIndexNotNone(args[2]) : null;
 
                     return tuple.Index(value, start, stop);
                 },

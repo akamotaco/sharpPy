@@ -615,12 +615,7 @@ namespace SharpPy.Modules
         protected internal override PyBool ContainsItem(PyObject item) => PyBool.FromBool(DequeContains(item));
 
         // _PyEval_SliceIndexNotNone
-        private static long SliceIndexNotNone(PyObject value)
-        {
-            var index = PyObject.TryGetIndex(value)
-                ?? throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
-            return index.Value > long.MaxValue ? long.MaxValue : index.Value < long.MinValue ? long.MinValue : (long)index.Value;
-        }
+        private static long SliceIndexNotNone(PyObject value) => PyArgs.SliceIndexNotNone(value);
 
         // deque_index: "O|O&O&:index"
         internal long Index(PyObject[] args)

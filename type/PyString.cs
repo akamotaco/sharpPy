@@ -378,10 +378,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"zfill() takes exactly one argument ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "zfill");
 
-                    if (args[0] is not PyInt widthInt)
-                        throw PyTypeError.Create("zfill() width must be an integer");
-
-                    int width = PyArgs.Width(widthInt);
+                    int width = PyArgs.Width(args[0]);
                     string value = str.Value;
 
                     // CPython Objects/unicodeobject.c unicode_zfill pads to the character length.
@@ -964,10 +961,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"center() takes from 1 to 2 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "center");
 
-                    if (args[0] is not PyInt widthInt)
-                        throw PyTypeError.Create("center() width must be an integer");
-
-                    int width = PyArgs.Width(widthInt);
+                    int width = PyArgs.Width(args[0]);
                     string fillchar = " ";
 
                     if (args.Length >= 2)
@@ -999,10 +993,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"ljust() takes from 1 to 2 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "ljust");
 
-                    if (args[0] is not PyInt widthInt)
-                        throw PyTypeError.Create("ljust() width must be an integer");
-
-                    int width = PyArgs.Width(widthInt);
+                    int width = PyArgs.Width(args[0]);
                     string fillchar = " ";
 
                     if (args.Length >= 2)
@@ -1028,10 +1019,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"rjust() takes from 1 to 2 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "rjust");
 
-                    if (args[0] is not PyInt widthInt)
-                        throw PyTypeError.Create("rjust() width must be an integer");
-
-                    int width = PyArgs.Width(widthInt);
+                    int width = PyArgs.Width(args[0]);
                     string fillchar = " ";
 
                     if (args.Length >= 2)
