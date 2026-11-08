@@ -8,12 +8,12 @@ internal static class PyFloatFormatter
 {
     private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
 
-    internal static string Format(double value, string spec)
+    internal static string Format(double value, string spec, string typeName = "float")
     {
         spec ??= "";
-        var format = FormatSpec.Parse("float", spec, '\0', '>');
+        var format = FormatSpec.Parse(typeName, spec, '\0', '>');
         if (!(format.Type is '\0' or 'e' or 'E' or 'f' or 'F' or 'g' or 'G' or 'n' or '%'))
-            throw FormatSpec.Unknown(format.Type, "float");
+            throw FormatSpec.Unknown(format.Type, typeName);
         return Render(value, format);
     }
 

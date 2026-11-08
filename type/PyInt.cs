@@ -642,7 +642,7 @@ namespace SharpPy
                     else
                         throw PyTypeError.Create($"descriptor '__format__' requires a 'int' object but received a '{self.GetTypeName()}'");
 
-                    return PyString.From(FormatInt(value, specStr.Value));
+                    return PyString.From(FormatInt(value, specStr.Value, self.GetPyType().FullName));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -1786,10 +1786,11 @@ namespace SharpPy
         /// </summary>
         public static string FormatInt(long value, string formatSpec) => FormatInt(new BigInteger(value), formatSpec);
 
-        public static string FormatInt(BigInteger value, string spec)
+        /// <param name="typeName">tp_name of the object formatted, which the refusals name.</param>
+        public static string FormatInt(BigInteger value, string spec, string typeName = "int")
         {
             if (string.IsNullOrEmpty(spec)) return DecimalString(value);
-            var format = FormatSpec.Parse("int", spec, 'd', '>');
+            var format = FormatSpec.Parse(typeName, spec, 'd', '>');
             PyAllocation.StringLength(format.Width);
             string fill = format.Fill;
             char align = format.Align, sign = format.Sign, grouping = format.Thousands, type = format.TypeChar;
@@ -1805,7 +1806,7 @@ namespace SharpPy
                 return PyFloat.FormatFloat(number, spec);
             }
             if (!"bcdonxX".Contains(type))
-                throw FormatSpec.Unknown(format.Type, "int");
+                throw FormatSpec.Unknown(format.Type, typeName);
             if (precision >= 0) throw PyValueError.Create("Precision not allowed in integer format specifier");
             if (negativeZero) throw PyValueError.Create("Negative zero coercion (z) not allowed in integer format specifier");
 
@@ -1815,6 +1816,9 @@ namespace SharpPy
             {
                 if (sign != '\0') throw PyValueError.Create("Sign not allowed with integer format specifier 'c'");
                 if (alternate) throw PyValueError.Create("Alternate form (#) not allowed with integer format specifier 'c'");
+                // format_long_internal: PyLong_AsLong first, then the code point range.
+                if (OperatingSystem.IsWindows() ? value < int.MinValue || value > int.MaxValue : value < long.MinValue || value > long.MaxValue)
+                    throw PyOverflowError.Create("Python int too large to convert to C long");
                 if (value < 0 || value > 0x10ffff) throw PyOverflowError.Create("%c arg not in range(0x110000)");
                 int codepoint = (int)value;
                 digits = codepoint <= 0xffff ? new string((char)codepoint, 1) : char.ConvertFromUtf32(codepoint);

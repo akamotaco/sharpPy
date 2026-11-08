@@ -458,7 +458,7 @@ namespace SharpPy
                         throw PyArgs.BadArgument("__format__", "argument", "str", args[0]);
 
                     // _PyFloat_FormatAdvancedWriter: an empty spec is str(self).
-                    return specStr.Value.Length == 0 ? self.ToStr() : PyString.From(FormatFloat(floatObj.Value, specStr.Value));
+                    return specStr.Value.Length == 0 ? self.ToStr() : PyString.From(FormatFloat(floatObj.Value, specStr.Value, self.GetPyType().FullName));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -1533,7 +1533,7 @@ namespace SharpPy
         /// Format spec mini-language: [[fill]align][sign][#][0][width][,][.precision][type]
         /// Type can be: e/E (exponential), f/F (fixed), g/G (general), % (percentage), '' (same as g)
         /// </summary>
-        public static string FormatFloat(double value, string formatSpec) => PyFloatFormatter.Format(value, formatSpec);
+        public static string FormatFloat(double value, string formatSpec, string typeName = "float") => PyFloatFormatter.Format(value, formatSpec, typeName);
 
         #endregion
     }

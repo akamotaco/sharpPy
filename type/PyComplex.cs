@@ -53,7 +53,7 @@ namespace SharpPy
                         throw PyArgs.BadArgument("__format__", "argument", "str", args[0]);
                     if (self is not PyComplex cx)
                         throw WrongComplexSelf("__format__", self);
-                    return PyString.From(FormatComplex(cx.Real, cx.Imag, specStr.Value));
+                    return PyString.From(FormatComplex(cx.Real, cx.Imag, specStr.Value, self.GetPyType().FullName));
                 },
                 minArgs: 1, maxArgs: 1);
 
@@ -104,13 +104,13 @@ namespace SharpPy
         /// CPython complex_format: format real and |imag| as floats, join with the
         /// imaginary sign, append 'j', then apply fill/align/width to the combined text.
         /// </summary>
-        internal static string FormatComplex(double real, double imag, string spec)
+        internal static string FormatComplex(double real, double imag, string spec, string typeName = "complex")
         {
             if (string.IsNullOrEmpty(spec))
                 return new PyComplex(real, imag).ToRepr().Value;
-            var format = FormatSpec.Parse("complex", spec, '\0', '>');
+            var format = FormatSpec.Parse(typeName, spec, '\0', '>');
             if (!(format.Type is '\0' or 'e' or 'E' or 'f' or 'F' or 'g' or 'G' or 'n'))
-                throw FormatSpec.Unknown(format.Type, "complex");
+                throw FormatSpec.Unknown(format.Type, typeName);
             return FormatComplexInternal(real, imag, format);
         }
 

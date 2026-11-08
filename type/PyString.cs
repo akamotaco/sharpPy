@@ -1530,7 +1530,7 @@ namespace SharpPy
                         throw PyArgs.BadArgument("__format__", "argument", "str", args[0]);
 
                     // unicode__format__: an empty spec is str(self).
-                    return specStr.Value.Length == 0 ? self.ToStr() : PyString.From(FormatString(strObj.Value, specStr.Value));
+                    return specStr.Value.Length == 0 ? self.ToStr() : PyString.From(FormatString(strObj.Value, specStr.Value, self.GetPyType().FullName));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -3631,14 +3631,14 @@ namespace SharpPy
         // CPython 3.12: Objects/stringlib/unicode_format.h - format_spec parsing
         // PEP 3101: Format Specification Mini-Language
         // [[fill]align][sign][#][0][width][,][.precision][type]
-        public static string FormatString(string value, string formatSpec)
+        public static string FormatString(string value, string formatSpec, string typeName = "str")
         {
             if (string.IsNullOrEmpty(formatSpec))
                 return value;
 
-            var format = FormatSpec.Parse("str", formatSpec, 's', '<');
+            var format = FormatSpec.Parse(typeName, formatSpec, 's', '<');
             if (format.Type != 's')
-                throw FormatSpec.Unknown(format.Type, "str");
+                throw FormatSpec.Unknown(format.Type, typeName);
             // format_string_internal: what a string has no use for is refused by name.
             if (format.Sign == ' ')
                 throw PyValueError.Create("Space not allowed in string format specifier");
