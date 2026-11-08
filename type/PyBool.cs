@@ -110,183 +110,30 @@ namespace SharpPy
 
         #endregion
 
-        #region Arithmetic Operations (bool은 int의 서브클래스처럼 동작)
+        #region Number Operations
 
-        public override PyObject Add(PyObject other)
-        {
-            // CPython 3.12: Objects/boolobject.c - bool is subclass of int, uses int operations
-            int boolAsInt = Value ? 1 : 0;
-            return other switch
-            {
-                PyBool otherBool => PyInt.From(boolAsInt + (otherBool.Value ? 1 : 0)),
-                PyInt otherInt => PyInt.From(boolAsInt + otherInt.Value),
-                PyFloat otherFloat => new PyFloat(boolAsInt + otherFloat.Value),
-                _ => PyNotImplemented.Instance
-            };
-        }
+        // PyBool_Type has no number slots of its own but and, or and xor (Objects/boolobject.c): the
+        // rest are long's, inherited, and work on the value 0 or 1.
+        private PyInt Long => Value ? PyInt.One : PyInt.Zero;
 
-        public override PyObject Subtract(PyObject other)
-        {
-            // CPython 3.12: Objects/boolobject.c - bool arithmetic via int
-            int boolAsInt = Value ? 1 : 0;
-            return other switch
-            {
-                PyBool otherBool => PyInt.From(boolAsInt - (otherBool.Value ? 1 : 0)),
-                PyInt otherInt => PyInt.From(boolAsInt - otherInt.Value),
-                PyFloat otherFloat => new PyFloat(boolAsInt - otherFloat.Value),
-                _ => PyNotImplemented.Instance
-            };
-        }
+        public override PyObject Add(PyObject other) => Long.Add(other);
+        public override PyObject Subtract(PyObject other) => Long.Subtract(other);
+        public override PyObject Multiply(PyObject other) => Long.Multiply(other);
+        public override PyObject Divide(PyObject other) => Long.Divide(other);
+        public override PyObject FloorDivide(PyObject other) => Long.FloorDivide(other);
+        public override PyObject Modulo(PyObject other) => Long.Modulo(other);
+        public override PyObject Power(PyObject other) => Long.Power(other);
+        public override PyObject LeftShift(PyObject other) => Long.LeftShift(other);
+        public override PyObject RightShift(PyObject other) => Long.RightShift(other);
+        public override PyObject DivMod(PyObject other) => Long.DivMod(other);
 
-        public override PyObject Multiply(PyObject other)
-        {
-            // CPython 3.12: Objects/boolobject.c - bool multiplication via int
-            int boolAsInt = Value ? 1 : 0;
-            return other switch
-            {
-                PyBool otherBool => PyInt.From(boolAsInt * (otherBool.Value ? 1 : 0)),
-                PyInt otherInt => PyInt.From(boolAsInt * otherInt.Value),
-                PyFloat otherFloat => new PyFloat(boolAsInt * otherFloat.Value),
-                _ => PyNotImplemented.Instance
-            };
-        }
-
-        public override PyObject Divide(PyObject other)
-        {
-            double boolAsDouble = Value ? 1.0 : 0.0;
-            
-            double otherValue = other switch
-            {
-                PyBool otherBool => otherBool.Value ? 1.0 : 0.0,
-                PyInt otherInt => (double)otherInt.Value,
-                PyFloat otherFloat => otherFloat.Value,
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for /: 'bool' and '{other.GetTypeName()}'")
-            };
-
-            if (otherValue == 0.0)
-                throw PyZeroDivisionError.Create("division by zero");
-
-            return new PyFloat(boolAsDouble / otherValue);
-        }
-
-        public override PyObject FloorDivide(PyObject other)
-        {
-            int boolAsInt = Value ? 1 : 0;
-            
-            if (other is PyBool otherBool)
-            {
-                if (!otherBool.Value)
-                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return PyInt.From(boolAsInt);
-            }
-
-            if (other is PyInt otherInt)
-            {
-                // CPython 3.12: Objects/longobject.c:2453-2494 - long_div
-                if (otherInt.Value == 0)
-                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return PyInt.From(boolAsInt / otherInt.Value);
-            }
-
-            if (other is PyFloat otherFloat)
-            {
-                if (otherFloat.Value == 0.0)
-                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return new PyFloat(Math.Floor(boolAsInt / otherFloat.Value));
-            }
-            
-            throw PyTypeError.Create($"unsupported operand type(s) for //: 'bool' and '{other.GetTypeName()}'");
-        }
-
-        public override PyObject Modulo(PyObject other)
-        {
-            int boolAsInt = Value ? 1 : 0;
-
-            if (other is PyBool otherBool)
-            {
-                if (!otherBool.Value)
-                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return PyInt.Zero; // 1 % 1 = 0, 0 % 1 = 0
-            }
-
-            if (other is PyInt otherInt)
-            {
-                // CPython 3.12: Objects/longobject.c:2496-2531 - long_mod
-                if (otherInt.Value == 0)
-                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return PyInt.From(boolAsInt % otherInt.Value);
-            }
-
-            if (other is PyFloat otherFloat)
-            {
-                if (otherFloat.Value == 0.0)
-                    throw PyZeroDivisionError.Create("float modulo");
-                return new PyFloat(boolAsInt % otherFloat.Value);
-            }
-
-            throw PyTypeError.Create($"unsupported operand type(s) for %: 'bool' and '{other.GetTypeName()}'");
-        }
-
-        public override PyObject Power(PyObject other)
-        {
-            int boolAsInt = Value ? 1 : 0;
-            
-            if (other is PyBool otherBool)
-            {
-                int otherAsInt = otherBool.Value ? 1 : 0;
-                return PyInt.From((int)Math.Pow(boolAsInt, otherAsInt));
-            }
-
-            if (other is PyInt otherInt)
-            {
-                // CPython 3.12: Objects/longobject.c:4319-4538 - long_pow
-                if (otherInt.Value < 0)
-                    return new PyFloat(Math.Pow(boolAsInt, (double)otherInt.Value));
-                return PyInt.From(BigInteger.Pow(boolAsInt, (int)otherInt.Value));
-            }
-            
-            throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): 'bool' and '{other.GetTypeName()}'");
-        }
-
-        #endregion
-
-        #region Bitwise Operations
-
-        public override PyObject BitwiseAnd(PyObject other)
-        {
-            // CPython 3.12: Objects/longobject.c:3562-3590 - long_and
-            int boolAsInt = Value ? 1 : 0;
-            return other switch
-            {
-                PyBool otherBool => PyBool.FromBool(Value && otherBool.Value),
-                PyInt otherInt => PyInt.From(boolAsInt & otherInt.Value),
-                _ => PyNotImplemented.Instance,
-            };
-        }
-
-        public override PyObject BitwiseOr(PyObject other)
-        {
-            // CPython 3.12: Objects/longobject.c:3592-3620 - long_or
-            int boolAsInt = Value ? 1 : 0;
-            return other switch
-            {
-                PyBool otherBool => PyBool.FromBool(Value || otherBool.Value),
-                PyInt otherInt => PyInt.From(boolAsInt | otherInt.Value),
-                _ => PyNotImplemented.Instance,
-            };
-        }
-
-        public override PyObject BitwiseXor(PyObject other)
-        {
-            // CPython 3.12: Objects/longobject.c:3622-3650 - long_xor
-            int boolAsInt = Value ? 1 : 0;
-            return other switch
-            {
-                PyBool otherBool => PyBool.FromBool(Value ^ otherBool.Value),
-                PyInt otherInt => PyInt.From(boolAsInt ^ otherInt.Value),
-                _ => PyNotImplemented.Instance,
-            };
-        }
+        // bool_and, bool_or, bool_xor: two bools give a bool, anything else is long's.
+        public override PyObject BitwiseAnd(PyObject other) =>
+            other is PyBool otherBool ? FromBool(Value & otherBool.Value) : Long.BitwiseAnd(other);
+        public override PyObject BitwiseOr(PyObject other) =>
+            other is PyBool otherBool ? FromBool(Value | otherBool.Value) : Long.BitwiseOr(other);
+        public override PyObject BitwiseXor(PyObject other) =>
+            other is PyBool otherBool ? FromBool(Value ^ otherBool.Value) : Long.BitwiseXor(other);
 
         #endregion
 

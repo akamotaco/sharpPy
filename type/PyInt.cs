@@ -893,48 +893,47 @@ namespace SharpPy
 
         #region Arithmetic Operations
 
-        public override PyObject Add(PyObject other)
+        // PyLong_Check: a bool and an int subclass are ints, with their value.
+        private static PyObject LongOperand(PyObject other) => other switch
         {
-            // CPython 3.12: Objects/longobject.c (long_add), Objects/complexobject.c (complex_add)
-            return other switch
-            {
-                PyInt otherInt => PyInt.From(Value + otherInt.Value),
-                PyFloat { IsExact: true } otherFloat => new PyFloat(ToFloat() + otherFloat.Value),
-                PyBool otherBool => PyInt.From(Value + (otherBool.Value ? 1 : 0)),
-                PyComplex otherComplex => new PyComplex(ToFloat() + otherComplex.Real, otherComplex.Imag),
-                _ => PyNotImplemented.Instance
-            };
-        }
+            PyBool flag => flag.Value ? One : Zero,
+            PyIntSubclass subclass => subclass.GetIntValue(),
+            _ => other,
+        };
 
-        public override PyObject Subtract(PyObject other)
-        {
-            // CPython 3.12: Objects/longobject.c (long_sub), Objects/complexobject.c (complex_sub)
-            return other switch
-            {
-                PyInt otherInt => PyInt.From(Value - otherInt.Value),
-                PyFloat { IsExact: true } otherFloat => new PyFloat(ToFloat() - otherFloat.Value),
-                PyBool otherBool => PyInt.From(Value - (otherBool.Value ? 1 : 0)),
-                PyComplex otherComplex => new PyComplex(ToFloat() - otherComplex.Real, -otherComplex.Imag),
-                _ => PyNotImplemented.Instance
-            };
-        }
+        // CONVERT_TO_DOUBLE of float_add and its kin, to_complex of complex_add: this int as the
+        // left operand of the other type's own operation.
+        private PyFloat AsFloat() => new PyFloat(ToFloat());
+        private PyComplex AsComplex() => new PyComplex(ToFloat(), 0.0);
 
-        public override PyObject Multiply(PyObject other)
+        public override PyObject Add(PyObject other) => LongOperand(other) switch
         {
-            // CPython 3.12: Objects/longobject.c (long_mul), Objects/complexobject.c (complex_mul)
-            return other switch
-            {
-                PyInt otherInt => PyInt.From(Value * otherInt.Value),
-                PyFloat { IsExact: true } otherFloat => new PyFloat(ToFloat() * otherFloat.Value),
-                PyBool otherBool => PyInt.From(Value * (otherBool.Value ? 1 : 0)),
-                PyComplex otherComplex => new PyComplex(ToFloat() * otherComplex.Real, (double)Value * otherComplex.Imag),
-                _ => PyNotImplemented.Instance
-            };
-        }
+            PyInt otherInt => PyInt.From(Value + otherInt.Value),
+            PyFloat { IsExact: true } otherFloat => AsFloat().Add(otherFloat),
+            PyComplex otherComplex => AsComplex().Add(otherComplex),
+            _ => PyNotImplemented.Instance,
+        };
+
+        public override PyObject Subtract(PyObject other) => LongOperand(other) switch
+        {
+            PyInt otherInt => PyInt.From(Value - otherInt.Value),
+            PyFloat { IsExact: true } otherFloat => AsFloat().Subtract(otherFloat),
+            PyComplex otherComplex => AsComplex().Subtract(otherComplex),
+            _ => PyNotImplemented.Instance,
+        };
+
+        public override PyObject Multiply(PyObject other) => LongOperand(other) switch
+        {
+            PyInt otherInt => PyInt.From(Value * otherInt.Value),
+            PyFloat { IsExact: true } otherFloat => AsFloat().Multiply(otherFloat),
+            PyComplex otherComplex => AsComplex().Multiply(otherComplex),
+            _ => PyNotImplemented.Instance,
+        };
 
         public override PyObject Divide(PyObject other)
         {
             // CPython 3.12: Objects/longobject.c:2533-2570 - long_true_divide
+            other = LongOperand(other);
             if (other is PyInt otherInt)
             {
                 if (otherInt.Value.IsZero)
@@ -946,22 +945,12 @@ namespace SharpPy
                 return BigIntTrueDivide(Value, otherInt.Value);
             }
 
-            double otherValue;
-            if (other is PyFloat { IsExact: true } otherFloat)
-                otherValue = otherFloat.Value;
-            else if (other is PyBool otherBool)
-                otherValue = otherBool.Value ? 1.0 : 0.0;
-            else
-                return PyNotImplemented.Instance;
-
-            if (otherValue == 0.0)
-                throw PyZeroDivisionError.Create("division by zero");
-
-            return new PyFloat(ToFloat() / otherValue);
+            return other is PyFloat { IsExact: true } otherFloat ? AsFloat().Divide(otherFloat) : PyNotImplemented.Instance;
         }
 
         public override PyObject FloorDivide(PyObject other)
         {
+            other = LongOperand(other);
             if (other is PyInt otherInt)
             {
                 if (otherInt.Value == 0)
@@ -980,24 +969,12 @@ namespace SharpPy
 
                 return PyInt.From(quotient);
             }
-            if (other is PyFloat { IsExact: true } otherFloat)
-            {
-                // CPython 3.12: Objects/longobject.c:2453-2494 - long_div (floor division)
-                if (otherFloat.Value == 0.0)
-                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return new PyFloat(Math.Floor(ToFloat() / otherFloat.Value));
-            }
-            if (other is PyBool otherBool)
-            {
-                if (!otherBool.Value)
-                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return PyInt.From(Value);
-            }
-            return PyNotImplemented.Instance;
+            return other is PyFloat { IsExact: true } otherFloat ? AsFloat().FloorDivide(otherFloat) : PyNotImplemented.Instance;
         }
 
         public override PyObject Modulo(PyObject other)
         {
+            other = LongOperand(other);
             if (other is PyInt otherInt)
             {
                 if (otherInt.Value == 0)
@@ -1015,27 +992,7 @@ namespace SharpPy
 
                 return PyInt.From(remainder);
             }
-            if (other is PyFloat { IsExact: true } otherFloat)
-            {
-                // CPython 3.12: Objects/longobject.c:2496-2531 - long_mod
-                if (otherFloat.Value == 0.0)
-                    throw PyZeroDivisionError.Create("float modulo");
-
-                var remainder = ToFloat() % otherFloat.Value;
-                if (remainder != 0 && ((ToFloat() < 0) != (otherFloat.Value < 0)))
-                {
-                    remainder += otherFloat.Value;
-                }
-
-                return new PyFloat(remainder);
-            }
-            if (other is PyBool otherBool)
-            {
-                if (!otherBool.Value)
-                    throw PyZeroDivisionError.Create("integer modulo by zero");
-                return PyInt.From(0);
-            }
-            return PyNotImplemented.Instance;
+            return other is PyFloat { IsExact: true } otherFloat ? AsFloat().Modulo(otherFloat) : PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1153,71 +1110,33 @@ namespace SharpPy
             return PyTuple.From(quotient, remainder);
         }
 
+        // long_pow with no modulus; a float exponent is float_pow of the converted value.
         public override PyObject Power(PyObject other)
         {
-            if (other is PyIntSubclass subclass) other = subclass.GetIntValue();
-            // CPython 3.12: Objects/longobject.c:long_pow
-            // int ** int → int (if exponent >= 0) or float (if exponent < 0)
-            // int ** float → float
-            // Negative base with non-integer exponent → complex (not implemented yet)
-
-            if (other is PyInt otherInt)
-            {
-                Py_int_t exponent = otherInt.Value;
-
-                if (exponent < 0)
-                {
-                    // int ** negative_int → float (CPython long_pow falls back to float),
-                    // but a zero base raises (measured CPython 3.12.15):
-                    //   0 ** -1 → ZeroDivisionError: 0.0 cannot be raised to a negative power
-                    if (Value.IsZero)
-                        throw PyZeroDivisionError.Create("0.0 cannot be raised to a negative power");
-                    return new PyFloat(Math.Pow((double)Value, (double)exponent));
-                }
-
-                // int ** positive_int → int
-                // CPython: Use BigInteger.Pow for arbitrary precision
-                var result = BigInteger.Pow(Value, (int)exponent);
-                return PyInt.From(result);
-            }
-            else if (other is PyBool otherBool)
-            {
-                Py_int_t exponent = otherBool.Value ? 1 : 0;
-
-                // 0 ** 0 = 1 (CPython behavior)
-                if (exponent == 0)
-                    return PyInt.From(1);
-
-                return PyInt.From(Value);
-            }
-            else if (other is PyFloat { IsExact: true } otherFloat)
-            {
-                // int ** float → float
-                // CPython: Objects/floatobject.c:float_pow
-                double baseValue = (double)Value;
-                double exponent = otherFloat.Value;
-
-                // CPython: Objects/floatobject.c float_pow - zero base, negative exponent
-                if (baseValue == 0.0 && exponent < 0.0)
-                    throw PyZeroDivisionError.Create("0.0 cannot be raised to a negative power");
-
-                // Edge case: negative base with non-integer exponent
-                // CPython: Returns complex number (Objects/floatobject.c:float_pow)
-                if (baseValue < 0 && Math.Floor(exponent) != exponent)
-                {
-                    // Return complex number: (-2) ** 0.5 → (8.66e-17+1.414j)
-                    var complexBase = new PyComplex(baseValue, 0);
-                    var complexExponent = new PyComplex(exponent, 0);
-                    return complexBase.Power(complexExponent);
-                }
-
-                double result = Math.Pow(baseValue, exponent);
-                return new PyFloat(result);
-            }
-            else
-            {
+            other = LongOperand(other);
+            if (other is PyFloat { IsExact: true } otherFloat)
+                return AsFloat().Power(otherFloat);
+            if (other is not PyInt otherInt)
                 return PyNotImplemented.Instance;
+            Py_int_t exponent = otherInt.Value;
+            if (exponent < 0)
+            {
+                // A negative exponent is float_pow of the two (0 ** -1 refuses there).
+                if (Value.IsZero)
+                    throw PyZeroDivisionError.Create("0.0 cannot be raised to a negative power");
+                return new PyFloat(Math.Pow((double)Value, (double)exponent));
             }
+            // 0, 1 and -1 stay where they are for any exponent.
+            if (exponent.IsZero)
+                return PyInt.From(1);
+            if (Value.IsZero || Value.IsOne)
+                return this;
+            if (Value == BigInteger.MinusOne)
+                return exponent.IsEven ? PyInt.From(1) : this;
+            // Any other base past an int exponent has more digits than the host can hold.
+            if (exponent > int.MaxValue)
+                throw PyMemoryError.Create();
+            return PyInt.From(BigInteger.Pow(Value, (int)exponent));
         }
 
         /// <summary>
