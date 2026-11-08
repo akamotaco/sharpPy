@@ -38,6 +38,7 @@ namespace SharpPy
                 table[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) =>
                     inner(self, new PyObject[] { PyInt.From(PyArgs.IndexSsize(args[0])) }, kwargs))
                 {
+                    IndexArgument = true,
                     CallsVirtual = wrapper.CallsVirtual,
                 };
             }
@@ -81,13 +82,9 @@ namespace SharpPy
                 if (entry.StartsWith('-'))
                     continue;
                 string name = entry;
-                // add_operators: a slot in a builtin's dict is a slot wrapper, however it was registered.
-                if (type.TypeDict.TryGetValue(name, out var present))
-                {
-                    if (present.GetType() == typeof(PyMethodDescriptor) && !Coexists(type, name))
-                        type.TypeDict[name] = new PyWrapperDescriptor(name, type, ((PyMethodDescriptor)present)._implementation);
+                // add_operators: a name the dict holds already (a method, METH_COEXIST or not) stays.
+                if (type.TypeDict.ContainsKey(name))
                     continue;
-                }
                 if (!Implemented.Contains(name))
                     continue;
                 string slot = name;
@@ -96,12 +93,6 @@ namespace SharpPy
                     (self, args, kwargs) => Run(owner, self, slot, args, kwargs)) { CallsVirtual = true };
             }
         }
-
-        // METH_COEXIST: these stay methods, beside the slot.
-        private static bool Coexists(PyType type, string name) =>
-            (ReferenceEquals(type, PyType.ListType) && name == "__getitem__") ||
-            (ReferenceEquals(type, PyType.DictType) && name is "__getitem__" or "__contains__") ||
-            ((ReferenceEquals(type, PyType.SetType) || ReferenceEquals(type, PyType.FrozenSetType)) && name == "__contains__");
 
         private static readonly HashSet<string> Implemented = new HashSet<string>
         {

@@ -184,9 +184,30 @@ namespace SharpPy
             regFloatUn("__abs__", s => new PyFloat(Math.Abs(s.Value)));
             regFloatUn("__neg__", s => new PyFloat(-s.Value));
             regFloatUn("__pos__", s => s);
-            regFloatUn("__floor__", s => FromDouble(Math.Floor(s.Value)));
-            regFloatUn("__trunc__", s => FromDouble(Math.Truncate(s.Value)));
-            regFloatUn("__ceil__", s => FromDouble(Math.Ceiling(s.Value)));
+            floatType.TypeDict["__floor__"] = new PyMethodDescriptor("__floor__", floatType, (self, args, kwargs) =>
+            {
+                if (!PyFloat.TryFloatSelf(self, out var selfFloat))
+                    throw PyTypeError.Create($"descriptor '__floor__' requires a 'float' object but received a '{self.GetTypeName()}'");
+                if (args.Length != 0)
+                    throw PyTypeError.Create($"float.__floor__() takes no arguments ({args.Length} given)");
+                return ((Func<PyFloat, PyObject>)(s => FromDouble(Math.Floor(s.Value))))(selfFloat);
+            });
+            floatType.TypeDict["__trunc__"] = new PyMethodDescriptor("__trunc__", floatType, (self, args, kwargs) =>
+            {
+                if (!PyFloat.TryFloatSelf(self, out var selfFloat))
+                    throw PyTypeError.Create($"descriptor '__trunc__' requires a 'float' object but received a '{self.GetTypeName()}'");
+                if (args.Length != 0)
+                    throw PyTypeError.Create($"float.__trunc__() takes no arguments ({args.Length} given)");
+                return ((Func<PyFloat, PyObject>)(s => FromDouble(Math.Truncate(s.Value))))(selfFloat);
+            });
+            floatType.TypeDict["__ceil__"] = new PyMethodDescriptor("__ceil__", floatType, (self, args, kwargs) =>
+            {
+                if (!PyFloat.TryFloatSelf(self, out var selfFloat))
+                    throw PyTypeError.Create($"descriptor '__ceil__' requires a 'float' object but received a '{self.GetTypeName()}'");
+                if (args.Length != 0)
+                    throw PyTypeError.Create($"float.__ceil__() takes no arguments ({args.Length} given)");
+                return ((Func<PyFloat, PyObject>)(s => FromDouble(Math.Ceiling(s.Value))))(selfFloat);
+            });
             // Forward binary slots. CPython lists these on float as slot wrappers and SharpPy had
             // none, so a float subclass reached through a dunder path found nothing at all; only
             // the hard-coded exact-PyFloat CLR path worked.
@@ -417,7 +438,7 @@ namespace SharpPy
             // CPython 3.12: Objects/floatobject.c:1710-1750 - float_format
             // float.__format__(format_spec) - Format the float according to format_spec
             // float.__repr__(/) - slot wrapper usable unbound: float.__repr__(1.5)
-            floatType.TypeDict["__repr__"] = new PyMethodDescriptor(
+            floatType.TypeDict["__repr__"] = new PyWrapperDescriptor(
                 "__repr__", floatType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)

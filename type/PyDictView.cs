@@ -9,20 +9,20 @@ namespace SharpPy
         {
             foreach (var type in new[] { PyType.DictKeysType, PyType.DictValuesType, PyType.DictItemsType })
             {
-                type.TypeDict["__iter__"] = new PyMethodDescriptor("__iter__", type,
+                type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type,
                     (self, args, kwargs) => ((PyDictView)self).Iter(), minArgs: 0, maxArgs: 0);
-                type.TypeDict["__len__"] = new PyMethodDescriptor("__len__", type,
+                type.TypeDict["__len__"] = new PyWrapperDescriptor("__len__", type,
                     (self, args, kwargs) => PyInt.From(((PyDictView)self).Len()), minArgs: 0, maxArgs: 0);
                 // dictvalues_as_sequence has no sq_contains: `in` iterates the values.
                 if (!ReferenceEquals(type, PyType.DictValuesType))
-                    type.TypeDict["__contains__"] = new PyMethodDescriptor("__contains__", type,
+                    type.TypeDict["__contains__"] = new PyWrapperDescriptor("__contains__", type,
                         (self, args, kwargs) => ((PyDictView)self).ContainsItem(args[0]), minArgs: 1, maxArgs: 1);
                 // keys and items compare as sets, which leaves their tp_hash PyObject_HashNotImplemented.
                 if (!ReferenceEquals(type, PyType.DictValuesType))
                     type.TypeDict["__hash__"] = PyNone.Instance;
                 type.TypeDict["mapping"] = new PyGetSetDescriptor("mapping", type,
                     self => new PyMappingProxy((PyObject)((PyDictView)self)._dictionary));
-                type.TypeDict["__repr__"] = new PyMethodDescriptor("__repr__", type,
+                type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type,
                     (self, args, kwargs) => ((PyDictView)self).Repr(), minArgs: 0, maxArgs: 0);
             }
         }

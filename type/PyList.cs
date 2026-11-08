@@ -277,7 +277,7 @@ namespace SharpPy
 
             // CPython 3.12: Objects/listobject.c:3155 (tp_iter slot)
             // __iter__ method descriptor - enables iteration for list subclasses
-            listType.TypeDict["__iter__"] = new PyMethodDescriptor(
+            listType.TypeDict["__iter__"] = new PyWrapperDescriptor(
                 "__iter__",
                 listType,
                 (self, args, kwargs) => {
@@ -309,7 +309,7 @@ namespace SharpPy
 
             // CPython 3.12: Objects/listobject.c:2783 (list_length)
             // __len__ method descriptor - enables len() for list subclasses
-            listType.TypeDict["__len__"] = new PyMethodDescriptor(
+            listType.TypeDict["__len__"] = new PyWrapperDescriptor(
                 "__len__",
                 listType,
                 (self, args, kwargs) => {

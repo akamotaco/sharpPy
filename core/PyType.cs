@@ -1486,7 +1486,7 @@ namespace SharpPy
             var intType = this;
 
             // int.__repr__() - CPython Objects/longobject.c:long_to_decimal_string
-            TypeDict["__repr__"] = new PyMethodDescriptor(
+            TypeDict["__repr__"] = new PyWrapperDescriptor(
                 "__repr__",
                 intType,
                 (self, args, kwargs) => {
@@ -1944,7 +1944,7 @@ namespace SharpPy
             // Reference: Objects/object.c:1536, typeobject.c:6566 (tp_getattro slot)
             // CRITICAL: This must call the internal generic method to avoid infinite recursion
             // when custom __getattribute__ calls super().__getattribute__()
-            TypeDict["__getattribute__"] = new PyMethodDescriptor(
+            TypeDict["__getattribute__"] = new PyWrapperDescriptor(
                 "__getattribute__",
                 objectType,
                 (self, args, kwargs) => {
@@ -1965,7 +1965,7 @@ namespace SharpPy
             // Reference: Objects/object.c:1565
             // IMPORTANT: This must call SetAttributeDefault, NOT SetAttribute,
             // to avoid infinite recursion when user defines __setattr__ that calls super().__setattr__()
-            TypeDict["__setattr__"] = new PyMethodDescriptor(
+            TypeDict["__setattr__"] = new PyWrapperDescriptor(
                 "__setattr__",
                 objectType,
                 (self, args, kwargs) => {
@@ -1990,7 +1990,7 @@ namespace SharpPy
             // Reference: Objects/object.c:1565 (same function, value=NULL means delete)
             // IMPORTANT: This must call DelAttributeDefault, NOT DelAttribute,
             // to avoid infinite recursion when user defines __delattr__ that calls super().__delattr__()
-            TypeDict["__delattr__"] = new PyMethodDescriptor(
+            TypeDict["__delattr__"] = new PyWrapperDescriptor(
                 "__delattr__",
                 objectType,
                 (self, args, kwargs) => {
@@ -2420,7 +2420,7 @@ namespace SharpPy
 
             // type.__setattr__(cls, name, value) - CPython type_setattro
             // Reference: Objects/typeobject.c:4815-4894 (type_setattro)
-            TypeDict["__setattr__"] = new PyMethodDescriptor(
+            TypeDict["__setattr__"] = new PyWrapperDescriptor(
                 "__setattr__",
                 typeType,
                 (self, args, kwargs) => {
@@ -2438,7 +2438,7 @@ namespace SharpPy
             );
 
             // type_setattro with NULL
-            TypeDict["__delattr__"] = new PyMethodDescriptor(
+            TypeDict["__delattr__"] = new PyWrapperDescriptor(
                 "__delattr__",
                 typeType,
                 (self, args, kwargs) => {
@@ -2454,7 +2454,7 @@ namespace SharpPy
             );
 
             // type.__repr__ - CPython type_repr (from PyTypeMetaclass)
-            TypeDict["__repr__"] = new PyMethodDescriptor(
+            TypeDict["__repr__"] = new PyWrapperDescriptor(
                 "__repr__",
                 typeType,
                 (self, args, kwargs) => {
@@ -2486,8 +2486,12 @@ namespace SharpPy
                 PyInt.From((self as PySet).Items.Count()));
             TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", this, (self, args, kwargs) =>
                 (self as PySet).Iter());
-            TypeDict["__contains__"] = new PyWrapperDescriptor("__contains__", this, (self, args, kwargs) =>
-                (self as PySet).ContainsItem(args[0]));
+            TypeDict["__contains__"] = new PyMethodDescriptor("__contains__", this, (self, args, kwargs) =>
+            {
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"set.__contains__() takes exactly one argument ({args.Length} given)");
+                return (self as PySet).ContainsItem(args[0]);
+            });
 
             var setType = this;
 
@@ -2806,7 +2810,7 @@ namespace SharpPy
         /// </summary>
         private void RegisterSetInplace(string name, string symbol, Action<PySet, PyObject> mutate)
         {
-            TypeDict[name] = new PyMethodDescriptor(
+            TypeDict[name] = new PyWrapperDescriptor(
                 name,
                 this,
                 (self, args, kwargs) => {
@@ -3297,7 +3301,7 @@ namespace SharpPy
             // mappingproxy.__getitem__(key)
             // CPython 3.12: Objects/descrobject.c:1043-1046 (mappingproxy_getitem)
             // Line 1045: return PyObject_GetItem(pp->mapping, key);
-            TypeDict["__getitem__"] = new PyMethodDescriptor(
+            TypeDict["__getitem__"] = new PyWrapperDescriptor(
                 "__getitem__",
                 mappingProxyType,
                 (self, args, kwargs) => {
@@ -3316,7 +3320,7 @@ namespace SharpPy
             // mappingproxy.__contains__(key)
             // CPython 3.12: Objects/descrobject.c:1079-1085 (mappingproxy_contains)
             // Line 1082: return PyDict_Contains(pp->mapping, key);
-            TypeDict["__contains__"] = new PyMethodDescriptor(
+            TypeDict["__contains__"] = new PyWrapperDescriptor(
                 "__contains__",
                 mappingProxyType,
                 (self, args, kwargs) => {
@@ -3335,7 +3339,7 @@ namespace SharpPy
             // mappingproxy.__len__()
             // CPython 3.12: Objects/descrobject.c:1037-1040 (mappingproxy_len)
             // Line 1039: return PyObject_Size(pp->mapping);
-            TypeDict["__len__"] = new PyMethodDescriptor(
+            TypeDict["__len__"] = new PyWrapperDescriptor(
                 "__len__",
                 mappingProxyType,
                 (self, args, kwargs) => {

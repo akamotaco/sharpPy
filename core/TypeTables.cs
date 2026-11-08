@@ -288,27 +288,6 @@ namespace SharpPy
             return all;
         }
 
-        // After every install: the last word on the kind of what is in the dict.
-        internal static void Finish()
-        {
-            // Where the implementation is a slot in one and a method in the other, the type says which.
-            foreach (var (type, name) in new[]
-            {
-                (PyType.DictType, "__setitem__"), (PyType.DictType, "__delitem__"), (PyType.TupleType, "__len__"),
-                (PyType.TupleType, "__rmul__"), (PyType.SetType, "__iand__"), (PyType.SetType, "__isub__"), (PyType.SetType, "__ixor__"),
-            })
-                if (type.TypeDict.TryGetValue(name, out var method) && method is PyMethodDescriptor)
-                    Wrapper(type, name, (self, args) => method.Call(Prepended(self, args), null));
-            foreach (var (type, name) in new[]
-            {
-                (PyType.DictType, "__contains__"), (PyType.SetType, "__contains__"), (PyType.FrozenSetType, "__contains__"),
-                (PyType.IntType, "__ceil__"), (PyType.IntType, "__floor__"), (PyType.IntType, "__trunc__"),
-                (PyType.FloatType, "__ceil__"), (PyType.FloatType, "__floor__"), (PyType.FloatType, "__trunc__"),
-            })
-                if (type.TypeDict.TryGetValue(name, out var wrapper) && wrapper is PyWrapperDescriptor)
-                    type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) => wrapper.Call(Prepended(self, args), null));
-        }
-
         // wrap_descr_get
         // wrap_descr_get (Objects/typeobject.c): PyArg_UnpackTuple(args, "", 1, 2), None is NULL.
         private static PyObject DescriptorGet(PyObject self, PyObject[] args)

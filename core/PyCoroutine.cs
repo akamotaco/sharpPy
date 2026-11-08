@@ -62,7 +62,7 @@ namespace SharpPy.Core
             );
 
             // __await__ method descriptor
-            corType.TypeDict["__await__"] = new PyMethodDescriptor(
+            corType.TypeDict["__await__"] = new PyWrapperDescriptor(
                 "__await__", corType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)

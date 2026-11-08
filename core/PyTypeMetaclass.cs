@@ -152,7 +152,7 @@ namespace SharpPy
             })
                 typeClass.ClassDict[name] = new PyMemberDescriptor(name, typeClass, self => PyInt.From(read(((PyType)self).Layout)), readOnly: true);
 
-            typeClass.ClassDict["__flags__"] = new PyGetSetDescriptor("__flags__", typeClass, self =>
+            typeClass.ClassDict["__flags__"] = new PyMemberDescriptor("__flags__", typeClass, self =>
             {
                 var type = (PyType)self;
                 long flags = type.HasFeature(PyTypeFlags.BaseType) ? 1L << 10 : 0;
@@ -165,7 +165,7 @@ namespace SharpPy
                         flags |= 1L << 20;
                 }
                 return PyInt.From(flags);
-            });
+            }, readOnly: true);
 
             // type___subclasses___impl
             typeClass.ClassDict["__subclasses__"] = new PyMethodDescriptor("__subclasses__", typeClass, (self, args, kwargs) =>

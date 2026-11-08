@@ -241,9 +241,30 @@ namespace SharpPy
             // CPython uses the inherited value slot (0b101). The delegates read the payload through
             // AsIntObj/IntLike, so a subclass contributes its own value and the result stays plain int.
             regIntUn("__index__", s => s);
-            regIntUn("__trunc__", s => s);
-            regIntUn("__floor__", s => s);
-            regIntUn("__ceil__", s => s);
+            intType.TypeDict["__trunc__"] = new PyMethodDescriptor("__trunc__", intType, (self, args, kwargs) =>
+            {
+                if (!IntLike(self))
+                    throw PyTypeError.Create($"descriptor '__trunc__' requires a 'int' object but received a '{self.GetTypeName()}'");
+                if (args.Length != 0)
+                    throw PyTypeError.Create($"int.__trunc__() takes no arguments ({args.Length} given)");
+                return AsIntObj(self);
+            });
+            intType.TypeDict["__floor__"] = new PyMethodDescriptor("__floor__", intType, (self, args, kwargs) =>
+            {
+                if (!IntLike(self))
+                    throw PyTypeError.Create($"descriptor '__floor__' requires a 'int' object but received a '{self.GetTypeName()}'");
+                if (args.Length != 0)
+                    throw PyTypeError.Create($"int.__floor__() takes no arguments ({args.Length} given)");
+                return AsIntObj(self);
+            });
+            intType.TypeDict["__ceil__"] = new PyMethodDescriptor("__ceil__", intType, (self, args, kwargs) =>
+            {
+                if (!IntLike(self))
+                    throw PyTypeError.Create($"descriptor '__ceil__' requires a 'int' object but received a '{self.GetTypeName()}'");
+                if (args.Length != 0)
+                    throw PyTypeError.Create($"int.__ceil__() takes no arguments ({args.Length} given)");
+                return AsIntObj(self);
+            });
             regIntUn("__int__", s => s);
             regIntUn("__float__", s => s.NbFloat());
             regIntRev("__rdivmod__", (o, s) => o.DivMod(s));

@@ -325,6 +325,17 @@ namespace SharpPy
             // IMPORTANT: Must access actual dict storage, NOT call polymorphic GetItem!
             // For dict subclasses (PyClassInstance), we must access _dictStorage directly
             // to avoid calling user-defined __getitem__ again (infinite loop).
+            // dict_methods: {"__contains__", dict___contains__, METH_O | METH_COEXIST}
+            dictType.TypeDict["__contains__"] = new PyMethodDescriptor("__contains__", dictType, (self, args, kwargs) =>
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("dict.__contains__() takes no keyword arguments");
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"dict.__contains__() takes exactly one argument ({args.Length} given)");
+                if (self is not PyDict dict)
+                    throw PyTypeError.Create($"descriptor '__contains__' for 'dict' objects doesn't apply to a '{self.GetTypeName()}' object");
+                return dict.ContainsItem(args[0]);
+            }, acceptsKwargs: true);
             dictType.TypeDict["__getitem__"] = new PyMethodDescriptor(
                 "__getitem__", dictType,
                 (self, args, kwargs) => {
@@ -357,7 +368,7 @@ namespace SharpPy
             // D[key] = value
             //
             // Same pattern: access actual dict storage, NOT polymorphic SetItem
-            dictType.TypeDict["__setitem__"] = new PyMethodDescriptor(
+            dictType.TypeDict["__setitem__"] = new PyWrapperDescriptor(
                 "__setitem__", dictType,
                 (self, args, kwargs) => {
                     // CPython 3.12.15 measured: dict.__setitem__ is METH_VARARGS with format "OO";
@@ -384,7 +395,7 @@ namespace SharpPy
             // del D[key]
             //
             // Same pattern: access actual dict storage, NOT polymorphic DelItem
-            dictType.TypeDict["__delitem__"] = new PyMethodDescriptor(
+            dictType.TypeDict["__delitem__"] = new PyWrapperDescriptor(
                 "__delitem__", dictType,
                 (self, args, kwargs) => {
                     // CPython 3.12.15 measured: dict.__delitem__ reports "expected 1 argument, got N".

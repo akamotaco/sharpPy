@@ -35,7 +35,7 @@ namespace SharpPy
             RegisterBytesBackedMethods(baType);
 
             // CPython 3.12: bytearray.__setitem__ (index or slice, int 0..255 value)
-            baType.TypeDict["__setitem__"] = new PyMethodDescriptor(
+            baType.TypeDict["__setitem__"] = new PyWrapperDescriptor(
                 "__setitem__", baType,
                 (self, args, kwargs) => {
                     if (args.Length != 2)
@@ -46,7 +46,7 @@ namespace SharpPy
                     return PyNone.Instance;
                 }, minArgs: 2, maxArgs: 2);
 
-            baType.TypeDict["__delitem__"] = new PyMethodDescriptor(
+            baType.TypeDict["__delitem__"] = new PyWrapperDescriptor(
                 "__delitem__", baType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -839,13 +839,13 @@ namespace SharpPy
 
             // Measured surface: bytearray has __add__/__mul__/__rmul__/__iter__, and does NOT have
             // __bytes__ or __getnewargs__ (bytes has both). An earlier draft published them.
-            baType.TypeDict["__add__"] = new PyMethodDescriptor("__add__", baType,
+            baType.TypeDict["__add__"] = new PyWrapperDescriptor("__add__", baType,
                 (self, args, kwargs) => self.Add(args[0]), minArgs: 1, maxArgs: 1);
-            baType.TypeDict["__mul__"] = new PyMethodDescriptor("__mul__", baType,
+            baType.TypeDict["__mul__"] = new PyWrapperDescriptor("__mul__", baType,
                 (self, args, kwargs) => self.Multiply(args[0]), minArgs: 1, maxArgs: 1);
-            baType.TypeDict["__rmul__"] = new PyMethodDescriptor("__rmul__", baType,
+            baType.TypeDict["__rmul__"] = new PyWrapperDescriptor("__rmul__", baType,
                 (self, args, kwargs) => self.Multiply(args[0]), minArgs: 1, maxArgs: 1);
-            baType.TypeDict["__iter__"] = new PyMethodDescriptor("__iter__", baType,
+            baType.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", baType,
                 (self, args, kwargs) => self.Iter(), minArgs: 0, maxArgs: 0);
         }
 

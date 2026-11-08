@@ -63,7 +63,9 @@ namespace SharpPy.Core
         {
             var type = PyType.AsyncGeneratorType;
             foreach (var name in new[] { "__aiter__", "__anext__", "asend", "athrow", "aclose" })
-                type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) => {
+            {
+                // am_aiter and am_anext are slots, their wrappers; asend, athrow and aclose are methods.
+                Func<PyObject, PyObject[], PyDict, PyObject> body = (self, args, kwargs) => {
                     if (self is not PyAsyncGenerator generator)
                         throw PyTypeError.Create($"descriptor '{name}' requires a 'async_generator' object but received a '{self.GetTypeName()}'");
                     if (kwargs != null && kwargs.Length() != 0) throw PyTypeError.Create($"{name}() takes no keyword arguments");
@@ -79,7 +81,10 @@ namespace SharpPy.Core
                         "athrow" => generator.AThrow(args[0], args.Length > 1 ? args[1] : null, args.Length > 2 ? args[2] : null),
                         _ => generator.AClose()
                     };
-                });
+                };
+                type.TypeDict[name] = name.StartsWith("__", StringComparison.Ordinal)
+                    ? new PyWrapperDescriptor(name, type, body) : new PyMethodDescriptor(name, type, body);
+            }
             type.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", type, self => ((PyAsyncGenerator)self).NameValue,
                 (self, value) => ((PyAsyncGenerator)self).NameValue = NameArgument(value, "__name__"));
             type.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", type, self => ((PyAsyncGenerator)self).Qualname,

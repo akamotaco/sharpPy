@@ -82,9 +82,13 @@ namespace SharpPy
                 mapping.CollectionFlags = PyType.TPFLAGS_MAPPING;
             PyByteArray.InstallNew();
             InstallFrameAttributes(PyType.CoroutineType, "cr", self => ((SharpPy.Core.PyCoroutine)self).Frame, self => ((SharpPy.Core.PyCoroutine)self).IsFinished);
+            // async_gen_memberlist: {"ag_running", T_BOOL, offsetof(PyAsyncGenObject, ag_running_async), READONLY}
+            PyType.AsyncGeneratorType.TypeDict["ag_running"] = new PyMemberDescriptor("ag_running", PyType.AsyncGeneratorType,
+                self => PyBool.FromBool(((SharpPy.Core.PyAsyncGenerator)self).Running), readOnly: true);
             InstallFrameAttributes(PyType.AsyncGeneratorType, "ag", self => ((SharpPy.Core.PyAsyncGenerator)self).Frame, self => false);
-            PyType.CoroutineType.TypeDict["cr_origin"] = new PyGetSetDescriptor("cr_origin", PyType.CoroutineType,
-                self => ((SharpPy.Core.PyCoroutine)self).Origin);
+            // coro_memberlist: {"cr_origin", T_OBJECT, READONLY}
+            PyType.CoroutineType.TypeDict["cr_origin"] = new PyMemberDescriptor("cr_origin", PyType.CoroutineType,
+                self => ((SharpPy.Core.PyCoroutine)self).Origin, readOnly: true);
             PyType.CoroutineType.TypeDict["cr_await"] = new PyGetSetDescriptor("cr_await", PyType.CoroutineType,
                 self => ((SharpPy.Core.PyCoroutine)self).YieldFrom ?? PyNone.Instance);
             PyCallableWrapper.Install(PyType.ClassMethodType, "classmethod");
@@ -98,7 +102,6 @@ namespace SharpPy
             InstallContainers();
             InstallViews();
             InstallIterators();
-            TypeTables.Finish();
             PyType.ModuleType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", PyType.ModuleType,
                 (cls, args, kwargs) => PyModule.Allocate((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
             // module_dir: a module may answer for itself with a __dir__ of its own.
@@ -245,7 +248,7 @@ namespace SharpPy
             // gen_finalize as __del__, and gen_sizeof / frame_sizeof / code_sizeof.
             foreach (var type in new[] { PyType.GeneratorType, PyType.CoroutineType, PyType.AsyncGeneratorType })
             {
-                Method(type, "__del__", (self, args) => { PyFinalizer.FinalizeGenerator(self); return PyNone.Instance; });
+                Slot(type, "__del__", (self, args) => { PyFinalizer.FinalizeGenerator(self); return PyNone.Instance; });
                 var owner = type;
                 string codeName = ReferenceEquals(owner, PyType.GeneratorType) ? "gi_code"
                     : ReferenceEquals(owner, PyType.CoroutineType) ? "cr_code" : "ag_code";
@@ -412,7 +415,15 @@ namespace SharpPy
                 SetOperator(type, "xor", (a, b) => a.BitwiseXor(b));
             }
             Slot(PyType.FrozenSetType, "__len__", (self, args) => PyInt.From((self as PyFrozenSet).Len()));
-            Slot(PyType.FrozenSetType, "__contains__", (self, args) => (self as PyFrozenSet).ContainsItem(args[0]));
+            // frozenset_methods: __contains__ METH_COEXIST beside sq_contains
+            PyType.FrozenSetType.TypeDict["__contains__"] = new PyMethodDescriptor("__contains__", PyType.FrozenSetType, (self, args, kwargs) =>
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("frozenset.__contains__() takes no keyword arguments");
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"frozenset.__contains__() takes exactly one argument ({args.Length} given)");
+                return (self as PyFrozenSet).ContainsItem(args[0]);
+            }, acceptsKwargs: true);
             Slot(PyType.FrozenSetType, "__iter__", (self, args) => (self as PyFrozenSet).Iter());
 
             Method(PyType.DictType, "__reversed__", (self, args) =>

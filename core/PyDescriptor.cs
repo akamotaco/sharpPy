@@ -567,6 +567,9 @@ namespace SharpPy
         // PyArg_UnpackTuple(args, "", min, max) says the same with the empty name in front.
         private static readonly Dictionary<string, (int Min, int Max, bool Unpack)> SlotArity = BuildSlotArity();
 
+        // This wrapper is wrap_indexargfunc: the slot takes a count, not an operand.
+        internal bool IndexArgument { get; init; }
+
         private static Dictionary<string, (int, int, bool)> BuildSlotArity()
         {
             var table = new Dictionary<string, (int, int, bool)>();
@@ -593,6 +596,14 @@ namespace SharpPy
         /// <summary>wrapperdescr_raw_call and the slot's wrap_* function: what is checked before the slot runs.</summary>
         internal void CheckSlotArguments(PyObject[] args, PyDict kwargs)
         {
+            // wrap_indexargfunc, the wrapper of sq_repeat and sq_inplace_repeat: PyArg_UnpackTuple(args, "", 1, 1).
+            if (IndexArgument)
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create($"wrapper {Name}() takes no keyword arguments");
+                PyArgs.Positional("", args, null, 1, 1);
+                return;
+            }
             if (!SlotArity.TryGetValue(Name, out var arity))
                 return;
             if (kwargs != null && kwargs.Length() != 0)

@@ -505,7 +505,7 @@ namespace SharpPy
             // CPython 3.12: Objects/bytesobject.c:2890-2920 - bytes_iter
             // bytes.__iter__() - Return an iterator over the bytes
             // Each element is an integer in range(0, 256)
-            bytesType.TypeDict["__iter__"] = new PyMethodDescriptor(
+            bytesType.TypeDict["__iter__"] = new PyWrapperDescriptor(
                 "__iter__",
                 bytesType,
                 (self, args, kwargs) =>

@@ -35,7 +35,7 @@ namespace SharpPy
         public static void InitializeTupleDescriptors()
         {
             var tupleType = PyType.TupleType;
-            tupleType.TypeDict["__len__"] = new PyMethodDescriptor("__len__", tupleType, (self, args, kwargs) => {
+            tupleType.TypeDict["__len__"] = new PyWrapperDescriptor("__len__", tupleType, (self, args, kwargs) => {
                 if (self is not PyTuple tuple)
                     throw PyTypeError.Create($"descriptor '__len__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
                 if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
@@ -185,7 +185,7 @@ namespace SharpPy
             );
 
             // CPython 3.12: tuple.__rmul__ is same as __mul__ (sequence repeat is commutative)
-            tupleType.TypeDict["__rmul__"] = new PyMethodDescriptor(
+            tupleType.TypeDict["__rmul__"] = new PyWrapperDescriptor(
                 "__rmul__", tupleType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -197,7 +197,11 @@ namespace SharpPy
                     return tuple.Multiply(PyInt.From(PyArgs.IndexSsize(args[0])));
                 },
                 minArgs: 1, maxArgs: 1
-            );
+            )
+            {
+                // sq_repeat's wrapper, wrap_indexargfunc
+                IndexArgument = true,
+            };
 
             // CPython 3.12: Objects/tupleobject.c:576
             // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
