@@ -173,7 +173,6 @@ namespace SharpPy.Core
             public override PyType GetPyType() => IsThrow ? ThrowType : SendType;
             public override string GetTypeName() => GetPyType().Name;
             public override bool IsCallable() => false;
-            public override PyObject Call(PyObject[] args, PyDict kwargs = null) => throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
             protected internal override PyObject IterNext() => Drive(PyNone.Instance);
             private PyObject Drive(PyObject sent, PyObject[] injected = null)
             {

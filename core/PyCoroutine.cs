@@ -494,8 +494,6 @@ namespace SharpPy.Core
         public override string GetTypeName() => "coroutine_wrapper";
         public override PyType GetPyType() => WrapperType;
         public override bool IsCallable() => false;
-        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
-            => throw PyTypeError.Create("'coroutine_wrapper' object is not callable");
 
         public PyObject Send(PyObject value) => _coroutine.Send(value);
         public void Close() => _coroutine.Close();

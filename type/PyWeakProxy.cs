@@ -54,7 +54,7 @@ namespace SharpPy
         public override PyObject Call(PyObject[] args, PyDict kwargs)
         {
             if (!_callable)
-                throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
+                throw ObjectIsNotCallable(this);
             return Target.Call(args, kwargs);
         }
 

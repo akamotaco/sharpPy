@@ -582,11 +582,8 @@ namespace SharpPy
                 if (kwargs.InternalDict.TryGetValue(PyString.From("key"), out var k)
                     && !ReferenceEquals(k, PyNone.Instance))
                 {
+                    // min_max calls the key for each item; one not callable fails at the first call.
                     keyFn = k;
-                    if (!keyFn.IsCallable())
-                    {
-                        throw PyTypeError.Create($"'{keyFn.GetTypeName()}' object is not callable");
-                    }
                 }
                 if (kwargs.InternalDict.TryGetValue(PyString.From("default"), out var dv))
                 {

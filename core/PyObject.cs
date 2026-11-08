@@ -766,6 +766,25 @@ namespace SharpPy
                 throw new PythonException(new PyRecursionError("maximum recursion depth exceeded" + where));
         }
 
+        /// <summary>
+        /// object_is_not_callable (Objects/call.c): a module whose attribute of its own name is
+        /// callable is offered that ("Did you mean: 'pprint.pprint(...)'?").
+        /// </summary>
+        internal static Exception ObjectIsNotCallable(PyObject callable)
+        {
+            var type = callable.GetPyType();
+            if (ReferenceEquals(type, PyType.ModuleType) && callable is PyModule module
+                && module.ModuleDict.TryGetValue("__name__", out var nameObject) && nameObject is PyString name)
+            {
+                PyObject attribute = null;
+                try { attribute = callable.GetAttribute(name.Value); }
+                catch (PythonException) { }
+                if (attribute != null && attribute.IsCallable())
+                    return PyTypeError.Create($"'{type.FullName}' object is not callable. Did you mean: '{name.Value}.{name.Value}(...)'?");
+            }
+            return PyTypeError.Create($"'{type.FullName}' object is not callable");
+        }
+
         public virtual PyObject Call(PyObject[] args, PyDict kwargs)
         {
             CheckNativeStack(" while calling a Python object");
@@ -775,7 +794,7 @@ namespace SharpPy
             // self). What the call raises propagates.
             var declared = GetPyType().LookupSpecial("__call__");
             if (declared == null)
-                throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
+                throw ObjectIsNotCallable(this);
             if (declared is PyFunction function)
             {
                 var withSelf = new PyObject[args.Length + 1];

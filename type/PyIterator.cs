@@ -220,10 +220,7 @@ namespace SharpPy
         /// </summary>
         public override bool IsCallable() => false;
 
-        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
-        {
-            throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
-        }
+
 
         protected internal override bool Bool() => true;
 
