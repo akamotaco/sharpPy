@@ -766,24 +766,10 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         // Method는 항상 호출 가능
         public override bool IsCallable() => true;
 
-        // Method attributes (__self__, __func__ 등)
-        protected internal override PyObject TpGetattro(string name)
-        {
-            return name switch
-            {
-                "__self__" => Instance,
-                "__func__" => Function,
-                "__class__" => GetPyType(),
-                // method_getattro falls through to im_func, so __name__ comes from the callable.
-                "__name__" => Function.GetAttribute("__name__"),
-                "__call__" => this, // 메서드 자체가 __call__
-                "__code__" => Function.GetAttribute("__code__"), // CPython 3.12: Delegate to underlying function
-                "__doc__" => Function.GetAttribute(name),
-                // method_getattro: method descriptors precede function attributes.
-                _ => LookupSpecialMethodUncached(name) != null
-                    ? base.TpGetattro(name) : Function.GetAttribute(name)
-            };
-        }
+        // method_getattro (Objects/classobject.c): what the method type has (_PyType_Lookup and its
+        // __get__: __func__, __self__, __doc__, the slot wrappers) answers, anything else is im_func's.
+        protected internal override PyObject TpGetattro(string name) =>
+            GetPyType().FindNameInMro(name) != null ? base.TpGetattro(name) : Function.GetAttribute(name);
 
         /// <summary>
         /// method_repr (Objects/classobject.c:273): the name comes from __qualname__, then __name__,

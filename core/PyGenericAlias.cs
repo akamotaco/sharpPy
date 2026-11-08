@@ -84,27 +84,20 @@ namespace SharpPy
         // A subclass inherits ga_getattro, which forwards to __origin__.
         internal override PyObject InheritedGetattro(string name) => TpGetattro(name);
 
-        protected internal override PyObject TpGetattro(string name)
-        {
-            switch (name)
-            {
-                case "__class__": return GetPyType();
-                case "__origin__": return Origin;
-                case "__args__": return Args;
-                case "__unpacked__": return PyBool.FromBool(_starred);
-                case "__parameters__":
-                    return _parameters ??= MakeParameters(Args);
-                case "__typing_unpacked_tuple_args__":
-                    return _starred && ReferenceEquals(Origin, PyType.TupleType) ? Args : PyNone.Instance;
-                case "__mro_entries__":
-                case "__reduce_ex__":
-                case "__reduce__":
-                case "__copy__":
-                case "__deepcopy__":
-                    return base.TpGetattro(name);
-            }
-            return Origin.GetAttribute(name);
-        }
+        // ga_getattro: the names of attr_exceptions are the alias's own (PyObject_GenericGetAttr),
+        // any other is the origin's.
+        protected internal override PyObject TpGetattro(string name) =>
+            Array.IndexOf(AttrExceptions, name) >= 0 ? base.TpGetattro(name) : Origin.GetAttribute(name);
+
+        // ga_members: {"__unpacked__", T_BOOL, starred}
+        internal bool Starred => _starred;
+
+        // ga_parameters: computed once and kept.
+        internal PyTuple Parameters => _parameters ??= MakeParameters(Args);
+
+        // ga_unpacked_tuple_args
+        internal PyObject TypingUnpackedTupleArgs =>
+            _starred && ReferenceEquals(Origin, PyType.TupleType) ? Args : PyNone.Instance;
 
         // _Py_make_parameters
         internal static PyTuple MakeParameters(PyTuple args)

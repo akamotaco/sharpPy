@@ -67,27 +67,6 @@ namespace SharpPy
                 Wrapper(type, "__getattribute__", (self, args) => generic.Call(new[] { self, args[0] }, null));
         }
 
-        [ThreadStatic] private static PyObject _fieldOwner;
-        [ThreadStatic] private static string _fieldName;
-
-        // These answer from a tp_getattro or an instance switch. A kind that has no answer comes
-        // back here through the generic lookup, and that is the AttributeError.
-        private static PyObject Field(PyObject self, string name)
-        {
-            if (ReferenceEquals(_fieldOwner, self) && _fieldName == name)
-                throw PyAttributeError.Create($"'{self.GetTypeName()}' object has no attribute '{name}'");
-            var (owner, field) = (_fieldOwner, _fieldName);
-            (_fieldOwner, _fieldName) = (self, name);
-            try
-            {
-                return self.GetAttribute(name);
-            }
-            finally
-            {
-                (_fieldOwner, _fieldName) = (owner, field);
-            }
-        }
-
         internal static void Install()
         {
             var code = PyCodeObject.CodePyType;
@@ -187,7 +166,9 @@ namespace SharpPy
             // behind one type: the object already answers these names.
             Members<PySuper>(PyType.SuperType, (self, name) => self.Own(name), "__thisclass__", "__self__", "__self_class__");
             Wrapper(PyType.SuperType, "__get__", (self, args) => ((IDescriptor)self).Get(args[0] is PyNone ? null : args[0], args.Length > 1 ? args[1] as PyType : null));
-            Members<PyObject>(PyType.MethodType, Field, "__func__", "__self__");
+            Members<PyMethod>(PyType.MethodType, (self, name) => name == "__func__" ? self.Function : self.Instance, "__func__", "__self__");
+            // method_getset: {"__doc__", method_get_doc}, the function's doc
+            GetSets<PyMethod>(PyType.MethodType, (self, name) => self.Function.GetAttribute("__doc__"), "__doc__");
             PyCFunction.Install();
             foreach (var type in new[] { PyType.MethodDescriptorType, PyType.WrapperDescriptorType, PyType.ClassMethodDescriptorType,
                          PyType.GetSetDescriptorType, PyType.MemberDescriptorType })
@@ -211,8 +192,14 @@ namespace SharpPy
             }
             foreach (var type in new[] { PyType.GetSetDescriptorType, PyType.MemberDescriptorType })
                 GetSets<PyObject>(type, (self, name) => PyDocs.PlainDoc(self), "__doc__");
-            Members<PyGenericAlias>(PyType.GenericAliasType, Field, "__origin__", "__args__", "__unpacked__");
-            GetSets<PyGenericAlias>(PyType.GenericAliasType, Field, "__parameters__", "__typing_unpacked_tuple_args__");
+            Members<PyGenericAlias>(PyType.GenericAliasType, (self, name) => name switch
+            {
+                "__origin__" => self.Origin,
+                "__args__" => self.Args,
+                _ => PyBool.FromBool(self.Starred),
+            }, "__origin__", "__args__", "__unpacked__");
+            GetSets<PyGenericAlias>(PyType.GenericAliasType, (self, name) => name == "__parameters__"
+                ? self.Parameters : self.TypingUnpackedTupleArgs, "__parameters__", "__typing_unpacked_tuple_args__");
             Members<PyUnionType>(PyType.UnionType, (self, name) => PyTuple.From(self.Args), "__args__");
             GetSets<PyUnionType>(PyType.UnionType, (self, name) => PyGenericAlias.MakeParameters(PyTuple.From(self.Args)), "__parameters__");
             Wrapper(PyType.UnionType, "__getitem__", (self, args) => ((PyUnionType)self).Subscript(args[0]));

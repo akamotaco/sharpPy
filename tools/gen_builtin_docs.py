@@ -74,6 +74,24 @@ def collect():
             raw = internal(name, obj)
             if raw is not None:
                 entries[f"builtins.{name}"] = raw
+    # The static types the types module names (method, function, code, frame, SimpleNamespace,
+    # UnionType, ...): tp_doc and their dicts, keyed as PyDocs.TypeKey keys a static type.
+    import types
+    for obj in vars(types).values():
+        if not isinstance(obj, type) or obj.__module__ == "types" and obj.__flags__ & (1 << 9):
+            continue
+        key = obj.__name__ if obj.__module__ == "builtins" else f"{obj.__module__}.{obj.__name__}"
+        if key in entries:
+            continue
+        raw = internal(obj.__name__, obj)
+        if raw is not None:
+            entries[key] = raw
+        for member, value in vars(obj).items():
+            if member == "__doc__":
+                continue
+            raw = internal(member, value)
+            if raw is not None:
+                entries.setdefault(f"{key}.{member}", raw)
     # Native modules: "<module>.__doc__" for the module, "<module>.<name>" for what it holds.
     import _bisect, _collections, _heapq, _io, _struct, itertools, time
     for module in (_bisect, _collections, _heapq, _io, _struct, itertools, time):
