@@ -549,7 +549,8 @@ namespace SharpPy
                     {
                         bool removed = self is PyClassInstance instance ? instance.RemoveSlot(stored)
                             : self.SlotStore.Remove(stored);
-                        if (!removed) throw PyAttributeError.Create($"'{self.GetTypeName()}' object has no attribute '{stored}'");
+                        // PyMember_SetOne, T_OBJECT_EX deleted while unset: the member's name alone
+                        if (!removed) throw PyAttributeError.Create(stored);
                     });
             }
         }

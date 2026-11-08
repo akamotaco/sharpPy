@@ -129,11 +129,13 @@ namespace SharpPy
             else store.SetInstanceAttribute(name, value);
         }
 
-        // A name the type holds but that is no data descriptor is read-only without an instance dict.
+        // _PyObject_GenericSetAttrWithDict's refusals, named by tp_name; unlike a failed lookup they
+        // carry no name or obj. A name the type holds but that is no data descriptor is read-only
+        // without an instance dict.
         private static Exception NoAttribute(PyObject self, PyType type, string name, bool hasDict) =>
             !hasDict && type.FindNameInMro(name) != null
-                ? PyAttributeError.Create($"'{self.GetTypeName()}' object attribute '{name}' is read-only")
-                : self.NoSuchAttribute(name);
+                ? PyAttributeError.Create($"'{type.FullName}' object attribute '{name}' is read-only")
+                : PyAttributeError.Create($"'{type.FullName}' object has no attribute '{name}'");
 
         /// <summary>The generic set over the dict kept beside a builtin's value; value null to delete.</summary>
         internal static void GenericSetAttribute(PyObject self, PyClass instanceType,
