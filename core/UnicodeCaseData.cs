@@ -903,6 +903,29 @@ namespace SharpPy
             return true;
         }
 
+        // The mapping of cp alone: the delta of its range, or the first code point of its extended case.
+        private static int First(int[] ranges, int[] index, int[] offs, int[] data, int cp)
+        {
+            if (cp < 0 || cp > 0x10FFFF)
+                return cp;
+            int block = (cp >> 8) * 2;
+            for (int i = index[block], stop = index[block + 1]; i < stop; i++)
+            {
+                if (cp < ranges[i * 4] || cp > ranges[i * 4 + 1])
+                    continue;
+                return ranges[i * 4 + 3] == 0 ? cp + ranges[i * 4 + 2] : data[offs[ranges[i * 4 + 2]]];
+            }
+            return cp;
+        }
+
+        /// <summary>
+        /// _PyUnicode_ToLowercase and _PyUnicode_ToUppercase (Objects/unicodectype.c): the simple
+        /// mapping, which for a character with an extended case is the first code point of it
+        /// (U+0130 lowers to 'i', U+00DF uppers to 'S'). What sre_lower_unicode and its kin are.
+        /// </summary>
+        public static int ToLowercase(int cp) => First(LowerRanges, LowerIndex, LowerMultiOff, LowerMultiData, cp);
+        public static int ToUppercase(int cp) => First(UpperRanges, UpperIndex, UpperMultiOff, UpperMultiData, cp);
+
         /// <summary>Append the FULL upper mapping of cp; true when the code point changed.</summary>
         public static bool AppendUpper(StringBuilder sb, int cp) =>
             Append(sb, UpperRanges, UpperIndex, UpperMultiOff, UpperMultiLen, UpperMultiData, cp);

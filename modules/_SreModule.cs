@@ -89,12 +89,8 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create("unicode_iscased() missing 1 required positional argument: 'character'");
 
             int ch = args[0].ToInt();
-            char c = (char)ch;
-
-            // CPython: ch != sre_lower_unicode(ch) || ch != sre_upper_unicode(ch)
-            // A character is cased if converting to lower/upper changes it
-            bool result = c != char.ToLowerInvariant(c) || c != char.ToUpperInvariant(c);
-            return PyBool.FromBool(result);
+            // _sre_unicode_iscased_impl: ch != sre_lower_unicode(ch) || ch != sre_upper_unicode(ch)
+            return PyBool.FromBool(ch != SreState.SreLowerUnicode(ch) || ch != SreState.SreUpperUnicode(ch));
         }
 
         /// <summary>
@@ -126,11 +122,8 @@ namespace SharpPy.Modules
 
             int ch = args[0].ToInt();
 
-            // CPython: sre_lower_unicode(character)
-            // Use C# char.ToLowerInvariant for Unicode case mapping
-            char c = (char)ch;
-            char lower = char.ToLowerInvariant(c);
-            return PyInt.From((int)lower);
+            // _sre_unicode_tolower_impl: sre_lower_unicode(character)
+            return PyInt.From(SreState.SreLowerUnicode(ch));
         }
     }
 }

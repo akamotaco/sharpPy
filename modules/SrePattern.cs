@@ -159,6 +159,39 @@ namespace SharpPy.Modules
         }
 
         // pattern_new_match.
+        // getstring and pattern_subx's literal test: a str, or any buffer, with no backslash.
+        private static bool IsLiteralTemplate(PyObject template)
+        {
+            if (template is PyString text)
+                return text.Value.IndexOf('\\') < 0;
+            var data = BytesMethods.Buffer(template);
+            return data != null && Array.IndexOf(data, (byte)'\\') < 0;
+        }
+
+        /// <summary>
+        /// compile_template (Modules/_sre/sre.c): re._compile_template, and once more with the
+        /// template as its basic type (str or bytes) when it was unhashable (a bytearray).
+        /// </summary>
+        internal static PyObject CompileTemplate(PyObject pattern, PyObject template)
+        {
+            var compile = PyImportSystem.Import("re").GetAttribute("_compile_template");
+            try
+            {
+                return compile.Call(new PyObject[] { pattern, template }, null);
+            }
+            catch (PythonException error) when (error.PyException is PyTypeError)
+            {
+                PyObject basic;
+                if (template is PyString text && !template.IsExactly(PyType.StrType))
+                    basic = PyString.From(text.Value);
+                else if (template.SupportsBuffer() && !template.IsExactly(PyType.BytesType))
+                    basic = PyBytes.From(BytesMethods.RequireBuffer(template));
+                else
+                    throw;
+                return compile.Call(new PyObject[] { pattern, basic }, null);
+            }
+        }
+
         internal PySreMatch NewMatch(SreText text, SreState state)
         {
             var marks = new int[2 * (Groups + 1)];
@@ -247,13 +280,9 @@ namespace SharpPy.Modules
             PyObject literal = null;
             if (!callable)
             {
-                bool hasEscape = replacement is PyString
-                    ? replacement.ToStr().Value.IndexOf('\\') >= 0
-                    : replacement is PyBytes bytes ? Array.IndexOf(bytes.Value, (byte)'\\') >= 0 : true;
-                if (hasEscape)
+                if (!IsLiteralTemplate(replacement))
                 {
-                    var compiled = PyImportSystem.Import("re").GetAttribute("_compile_template")
-                        .Call(new PyObject[] { this, replacement }, null);
+                    var compiled = CompileTemplate(this, replacement);
                     template = compiled as PySreTemplate;
                     if (template == null) literal = compiled;
                 }
@@ -429,20 +458,13 @@ namespace SharpPy.Modules
         // match_getslice_by_index and match_getindex.
         private int GroupNumber(PyObject group)
         {
+            // match_getindex: an index is PyNumber_AsSsize_t(index, NULL), clipped; anything else is a
+            // name of groupindex, whose value must be an int.
             long number = -1;
-            if (PyInt.LongCheck(group))
-            {
-                number = group.ToInt();
-            }
-            else if (_pattern.GroupIndex.TryGetStoredValue(group, out var found))
-            {
-                number = found.ToInt();
-            }
-            // PyIndex_Check, then PyNumber_AsSsize_t: nb_index of the type.
-            else if (PyObject.IndexCheck(group))
-            {
-                number = (long)PyObject.IndexOrThrow(group).Value;
-            }
+            if (PyObject.IndexCheck(group))
+                number = PyArgs.AsSsize(group, PyArgs.SsizeError.Clip);
+            else if (_pattern.GroupIndex.TryGetStoredValue(group, out var found) && PyInt.LongCheck(found))
+                number = PyArgs.Ssize(found);
             if (number < 0 || number > _pattern.Groups)
                 throw PyIndexError.Create("no such group");
             return (int)number;
@@ -512,8 +534,7 @@ namespace SharpPy.Modules
                 case "expand":
                     return new PyBuiltinFunction("expand", (a, k) =>
                     {
-                        var compiled = PyImportSystem.Import("re").GetAttribute("_compile_template")
-                            .Call(new PyObject[] { _pattern, a[0] }, null);
+                        var compiled = PySrePattern.CompileTemplate(_pattern, a[0]);
                         return compiled is PySreTemplate template ? template.Expand(this) : compiled;
                     });
                 case "__copy__":

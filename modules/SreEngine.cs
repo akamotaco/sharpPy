@@ -162,6 +162,10 @@ namespace SharpPy.Modules
         private static bool IsAsciiDigit(int c) => c >= '0' && c <= '9';
         private static bool IsAsciiSpace(int c) => c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
         private static bool IsAsciiWord(int c) => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+        // SRE_IS_LINEBREAK (Modules/_sre/sre.c): '\n' alone, for ANY, AT_*_LINE and the ASCII category.
+        private static bool IsSreLinebreak(int c) => c == '\n';
+
+        // SRE_UNI_IS_LINEBREAK, Py_UNICODE_ISLINEBREAK: the unicode categories' line breaks.
         private static bool IsLinebreak(int c) => c == 0x0A || c == 0x0B || c == 0x0C || c == 0x0D || c == 0x1C || c == 0x1D || c == 0x1E || c == 0x85 || c == 0x2028 || c == 0x2029;
 
         private static bool IsUniDigit(int c)
@@ -207,8 +211,8 @@ namespace SharpPy.Modules
                 case SRE_CATEGORY_NOT_SPACE: return !IsAsciiSpace(ch);
                 case SRE_CATEGORY_WORD: return IsAsciiWord(ch);
                 case SRE_CATEGORY_NOT_WORD: return !IsAsciiWord(ch);
-                case SRE_CATEGORY_LINEBREAK: return IsLinebreak(ch);
-                case SRE_CATEGORY_NOT_LINEBREAK: return !IsLinebreak(ch);
+                case SRE_CATEGORY_LINEBREAK: return IsSreLinebreak(ch);
+                case SRE_CATEGORY_NOT_LINEBREAK: return !IsSreLinebreak(ch);
                 case SRE_CATEGORY_LOC_WORD: return IsAsciiWord(ch);
                 case SRE_CATEGORY_LOC_NOT_WORD: return !IsAsciiWord(ch);
                 case SRE_CATEGORY_UNI_DIGIT: return IsUniDigit(ch);
@@ -238,17 +242,9 @@ namespace SharpPy.Modules
         private static int SreLowerLocale(int c) => SreLowerAscii(c);
         private static int SreUpperLocale(int c) => SreUpperAscii(c);
 
-        private static int SreLowerUnicode(int c)
-        {
-            if (!Rune.IsValid(c)) return c;
-            return Rune.ToLowerInvariant(new Rune(c)).Value;
-        }
-
-        private static int SreUpperUnicode(int c)
-        {
-            if (!Rune.IsValid(c)) return c;
-            return Rune.ToUpperInvariant(new Rune(c)).Value;
-        }
+        // sre_lower_unicode and sre_upper_unicode: Py_UNICODE_TOLOWER and Py_UNICODE_TOUPPER.
+        internal static int SreLowerUnicode(int c) => UnicodeCaseData.ToLowercase(c);
+        internal static int SreUpperUnicode(int c) => UnicodeCaseData.ToUppercase(c);
 
         private static bool CharLocIgnore(int chr, int c)
         {
@@ -266,13 +262,13 @@ namespace SharpPy.Modules
                     return ptr == Beginning;
 
                 case SRE_AT_BEGINNING_LINE:
-                    return ptr == Beginning || IsLinebreak(Text[ptr - 1]);
+                    return ptr == Beginning || IsSreLinebreak(Text[ptr - 1]);
 
                 case SRE_AT_END:
-                    return (End - ptr == 1 && IsLinebreak(Text[ptr])) || ptr == End;
+                    return (End - ptr == 1 && IsSreLinebreak(Text[ptr])) || ptr == End;
 
                 case SRE_AT_END_LINE:
-                    return ptr == End || IsLinebreak(Text[ptr]);
+                    return ptr == End || IsSreLinebreak(Text[ptr]);
 
                 case SRE_AT_END_STRING:
                     return ptr == End;
@@ -440,7 +436,7 @@ namespace SharpPy.Modules
                     break;
 
                 case SRE_OP_ANY:
-                    while (ptr < end && !IsLinebreak(Text[ptr]))
+                    while (ptr < end && !IsSreLinebreak(Text[ptr]))
                         ptr++;
                     break;
 
@@ -1111,7 +1107,7 @@ namespace SharpPy.Modules
                         continue;
 
                     case SRE_OP_ANY:
-                        if (ptr >= End || IsLinebreak(Text[ptr]))
+                        if (ptr >= End || IsSreLinebreak(Text[ptr]))
                         { ret = 0; goto Exit; }
                         ptr++;
                         continue;
