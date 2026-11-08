@@ -494,6 +494,10 @@ namespace SharpPy
             try
             {
                 if (target is SharpPy.Core.PyCoroutine coroutine) coroutine.Finalize();
+                else if (target is SharpPy.Core.PyAsyncGenerator asyncGenerator) asyncGenerator.Finalize();
+                // The frame of an async generator runs in a generator; the decision is the async
+                // generator's.
+                else if (((PyGenerator)target).Frame?.OwnerGenerator is SharpPy.Core.PyAsyncGenerator owner) owner.Finalize();
                 else ((PyGenerator)target).Close();
             }
             catch (PythonException ex)

@@ -15,6 +15,30 @@ namespace SharpPy.Core
         [ThreadStatic] internal static PyObject FinalizerHook;
         private bool _hooksInitialized;
         private PyObject _finalizer;
+        // ag_closed: an aclose() has begun, or StopAsyncIteration or GeneratorExit left the frame.
+        internal bool AgClosed;
+
+        /// <summary>
+        /// _PyGen_Finalize of an async generator: a paused one goes to the finalizer hook it took at
+        /// its first iteration unless it is closed already, and is closed otherwise (gen_close);
+        /// what either raises is unraisable, naming this object.
+        /// </summary>
+        internal void Finalize()
+        {
+            if (_finished || _generator.IsFinished)
+                return;
+            try
+            {
+                if (_finalizer != null && !AgClosed)
+                    _finalizer.Call(new PyObject[] { this }, null);
+                else
+                    _generator.Close();
+            }
+            catch (PythonException error)
+            {
+                PyUnraisable.Report(error, this);
+            }
+        }
 
         // async_gen_init_hooks
         private void InitHooks()
@@ -165,6 +189,9 @@ namespace SharpPy.Core
                     }
                     if (IsThrow && sent != PyNone.Instance && injected == null)
                         throw PyRuntimeError.Create("can't send non-None value to a just-started coroutine");
+                    // async_gen_athrow_send in aclose() mode
+                    if (_closing)
+                        _owner.AgClosed = true;
                     if (_closing && _owner._frame.State == PyFrame.FrameState.Created)
                     {
                         _owner._generator.Close(); _owner._finished = _closed = true;
@@ -198,6 +225,9 @@ namespace SharpPy.Core
                 {
                     _closed = true; _owner.Running = false;
                     _owner._finished = _owner._generator.IsFinished;
+                    // async_gen_unwrap_value: StopAsyncIteration or GeneratorExit closes the generator.
+                    if (error.PyException is PyStopIteration or PyStopAsyncIteration or PyGeneratorExit)
+                        _owner.AgClosed = true;
                     if (error.PyException is PyStopIteration)
                     {
                         _owner._finished = true;

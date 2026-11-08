@@ -243,13 +243,15 @@ namespace SharpPy
                     PyTuple.From(method.Instance, method.Function.GetAttribute("__name__")));
             });
             // gen_finalize as __del__, and gen_sizeof / frame_sizeof / code_sizeof.
-            foreach (var type in new[] { PyType.GeneratorType, PyType.CoroutineType })
+            foreach (var type in new[] { PyType.GeneratorType, PyType.CoroutineType, PyType.AsyncGeneratorType })
             {
                 Method(type, "__del__", (self, args) => { PyFinalizer.FinalizeGenerator(self); return PyNone.Instance; });
                 var owner = type;
+                string codeName = ReferenceEquals(owner, PyType.GeneratorType) ? "gi_code"
+                    : ReferenceEquals(owner, PyType.CoroutineType) ? "cr_code" : "ag_code";
                 Method(type, "__sizeof__", (self, args) =>
                 {
-                    var code = (PyCodeObject)self.GetAttribute(ReferenceEquals(owner, PyType.GeneratorType) ? "gi_code" : "cr_code");
+                    var code = (PyCodeObject)self.GetAttribute(codeName);
                     return PyInt.From(owner.Layout.BasicSize + owner.Layout.ItemSize * (long)(code.NLocalsPlus + code.StackSize));
                 });
             }
