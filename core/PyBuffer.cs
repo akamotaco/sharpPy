@@ -258,7 +258,6 @@ namespace SharpPy
                 "__getitem__", type,
                 (self, args, kwargs) => {
                     var view = (PyMemoryView)self;
-                    if (args.Length != 1) throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     return view.MpSubscript(args[0]);
                 }, minArgs: 1, maxArgs: 1);
             type.TypeDict["__setitem__"] = new PyWrapperDescriptor(
@@ -274,7 +273,6 @@ namespace SharpPy
                 "__len__", type,
                 (self, args, kwargs) => {
                     var view = (PyMemoryView)self;
-                    if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     return PyInt.From((int)view.Len());
                 }, minArgs: 0, maxArgs: 0);
 

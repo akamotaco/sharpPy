@@ -120,10 +120,6 @@ namespace SharpPy
                         var left = self as PyInt ?? (self as PyIntSubclass)?.GetIntValue();
                         if (left == null && self is not PyBool)
                             throw PyTypeError.Create($"descriptor '{name}' requires a 'int' object but received a '{self.GetTypeName()}'");
-                        if (kwargs != null && kwargs.Length() != 0)
-                            throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
-                        if (args.Length != 1)
-                            throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                         var right = args[0] as PyInt ?? (args[0] as PyIntSubclass)?.GetIntValue();
                         if (right == null && args[0] is not PyBool)
                             return PyNotImplemented.Instance;
@@ -149,10 +145,6 @@ namespace SharpPy
                 {
                     if (!IntLike(self))
                         throw PyTypeError.Create($"descriptor '{name}' requires a 'int' object but received a '{self.GetTypeName()}'");
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     return impl(AsIntObj(self));
                 });
             }
@@ -216,10 +208,6 @@ namespace SharpPy
                     var number = self as PyInt ?? (self as PyIntSubclass)?.GetIntValue();
                     if (number == null && self is not PyBool)
                         throw PyTypeError.Create($"descriptor '__hash__' requires a 'int' object but received a '{self.GetTypeName()}'");
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create("wrapper __hash__() takes no keyword arguments");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     if (number != null) return PyInt.From(PythonHash(number.Value));
                     return PyInt.From(((PyBool)self).Value ? 1 : 0);
                 });
@@ -360,8 +348,6 @@ namespace SharpPy
                 "from_bytes", intType,
                 (self, args, kwargs) => {
                     // self is the class (PyType) when called as classmethod
-                    if (args.Length < 1 || args.Length > 2)
-                        throw PyTypeError.Create($"from_bytes() takes from 1 to 2 positional arguments but {args.Length} were given");
 
                     // The argument is bytes-like or an iterable of ints; the conversion and its
                     // error text live in PyObject_Bytes (BytesMethods.ObjectBytes), so no exact-PyBytes gate goes here.

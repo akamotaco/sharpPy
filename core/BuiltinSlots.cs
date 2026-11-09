@@ -219,8 +219,6 @@ namespace SharpPy
             foreach (var type in new[] { PyType.ModuleType, PyType.SuperType })
                 type.TypeDict["__getattribute__"] = new PyWrapperDescriptor("__getattribute__", type, (self, args, kwargs) =>
                 {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     if (args[0] is not PyString name)
                         throw PyTypeError.Create($"attribute name must be string, not '{args[0].GetTypeName()}'");
                     return self.TpGetattro(name.Value);

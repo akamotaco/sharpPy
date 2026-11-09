@@ -698,6 +698,7 @@ namespace SharpPy
         // bytes.hex, bytearray.hex and memoryview.hex: one _Py_strhex_with_sep.
         internal static PyObject HexMethod(byte[] data, PyObject[] args, PyDict kwargs)
         {
+            // The clinic's own count (no arity row: its parser fits none of the table's formulas).
             if (args.Length > 2)
                 throw PyTypeError.Create($"hex() takes at most 2 arguments ({args.Length} given)");
             CheckKeywords("hex", kwargs, "sep", "bytes_per_sep");
@@ -786,8 +787,6 @@ namespace SharpPy
 
         private static PyObject Decode(PyObject self, PyObject[] args, PyDict kwargs)
         {
-            if (args.Length > 2)
-                throw PyTypeError.Create($"decode() takes at most 2 arguments ({args.Length} given)");
             PyObject encoding = args.Length > 0 ? args[0] : kwargs != null ? PyObject.KwValue(kwargs, "encoding") : null;
             PyObject errors = args.Length > 1 ? args[1] : kwargs != null ? PyObject.KwValue(kwargs, "errors") : null;
             if (encoding != null && encoding is not PyString)
@@ -1067,22 +1066,16 @@ namespace SharpPy
             Def(type, "endswith", (self, args, kwargs) => StartsEnds(Self(self), "endswith", args, false));
             Def(type, "split", (self, args, kwargs) =>
             {
-                if (args.Length > 2)
-                    throw PyTypeError.Create($"split() takes at most 2 arguments ({args.Length} given)");
                 CheckKeywords("split", kwargs, "sep", "maxsplit");
                 return Split(self, Named(args, 0, kwargs, "sep"), Named(args, 1, kwargs, "maxsplit"));
             }, keywords: true);
             Def(type, "rsplit", (self, args, kwargs) =>
             {
-                if (args.Length > 2)
-                    throw PyTypeError.Create($"rsplit() takes at most 2 arguments ({args.Length} given)");
                 CheckKeywords("rsplit", kwargs, "sep", "maxsplit");
                 return RSplit(self, Named(args, 0, kwargs, "sep"), Named(args, 1, kwargs, "maxsplit"));
             }, keywords: true);
             Def(type, "splitlines", (self, args, kwargs) =>
             {
-                if (args.Length > 1)
-                    throw PyTypeError.Create($"splitlines() takes at most 1 argument ({args.Length} given)");
                 CheckKeywords("splitlines", kwargs, "keepends");
                 var keep = Named(args, 0, kwargs, "keepends");
                 return SplitLines(self, keep != null && keep.IsTrue());
@@ -1103,8 +1096,6 @@ namespace SharpPy
             One(type, "zfill", ZFill);
             Def(type, "expandtabs", (self, args, kwargs) =>
             {
-                if (args.Length > 1)
-                    throw PyTypeError.Create($"expandtabs() takes at most 1 argument ({args.Length} given)");
                 CheckKeywords("expandtabs", kwargs, "tabsize");
                 var size = Named(args, 0, kwargs, "tabsize");
                 return ExpandTabs(self, size == null ? 8 : PyArgs.Int(size));

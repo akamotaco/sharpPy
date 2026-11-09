@@ -330,26 +330,14 @@ namespace SharpPy
 
             bytesType.TypeDict["__add__"] = new PyWrapperDescriptor("__add__", bytesType,
                 (self, args, kwargs) => {
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create("wrapper __add__() takes no keyword arguments");
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     return self.Add(args[0]);
                 });
             bytesType.TypeDict["__mul__"] = new PyWrapperDescriptor("__mul__", bytesType,
                 (self, args, kwargs) => {
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create("wrapper __mul__() takes no keyword arguments");
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     return self.Multiply(args[0]);
                 });
             bytesType.TypeDict["__rmul__"] = new PyWrapperDescriptor("__rmul__", bytesType,
                 (self, args, kwargs) => {
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create("wrapper __rmul__() takes no keyword arguments");
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     return self.Multiply(args[0]);
                 });
 

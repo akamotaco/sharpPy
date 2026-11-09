@@ -133,8 +133,6 @@ namespace SharpPy
             // type_getattro behind tp_getattro.
             typeClass.ClassDict["__getattribute__"] = new PyWrapperDescriptor("__getattribute__", typeClass, (self, args, kwargs) =>
             {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                 if (args[0] is not PyString name)
                     throw PyTypeError.Create($"attribute name must be string, not '{args[0].GetTypeName()}'");
                 return ((PyType)self).TypeGetattro(name.Value);

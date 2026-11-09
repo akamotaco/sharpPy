@@ -37,8 +37,6 @@ namespace SharpPy
             var tupleType = PyType.TupleType;
             tupleType.TypeDict["__len__"] = new PyWrapperDescriptor("__len__", tupleType, (self, args, kwargs) => {
                 var tuple = (PyTuple)self;
-                if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
-                if (kwargs != null && kwargs.Length() != 0) throw PyTypeError.Create("wrapper __len__() takes no keyword arguments");
                 return PyInt.From(tuple.Items.Length);
             });
 
@@ -53,7 +51,6 @@ namespace SharpPy
                     // this descriptor for subclasses; CPython reads the tuple slot
                     // directly for real tuples. Tuple subclasses are unmodelled here.
                     var it = (PyTuple)self;
-                    if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     return it.Stored.Iter();
                 }, minArgs: 0, maxArgs: 0);
 
@@ -61,7 +58,6 @@ namespace SharpPy
                 "__contains__", tupleType,
                 (self, args, kwargs) => {
                     var ct = (PyTuple)self;
-                    if (args.Length != 1) throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     return ct.Stored.ContainsItem(args[0]);
                 }, minArgs: 1, maxArgs: 1);
 

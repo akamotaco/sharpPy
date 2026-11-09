@@ -57,8 +57,6 @@ namespace SharpPy
             dictType.TypeDict["keys"] = new PyMethodDescriptor(
                 "keys", dictType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"keys() takes no arguments ({args.Length} given)");
 
 
                     return new PyDictView(GetDict(self, dictType), DictViewKind.Keys);
@@ -71,8 +69,6 @@ namespace SharpPy
             dictType.TypeDict["values"] = new PyMethodDescriptor(
                 "values", dictType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"values() takes no arguments ({args.Length} given)");
 
 
                     return new PyDictView(GetDict(self, dictType), DictViewKind.Values);
@@ -85,8 +81,6 @@ namespace SharpPy
             dictType.TypeDict["items"] = new PyMethodDescriptor(
                 "items", dictType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"items() takes no arguments ({args.Length} given)");
 
 
                     return new PyDictView(GetDict(self, dictType), DictViewKind.Items);
@@ -148,8 +142,6 @@ namespace SharpPy
             dictType.TypeDict["popitem"] = new PyMethodDescriptor(
                 "popitem", dictType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"popitem() takes no arguments ({args.Length} given)");
                     var dict = (PyDict)self;
 
                     return dict.PopItem();
@@ -162,8 +154,6 @@ namespace SharpPy
             dictType.TypeDict["clear"] = new PyMethodDescriptor(
                 "clear", dictType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
                     var dict = (PyDict)self;
 
                     return dict.Clear();
@@ -205,8 +195,6 @@ namespace SharpPy
             dictType.TypeDict["__or__"] = new PyWrapperDescriptor(
                 "__or__", dictType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     var left = RequireDictOperand(self, "__or__");
                     if (!IsDictLike(args[0])) return PyNotImplemented.Instance;
                     return left.BitwiseOr(args[0]);
@@ -215,8 +203,6 @@ namespace SharpPy
             dictType.TypeDict["__ror__"] = new PyWrapperDescriptor(
                 "__ror__", dictType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     RequireDictOperand(self, "__ror__");
                     return PyNotImplemented.Instance;
                 }
@@ -224,8 +210,6 @@ namespace SharpPy
             dictType.TypeDict["__ior__"] = new PyWrapperDescriptor(
                 "__ior__", dictType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     var target = RequireDictOperand(self, "__ior__");
                     // CPython dict_ior == PyDict_Update(self, other): any update argument,
                     // returns self identity.
@@ -236,8 +220,6 @@ namespace SharpPy
             dictType.TypeDict["__eq__"] = new PyWrapperDescriptor(
                 "__eq__", dictType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     var left = RequireDictOperand(self, "__eq__");
                     if (!IsDictLike(args[0])) return PyNotImplemented.Instance;
                     // dict_richcompare: dict_equal on the two tables.
@@ -247,8 +229,6 @@ namespace SharpPy
             dictType.TypeDict["__ne__"] = new PyWrapperDescriptor(
                 "__ne__", dictType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     var left = RequireDictOperand(self, "__ne__");
                     if (!IsDictLike(args[0])) return PyNotImplemented.Instance;
                     return PyBool.FromBool(!left.CheckDictEquality((PyDict)args[0]));
@@ -260,8 +240,6 @@ namespace SharpPy
                 dictType.TypeDict[slotName] = new PyWrapperDescriptor(
                     slotName, dictType,
                     (self, args, kwargs) => {
-                        if (args.Length != 1)
-                            throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                         RequireDictOperand(self, slotName);
                         return PyNotImplemented.Instance;
                     }
@@ -273,8 +251,6 @@ namespace SharpPy
             dictType.TypeDict["copy"] = new PyMethodDescriptor(
                 "copy", dictType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
                     // PyDict_Copy: an exact dict copies its table; a subclass goes through dict_merge.
                     if (self is PyDict { IsExact: true } dict) return dict.Copy();
                     return CopySubclass(self, GetDict(self, dictType));
@@ -381,9 +357,6 @@ namespace SharpPy
                     // CPython 3.12.15 measured: dict.__delitem__ reports "expected 1 argument, got N".
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create("dict.__delitem__() takes no keyword arguments");
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-
                     // dict_ass_sub without a value: the table itself.
                     if (self is PyDict pyDict)
                     {

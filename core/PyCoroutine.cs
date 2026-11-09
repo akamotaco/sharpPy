@@ -479,10 +479,6 @@ namespace SharpPy.Core
         {
             if (self is not PyCoroutineAwaiter)
                 throw PyTypeError.Create($"descriptor '{name}' requires a 'coroutine_wrapper' object but received a '{self.GetTypeName()}'");
-            if (kwargs != null && kwargs.Length() != 0)
-                throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
-            if (args.Length != 0)
-                throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
         }
 
         private readonly PyCoroutine _coroutine;

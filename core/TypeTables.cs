@@ -343,8 +343,6 @@ namespace SharpPy
         // wrap_descr_delete: check_num_args(args, 1).
         private static PyObject DescriptorDelete(PyObject self, PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
             ((IDescriptor)self).Delete(args[0]);
             return PyNone.Instance;
         }

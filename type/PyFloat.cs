@@ -149,10 +149,6 @@ namespace SharpPy
                 {
                     if (!PyFloat.TryFloatSelf(self, out var selfFloat))
                         throw PyTypeError.Create($"descriptor '{name}' requires a 'float' object but received a '{self.GetTypeName()}'");
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     return impl(selfFloat);
                 });
             }
@@ -197,10 +193,6 @@ namespace SharpPy
                     if (!PyFloat.TryFloatSelf(self, out _))
                         throw PyTypeError.Create(
                             $"descriptor '__float__' requires a 'float' object but received a '{self.GetTypeName()}'");
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create("wrapper __float__() takes no keyword arguments");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     // float_float: an exact float is itself, a subclass instance its exact value.
                     return FloatValue(self);
                 });
@@ -211,10 +203,6 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (!PyFloat.TryFloatSelf(self, out var hashTarget))
                         throw PyTypeError.Create($"descriptor '__hash__' requires a 'float' object but received a '{self.GetTypeName()}'");
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create("wrapper __hash__() takes no keyword arguments");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     // CPython float_hash keeps the invariant hash(2.0) == hash(2).
                     return PyInt.From(double.IsNaN(hashTarget.Value) ? self.ToHash() : hashTarget.PythonHash());
                 });
@@ -396,8 +384,6 @@ namespace SharpPy
             floatType.TypeDict["__repr__"] = new PyWrapperDescriptor(
                 "__repr__", floatType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     if (!PyFloat.TryFloatSelf(self, out var floatObj))
                         throw PyTypeError.Create($"descriptor '__repr__' requires a 'float' object but received a '{self.GetTypeName()}'");
                     return PyString.From(FormatFloat(floatObj.Value, ""));

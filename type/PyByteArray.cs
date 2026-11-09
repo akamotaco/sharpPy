@@ -46,8 +46,6 @@ namespace SharpPy
             baType.TypeDict["__delitem__"] = new PyWrapperDescriptor(
                 "__delitem__", baType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"__delitem__() takes exactly one argument ({args.Length} given)");
                     var ba = (PyByteArray)self;
                     ba.MpDelSubscript(args[0]);
                     return PyNone.Instance;
@@ -57,8 +55,6 @@ namespace SharpPy
             baType.TypeDict["append"] = new PyMethodDescriptor(
                 "append", baType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"append() takes exactly one argument ({args.Length} given)");
                     var ba = (PyByteArray)self;
 
                     int value = GetByteValue(args[0]);
@@ -72,8 +68,6 @@ namespace SharpPy
             baType.TypeDict["extend"] = new PyMethodDescriptor(
                 "extend", baType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"extend() takes exactly one argument ({args.Length} given)");
                     var ba = (PyByteArray)self;
 
                     ba.Extend(args[0]);
@@ -100,8 +94,6 @@ namespace SharpPy
             baType.TypeDict["remove"] = new PyMethodDescriptor(
                 "remove", baType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"remove() takes exactly one argument ({args.Length} given)");
                     var ba = (PyByteArray)self;
 
                     int value = GetByteValue(args[0]);
@@ -115,8 +107,6 @@ namespace SharpPy
             baType.TypeDict["pop"] = new PyMethodDescriptor(
                 "pop", baType,
                 (self, args, kwargs) => {
-                    if (args.Length > 1)
-                        throw PyTypeError.Create($"pop() takes at most 1 argument ({args.Length} given)");
                     var ba = (PyByteArray)self;
 
                     int index = args.Length == 0 ? -1 : PyArgs.SsizeCount(args[0]);
@@ -129,8 +119,6 @@ namespace SharpPy
             baType.TypeDict["clear"] = new PyMethodDescriptor(
                 "clear", baType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
                     var ba = (PyByteArray)self;
 
                     ba.Clear();
@@ -143,8 +131,6 @@ namespace SharpPy
             baType.TypeDict["reverse"] = new PyMethodDescriptor(
                 "reverse", baType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"reverse() takes no arguments ({args.Length} given)");
                     var ba = (PyByteArray)self;
 
                     ba.Reverse();
@@ -157,8 +143,6 @@ namespace SharpPy
             baType.TypeDict["copy"] = new PyMethodDescriptor(
                 "copy", baType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
                     var ba = (PyByteArray)self;
 
                     // Performance: Direct list copy instead of ToArray

@@ -1366,8 +1366,6 @@ namespace SharpPy
                 "__repr__",
                 intType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
                     // long_to_decimal_string: the digits, whatever a subclass declares.
                     if (self is PyIntSubclass subclass) self = subclass.GetIntValue();
                     if (self is PyBool truth) return PyString.From(truth.Value ? "1" : "0");
@@ -1384,8 +1382,6 @@ namespace SharpPy
                 "bit_length",
                 intType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"bit_length() takes no arguments ({args.Length} given)");
                     if (self is not PyInt pyInt)
                         throw PyTypeError.Create("descriptor 'bit_length' for 'int' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return pyInt.BitLength();
@@ -1399,8 +1395,6 @@ namespace SharpPy
                 "bit_count",
                 intType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"bit_count() takes no arguments ({args.Length} given)");
                     if (self is not PyInt pyInt)
                         throw PyTypeError.Create("descriptor 'bit_count' for 'int' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return pyInt.BitCount();
@@ -2308,8 +2302,6 @@ namespace SharpPy
                 "__delattr__",
                 typeType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     if (args[0] is not PyString nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
                     ((PyType)self).TypeDeleteAttribute(nameStr.Value);
@@ -2324,8 +2316,6 @@ namespace SharpPy
                 "__repr__",
                 typeType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__repr__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return type.TypeRepr();
@@ -2474,8 +2464,6 @@ namespace SharpPy
                 "pop",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"pop() takes no arguments ({args.Length} given)");
                     var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'pop' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.Pop();
                 },
@@ -2488,8 +2476,6 @@ namespace SharpPy
                 "clear",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
                     var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'clear' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.Clear();
                 },
@@ -2502,8 +2488,6 @@ namespace SharpPy
                 "copy",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
                     var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'copy' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.Copy();
                 },
@@ -3197,8 +3181,6 @@ namespace SharpPy
                 "__len__",
                 mappingProxyType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"__len__() takes no arguments ({args.Length} given)");
                     if (self is not PyMappingProxy mappingProxy)
                         throw PyTypeError.Create($"descriptor '__len__' for 'mappingproxy' objects doesn't apply to a '{self.GetTypeName()}' object");
 
