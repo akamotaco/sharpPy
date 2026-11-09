@@ -26,7 +26,7 @@ namespace SharpPy
 
         // wrap_buffer: the flags are a C int; PyBUF_WRITABLE (1) is refused by a read-only exporter
         // (PyBuffer_FillInfo's, or memory_getbuf's for a memoryview).
-        private static PyObject WrapBuffer(PyObject self, PyObject arg)
+        internal static PyObject WrapBuffer(PyObject self, PyObject arg)
         {
             long flags = PyArgs.AsSsize(arg, PyArgs.SsizeError.Overflow);
             if (flags > int.MaxValue || flags < int.MinValue)
@@ -41,7 +41,7 @@ namespace SharpPy
         }
 
         // wrap_releasebuffer: a memoryview of this object, not released yet, is released.
-        private static PyObject WrapReleaseBuffer(PyObject self, PyObject arg)
+        internal static PyObject WrapReleaseBuffer(PyObject self, PyObject arg)
         {
             if (arg is not PyMemoryView view)
                 throw PyTypeError.Create("expected a memoryview object");

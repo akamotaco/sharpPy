@@ -163,7 +163,6 @@ namespace SharpPy.Modules
 
         // ob_type: partial, or the Python class that allocated the partial layout.
         public override PyType GetPyType() => _customType ?? PartialType;
-        public override string GetTypeName() => GetPyType().Name;
         public override bool IsCallable() => true;
 
         private static PyPartial Self(PyObject self, string name) => self as PyPartial

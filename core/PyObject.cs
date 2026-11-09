@@ -41,7 +41,9 @@ namespace SharpPy
         // Returns ob_type if set, otherwise returns default type
         public virtual PyType GetPyType() => _customType ?? PyType.ObjectType;
 
-        public virtual string GetTypeName() => GetPyType().Name;
+        // Py_TYPE(o)->tp_name: "module.name" for a C module's type, the bare name for builtins' and
+        // for a class statement's.
+        public virtual string GetTypeName() => GetPyType().FullName;
         public virtual PyType PyClass => GetPyType();
 
         /// <summary>

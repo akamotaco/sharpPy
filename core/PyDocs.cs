@@ -135,9 +135,19 @@ namespace SharpPy
                 if (type.IsHeapType)
                     continue;
                 lock (_readied)
-                    if (_readied.Add(type) && TypeKey(type) is { } key && Lookup(key) is { } doc
+                {
+                    if (!_readied.Add(type))
+                        goto next;
+                    if (TypeKey(type) is { } key && Lookup(key) is { } doc
                         && (!type.TypeDict.TryGetValue("__doc__", out var stored) || stored is PyNone))
                         type.TypeDict["__doc__"] = DocFromInternal(type.Name, doc);
+                    // PyType_FromMetaclass: a type made from a spec holds __module__, the part of
+                    // tp_name before the last dot, in its dict, where its instances see it too.
+                    if (TypeLayouts.Measured(type.Name, out var layout) && layout.Spec && type.Module is { Length: > 0 } module
+                        && !type.TypeDict.ContainsKey("__module__"))
+                        type.TypeDict["__module__"] = PyString.From(module);
+                }
+                next:
                 foreach (var subclass in type.LiveSubclasses())
                     pending.Push(subclass);
             }

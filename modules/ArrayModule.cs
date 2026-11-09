@@ -1120,6 +1120,11 @@ namespace SharpPy.Modules
 
             type.TypeDict["__hash__"] = PyNone.Instance;
 
+            // array_buffer_procs: bf_getbuffer and bf_releasebuffer, through wrap_buffer and wrap_releasebuffer.
+            type.TypeDict["__buffer__"] = new PyWrapperDescriptor("__buffer__", type, (self, args, kwargs) => TypeTables.WrapBuffer(self, args[0]));
+            type.TypeDict["__release_buffer__"] = new PyWrapperDescriptor("__release_buffer__", type,
+                (self, args, kwargs) => TypeTables.WrapReleaseBuffer(self, args[0]));
+
             // array_array___sizeof___impl: the object, and the items it has room for.
             type.TypeDict["__sizeof__"] = new PyMethodDescriptor("__sizeof__", type, (self, args, kwargs) =>
                 PyInt.From(type.Layout.BasicSize + ((PyArray)self).AllocatedBytes));

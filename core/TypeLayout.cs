@@ -9,7 +9,8 @@ namespace SharpPy
     /// Slots is ht_slots, null for a type without __slots__. NoInstances is DISALLOW_INSTANTIATION.
     /// </summary>
     internal sealed record TypeLayout(int BasicSize, int ItemSize, int DictOffset, int WeakOffset, bool Gc,
-                                      string[] Slots = null, bool NoInstances = false, bool Final = false);
+                                      string[] Slots = null, bool NoInstances = false, bool Final = false,
+                                      bool Spec = false);
 
     internal static partial class TypeLayouts
     {
@@ -22,7 +23,7 @@ namespace SharpPy
             if (Table.TryGetValue(type.Name, out var layout))
                 return layout;
             var parent = type.BaseTypes.FirstOrDefault()?.Layout ?? Table["object"];
-            return parent with { BasicSize = parent.BasicSize + 16, NoInstances = false, Final = false };
+            return parent with { BasicSize = parent.BasicSize + 16, NoInstances = false, Final = false, Spec = false };
         }
     }
 }
