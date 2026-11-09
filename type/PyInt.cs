@@ -467,7 +467,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"from_bytes() takes from 1 to 2 positional arguments but {args.Length} were given");
 
                     // The argument is bytes-like or an iterable of ints; the conversion and its
-                    // error text live in GetBytesLikeBytes, so no exact-PyBytes gate goes here.
+                    // error text live in PyObject_Bytes (BytesMethods.ObjectBytes), so no exact-PyBytes gate goes here.
 
                     // Get byteorder argument (default 'big')
                     // The delegate reads the positional array, so byteorder= has to be resolved
@@ -497,7 +497,7 @@ namespace SharpPy
                     // long, so 10 bytes of 2**70 shifted out and the call returned 0 silently; and
                     // the top bit was read as a sign unconditionally, so int.from_bytes(b'\xff', 'big')
                     // answered -1 where CPython answers 255.
-                    var data = GetBytesLikeBytes(args[0]);
+                    var data = BytesMethods.ObjectBytes(args[0]).Value;
                     System.Numerics.BigInteger magnitude = 0;
                     for (int i = 0; i < data.Length; i++)
                     {
@@ -1000,64 +1000,6 @@ namespace SharpPy
         /// CPython: Objects/longobject.c:long_divmod (lines 4509-4526)
         /// Returns tuple of (quotient, remainder) equivalent to (a // b, a % b)
         /// </summary>
-        /// <summary>
-        /// CPython int.from_bytes accepts any bytes-like object as well as an iterable of ints
-        /// (Objects/longobject.c long_from_bytes -> PyObject_Bytes semantics).
-        /// </summary>
-        internal static byte[] GetBytesLikeBytes(PyObject value)
-        {
-            if (value is PyBytes bytesValue)
-                return bytesValue.Value;
-            if (value is PyByteArray byteArrayValue)
-                return byteArrayValue.ToByteArrayCopy();
-            if (value is PyMemoryView viewValue)
-                return viewValue.Data;
-            // CPython applies PyObject_Bytes semantics: a bytes-like object, or an iterable of ints.
-            // A str is refused explicitly even though it iterates, and anything without an iteration
-            // protocol reports the same conversion failure.
-            if (value is PyString)
-                throw PyTypeError.Create($"cannot convert '{value.GetTypeName()}' object to bytes");
-
-            PyObject iterator;
-            try
-            {
-                iterator = value.GetIterator();
-            }
-            catch (PythonException)
-            {
-                throw PyTypeError.Create($"cannot convert '{value.GetTypeName()}' object to bytes");
-            }
-
-            var collected = new System.Collections.Generic.List<byte>();
-            int position = 0;
-            while (true)
-            {
-                PyObject item;
-                try
-                {
-                    item = iterator.Next();
-                }
-                catch (PythonException exc) when (exc.PyException is PyStopIteration)
-                {
-                    break;
-                }
-                if (!PyInt.TryLongSelf(item, out var itemValue))
-                    throw PyTypeError.Create(
-                        $"'{item.GetTypeName()}' object cannot be interpreted as an integer");
-                collected.Add((byte)ItemToByte(itemValue));
-                position++;
-            }
-            return collected.ToArray();
-        }
-
-        private static int ItemToByte(PyInt value)
-        {
-            var item = value.Value;
-            if (item.Sign < 0 || item > 255)
-                throw PyValueError.Create("bytes must be in range(0, 256)");
-            return (int)item;
-        }
-
         /// <summary>
         /// CPython _PyLong_NumBits: the number of bits in the magnitude, 0 for zero.
         /// </summary>

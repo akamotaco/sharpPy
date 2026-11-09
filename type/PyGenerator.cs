@@ -405,6 +405,7 @@ namespace SharpPy
             if (_frame.State == PyFrame.FrameState.Executing)
                 throw PyValueError.Create("generator already executing");
             if (_finished) throw thrownException;
+            thrownException.PyException.ImplicitContextDone = false;
             _thrownException = thrownException;
             return Next();
         }
@@ -478,7 +479,7 @@ namespace SharpPy
 
             // gen_close injects an argumentless GeneratorExit directly. It does
             // not use the public throw() argument normalization path.
-            _thrownException = closeError ?? new PythonException(new PyGeneratorExit());
+            _thrownException = closeError ?? PyVM.SetObject(new PyGeneratorExit());
             try
             {
                 Next();

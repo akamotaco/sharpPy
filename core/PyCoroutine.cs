@@ -265,7 +265,7 @@ namespace SharpPy.Core
             // Keep the yield instruction as the exception-table lookup site.
             if (State == CoroutineState.Running)
                 throw PyValueError.Create("coroutine already executing");
-            _frame.PendingException = closeError ?? new PythonException(new PyGeneratorExit());
+            _frame.PendingException = closeError ?? PyVM.SetObject(new PyGeneratorExit());
             try
             {
                 Send(PyNone.Instance);
@@ -399,6 +399,7 @@ namespace SharpPy.Core
                 throw PyValueError.Create("coroutine already executing");
             if (_finished)
                 throw PyRuntimeError.Create("cannot reuse already awaited coroutine");
+            error.PyException.ImplicitContextDone = false;
             _frame.PendingException = error;
             return Send(PyNone.Instance);
         }

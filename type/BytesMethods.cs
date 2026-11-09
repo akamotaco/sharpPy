@@ -60,6 +60,17 @@ namespace SharpPy
                 ?? throw PyTypeError.Create($"__bytes__ returned non-bytes (type {result.GetTypeName()})");
         }
 
+        /// <summary>
+        /// PyObject_Bytes (Objects/object.c): an exact bytes is itself, then __bytes__, then
+        /// PyBytes_FromObject (a buffer, a list or tuple, an iterable of ints; not a str).
+        /// </summary>
+        internal static PyBytes ObjectBytes(PyObject value)
+        {
+            if (value.IsExactly(PyType.BytesType))
+                return (PyBytes)value;
+            return BytesSlot(value) ?? PyBytes.From(FromObject(value, "bytes"));
+        }
+
         /// <summary>PyObject_GetBuffer, the Py_buffer converter: what any buffer holds, else its refusal.</summary>
         internal static byte[] RequireBuffer(PyObject value) =>
             Buffer(value) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{value.GetTypeName()}'");

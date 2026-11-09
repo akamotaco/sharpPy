@@ -1468,13 +1468,15 @@ namespace SharpPy
             // CPython 3.12 _PyErr_SetObject: implicit __context__ is the
             // topmost *being-handled* exception captured at RAISE time, i.e.
             // BEFORE the unwind drops the handler scope we are escaping.
-            if (pyEx.PyException is PyBaseException newExcBase &&
+            // Done once per raise: an error a builtin raised is chained here, by the first handler.
+            if (pyEx.PyException is PyBaseException { ImplicitContextDone: false } newExcBase &&
                 frame.CurrentException is PyBaseException ctxBase &&
                 !ReferenceEquals(newExcBase, ctxBase) &&
                 newExcBase.__context__ == null &&
                 !newExcBase.__suppress_context__)
             {
                 newExcBase.__context__ = ctxBase;
+                newExcBase.ImplicitContextDone = true;
             }
 
             // CPython 3.12: Push lasti if required (for WITH_EXCEPT_START)
@@ -6371,9 +6373,20 @@ namespace SharpPy
             throw thrown;
         }
 
+        /// <summary>
+        /// _PyErr_SetObject for an exception a builtin raises into running code (gen_close's
+        /// GeneratorExit): chained to the topmost handled exception, once.
+        /// </summary>
+        internal static PythonException SetObject(PyBaseException value)
+        {
+            ChainContext(value, GetTopmostException());
+            return new PythonException(value);
+        }
+
         // _PyErr_SetObject: implicit chaining, and no new cycle through the context chain.
         internal static void ChainContext(PyBaseException value, PyBaseException handled)
         {
+            value.ImplicitContextDone = true;
             if (handled == null || ReferenceEquals(handled, value))
                 return;
             var current = handled;

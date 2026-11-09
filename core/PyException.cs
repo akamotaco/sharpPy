@@ -141,6 +141,14 @@ namespace SharpPy
             else throw PyTypeError.Create("__traceback__ must be a traceback or None");
         }
 
+        /// <summary>
+        /// The implicit chaining of the raise in progress is done: RAISE_VARARGS (_PyErr_SetObject)
+        /// did it, or the first frame that took an error a builtin raised, or one a generator
+        /// received by throw() (_PyErr_ChainStackItem). RERAISE (_PyErr_SetRaisedException) never
+        /// chains, so a __context__ = None made since stays; throw() starts a new raise.
+        /// </summary>
+        internal bool ImplicitContextDone;
+
         // BaseException_get_context / BaseException_set_context
         internal PyObject ContextGet() => (PyObject)__context__ ?? PyNone.Instance;
         internal void ContextSet(PyObject value)
