@@ -1369,8 +1369,7 @@ namespace SharpPy
                     // long_to_decimal_string: the digits, whatever a subclass declares.
                     if (self is PyIntSubclass subclass) self = subclass.GetIntValue();
                     if (self is PyBool truth) return PyString.From(truth.Value ? "1" : "0");
-                    if (self is not PyInt pyInt)
-                        throw PyTypeError.Create("descriptor '__repr__' for 'int' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var pyInt = (PyInt)self;
                     return pyInt.ToRepr();
                 },
                 minArgs: 0,
@@ -1382,8 +1381,7 @@ namespace SharpPy
                 "bit_length",
                 intType,
                 (self, args, kwargs) => {
-                    if (self is not PyInt pyInt)
-                        throw PyTypeError.Create("descriptor 'bit_length' for 'int' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var pyInt = (PyInt)self;
                     return pyInt.BitLength();
                 },
                 minArgs: 0,
@@ -1395,8 +1393,7 @@ namespace SharpPy
                 "bit_count",
                 intType,
                 (self, args, kwargs) => {
-                    if (self is not PyInt pyInt)
-                        throw PyTypeError.Create("descriptor 'bit_count' for 'int' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var pyInt = (PyInt)self;
                     return pyInt.BitCount();
                 },
                 minArgs: 0,
@@ -2048,8 +2045,7 @@ namespace SharpPy
                 "__name__",
                 typeType,
                 getter: self => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__name__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var type = (PyType)self;
                     // Objects/typeobject.c:988 type_name: a heap type returns the one name object it
                     // was created with (Py_NewRef(et->ht_name)), so reading __name__ twice gives the
                     // same object; a static spec has no stored str and CPython builds one per read.
@@ -2058,8 +2054,7 @@ namespace SharpPy
                     return type.HasFeature(PyTypeFlags.HeapType) ? type.NameString : PyString.From(type.Name);
                 },
                 setter: (self, value) => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__name__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var type = (PyType)self;
                     if (type.IsHeapType)
                     {
                         // type_set_name
@@ -2078,8 +2073,7 @@ namespace SharpPy
                     }
                 },
                 deleter: self => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__name__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var type = (PyType)self;
                     var name = type.FullName;
                     throw PyTypeError.Create($"cannot delete '__name__' attribute of immutable type '{name}'");
                 }
@@ -2091,8 +2085,7 @@ namespace SharpPy
                 "__qualname__",
                 typeType,
                 getter: self => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__qualname__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var type = (PyType)self;
                     // type_qualname reads ht_qualname for a heap type; SharpPy keeps qualname equal to
                     // name today, but still as one stored object per type rather than a fresh str.
                     return type.HasFeature(PyTypeFlags.HeapType)
@@ -2100,8 +2093,7 @@ namespace SharpPy
                         : PyString.From(type.Name);  // For built-in types, qualname == name
                 },
                 setter: (self, value) => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__qualname__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var type = (PyType)self;
                     if (type.IsHeapType)
                     {
                         if (value is not PyString)
@@ -2114,8 +2106,7 @@ namespace SharpPy
                     }
                 },
                 deleter: self => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__qualname__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var type = (PyType)self;
                     var name = type.FullName;
                     throw PyTypeError.Create($"cannot delete '__qualname__' attribute of immutable type '{name}'");
                 }
@@ -2126,8 +2117,7 @@ namespace SharpPy
                 "__bases__",
                 typeType,
                 getter: self => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__bases__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var type = (PyType)self;
 
                     // CPython 3.12 requirement: type.__bases__ is type.__bases__ must be True
                     // Cache the tuple object to ensure identity consistency
@@ -2165,8 +2155,7 @@ namespace SharpPy
                 "__mro__",
                 typeType,
                 getter: self => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__mro__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var type = (PyType)self;
                     if (type.MroPending)
                         return PyNone.Instance;
 
@@ -2188,8 +2177,7 @@ namespace SharpPy
             // type_getsets: __dict__ is type_dict, a mappingproxy of tp_dict alone.
             TypeDict["__dict__"] = new PyGetSetDescriptor("__dict__", typeType, self =>
             {
-                if (self is not PyType type)
-                    throw PyTypeError.Create("descriptor '__dict__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                var type = (PyType)self;
                 return new PyMappingProxy(type.TypeDict);
             });
 
@@ -2224,8 +2212,7 @@ namespace SharpPy
                 "__module__",
                 typeType,
                 getter: self => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__module__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var type = (PyType)self;
 
                     // CPython 3.12: Objects/typeobject.c:1065-1088
                     // For heap types (PyClass), check ClassDict
@@ -2257,8 +2244,7 @@ namespace SharpPy
                     return PyString.From("builtins");
                 },
                 setter: (self, value) => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__module__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var type = (PyType)self;
                     if (type.IsHeapType)
                     {
                         type.TypeDict["__module__"] = value;
@@ -2270,8 +2256,7 @@ namespace SharpPy
                     }
                 },
                 deleter: self => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__module__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var type = (PyType)self;
                     throw PyTypeError.Create($"cannot delete '__module__' attribute of immutable type '{type.FullName}'");
                 }
             );
@@ -2316,8 +2301,7 @@ namespace SharpPy
                 "__repr__",
                 typeType,
                 (self, args, kwargs) => {
-                    if (self is not PyType type)
-                        throw PyTypeError.Create("descriptor '__repr__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var type = (PyType)self;
                     return type.TypeRepr();
                 },
                 minArgs: 0,
@@ -3147,8 +3131,7 @@ namespace SharpPy
                 "__getitem__",
                 mappingProxyType,
                 (self, args, kwargs) => {
-                    if (self is not PyMappingProxy mappingProxy)
-                        throw PyTypeError.Create($"descriptor '__getitem__' for 'mappingproxy' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    var mappingProxy = (PyMappingProxy)self;
 
                     // Call GetItem which returns value as-is (no descriptor protocol)
                     return mappingProxy.MpSubscript(args[0]);
@@ -3164,8 +3147,7 @@ namespace SharpPy
                 "__contains__",
                 mappingProxyType,
                 (self, args, kwargs) => {
-                    if (self is not PyMappingProxy mappingProxy)
-                        throw PyTypeError.Create($"descriptor '__contains__' for 'mappingproxy' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    var mappingProxy = (PyMappingProxy)self;
 
                     // Call Contains which checks the underlying mapping
                     return mappingProxy.ContainsItem(args[0]);
@@ -3181,8 +3163,7 @@ namespace SharpPy
                 "__len__",
                 mappingProxyType,
                 (self, args, kwargs) => {
-                    if (self is not PyMappingProxy mappingProxy)
-                        throw PyTypeError.Create($"descriptor '__len__' for 'mappingproxy' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    var mappingProxy = (PyMappingProxy)self;
 
                     // Return the length of the underlying mapping
                     // Use InternalCount to avoid recursion (don't call Length() which looks up __len__)

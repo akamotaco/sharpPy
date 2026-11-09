@@ -195,8 +195,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             "__module__",
             funcType,
             getter: self => {
-                if (self is not PyFunction func)
-                    throw PyTypeError.Create("descriptor '__module__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                var func = (PyFunction)self;
                 // PyFunction_NewWithQualName: func_module is globals['__name__'], and it can be set.
                 if (func._module != null)
                     return func._module;
@@ -212,8 +211,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             "__doc__",
             funcType,
             getter: self => {
-                if (self is not PyFunction func)
-                    throw PyTypeError.Create("descriptor '__doc__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                var func = (PyFunction)self;
                 if (func._docWasSet)
                     return func._doc ?? PyNone.Instance;
                 if (func.CodeObject != null && func.CodeObject.Constants.Count > 0 && func.CodeObject.Constants[0] is PyString docString)
@@ -257,8 +255,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             "__closure__",
             funcType,
             getter: self => {
-                if (self is not PyFunction func)
-                    throw PyTypeError.Create("descriptor '__closure__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                var func = (PyFunction)self;
                 if (func.Closure.Length == 0)
                     return PyNone.Instance;
                 // func_closure is one tuple: the attribute hands out the same object.

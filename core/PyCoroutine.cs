@@ -434,24 +434,21 @@ namespace SharpPy.Core
         {
             WrapperType.TypeDict["throw"] = new PyMethodDescriptor("throw", WrapperType,
                 (self, args, kwargs) => {
-                    if (self is not PyCoroutineAwaiter wrapper)
-                        throw PyTypeError.Create($"descriptor 'throw' for 'coroutine_wrapper' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    var wrapper = (PyCoroutineAwaiter)self;
                     PyCoroutine.CheckThrowArguments("coroutine_wrapper", args, kwargs);
                     if (args.Length > 1) PyWarnings.DeprecatedThrow();
                     return wrapper._coroutine.Throw(args);
                 }, minArgs: 1, maxArgs: 3);
             WrapperType.TypeDict["close"] = new PyMethodDescriptor("close", WrapperType,
                 (self, args, kwargs) => {
-                    if (self is not PyCoroutineAwaiter wrapper)
-                        throw PyTypeError.Create($"descriptor 'close' for 'coroutine_wrapper' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    var wrapper = (PyCoroutineAwaiter)self;
                     PyCoroutine.CheckCloseArguments("coroutine_wrapper", args, kwargs);
                     wrapper.Close();
                     return PyNone.Instance;
                 }, minArgs: 0, maxArgs: 0);
             WrapperType.TypeDict["send"] = new PyMethodDescriptor("send", WrapperType,
                 (self, args, kwargs) => {
-                    if (self is not PyCoroutineAwaiter wrapper)
-                        throw PyTypeError.Create($"descriptor 'send' for 'coroutine_wrapper' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    var wrapper = (PyCoroutineAwaiter)self;
                     PyCoroutine.CheckSendArguments("coroutine_wrapper", args, kwargs);
                     return wrapper.Send(args[0]);
                 }, minArgs: 1, maxArgs: 1);

@@ -144,16 +144,14 @@ namespace SharpPy
                 owner.TypeDict["__next__"] = new PyWrapperDescriptor(
                     "__next__", owner,
                     (self, args, kwargs) => {
-                        if (self is not PyIterator iterator)
-                            throw PyTypeError.Create($"descriptor '__next__' requires a '{owner.Name}' object but received a '{self.GetTypeName()}'");
+                        var iterator = (PyIterator)self;
                         return iterator.IterNext();
                     },
                     minArgs: 0, maxArgs: 0);
                 owner.TypeDict["__iter__"] = new PyWrapperDescriptor(
                     "__iter__", owner,
                     (self, args, kwargs) => {
-                        if (self is not PyIterator iterator)
-                            throw PyTypeError.Create($"descriptor '__iter__' requires a '{owner.Name}' object but received a '{self.GetTypeName()}'");
+                        var iterator = (PyIterator)self;
                         return iterator;
                     },
                     minArgs: 0, maxArgs: 0);
