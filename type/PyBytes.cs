@@ -409,8 +409,7 @@ namespace SharpPy
             // PyByteArray delegates to the same cores, as bytearrayobject.c does.
             PyMethodDescriptor Bts(string name, System.Func<PyBytes, PyObject[], PyObject> body, int min, int max)
                 => new PyMethodDescriptor(name, bytesType, (self, args, kwargs) => {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create($"descriptor '{name}' requires a 'bytes' object but received a '{self.GetTypeName()}'");
+                    var selfBytes = (PyBytes)self;
                     if (args.Length < min)
                         throw PyTypeError.Create($"{name}() takes at least {min} argument ({args.Length} given)");
                     if (args.Length > max)
@@ -510,8 +509,7 @@ namespace SharpPy
                 bytesType,
                 (self, args, kwargs) =>
                 {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor '__iter__' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var selfBytes = (PyBytes)self;
 
                     return selfBytes.Iter();
                 },

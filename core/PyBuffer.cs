@@ -357,6 +357,10 @@ namespace SharpPy
             if (data is IBufferExporter exporter) exporter.AcquireBufferExport();
         }
 
+        // view.obj, and whether release() has run (_Py_MEMORYVIEW_RELEASED).
+        internal PyObject Exportee => _exportee;
+        internal bool IsReleased => _data == null;
+
         private void CheckReleased()
         {
             if (_data == null)

@@ -86,8 +86,7 @@ namespace SharpPy
 
         internal static PyObject IndicesMethod(PyObject self, PyObject[] args, PyDict kwargs)
         {
-            if (self is not PySlice slice)
-                throw PyTypeError.Create($"descriptor 'indices' for 'slice' objects doesn't apply to a '{self.GetTypeName()}' object");
+            var slice = (PySlice)self;
             if (kwargs != null && kwargs.Length() != 0)
                 throw PyTypeError.Create("slice.indices() takes no keyword arguments");
             if (args.Length != 1)

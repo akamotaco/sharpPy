@@ -36,8 +36,7 @@ namespace SharpPy
         {
             var tupleType = PyType.TupleType;
             tupleType.TypeDict["__len__"] = new PyWrapperDescriptor("__len__", tupleType, (self, args, kwargs) => {
-                if (self is not PyTuple tuple)
-                    throw PyTypeError.Create($"descriptor '__len__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+                var tuple = (PyTuple)self;
                 if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                 if (kwargs != null && kwargs.Length() != 0) throw PyTypeError.Create("wrapper __len__() takes no keyword arguments");
                 return PyInt.From(tuple.Items.Length);
@@ -53,8 +52,7 @@ namespace SharpPy
                     // Strict typed call (not the PyObject virtual) to avoid re-entering
                     // this descriptor for subclasses; CPython reads the tuple slot
                     // directly for real tuples. Tuple subclasses are unmodelled here.
-                    if (self is not PyTuple it)
-                        throw PyTypeError.Create($"descriptor '__iter__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+                    var it = (PyTuple)self;
                     if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     return it.Stored.Iter();
                 }, minArgs: 0, maxArgs: 0);
@@ -62,8 +60,7 @@ namespace SharpPy
             tupleType.TypeDict["__contains__"] = new PyWrapperDescriptor(
                 "__contains__", tupleType,
                 (self, args, kwargs) => {
-                    if (self is not PyTuple ct)
-                        throw PyTypeError.Create($"descriptor '__contains__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+                    var ct = (PyTuple)self;
                     if (args.Length != 1) throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     return ct.Stored.ContainsItem(args[0]);
                 }, minArgs: 1, maxArgs: 1);
@@ -83,8 +80,7 @@ namespace SharpPy
                     if (kwargs != null && kwargs.Length() != 0)
                         throw PyTypeError.Create("tuple.index() takes no keyword arguments");
 
-                    if (self is not PyTuple tuple)
-                        throw PyTypeError.Create($"descriptor 'index' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+                    var tuple = (PyTuple)self;
 
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create($"index expected at most 3 arguments, got {args.Length}");
@@ -107,8 +103,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"tuple.count() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyTuple tuple)
-                        throw PyTypeError.Create($"descriptor 'count' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+                    var tuple = (PyTuple)self;
 
                     var value = args[0];
                     return tuple.Count(value);
@@ -123,8 +118,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     // CPython 3.12: tuple is immutable, so we can call GetItem directly
                     // No need for special storage handling like dict/list
-                    if (self is not PyTuple tuple)
-                        throw PyTypeError.Create($"descriptor '__getitem__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+                    var tuple = (PyTuple)self;
 
                     return tuple.Stored.MpSubscript(args[0]);
                 },
@@ -137,8 +131,7 @@ namespace SharpPy
             tupleType.TypeDict["__add__"] = new PyWrapperDescriptor(
                 "__add__", tupleType,
                 (self, args, kwargs) => {
-                    if (self is not PyTuple tuple)
-                        throw PyTypeError.Create($"descriptor '__add__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+                    var tuple = (PyTuple)self;
 
                     return tuple.Add(args[0]);
                 },
@@ -151,8 +144,7 @@ namespace SharpPy
             tupleType.TypeDict["__mul__"] = new PyWrapperDescriptor(
                 "__mul__", tupleType,
                 (self, args, kwargs) => {
-                    if (self is not PyTuple tuple)
-                        throw PyTypeError.Create($"descriptor '__mul__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+                    var tuple = (PyTuple)self;
 
                     return tuple.Multiply(args[0]);
                 },
@@ -163,8 +155,7 @@ namespace SharpPy
             tupleType.TypeDict["__rmul__"] = new PyWrapperDescriptor(
                 "__rmul__", tupleType,
                 (self, args, kwargs) => {
-                    if (self is not PyTuple tuple)
-                        throw PyTypeError.Create($"descriptor '__rmul__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+                    var tuple = (PyTuple)self;
 
                     return tuple.Multiply(args[0]);
                 },

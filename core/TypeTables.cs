@@ -24,6 +24,35 @@ namespace SharpPy
                 type.TypeDict[name] = new PyGetSetDescriptor(name, type, self => read((T)self, name));
         }
 
+        // wrap_buffer: the flags are a C int; PyBUF_WRITABLE (1) is refused by a read-only exporter
+        // (PyBuffer_FillInfo's, or memory_getbuf's for a memoryview).
+        private static PyObject WrapBuffer(PyObject self, PyObject arg)
+        {
+            long flags = PyArgs.AsSsize(arg, PyArgs.SsizeError.Overflow);
+            if (flags > int.MaxValue || flags < int.MinValue)
+                throw PyOverflowError.Create("buffer flags out of range");
+            var view = (PyMemoryView)PyType.MemoryViewType.Call(new[] { self }, null);
+            if ((flags & 1) != 0 && view.ReadOnly)
+            {
+                view.Release();
+                throw PyBufferError.Create(self is PyMemoryView ? "memoryview: underlying buffer is not writable" : "Object is not writable.");
+            }
+            return view;
+        }
+
+        // wrap_releasebuffer: a memoryview of this object, not released yet, is released.
+        private static PyObject WrapReleaseBuffer(PyObject self, PyObject arg)
+        {
+            if (arg is not PyMemoryView view)
+                throw PyTypeError.Create("expected a memoryview object");
+            if (!ReferenceEquals(view.Exportee, self))
+                throw PyValueError.Create("memoryview's buffer is not this object");
+            if (view.IsReleased)
+                throw PyValueError.Create("memoryview's buffer has already been released");
+            view.Release();
+            return PyNone.Instance;
+        }
+
         // PyMethodDef rows: the descriptor calls the implementation; PyArity holds the convention.
         private static void Methods<T>(PyType type, params (string Name, Func<T, PyObject[], PyDict, PyObject> Call)[] methods) where T : PyObject
         {
@@ -211,11 +240,11 @@ namespace SharpPy
             Hashed(PyType.UnionType);
             Compared(PyType.UnionType);
 
-            // PEP 688: what memoryview(x) does, by the method.
+            // PEP 688: wrap_buffer and wrap_releasebuffer (Objects/typeobject.c).
             foreach (var type in new[] { PyType.BytesType, PyType.BytearrayType, PyType.MemoryViewType })
-                Wrapper(type, "__buffer__", (self, args) => PyType.MemoryViewType.Call(new[] { self }, null));
+                Wrapper(type, "__buffer__", (self, args) => WrapBuffer(self, args[0]));
             foreach (var type in new[] { PyType.BytearrayType, PyType.MemoryViewType })
-                Wrapper(type, "__release_buffer__", (self, args) => PyNone.Instance);
+                Wrapper(type, "__release_buffer__", (self, args) => WrapReleaseBuffer(self, args[0]));
             Repr(PyType.NoneType, PyType.NotImplementedType, PyType.EllipsisType);
             Hashed(PyType.NoneType);
             Compared(PyType.NoneType);

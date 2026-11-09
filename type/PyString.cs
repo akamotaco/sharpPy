@@ -1212,7 +1212,7 @@ namespace SharpPy
                     PyString str = AsStrReceiver(self, "removeprefix");
 
                     if (args[0] is not PyString prefix)
-                        throw PyTypeError.Create("prefix must be str, not " + args[0].GetTypeName());
+                        throw PyArgs.BadArgument("removeprefix", "argument", "str", args[0]);
 
                     if (str.Value.StartsWith(prefix.Value, StringComparison.Ordinal))
                         return PyString.From(str.Value.Substring(prefix.Value.Length));
@@ -1232,7 +1232,7 @@ namespace SharpPy
                     PyString str = AsStrReceiver(self, "removesuffix");
 
                     if (args[0] is not PyString suffix)
-                        throw PyTypeError.Create("suffix must be str, not " + args[0].GetTypeName());
+                        throw PyArgs.BadArgument("removesuffix", "argument", "str", args[0]);
 
                     if (str.Value.EndsWith(suffix.Value, StringComparison.Ordinal))
                         return PyString.From(str.Value.Substring(0, str.Value.Length - suffix.Value.Length));
@@ -1467,45 +1467,37 @@ namespace SharpPy
                         throw PyTypeError.Create($"translate() takes exactly one argument ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "translate");
 
-                    if (args[0] is not PyDict table)
-                        throw PyTypeError.Create("translate() argument must be a dict");
-
+                    // _PyUnicode_TranslateCharmap: each code point is looked up in the table by
+                    // charmaptranslate_lookup (PyObject_GetItem); a LookupError keeps it.
+                    var table = args[0];
                     var result = new System.Text.StringBuilder(str.Value.Length);
-
-                    foreach (char c in str.Value)
+                    foreach (int cp in str.CodePoints())
                     {
-                        var key = PyInt.From(c);
-                        if (table.Contains(key).Value)
+                        PyObject value;
+                        try
                         {
-                            var value = table.GetItem(key);
-                            if (value == PyNone.Instance)
-                            {
-                                // Delete character
-                                continue;
-                            }
-                            else if (value is PyInt intValue)
-                            {
-                                result.Append((char)intValue.Value);
-                            }
-                            else if (value is PyString strValue)
-                            {
-                                result.Append(strValue.Value);
-                            }
-                            else if (value is PyNone)
-                            {
-                                // Delete character
-                                continue;
-                            }
-                            else
-                            {
-                                throw PyTypeError.Create($"character mapping must return integer, None or str, not {value.GetTypeName()}");
-                            }
+                            value = table.GetItem(PyInt.From(cp));
                         }
+                        catch (PythonException error) when (error.PyException is PyLookupError)
+                        {
+                            AppendCodePoint(result, cp);
+                            continue;
+                        }
+                        if (value is PyNone)
+                            continue;
+                        if (PyInt.LongCheck(value))
+                        {
+                            // PyLong_AS_LONG: an int past a C long reads as -1, out of range too.
+                            var big = PyObject.IndexOrThrow(value).Value;
+                            long mapped = big < 0 || big > 0x10FFFF ? -1 : (long)big;
+                            if (mapped < 0)
+                                throw PyValueError.Create("character mapping must be in range(0x110000)");
+                            AppendCodePoint(result, (int)mapped);
+                        }
+                        else if (value is PyString text)
+                            result.Append(text.Value);
                         else
-                        {
-                            // Character not in table, keep as is
-                            result.Append(c);
-                        }
+                            throw PyTypeError.Create("character mapping must return integer, None or str");
                     }
 
                     return PyString.From(result.ToString());
@@ -2420,6 +2412,13 @@ namespace SharpPy
                     projected[i] = value;
             }
             return projected;
+        }
+
+        // A code point as the UTF-16 text holds it: a lone surrogate stays one unit.
+        private static void AppendCodePoint(System.Text.StringBuilder text, int cp)
+        {
+            if (cp < 0x10000) text.Append((char)cp);
+            else text.Append(char.ConvertFromUtf32(cp));
         }
 
         internal static PyString AsStrReceiver(PyObject self)

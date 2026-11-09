@@ -39,9 +39,6 @@ namespace SharpPy
             dictType.TypeDict["get"] = new PyMethodDescriptor(
                 "get", dictType,
                 (self, args, kwargs) => {
-                    // CPython 3.12: Include/dictobject.h:17-18 - PyDict_Check accepts subclasses
-                    if (!self.GetPyType().IsSubclassOf(dictType))
-                        throw PyTypeError.Create($"descriptor 'get' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     if (args.Length < 1 || args.Length > 2)
                         throw PyTypeError.Create(args.Length < 1 ? "get expected at least 1 argument, got 0" : $"get expected at most 2 arguments, got {args.Length}");
@@ -63,9 +60,6 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create($"keys() takes no arguments ({args.Length} given)");
 
-                    // CPython 3.12: Include/dictobject.h:17-18 - PyDict_Check accepts subclasses
-                    if (!self.GetPyType().IsSubclassOf(dictType))
-                        throw PyTypeError.Create($"descriptor 'keys' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     return new PyDictView(GetDict(self, dictType), DictViewKind.Keys);
                 },
@@ -80,8 +74,6 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create($"values() takes no arguments ({args.Length} given)");
 
-                    if (!self.GetPyType().IsSubclassOf(dictType))
-                        throw PyTypeError.Create($"descriptor 'values' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     return new PyDictView(GetDict(self, dictType), DictViewKind.Values);
                 },
@@ -96,8 +88,6 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create($"items() takes no arguments ({args.Length} given)");
 
-                    if (!self.GetPyType().IsSubclassOf(dictType))
-                        throw PyTypeError.Create($"descriptor 'items' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     return new PyDictView(GetDict(self, dictType), DictViewKind.Items);
                 },
@@ -109,10 +99,6 @@ namespace SharpPy
             dictType.TypeDict["setdefault"] = new PyMethodDescriptor(
                 "setdefault", dictType,
                 (self, args, kwargs) => {
-                    // CPython 3.12: Include/dictobject.h:17-18 - PyDict_Check accepts subclasses
-                    // Check if self is dict or dict subclass
-                    if (!self.GetPyType().IsSubclassOf(dictType))
-                        throw PyTypeError.Create($"descriptor 'setdefault' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     if (args.Length < 1 || args.Length > 2)
                         throw PyTypeError.Create(args.Length < 1 ? "setdefault expected at least 1 argument, got 0" : $"setdefault expected at most 2 arguments, got {args.Length}");
@@ -142,9 +128,6 @@ namespace SharpPy
             dictType.TypeDict["pop"] = new PyMethodDescriptor(
                 "pop", dictType,
                 (self, args, kwargs) => {
-                    // CPython 3.12: Include/dictobject.h:17-18 - PyDict_Check accepts subclasses
-                    if (!self.GetPyType().IsSubclassOf(dictType))
-                        throw PyTypeError.Create($"descriptor 'pop' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     if (args.Length < 1 || args.Length > 2)
                         throw PyTypeError.Create(args.Length < 1 ? "pop expected at least 1 argument, got 0" : $"pop expected at most 2 arguments, got {args.Length}");
@@ -167,8 +150,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"popitem() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
-                        throw PyTypeError.Create($"descriptor 'popitem' requires a 'dict' object but received a '{self.GetTypeName()}'");
+                    var dict = (PyDict)self;
 
                     return dict.PopItem();
                 },
@@ -182,8 +164,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
-                        throw PyTypeError.Create($"descriptor 'clear' requires a 'dict' object but received a '{self.GetTypeName()}'");
+                    var dict = (PyDict)self;
 
                     return dict.Clear();
                 },
@@ -332,8 +313,7 @@ namespace SharpPy
                     throw PyTypeError.Create("dict.__contains__() takes no keyword arguments");
                 if (args.Length != 1)
                     throw PyTypeError.Create($"dict.__contains__() takes exactly one argument ({args.Length} given)");
-                if (self is not PyDict dict)
-                    throw PyTypeError.Create($"descriptor '__contains__' for 'dict' objects doesn't apply to a '{self.GetTypeName()}' object");
+                var dict = (PyDict)self;
                 return dict.ContainsItem(args[0]);
             }, acceptsKwargs: true);
             dictType.TypeDict["__getitem__"] = new PyMethodDescriptor(

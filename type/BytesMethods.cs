@@ -806,7 +806,7 @@ namespace SharpPy
         }
 
         // PyBytes_FromObject and the slow path of bytearray___init___impl
-        internal static byte[] FromObject(PyObject source, string kind, long lengthHint = 0, List<byte> growing = null)
+        internal static byte[] FromObject(PyObject source, string kind, long lengthHint = 0, List<byte> growing = null, string refusal = null)
         {
             string range = kind == "bytes" ? "bytes must be in range(0, 256)" : "byte must be in range(0, 256)";
             var data = Buffer(source);
@@ -835,7 +835,7 @@ namespace SharpPy
             }
             catch (PythonException error) when (error.PyException is PyTypeError)
             {
-                throw PyTypeError.Create($"cannot convert '{source.GetTypeName()}' object to {kind}");
+                throw PyTypeError.Create(refusal ?? $"cannot convert '{source.GetTypeName()}' object to {kind}");
             }
             // _PyBytes_FromIterator, bytearray_extend. bytearray() itself does not ask.
             if (kind == "bytes" || lengthHint > 0)
@@ -968,8 +968,6 @@ namespace SharpPy
             string owner = type.Name;
             type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) =>
             {
-                if (!self.GetPyType().IsSubclassOf(type))
-                    throw PyTypeError.Create($"descriptor '{name}' for '{owner}' objects doesn't apply to a '{self.GetTypeName()}' object");
                 if (!keywords && kwargs != null && kwargs.Length() != 0)
                     throw PyTypeError.Create($"{owner}.{name}() takes no keyword arguments");
                 return implementation(self, args, kwargs);

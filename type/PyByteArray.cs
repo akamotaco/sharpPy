@@ -38,8 +38,7 @@ namespace SharpPy
             baType.TypeDict["__setitem__"] = new PyWrapperDescriptor(
                 "__setitem__", baType,
                 (self, args, kwargs) => {
-                    if (self is not PyByteArray baSelf)
-                        throw PyTypeError.Create($"descriptor '__setitem__' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    var baSelf = (PyByteArray)self;
                     baSelf.MpAssSubscript(args[0], args[1]);
                     return PyNone.Instance;
                 }, minArgs: 2, maxArgs: 2);
@@ -49,8 +48,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"__delitem__() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyByteArray ba)
-                        throw PyTypeError.Create($"descriptor '__delitem__' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    var ba = (PyByteArray)self;
                     ba.MpDelSubscript(args[0]);
                     return PyNone.Instance;
                 }, minArgs: 1, maxArgs: 1);
@@ -61,8 +59,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"append() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyByteArray ba)
-                        throw PyTypeError.Create($"descriptor 'append' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    var ba = (PyByteArray)self;
 
                     int value = GetByteValue(args[0]);
                     ba.Append((byte)value);
@@ -77,8 +74,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"extend() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyByteArray ba)
-                        throw PyTypeError.Create($"descriptor 'extend' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    var ba = (PyByteArray)self;
 
                     ba.Extend(args[0]);
                     return PyNone.Instance;
@@ -90,8 +86,7 @@ namespace SharpPy
             baType.TypeDict["insert"] = new PyMethodDescriptor(
                 "insert", baType,
                 (self, args, kwargs) => {
-                    if (self is not PyByteArray ba)
-                        throw PyTypeError.Create($"descriptor 'insert' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    var ba = (PyByteArray)self;
 
                     int index = PyArgs.SsizeCount(args[0]);
                     int value = GetByteValue(args[1]);
@@ -107,8 +102,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"remove() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyByteArray ba)
-                        throw PyTypeError.Create($"descriptor 'remove' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    var ba = (PyByteArray)self;
 
                     int value = GetByteValue(args[0]);
                     ba.Remove((byte)value);
@@ -123,8 +117,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 1)
                         throw PyTypeError.Create($"pop() takes at most 1 argument ({args.Length} given)");
-                    if (self is not PyByteArray ba)
-                        throw PyTypeError.Create($"descriptor 'pop' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    var ba = (PyByteArray)self;
 
                     int index = args.Length == 0 ? -1 : PyArgs.SsizeCount(args[0]);
                     return ba.Pop(index);
@@ -138,8 +131,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
-                    if (self is not PyByteArray ba)
-                        throw PyTypeError.Create($"descriptor 'clear' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    var ba = (PyByteArray)self;
 
                     ba.Clear();
                     return PyNone.Instance;
@@ -153,8 +145,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"reverse() takes no arguments ({args.Length} given)");
-                    if (self is not PyByteArray ba)
-                        throw PyTypeError.Create($"descriptor 'reverse' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    var ba = (PyByteArray)self;
 
                     ba.Reverse();
                     return PyNone.Instance;
@@ -168,8 +159,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
-                    if (self is not PyByteArray ba)
-                        throw PyTypeError.Create($"descriptor 'copy' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    var ba = (PyByteArray)self;
 
                     // Performance: Direct list copy instead of ToArray
                     return new PyByteArray(ba._bytes);
@@ -187,8 +177,7 @@ namespace SharpPy
             // find ignored non-integer start/stop. All share the CPython core above.
             PyMethodDescriptor Ba(string name, System.Func<PyByteArray, PyObject[], PyObject> body, int min, int max)
                 => new PyMethodDescriptor(name, baType, (self, args, kwargs) => {
-                    if (self is not PyByteArray selfBa)
-                        throw PyTypeError.Create($"descriptor '{name}' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    var selfBa = (PyByteArray)self;
                     if (args.Length < min)
                         throw PyTypeError.Create($"{name}() takes at least {min} argument ({args.Length} given)");
                     if (args.Length > max)
@@ -719,7 +708,9 @@ namespace SharpPy
             if (HasBufferExports)
                 throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
 
-            _bytes.AddRange(BytesMethods.FromObject(iterable, "bytearray", 32));
+            // bytearray_extend: a buffer, else an iterator, whose absence it words itself.
+            _bytes.AddRange(BytesMethods.FromObject(iterable, "bytearray", 32,
+                refusal: $"can't extend bytearray with {iterable.GetTypeName()}"));
         }
 
         public void Insert(int index, byte value)
