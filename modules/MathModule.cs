@@ -422,15 +422,7 @@ namespace SharpPy.Modules
             return Whole(function(RealNumber(value)));
         }
 
-        // PyLong_FromDouble
-        private static PyObject Whole(double value)
-        {
-            if (double.IsInfinity(value))
-                throw PyOverflowError.Create("cannot convert float infinity to integer");
-            if (double.IsNaN(value))
-                throw PyValueError.Create("cannot convert float NaN to integer");
-            return PyInt.From(new BigInteger(value));
-        }
+        private static PyObject Whole(double value) => PyInt.FromDouble(value);
 
         private static BigInteger Index(PyObject value) =>
             (PyObject.IndexOrThrow(value)).Value;
@@ -1113,11 +1105,7 @@ namespace SharpPy.Modules
             throw PyTypeError.Create($"must be real number, not {value.GetTypeName()}");
         }
 
-        private static double IntegerDouble(PyInt value)
-        {
-            double result = (double)value.Value;
-            if (double.IsInfinity(result)) throw PyOverflowError.Create("int too large to convert to float");
-            return result;
-        }
+        // PyLong_AsDouble: correctly rounded, OverflowError past a double.
+        private static double IntegerDouble(PyInt value) => value.ToFloat();
     }
 }

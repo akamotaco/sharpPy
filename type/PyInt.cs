@@ -1161,17 +1161,16 @@ namespace SharpPy
         }
 
         // long_float: PyLong_AsDouble.
-        protected internal override PyObject NbFloat()
+        protected internal override PyObject NbFloat() => new PyFloat(ToFloat());
+
+        /// <summary>PyLong_FromDouble: the integral part; infinity and NaN have none.</summary>
+        internal static PyInt FromDouble(double value)
         {
-            // CPython PyLong_AsDouble: correctly rounded decimal→binary conversion,
-            // and overflow is an error, not infinity.
-            // Measured: float(10 ** 400) → OverflowError: int too large to convert to float
-            double d = double.Parse(Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                                    System.Globalization.NumberStyles.Float,
-                                    System.Globalization.CultureInfo.InvariantCulture);
-            if (double.IsInfinity(d))
-                throw PyOverflowError.Create("int too large to convert to float");
-            return new PyFloat(d);
+            if (double.IsInfinity(value))
+                throw PyOverflowError.Create("cannot convert float infinity to integer");
+            if (double.IsNaN(value))
+                throw PyValueError.Create("cannot convert float NaN to integer");
+            return From(new BigInteger(value));
         }
 
         /// <summary>

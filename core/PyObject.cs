@@ -650,6 +650,11 @@ namespace SharpPy
         /// Whether the type fills the slot (tp_iter != NULL and the like): _PyType_Lookup found
         /// something, a builtin's own slot wrapper included.
         /// </summary>
+        /// <summary>PyObject_GetAttr, SetAttr and DelAttr: the name must be a str.</summary>
+        internal static string AttributeName(PyObject name) =>
+            name is PyString text ? text.Value
+            : throw PyTypeError.Create($"attribute name must be string, not '{name.GetTypeName()}'");
+
         internal bool HasTypeSlot(string name) => GetPyType().FindNameInMro(name) != null;
 
         /// <summary>

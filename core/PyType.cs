@@ -1821,8 +1821,8 @@ namespace SharpPy
                     if (args.Length < 1)
                         throw PyTypeError.Create("__getattribute__() missing 1 required positional argument: 'name'");
 
-                    if (args[0] is not PyString nameStr)
-                        throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
+                    PyObject.AttributeName(args[0]);
+                    var nameStr = (PyString)args[0];
 
                     // PyObject_GenericGetAttr, without the hook of the instance's Python class.
                     return self.GenericGetAttr(nameStr.Value);
@@ -1843,8 +1843,8 @@ namespace SharpPy
                         throw PyTypeError.Create("__setattr__() missing required positional arguments");
                     Hackcheck(self, "__setattr__");
 
-                    if (args[0] is not PyString nameStr)
-                        throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
+                    PyObject.AttributeName(args[0]);
+                    var nameStr = (PyString)args[0];
 
                     // CPython 3.12: object.__setattr__ uses _PyObject_GenericSetAttrWithDict
                     // which is the "default" behavior without __setattr__ lookup
@@ -1868,8 +1868,8 @@ namespace SharpPy
                         throw PyTypeError.Create("__delattr__() missing 1 required positional argument: 'name'");
                     Hackcheck(self, "__delattr__");
 
-                    if (args[0] is not PyString nameStr)
-                        throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
+                    PyObject.AttributeName(args[0]);
+                    var nameStr = (PyString)args[0];
 
                     // CPython 3.12: object.__delattr__ uses _PyObject_GenericSetAttrWithDict with value=NULL
                     self.GenericDelAttr(nameStr.Value);
@@ -2287,8 +2287,8 @@ namespace SharpPy
                     if (args.Length < 2)
                         throw PyTypeError.Create("__setattr__() missing required positional arguments");
 
-                    if (args[0] is not PyString nameStr)
-                        throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
+                    PyObject.AttributeName(args[0]);
+                    var nameStr = (PyString)args[0];
 
                     ((PyType)self).TypeSetAttribute(nameStr.Value, args[1]);
                     return PyNone.Instance;
@@ -2302,8 +2302,8 @@ namespace SharpPy
                 "__delattr__",
                 typeType,
                 (self, args, kwargs) => {
-                    if (args[0] is not PyString nameStr)
-                        throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
+                    PyObject.AttributeName(args[0]);
+                    var nameStr = (PyString)args[0];
                     ((PyType)self).TypeDeleteAttribute(nameStr.Value);
                     return PyNone.Instance;
                 },

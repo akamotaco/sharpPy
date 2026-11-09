@@ -839,15 +839,7 @@ namespace SharpPy
         /// CPython: Objects/floatobject.c:float_floor (lines 1282-1293)
         /// Returns the floor as int
         /// </summary>
-        // PyLong_FromDouble
-        private static PyInt FromDouble(double value)
-        {
-            if (double.IsNaN(value))
-                throw PyValueError.Create("cannot convert float NaN to integer");
-            if (double.IsInfinity(value))
-                throw PyOverflowError.Create("cannot convert float infinity to integer");
-            return PyInt.From(new System.Numerics.BigInteger(value));
-        }
+        private static PyInt FromDouble(double value) => PyInt.FromDouble(value);
 
         public PyObject Floor()
         {

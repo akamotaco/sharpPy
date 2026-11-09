@@ -707,9 +707,7 @@ namespace SharpPy
         // "attribute name must be string, not 'int'" for all four builtins.
         private static string AttributeNameOf(PyObject name)
         {
-            if (name is PyString strName)
-                return strName.Value;
-            throw PyTypeError.Create($"attribute name must be string, not '{name.GetTypeName()}'");
+            return PyObject.AttributeName(name);
         }
 
         private static PyObject CallHasAttr(PyObject[] args, PyDict kwargs = null)
