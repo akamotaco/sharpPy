@@ -30,15 +30,13 @@ namespace SharpPy
                     return SlotOf(v) == PowerSlot.Python
                         ? v.CallSpecial(v.LookupSpecialMethodUncached("__pow__"), w, z)
                         : PyNotImplemented.Instance;
+                // The builtin numbers' nb_power: long_pow, float_pow, complex_pow.
                 case PowerSlot.Int:
-                    var a = IntValue(v);
-                    var b = IntValue(w);
-                    var c = IntValue(z);
-                    return a != null && b != null && c != null ? a.PowerMod(b, c) : PyNotImplemented.Instance;
+                    return PyNumberSlots.Power(PyNumberSlots.Kind.Long, v, w, z);
                 case PowerSlot.Float:
-                    throw PyTypeError.Create("pow() 3rd argument not allowed unless all arguments are integers");
+                    return PyNumberSlots.Power(PyNumberSlots.Kind.Float, v, w, z);
                 default:
-                    throw PyValueError.Create("complex modulo");
+                    return PyNumberSlots.Power(PyNumberSlots.Kind.Complex, v, w, z);
             }
         }
 

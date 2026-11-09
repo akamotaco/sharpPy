@@ -964,54 +964,6 @@ namespace SharpPy
             return PyInt.From(BigInteger.Pow(Value, (int)exponent));
         }
 
-        /// <summary>
-        /// CPython 3.12: pow(base, exp, mod) - 3-argument modular exponentiation
-        /// CPython: Objects/longobject.c:long_pow (lines 4395-4644)
-        /// Efficiently computes (base ** exp) % mod using binary exponentiation
-        /// </summary>
-        public PyObject PowerMod(PyObject expObj, PyObject modObj)
-        {
-            if (expObj is not PyInt expInt || modObj is not PyInt modInt)
-                throw PyTypeError.Create("pow() 3rd argument not allowed unless all arguments are integers");
-            return Modular(Value, expInt.Value, modInt.Value);
-        }
-
-        // long_pow with a modulus.
-        private static PyInt Modular(BigInteger value, BigInteger exponent, BigInteger modulus)
-        {
-            if (modulus.IsZero)
-                throw PyValueError.Create("pow() 3rd argument cannot be 0");
-            bool negative = modulus.Sign < 0;
-            modulus = BigInteger.Abs(modulus);
-            if (modulus.IsOne)
-                return PyInt.From(BigInteger.Zero);
-            value = BigInteger.Remainder(value, modulus);
-            if (value.Sign < 0)
-                value += modulus;
-            if (exponent.Sign < 0)
-            {
-                value = Inverse(value, modulus);
-                exponent = -exponent;
-            }
-            var result = BigInteger.ModPow(value, exponent, modulus);
-            return PyInt.From(negative && !result.IsZero ? result - modulus : result);
-        }
-
-        // long_invmod
-        private static BigInteger Inverse(BigInteger value, BigInteger modulus)
-        {
-            BigInteger low = value, high = modulus, inverse = BigInteger.One, other = BigInteger.Zero;
-            while (!low.IsZero)
-            {
-                var quotient = BigInteger.DivRem(high, low, out var remainder);
-                (high, low) = (low, remainder);
-                (other, inverse) = (inverse, other - quotient * inverse);
-            }
-            if (!high.IsOne)
-                throw PyValueError.Create("base is not invertible for the given modulus");
-            return other.Sign < 0 ? other + modulus : other;
-        }
-
         #endregion
 
         #region Bitwise Operations
