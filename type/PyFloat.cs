@@ -394,8 +394,6 @@ namespace SharpPy
             floatType.TypeDict["__format__"] = new PyMethodDescriptor(
                 "__format__", floatType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"__format__() takes 1 positional argument ({args.Length} given)");
                     if (!PyFloat.TryFloatSelf(self, out var floatObj))
                         throw PyTypeError.Create($"descriptor '__format__' requires a 'float' object but received a '{self.GetTypeName()}'");
                     if (args[0] is not PyString specStr)

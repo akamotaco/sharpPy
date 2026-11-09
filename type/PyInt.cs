@@ -500,8 +500,6 @@ namespace SharpPy
             intType.TypeDict["__format__"] = new PyMethodDescriptor(
                 "__format__", intType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"__format__() takes 1 positional argument ({args.Length} given)");
                     if (args[0] is not PyString specStr)
                         throw PyArgs.BadArgument("__format__", "argument", "str", args[0]);
 

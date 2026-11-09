@@ -1444,8 +1444,6 @@ namespace SharpPy
             strType.TypeDict["__format__"] = new PyMethodDescriptor(
                 "__format__", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"__format__() takes 1 positional argument ({args.Length} given)");
                     if (self is not PyString strObj){
                             strObj = AsStrReceiver(self);
                             if (strObj == null){
