@@ -115,10 +115,8 @@ public sealed class PyFileIO : PyIOBaseInstance
         string path = null;
         if (fd < 0)
         {
-            var fspath = PyImportSystem.Import("os").GetAttribute("fspath").Call(new[] { nameobj }, null);
-            path = fspath is PyBytes bytes ? System.Text.Encoding.UTF8.GetString(bytes.Value) : ((PyString)fspath).Value;
-            if (path.Contains('\0'))
-                throw PyValueError.Create("embedded null character");
+            // _io_FileIO___init___impl on Windows: PyUnicode_FSDecoder.
+            path = PyArgs.FSDecoder(nameobj);
         }
 
         _created = _readable = _writable = _appending = false;

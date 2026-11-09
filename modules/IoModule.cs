@@ -94,10 +94,7 @@ namespace SharpPy.Modules
             {
                 if (args.Length != 1)
                     throw PyTypeError.Create($"open_code() takes exactly one argument ({args.Length} given)");
-                if (args[0] is not PyString pathStr)
-                    throw PyArgs.BadArgument("open_code", "argument", "str", args[0]);
-                if (pathStr.Value.Contains('\0'))
-                    throw PyValueError.Create("embedded null character");
+                var pathStr = PyString.From(PyArgs.ClinicStr("open_code", "argument 'path'", "str", args[0]));
                 return Open(new PyObject[] { pathStr, PyString.From("rb") }, null);
             });
 
@@ -133,11 +130,7 @@ namespace SharpPy.Modules
                 var value = values[position];
                 if (value == null || (noneAllowed && value is PyNone))
                     return null;
-                if (value is not PyString text)
-                    throw PyTypeError.Create($"open() argument '{OpenNames[position]}' must be str{(noneAllowed ? " or None" : "")}, not {value.GetTypeName()}");
-                if (text.Value.Contains('\0'))
-                    throw PyValueError.Create("embedded null character");
-                return text.Value;
+                return PyArgs.ClinicStr("open", $"argument '{OpenNames[position]}'", noneAllowed ? "str or None" : "str", value);
             }
             string mode = Text(1, false) ?? "r";
             int buffering = -1;

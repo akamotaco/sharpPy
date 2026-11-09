@@ -361,11 +361,7 @@ namespace SharpPy
         private static PyObject GetClockInfo(PyObject[] args, PyDict kwargs)
         {
             VarArgs("get_clock_info", args, kwargs, 1, 1);
-            if (args[0] is not PyString nameArg)
-                throw PyArgs.BadArgument("get_clock_info", "argument 1", "str", args[0]);
-            string name = nameArg.Value;
-            if (name.IndexOf('\0') >= 0)
-                throw PyValueError.Create("embedded null character");
+            string name = PyArgs.ClinicStr("get_clock_info", "argument 1", "str", args[0]);
             var info = new PyClockInfo { Implementation = "", Monotonic = false, Adjustable = false, Resolution = 1.0 };
             switch (name)
             {

@@ -411,11 +411,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     {
         if (value == null || value is PyNone)
             return null;
-        if (value is not PyString text)
-            throw PyArgs.BadArgument("TextIOWrapper", $"argument '{what}'", "str or None", value);
-        if (text.Value.Contains('\0'))
-            throw PyValueError.Create("embedded null character");
-        return text.Value;
+        return PyArgs.ClinicStr("TextIOWrapper", $"argument '{what}'", "str or None", value);
     }
 
     // _io_TextIOWrapper___init___impl
@@ -448,11 +444,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         _detached = false;
         if (errorsObject is PyNone)
             errorsObject = PyString.From("strict");
-        else if (errorsObject is not PyString)
-            throw PyArgs.BadArgument("TextIOWrapper", "argument 'errors'", "str or None", errorsObject);
-        string errors = ((PyString)errorsObject).Value;
-        if (errors.Contains('\0'))
-            throw PyValueError.Create("embedded null character");
+        string errors = PyArgs.ClinicStr("TextIOWrapper", "argument 'errors'", "str or None", errorsObject);
         ValidateNewline(newline);
 
         if (_buffer != null && !ReferenceEquals(_buffer, buffer))
