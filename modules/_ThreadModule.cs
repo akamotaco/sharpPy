@@ -20,12 +20,17 @@ namespace SharpPy.Modules
 
             // LockType
             var lockType = new PyLockType("lock");
-            lockType.TypeDict["acquire"] = new PyMethodDescriptor("acquire", lockType, LockAcquire, 0, 2, acceptsKwargs: true);
-            lockType.TypeDict["release"] = new PyMethodDescriptor("release", lockType, LockRelease, 0, 0);
-            lockType.TypeDict["locked"] = new PyMethodDescriptor("locked", lockType, LockLocked, 0, 0);
+            // lock_methods (Modules/_threadmodule.c): the *_lock rows are the same functions under
+            // their old names; _at_fork_reinit is HAVE_FORK's, which there is no fork here to need.
+            foreach (var (name, body) in new (string, Func<PyObject, PyObject[], PyDict, PyObject>)[]
+                     { ("acquire_lock", LockAcquire), ("acquire", LockAcquire), ("release_lock", LockRelease),
+                       ("release", LockRelease), ("locked_lock", LockLocked), ("locked", LockLocked) })
+                lockType.TypeDict[name] = name.StartsWith("acquire")
+                    ? new PyMethodDescriptor(name, lockType, body, acceptsKwargs: true)
+                    // METH_NOARGS, which the arity table cannot measure on a lock without taking it.
+                    : new PyMethodDescriptor(name, lockType, body) { Convention = new PyArity.Convention(PyCall.NoArgs, 0, 0) };
             lockType.TypeDict["__enter__"] = new PyMethodDescriptor("__enter__", lockType, LockEnter, 0, 0);
             lockType.TypeDict["__exit__"] = new PyMethodDescriptor("__exit__", lockType, LockExit, 0, 3);
-            lockType.TypeDict["_at_fork_reinit"] = new PyMethodDescriptor("_at_fork_reinit", lockType, LockAtForkReinit, 0, 0);
             module.ModuleDict["LockType"] = lockType;
 
             // RLock type
@@ -230,12 +235,6 @@ namespace SharpPy.Modules
             return PyBool.False;
         }
 
-        private static PyObject LockAtForkReinit(PyObject self, PyObject[] args, PyDict kwargs)
-        {
-            ((PyLock)self).Reset();
-            return PyNone.Instance;
-        }
-
         // --- RLock methods ---
 
         private static PyObject RLockAcquire(PyObject self, PyObject[] args, PyDict kwargs)
@@ -388,12 +387,6 @@ namespace SharpPy.Modules
                 _locked = false;
                 System.Threading.Monitor.Pulse(_gate);
             }
-        }
-
-        internal void Reset()
-        {
-            lock (_gate)
-                _locked = false;
         }
 
         public override PyType GetPyType() => _customType ?? _builtin;

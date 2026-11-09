@@ -235,7 +235,7 @@ namespace SharpPy.Modules
             module.ModuleDict["__name__"] = PyString.From("builtins");
             module.ModuleDict["__doc__"] = PyString.From("Built-in functions, exceptions, and other objects.");
 
-            PyDocs.SetTypeDocs(module.ModuleDict.Values);
+            PyDocs.SetTypeDocs();
             return module;
         }
 

@@ -24,6 +24,14 @@ namespace SharpPy
                 type.TypeDict[name] = new PyGetSetDescriptor(name, type, self => read((T)self, name));
         }
 
+        // PyMethodDef rows: the descriptor calls the implementation; PyArity holds the convention.
+        private static void Methods<T>(PyType type, params (string Name, Func<T, PyObject[], PyDict, PyObject> Call)[] methods) where T : PyObject
+        {
+            foreach (var (name, call) in methods)
+                type.TypeDict[name] = new PyMethodDescriptor(name, type,
+                    (self, args, kwargs) => call((T)self, args, kwargs), acceptsKwargs: true);
+        }
+
         // The object answers a method with a callable bound to it, so the descriptor calls that.
         private static void Methods<T>(PyType type, Func<T, string, PyObject> read, params string[] names) where T : PyObject
         {
@@ -239,19 +247,29 @@ namespace SharpPy
 
         internal static void InstallSre(PyType pattern, PyType match, PyType scanner)
         {
-            Members<PySreScanner>(scanner, (self, name) => self.Read(name), "pattern");
-            Methods<PySreScanner>(scanner, (self, name) => self.Read(name), "match", "search");
+            Members<PySreScanner>(scanner, (self, name) => self.Pattern, "pattern");
+            Methods<PySreScanner>(scanner, ("match", (self, a, k) => self.Step(false)), ("search", (self, a, k) => self.Step(true)));
             GetSets<PySrePattern>(pattern, (self, name) => self.Read(name), "groupindex");
             Members<PySrePattern>(pattern, (self, name) => self.Read(name), "pattern", "flags", "groups");
-            Methods<PySrePattern>(pattern, (self, name) => self.Read(name), "match", "fullmatch", "search",
-                "findall", "finditer", "split", "sub", "subn", "scanner", "__copy__", "__deepcopy__");
+            Methods<PySrePattern>(pattern,
+                ("match", (self, a, k) => self.MatchMethod(a, k)), ("fullmatch", (self, a, k) => self.FullMatchMethod(a, k)),
+                ("search", (self, a, k) => self.SearchMethod(a, k)), ("findall", (self, a, k) => self.FindAllMethod(a, k)),
+                ("finditer", (self, a, k) => self.FindIterMethod(a, k)), ("split", (self, a, k) => self.SplitMethod(a, k)),
+                ("sub", (self, a, k) => self.SubMethod(a, k)), ("subn", (self, a, k) => self.SubnMethod(a, k)),
+                ("scanner", (self, a, k) => self.ScannerMethod(a, k)),
+                // pattern_copy and pattern_deepcopy: a pattern is immutable, so itself.
+                ("__copy__", (self, a, k) => self), ("__deepcopy__", (self, a, k) => self));
             Repr(pattern);
             Hashed(pattern);
             Compared(pattern);
             Members<PySreMatch>(match, (self, name) => self.Read(name), "string", "re", "pos", "endpos");
             GetSets<PySreMatch>(match, (self, name) => self.Read(name), "lastindex", "lastgroup", "regs");
-            Methods<PySreMatch>(match, (self, name) => self.Read(name), "group", "groups", "groupdict", "start",
-                "end", "span", "expand", "__copy__", "__deepcopy__");
+            Methods<PySreMatch>(match,
+                ("group", (self, a, k) => self.GroupMethod(a)), ("groups", (self, a, k) => self.GroupsMethod(a, k)),
+                ("groupdict", (self, a, k) => self.GroupDictMethod(a, k)), ("start", (self, a, k) => self.StartMethod(a)),
+                ("end", (self, a, k) => self.EndMethod(a)), ("span", (self, a, k) => self.SpanMethod(a)),
+                ("expand", (self, a, k) => self.ExpandMethod(a, k)),
+                ("__copy__", (self, a, k) => self), ("__deepcopy__", (self, a, k) => self));
             Wrapper(match, "__getitem__", (self, args) => self.MpSubscript(args[0]));
             Repr(match);
         }

@@ -118,13 +118,29 @@ namespace SharpPy
             return key == null ? null : Lookup(key + "." + name);
         }
 
-        /// <summary>type_dict_set_doc: each static type of builtins holds its tp_doc, cut, in its dict.</summary>
-        internal static void SetTypeDocs(System.Collections.Generic.IEnumerable<PyObject> values)
+        private static readonly System.Collections.Generic.HashSet<PyType> _readied = new(ReferenceEqualityComparer.Instance);
+
+        /// <summary>
+        /// type_ready's type_dict_set_doc: every static type holds its tp_doc, cut, in its dict. Run
+        /// over the static types there are, from object down, when builtins is made and when a native
+        /// module has made its own (PyModule_AddType readies them); a type is done once.
+        /// </summary>
+        internal static void SetTypeDocs()
         {
-            foreach (var value in values)
-                if (value is PyType type && TypeKey(type) is { } key && Lookup(key) is { } doc
-                    && (!type.TypeDict.TryGetValue("__doc__", out var stored) || stored is PyNone))
-                    type.TypeDict["__doc__"] = DocFromInternal(type.Name, doc);
+            var pending = new System.Collections.Generic.Stack<PyType>();
+            pending.Push(PyType.ObjectType);
+            while (pending.Count > 0)
+            {
+                var type = pending.Pop();
+                if (type.IsHeapType)
+                    continue;
+                lock (_readied)
+                    if (_readied.Add(type) && TypeKey(type) is { } key && Lookup(key) is { } doc
+                        && (!type.TypeDict.TryGetValue("__doc__", out var stored) || stored is PyNone))
+                        type.TypeDict["__doc__"] = DocFromInternal(type.Name, doc);
+                foreach (var subclass in type.LiveSubclasses())
+                    pending.Push(subclass);
+            }
         }
 
         // method_get_doc and wrapper_get_doc

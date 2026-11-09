@@ -516,6 +516,7 @@ public class PyModule : PyObject
             if (!_builtinModules.TryGetValue(moduleName, out Func<PyModule> moduleFactory))
                 return null;
             var module = moduleFactory();
+            PyDocs.SetTypeDocs();
             foreach (var value in module.ModuleDict.Values)
                 if (value is PyBuiltinFunction function)
                     function.OwnerModule = moduleName;

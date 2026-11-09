@@ -164,6 +164,8 @@ namespace SharpPy
             ["_io._TextIOBase.read"] = new(PyCall.Defining, 0, 1, Names: new[] { "size" }, PositionalOnly: 1, RequiredKeywords: 0),
             ["_io._TextIOBase.readline"] = new(PyCall.Defining, 0, 1, Names: new[] { "size" }, PositionalOnly: 1, RequiredKeywords: 0),
             ["_io._TextIOBase.write"] = new(PyCall.Defining, 1, 1, Names: new[] { "s" }, PositionalOnly: 1, RequiredKeywords: 0),
+            ["_sre.SRE_Scanner.match"] = new(PyCall.Defining, 0, 0, Names: System.Array.Empty<string>(), PositionalOnly: 0, RequiredKeywords: 0),
+            ["_sre.SRE_Scanner.search"] = new(PyCall.Defining, 0, 0, Names: System.Array.Empty<string>(), PositionalOnly: 0, RequiredKeywords: 0),
             ["_struct.Struct.__sizeof__"] = new(PyCall.NoArgs, 0, 0),
             ["_struct.Struct.iter_unpack"] = new(PyCall.One, 1, 1),
             ["_struct.Struct.pack"] = new(PyCall.Fast, 0, int.MaxValue, QualifiedKeywordRefusal: true),

@@ -342,39 +342,31 @@ namespace SharpPy.Modules
                 Position(Argument(args, kwargs, 2, "endpos"), int.MaxValue));
         }
 
+        // pattern_methods (Modules/_sre/sre.c): what the type's method descriptors call; the
+        // argument conventions are the clinic's, checked by the descriptor (PyArity).
+        internal PyObject MatchMethod(PyObject[] a, PyDict k) => Run(a, k, "match", state => state.Match(0, true));
+        internal PyObject FullMatchMethod(PyObject[] a, PyDict k) => Run(a, k, "fullmatch", state =>
+        {
+            state.MatchAll = true;
+            return state.Match(0, true);
+        });
+        internal PyObject SearchMethod(PyObject[] a, PyDict k) => Run(a, k, "search", state => state.Search(0));
+        internal PyObject FindAllMethod(PyObject[] a, PyDict k) => FindAll(a, k);
+        internal PyObject FindIterMethod(PyObject[] a, PyDict k) => new PySreIterator((PySreScanner)Scanner(a, k));
+        internal PyObject SplitMethod(PyObject[] a, PyDict k) => Split(a, k);
+        internal PyObject SubMethod(PyObject[] a, PyDict k) => Substitute(a, k).result;
+        internal PyObject SubnMethod(PyObject[] a, PyDict k)
+        {
+            var (result, count) = Substitute(a, k);
+            return PyTuple.From(new[] { result, PyInt.From(count) });
+        }
+        internal PyObject ScannerMethod(PyObject[] a, PyDict k) => Scanner(a, k);
+
+        // pattern_members and pattern_getset.
         internal PyObject Read(string name)
         {
             switch (name)
             {
-                case "match":
-                    return new PyBuiltinFunction("match", (a, k) => Run(a, k, name, state => state.Match(0, true)));
-                case "fullmatch":
-                    return new PyBuiltinFunction("fullmatch", (a, k) => Run(a, k, name, state =>
-                    {
-                        state.MatchAll = true;
-                        return state.Match(0, true);
-                    }));
-                case "search":
-                    return new PyBuiltinFunction("search", (a, k) => Run(a, k, name, state => state.Search(0)));
-                case "findall":
-                    return new PyBuiltinFunction("findall", FindAll);
-                case "finditer":
-                    return new PyBuiltinFunction("finditer", (a, k) => new PySreIterator((PySreScanner)Scanner(a, k)));
-                case "split":
-                    return new PyBuiltinFunction("split", Split);
-                case "sub":
-                    return new PyBuiltinFunction("sub", (a, k) => Substitute(a, k).result);
-                case "subn":
-                    return new PyBuiltinFunction("subn", (a, k) =>
-                    {
-                        var (result, count) = Substitute(a, k);
-                        return PyTuple.From(new[] { result, PyInt.From(count) });
-                    });
-                case "scanner":
-                    return new PyBuiltinFunction("scanner", Scanner);
-                case "__copy__":
-                case "__deepcopy__":
-                    return new PyBuiltinFunction(name, _ => this);
                 case "pattern":
                     return Pattern;
                 case "flags":
@@ -505,32 +497,25 @@ namespace SharpPy.Modules
         private int Boundary(PyObject[] args, int offset)
             => _marks[(args.Length > 0 ? GroupNumber(args[0]) : 0) * 2 + offset];
 
+        // match_methods: what the type's method descriptors call.
+        internal PyObject GroupMethod(PyObject[] a) => Group(a);
+        internal PyObject GroupsMethod(PyObject[] a, PyDict k) => Groups(a, k);
+        internal PyObject GroupDictMethod(PyObject[] a, PyDict k) => GroupDict(a, k);
+        internal PyObject StartMethod(PyObject[] a) => PyInt.From(Boundary(a, 0));
+        internal PyObject EndMethod(PyObject[] a) => PyInt.From(Boundary(a, 1));
+        internal PyObject SpanMethod(PyObject[] a) =>
+            PyTuple.From(new PyObject[] { PyInt.From(Boundary(a, 0)), PyInt.From(Boundary(a, 1)) });
+        internal PyObject ExpandMethod(PyObject[] a, PyDict k)
+        {
+            var compiled = PySrePattern.CompileTemplate(_pattern, k != null && k.Length() > 0 ? k.GetItem(PyString.From("template")) : a[0]);
+            return compiled is PySreTemplate template ? template.Expand(this) : compiled;
+        }
+
+        // match_members and match_getset.
         internal PyObject Read(string name)
         {
             switch (name)
             {
-                case "group":
-                    return new PyBuiltinFunction("group", Group);
-                case "groups":
-                    return new PyBuiltinFunction("groups", Groups);
-                case "groupdict":
-                    return new PyBuiltinFunction("groupdict", GroupDict);
-                case "start":
-                    return new PyBuiltinFunction("start", a => PyInt.From(Boundary(a, 0)));
-                case "end":
-                    return new PyBuiltinFunction("end", a => PyInt.From(Boundary(a, 1)));
-                case "span":
-                    return new PyBuiltinFunction("span", a =>
-                        PyTuple.From(new PyObject[] { PyInt.From(Boundary(a, 0)), PyInt.From(Boundary(a, 1)) }));
-                case "expand":
-                    return new PyBuiltinFunction("expand", (a, k) =>
-                    {
-                        var compiled = PySrePattern.CompileTemplate(_pattern, a[0]);
-                        return compiled is PySreTemplate template ? template.Expand(this) : compiled;
-                    });
-                case "__copy__":
-                case "__deepcopy__":
-                    return new PyBuiltinFunction(name, _ => this);
                 case "re":
                     return _pattern;
                 case "string":
@@ -641,17 +626,8 @@ namespace SharpPy.Modules
             return result;
         }
 
-        // scanner_methods (match, search: no arguments) and scanner_members (pattern, READONLY).
-        internal PyObject Read(string name) => name switch
-        {
-            "match" or "search" => new PyBuiltinFunction(name, (args, kwargs) =>
-            {
-                if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
-                    throw PyTypeError.Create($"{name}() takes no arguments");
-                return Step(name == "search");
-            }),
-            _ => _pattern,
-        };
+        // scanner_members: pattern, READONLY. scanner_methods are Step's (match, search: no arguments).
+        internal PyObject Pattern => _pattern;
     }
 
     public sealed class PySreIterator : PyIterator

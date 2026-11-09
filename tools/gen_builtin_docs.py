@@ -92,9 +92,22 @@ def collect():
             raw = internal(member, value)
             if raw is not None:
                 entries.setdefault(f"{key}.{member}", raw)
+    # _sre's static types, which re names (Pattern, Match) or does not (the scanner).
+    import re
+    for obj in (re.Pattern, re.Match, type(re.compile("").scanner(""))):
+        key = f"{obj.__module__}.{obj.__name__}"
+        raw = internal(obj.__name__, obj)
+        if raw is not None:
+            entries[key] = raw
+        for member, value in vars(obj).items():
+            if member == "__doc__" or not (callable(value) or hasattr(type(value), "__get__")):
+                continue
+            raw = internal(member, value)
+            if raw is not None:
+                entries[f"{key}.{member}"] = raw
     # Native modules: "<module>.__doc__" for the module, "<module>.<name>" for what it holds.
-    import _bisect, _collections, _heapq, _io, _struct, itertools, time
-    for module in (_bisect, _collections, _heapq, _io, _struct, itertools, time):
+    import _bisect, _collections, _heapq, _io, _struct, _thread, array, itertools, time
+    for module in (_bisect, _collections, _heapq, _io, _struct, _thread, array, itertools, time):
         entries[f"{module.__name__}.__doc__"] = module.__doc__
         for name, obj in vars(module).items():
             if isinstance(obj, type):

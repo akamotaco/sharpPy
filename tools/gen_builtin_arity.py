@@ -207,6 +207,7 @@ def module_sample(t):
         _io.BufferedRWPair: lambda: _io.BufferedRWPair(_io.BytesIO(b"ab"), _io.BytesIO()),
         _io.BytesIO: lambda: _io.BytesIO(b"ab"), _io.StringIO: lambda: _io.StringIO("ab"),
         re.Pattern: lambda: re.compile("a"), re.Match: lambda: re.compile("a").match("a"),
+        type(re.compile("").scanner("")): lambda: re.compile("a").scanner("a"),
         array.array: lambda: array.array("b", [1, 2]), struct.Struct: lambda: struct.Struct("b"),
         itertools.chain: lambda: itertools.chain([1]), itertools.repeat: lambda: itertools.repeat(1),
         itertools.islice: lambda: itertools.islice([1], 1), itertools.cycle: lambda: itertools.cycle([1]),
@@ -241,13 +242,18 @@ BLOCKING = {"acquire", "acquire_lock", "release", "release_lock", "_release_save
 MODULES = ("_io", "re", "array", "_thread", "operator", "itertools", "collections", "functools", "_struct", "types")
 
 
+def scanner_type():
+    import re
+    return type(re.compile("").scanner(""))
+
+
 def module_types():
     import importlib
     seen = set(v for v in vars(builtins).values() if isinstance(v, type))
     # Types builtins has but does not name, and the exception groups its sample() cannot make.
     for v in (type(iter([])), type(reversed([])), type(iter(())), type(iter("")), type(iter({})), type(iter(range(1))),
               type(iter(set())), type(iter(b"")), type(iter(bytearray())), type({}.keys()), type({}.values()),
-              type({}.items()), BaseExceptionGroup, ExceptionGroup):
+              type({}.items()), BaseExceptionGroup, ExceptionGroup, scanner_type()):
         if v not in seen or v in (BaseExceptionGroup, ExceptionGroup):
             seen.add(v)
             yield v
