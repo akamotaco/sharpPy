@@ -79,82 +79,44 @@ namespace SharpPy
             PyTypeFlags.TypeSubclass | PyTypeFlags.ManagedWeakRef;
 
         /// <summary>
-        /// tp_flags of the compiled-in static specs, one row per type literal, with the line the
-        /// bits come from. Bits not modelled in SharpPy (Py_TPFLAGS_DEFAULT's version-tag and
-        /// vectorcall bits) are left out. Unlisted builtins take the DEFAULT|BASETYPE shape most
-        /// static specs use, so adding a builtin does not silently make it un-subclassable.
+        /// The bits of a compiled-in static spec that SharpPy models by hand: the family bits,
+        /// MATCH_SELF and the collection bits, with the line they come from. Whether the type
+        /// takes subclasses (Py_TPFLAGS_BASETYPE), is collected (HAVE_GC) and has a weakref list
+        /// (tp_weaklistoffset) is measured on the reference interpreter into the layout table
+        /// (tools/gen_type_layout.py); a type CPython does not have takes the DEFAULT|BASETYPE
+        /// shape most static specs use.
         /// </summary>
-        /// <summary>tp_weaklistoffset != 0, measured with __weakrefoffset__ on the reference interpreter
-        /// over builtins and types (.artifacts/tmp/weak_table.py). Exception types have none.</summary>
-        private static PyTypeFlags WeakListFlag(string name) => name switch
+        private static PyTypeFlags BuiltInSpecFlags(string name)
         {
-            "async_generator" or "builtin_function_or_method" or "code" or "coroutine" or "frozenset"
-                or "function" or "generator" or "memoryview" or "method" or "module" or "set" or "type"
-                or "GenericAlias" or "deque" or "array" or "Pattern" or "partial" or "FileIO" or "BytesIO" or "StringIO"
-                or "TextIOWrapper" or "BufferedReader" or "BufferedWriter" or "BufferedRandom" or "BufferedRWPair"
-                or "_tee" => PyTypeFlags.ManagedWeakRef,
-            _ => PyTypeFlags.None,
-        };
-
-        private static PyTypeFlags BuiltInSpecFlags(string name) => name switch
-        {
-            // Objects/boolobject.c:190 - tp_flags is Py_TPFLAGS_DEFAULT alone: bool is not
-            // subclassable, and Objects/typeobject.c:2789 is what says so.
-            "bool" => PyTypeFlags.None,
-            // Objects/longobject.c:6322
-            "int" => PyTypeFlags.BaseType | PyTypeFlags.LongSubclass | PyTypeFlags.MatchSelf,
-            // Objects/unicodeobject.c:14851
-            "str" => PyTypeFlags.BaseType | PyTypeFlags.UnicodeSubclass | PyTypeFlags.MatchSelf,
-            // Objects/bytesobject.c:2970
-            "bytes" => PyTypeFlags.BaseType | PyTypeFlags.BytesSubclass | PyTypeFlags.MatchSelf,
-            // Objects/tupleobject.c:864
-            "tuple" => PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.TupleSubclass |
-                       PyTypeFlags.MatchSelf | PyTypeFlags.Sequence,
-            // Objects/listobject.c:3147
-            "list" => PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.ListSubclass |
-                      PyTypeFlags.MatchSelf | PyTypeFlags.Sequence,
-            // Objects/dictobject.c:3863 - MAPPING, never SEQUENCE (Objects/typeobject.c:7021
-            // asserts the two are exclusive)
-            "dict" => PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.DictSubclass |
-                      PyTypeFlags.MatchSelf | PyTypeFlags.Mapping,
-            // Objects/setobject.c:2143 and :2246 - no family bit: PySet_Check is a subtype test
-            // (Include/setobject.h:36), so SharpPy keeps testing the MRO for these two
-            "set" => PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.MatchSelf,
-            "frozenset" => PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.MatchSelf,
-            // Static specs whose tp_flags literal omits BASETYPE; each one is measured to refuse a
-            // subclass: Objects/object.c:1894 (_PyNone_Type), Objects/sliceobject.c:696
-            // (Py_TPFLAGS_DEFAULT | HAVE_GC), Objects/memoryobject.c:3390, Objects/rangeobject.c:785.
-            "NoneType" => PyTypeFlags.None,
-            "slice" => PyTypeFlags.HaveGC,
-            "memoryview" => PyTypeFlags.Sequence,
-            "range" => PyTypeFlags.Sequence,
-            // tp_flags without BASETYPE, listed from __flags__ on the reference interpreter.
-            "CallableProxyType" or "Context" or "ContextVar" or "EncodingMap" or "IsoCalendarDate"
-                or "NotImplementedType" or "PickleBuffer" or "ProxyType" or "PyCapsule" or "Token"
-                or "TypeAliasType" or "UnionType" or "UnraisableHookArgs" or "anext_awaitable"
-                or "async_generator" or "async_generator_asend" or "async_generator_athrow"
-                or "async_generator_wrapped_value" or "asyncgen_hooks" or "builtin_function_or_method"
-                or "bytearray_iterator" or "bytes_iterator" or "callable_iterator" or "cell"
-                or "classmethod_descriptor" or "code" or "coroutine" or "coroutine_wrapper"
-                or "dict_itemiterator" or "dict_items" or "dict_keyiterator" or "dict_keys"
-                or "dict_reverseitemiterator" or "dict_reversekeyiterator" or "dict_reversevalueiterator"
-                or "dict_valueiterator" or "dict_values" or "ellipsis" or "fieldnameiterator"
-                or "float_info" or "formatteriterator" or "frame" or "function" or "generator"
-                or "generic_alias_iterator" or "getset_descriptor" or "getwindowsversion" or "hash_info"
-                or "instancemethod" or "int_info" or "list_iterator" or "list_reverseiterator"
-                or "longrange_iterator" or "managedbuffer" or "mappingproxy" or "member_descriptor"
-                or "memory_iterator" or "method" or "method-wrapper" or "method_descriptor" or "moduledef"
-                or "odict_items" or "odict_iterator" or "odict_keys" or "odict_values" or "range_iterator"
-                or "set_iterator" or "stderrprinter" or "str_ascii_iterator" or "str_iterator"
-                or "thread_info" or "timezone" or "traceback" or "tuple_iterator" or "version_info"
-                or "flags" or "struct_time" or "stat_result" or "terminal_size" or "times_result"
-                or "wrapper_descriptor"
-                // Modules/_threadmodule.c lock_type_spec: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE.
-                or "lock" => PyTypeFlags.None,
-            // Modules/itertoolsmodule.c: the specs of the helper types leave out BASETYPE.
-            "_grouper" or "_tee" or "_tee_dataobject" => PyTypeFlags.None,
-            _ => PyTypeFlags.BaseType,
-        };
+            var flags = name switch
+            {
+                // Objects/longobject.c:6322
+                "int" => PyTypeFlags.LongSubclass | PyTypeFlags.MatchSelf,
+                // Objects/unicodeobject.c:14851
+                "str" => PyTypeFlags.UnicodeSubclass | PyTypeFlags.MatchSelf,
+                // Objects/bytesobject.c:2970
+                "bytes" => PyTypeFlags.BytesSubclass | PyTypeFlags.MatchSelf,
+                // Objects/tupleobject.c:864
+                "tuple" => PyTypeFlags.TupleSubclass | PyTypeFlags.MatchSelf | PyTypeFlags.Sequence,
+                // Objects/listobject.c:3147
+                "list" => PyTypeFlags.ListSubclass | PyTypeFlags.MatchSelf | PyTypeFlags.Sequence,
+                // Objects/dictobject.c:3863 - MAPPING, never SEQUENCE (Objects/typeobject.c:7021
+                // asserts the two are exclusive)
+                "dict" => PyTypeFlags.DictSubclass | PyTypeFlags.MatchSelf | PyTypeFlags.Mapping,
+                // Objects/setobject.c:2143 and :2246 - no family bit: PySet_Check is a subtype test
+                // (Include/setobject.h:36), so SharpPy keeps testing the MRO for these two
+                "set" or "frozenset" => PyTypeFlags.MatchSelf,
+                // Objects/memoryobject.c:3390, Objects/rangeobject.c:785
+                "memoryview" or "range" => PyTypeFlags.Sequence,
+                _ => PyTypeFlags.None,
+            };
+            if (!TypeLayouts.Measured(name, out var layout))
+                return flags | PyTypeFlags.BaseType;
+            if (!layout.Final) flags |= PyTypeFlags.BaseType;
+            if (layout.Gc) flags |= PyTypeFlags.HaveGC;
+            if (layout.WeakOffset != 0) flags |= PyTypeFlags.ManagedWeakRef;
+            return flags;
+        }
 
         private PyTypeFlags ComputeFlags()
         {
@@ -175,7 +137,7 @@ namespace SharpPy
             }
             else
             {
-                flags = BuiltInSpecFlags(Name) | WeakListFlag(Name) |
+                flags = BuiltInSpecFlags(Name) |
                         (baseType != null ? baseType._flags & InheritSpecialFlags : PyTypeFlags.None);
             }
             // type_ready_inherit -> inherit_patma_flags over mro[1:]: a type without SEQUENCE or
@@ -193,6 +155,9 @@ namespace SharpPy
                     }
                 }
             }
+            // type_ready_set_type: historically all static types are immutable (bpo-43908).
+            if ((flags & PyTypeFlags.HeapType) == 0)
+                flags |= PyTypeFlags.ImmutableType;
             return flags;
         }
 
@@ -481,6 +446,8 @@ namespace SharpPy
         /// </summary>
         static PyType()
         {
+            // _PyExc_InitTypes makes ExceptionGroup with PyErr_NewException: a heap type, mutable.
+            ExceptionGroupType.MarkHeapType();
             static void Init<T>() =>
                 System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(T).TypeHandle);
 
@@ -591,7 +558,8 @@ namespace SharpPy
         internal bool IsHeapType => HasFeature(PyTypeFlags.HeapType);
 
         // PyType_FromSpec of PyStructSequence_NewType: a heap type made from a spec.
-        private protected void MarkHeapType() => _flags |= PyTypeFlags.HeapType;
+        // A heap type is mutable unless its spec says otherwise: the static default is undone.
+        private protected void MarkHeapType() => _flags = (_flags | PyTypeFlags.HeapType) & ~PyTypeFlags.ImmutableType;
 
         // type_new made it: a class statement or a type() call, whose tp_base is best_base.
         private bool MadeByTypeNew => this is PyClass && this is not PyTypeMetaclass;
@@ -755,7 +723,9 @@ namespace SharpPy
             // computation and raises a catchable TypeError for a repeated base.
             CheckDuplicateBases();
             // CPython: Objects/typeobject.c:2789, after check_duplicates and before best_base.
-            CheckBaseTypeAcceptable();
+            // type_new's check: a static builtin is wired to its base by its spec, never refused.
+            if (MadeByTypeNew)
+                CheckBaseTypeAcceptable();
             MRO = CalculateC3MRO();
             foreach (var baseType in BaseTypes) baseType.AddSubclass(this);
             // tp_flags: static spec bits plus what inherit_special propagates from the base
@@ -975,7 +945,7 @@ namespace SharpPy
         /// </summary>
         internal void TypeSetAttribute(string name, PyObject value)
         {
-            if (!IsHeapType)
+            if (HasFeature(PyTypeFlags.ImmutableType))
             {
                 // io.UnsupportedOperation is a heap type in CPython, so Lib/io.py may set its __module__.
                 if (value != null && AllowsModuleAssignment && name == "__module__")

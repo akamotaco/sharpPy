@@ -159,6 +159,8 @@ namespace SharpPy
                 flags |= type.CollectionFlags;
                 if (type.IsHeapType)
                     flags |= 1L << 9;
+                if (type.HasFeature(PyTypeFlags.ImmutableType))
+                    flags |= 1L << 8;
                 if (type is PyClass cls && cls.IsHeapType)
                 {
                     if (cls.ClassDict.TryGetValue("__abstractmethods__", out var abstractMethods) && abstractMethods.IsTrue())
