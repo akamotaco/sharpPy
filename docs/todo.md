@@ -107,6 +107,7 @@
 - 5-12. `binascii`에 `a2b_qp`, `b2a_qp`, `a2b_uu`, `b2a_uu`, `crc_hqx`가 없다. `zlib.decompress`는 잘리거나 끝나지 않은 스트림을 거부하지 않는다(CPython: `error: Error -5 while decompressing data: incomplete or truncated stream`). 경로: `Modules/binascii.c`, `Modules/zlibmodule.c`의 `zlib_decompress_impl`(Z_BUF_ERROR, `Z_STREAM_END` 확인).
 - 5-13. `array`의 `'u'`는 4바이트다(UCS-4, Linux의 `wchar_t`와 같다). Windows의 CPython은 `wchar_t`가 2바이트라 `itemsize`가 2이고, `array('u', b'ab')`는 한 글자가 된다(SharpPy: `bytes length not a multiple of item size`). 플랫폼마다 다른 CPython 쪽 차이라 4바이트로 둔다.
 - 5-15. 파이썬으로 구현된 C 타입은 정적 타입의 플래그를 갖지 않는다. `_typing.py`의 `TypeVar`, `ParamSpec`, `TypeAliasType`은 class 문의 heap 타입이라 IMMUTABLETYPE이 없어 `TypeVar.x = 1`이 성공하고(CPython: `cannot set 'x' attribute of immutable type 'typing.TypeVar'`), `operator`의 `itemgetter`, `attrgetter`, `methodcaller`는 BASETYPE이 있어 하위 클래스를 받는다(CPython: `not an acceptable base type`). 경로: 해당 타입을 C# 정적 타입으로 두면 측정 표(`tools/gen_type_layout.py`)의 플래그를 그대로 받는다.
+- 5-16. `python -m 모듈`이 없다(`Program.cs`의 분기가 주석이고, 인자 없이 REPL이 뜬다). CPython은 `pymain_run_module`(Modules/main.c)에서 `sys.argv[0]='-m'`, `sys.path[0]`=현재 디렉터리로 두고 `runpy._run_module_as_main(name, True)`를 부른다. 경로: `Lib/runpy.py`를 들이고, 그것이 쓰는 `importlib.util.find_spec`과 spec의 `loader.get_code`/`is_package`를 SharpPy의 import(`PyImportSystem`)에 잇는다. CPython의 `runpy`는 frozen이라 traceback에 `<frozen runpy>`로 나온다.
 - 5-14. 범위 밖: `multiprocessing`(Godot에 필요 없음). 그것을 요구하는 테스트(`test_re`의 `test_regression_gh94675` 등)는 맞추지 않는다.
 
 ## 6. PEP 695
