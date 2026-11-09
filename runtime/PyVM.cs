@@ -753,17 +753,32 @@ namespace SharpPy
         /// <summary>
         /// Build f_locals dict from LocalsPlus array and scope
         /// </summary>
-        private PyObject BuildLocalsDict()
+        internal PyObject BuildLocalsDict()
         {
-            if (ClassLocalsDict != null)
-                return ClassLocalsDict;
-
             if ((Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0)
                 return GetOptimizedLocals();
 
             // A frame without a mapping of its own has its globals as its locals (module code,
             // exec in the globals): f_locals is that very dict.
-            return PyGlobalsDict.DictOf(Globals);
+            var locals = ClassLocalsDict ?? PyGlobalsDict.DictOf(Globals);
+
+            // _PyFrame_GetLocals(frame, include_hidden=1): the fast locals of a comprehension
+            // inlined in module or class code (CO_FAST_HIDDEN) are seen while it runs, in a copy
+            // of the namespace, never in the namespace itself.
+            PyDict hidden = null;
+            for (int i = 0; i < Code.LocalsPlusKinds.Length; i++)
+            {
+                if ((Code.LocalsPlusKinds[i] & PyCodeObject.FastHidden) == 0 || !FrameGetVar(i, out var value) || value == null)
+                    continue;
+                hidden ??= new PyDict();
+                hidden.SetItem(PyString.From(Code.LocalsPlusNames[i]), value);
+            }
+            if (hidden == null)
+                return locals;
+            var inner = new PyDict();
+            PyDict.UpdateCommon(inner, locals);
+            PyDict.UpdateCommon(inner, hidden);
+            return inner;
         }
 
         /// <summary>GETLOCAL(oparg) of a *_DEREF instruction: the cell MAKE_CELL or COPY_FREE_VARS put there.</summary>

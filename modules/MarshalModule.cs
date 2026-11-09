@@ -261,8 +261,7 @@ namespace SharpPy.Modules
 
             private void Code(PyCodeObject code, byte flag)
             {
-                // co_localsplusnames and co_localspluskinds. The CO_FAST_HIDDEN bit of inlined
-                // comprehensions is not kept after compiling, so it is not written.
+                // co_localsplusnames and co_localspluskinds, CO_FAST_HIDDEN included.
                 var names = code.LocalsPlusNames;
                 var kinds = code.LocalsPlusKinds;
                 Type('c', flag);
@@ -694,9 +693,14 @@ namespace SharpPy.Modules
                     if ((kinds[i] & FastCell) != 0) cellVars.Add(localNames[i]);
                     if ((kinds[i] & FastFree) != 0) freeVars.Add(localNames[i]);
                 }
-                return Insert(PyCodeObject.FromTables(argCount, posonly, kwonly, stackSize, flags, code.Value,
+                var read = PyCodeObject.FromTables(argCount, posonly, kwonly, stackSize, flags, code.Value,
                     new List<PyObject>(constants.Items), names, varNames, freeVars, cellVars, fileName, name, qualName,
-                    firstLineNo, lineTable.Value, exceptionTable.Value, SourceOf(fileName)), index);
+                    firstLineNo, lineTable.Value, exceptionTable.Value, SourceOf(fileName));
+                var hidden = new HashSet<string>();
+                for (int i = 0; i < kinds.Length; i++)
+                    if ((kinds[i] & PyCodeObject.FastHidden) != 0) hidden.Add(localNames[i]);
+                read.MarkHidden(hidden);
+                return Insert(read, index);
             }
 
             private PyObject Tuple(int size, bool flagged)

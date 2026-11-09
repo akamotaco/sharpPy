@@ -134,6 +134,7 @@ namespace SharpPy
                 u.ArgCount + u.PosonlyArgCount + u.KwonlyArgCount, u.PosonlyArgCount, u.KwonlyArgCount, freevars, cellvars, null, null,
                 codeFlags, _filename, _sourceLines);
             code.QualName = u.QualName;
+            code.MarkHidden(u.Fasthidden.Keys);
             code.FirstLineNo = u.FirstLineNo;
             code.ExceptionTable.AddRange(assembled.ExceptionTable);
             code.StackSize = maxDepth;

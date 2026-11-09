@@ -924,9 +924,13 @@ namespace SharpPy
                     // Convert frame's local scope to PyDict
                     if (locals == null && localsMapping == null)
                     {
-                        bool optimized = (currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0;
-                        locals = optimized ? currentFrame.GetOptimizedLocals()
-                            : currentFrame.ClassLocalsDict as PyDict ?? globals;
+                        // PyEval_GetLocals: the frame's locals as f_locals has them, the fast
+                        // locals of an inlined comprehension included.
+                        var frameLocals = currentFrame.BuildLocalsDict();
+                        if (frameLocals is PyDict frameDict)
+                            locals = frameDict;
+                        else
+                            localsMapping = frameLocals;
                     }
                 }
                 else
@@ -1177,9 +1181,13 @@ namespace SharpPy
                     // Convert frame's local scope to PyDict
                     if (locals == null && localsMapping == null)
                     {
-                        bool optimized = (currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0;
-                        locals = optimized ? currentFrame.GetOptimizedLocals()
-                            : currentFrame.ClassLocalsDict as PyDict ?? globals;
+                        // PyEval_GetLocals: the frame's locals as f_locals has them, the fast
+                        // locals of an inlined comprehension included.
+                        var frameLocals = currentFrame.BuildLocalsDict();
+                        if (frameLocals is PyDict frameDict)
+                            locals = frameDict;
+                        else
+                            localsMapping = frameLocals;
                     }
                 }
                 else
@@ -1893,20 +1901,11 @@ namespace SharpPy
                 return new PyDict(); // Return empty dict if no frame
             }
 
-            if (currentFrame.ClassLocalsDict != null)
-                return currentFrame.ClassLocalsDict;
-
-            if ((currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0)
-                return currentFrame.GetOptimizedLocals();
-
-            // Get the local scope from the current frame's scope chain
-            // At module level or if no local scope, return globals
+            // _PyEval_GetFrameLocals: _PyFrame_GetLocals(frame, include_hidden=1), as f_locals.
             var localScope = currentFrame.ScopeChain?.CurrentScope;
-            if (localScope == null || localScope.Type == ScopeType.Global)
-            {
-                // If no local scope or at global level, return globals
-                return CallGlobals(new PyObject[0]);
-            }
+            if (currentFrame.ClassLocalsDict != null || (currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
+                || localScope == null || localScope.Type == ScopeType.Global)
+                return currentFrame.BuildLocalsDict();
 
             // Convert the local scope variables to a Python dictionary
             var result = new PyDict();

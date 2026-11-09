@@ -575,6 +575,17 @@ namespace SharpPy
         /// <summary>co_localsplusnames, co_localspluskinds, and the names as keys for f_locals.</summary>
         internal string[] LocalsPlusNames { get; private set; }
         internal byte[] LocalsPlusKinds { get; private set; }
+
+        /// <summary>
+        /// compute_localsplus_info (Python/assemble.c): a name in u_fasthidden, the fast locals of a
+        /// comprehension inlined in module or class code, is CO_FAST_HIDDEN too. marshal keeps it.
+        /// </summary>
+        internal void MarkHidden(ICollection<string> hidden)
+        {
+            for (int i = 0; i < LocalsPlusNames.Length; i++)
+                if (hidden.Contains(LocalsPlusNames[i]))
+                    LocalsPlusKinds[i] |= FastHidden;
+        }
         internal PyString[] LocalsPlusKeys { get; private set; }
 
         /// <summary>co_nlocalsplus.</summary>
