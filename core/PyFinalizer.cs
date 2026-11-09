@@ -257,8 +257,30 @@ namespace SharpPy
                 // A long-lived target that keeps getting short-lived references must not grow forever.
                 if (handles.Count >= 16 && (handles.Count & (handles.Count - 1)) == 0)
                     FreeDeadHandles(handles);
-                handles.Add(GCHandle.Alloc(reference, GCHandleType.WeakTrackResurrection));
+                handles.Insert(InsertionIndex(handles, reference), GCHandle.Alloc(reference, GCHandleType.WeakTrackResurrection));
             }
+        }
+
+        // The basic reference and the basic proxy (no callback, the exact types), which the list keeps
+        // at its head in that order: get_basic_refs.
+        private static bool IsBasicRef(PyWeakRef r) => r is not PyWeakProxy && r.Callback == null && r.IsExactly(PyType.WeakRefType);
+        private static bool IsBasicProxy(PyWeakRef r) => r is PyWeakProxy && r.Callback == null;
+
+        // weakref_new and PyWeakref_NewProxy: a basic reference goes first (insert_head), a basic
+        // proxy after the basic reference, and any other after the basic proxy, else after the basic
+        // reference, else first (insert_after(self, prev)).
+        private static int InsertionIndex(List<GCHandle> handles, PyWeakRef reference)
+        {
+            int refAt = -1, proxyAt = -1;
+            for (int i = 0; i < handles.Count && i < 2; i++)
+            {
+                if (handles[i].Target is not PyWeakRef existing) continue;
+                if (IsBasicRef(existing)) refAt = i;
+                else if (IsBasicProxy(existing)) proxyAt = i;
+            }
+            if (IsBasicRef(reference)) return 0;
+            if (IsBasicProxy(reference)) return refAt + 1;
+            return (proxyAt >= 0 ? proxyAt : refAt) + 1;
         }
 
         private static void FreeDeadHandles(List<GCHandle> handles)
@@ -287,7 +309,7 @@ namespace SharpPy
 
         /// <summary>
         /// PyObject_ClearWeakRefs (Objects/weakrefobject.c:938): every reference goes dead first, so a
-        /// callback that looks at any of them sees None, then callbacks run newest first. A reference
+        /// callback that looks at any of them sees None, then callbacks run in the list's order. A reference
         /// whose handle went null died before its target and is owed nothing.
         /// </summary>
         private static void ClearWeakRefs(PyGuard guard)
@@ -307,7 +329,8 @@ namespace SharpPy
                 if (handle.Target is PyWeakRef reference) references.Add(reference);
                 handle.Free();
             }
-            for (int i = references.Count - 1; i >= 0; i--)
+            // In the list's order, which weakref_new and PyWeakref_NewProxy keep as CPython's.
+            for (int i = 0; i < references.Count; i++)
             {
                 var callback = references[i].Callback;
                 if (callback == null || IsCondemned(references[i])) continue;
