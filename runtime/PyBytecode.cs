@@ -583,7 +583,6 @@ namespace SharpPy
         /// <summary>PyCode_GetFirstFree: co_nlocalsplus - co_nfreevars.</summary>
         internal int FirstFree { get; private set; }
 
-        public override string GetTypeName() => "code";
 
         // CPython: type(code).__name__ == 'code'
         internal static readonly PyType CodePyType = MakeCodeType();

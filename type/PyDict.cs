@@ -480,7 +480,6 @@ namespace SharpPy
 
         // PyX_CheckExact
         internal bool IsExact => IsExactly(PyType.DictType);
-        public override string GetTypeName() => _customType?.Name ?? "dict";
 
         // CPython 3.12: Objects/dictobject.c - dict_bool
         // Optimized: Direct count check, no MRO traversal

@@ -555,7 +555,6 @@ namespace SharpPy
 
         public static readonly PyBytes Empty = new PyBytes(Array.Empty<byte>());
 
-        public override string GetTypeName() => _customType?.Name ?? "bytes";
         public override PyType GetPyType() => _customType ?? PyType.BytesType;
 
         public override string ToString() => ToRepr().Value;

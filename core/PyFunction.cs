@@ -382,7 +382,6 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     }
 
     public override PyType GetPyType() => PyType.FunctionType;
-    public override string GetTypeName() => "function";
 
     // CPython 3.12 호환: kwargs 지원 버전
     public override PyObject Call(PyObject[] args, PyDict kwargs)
@@ -712,7 +711,6 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         }
 
         public override PyType GetPyType() => PyType.MethodType; // CPython 3.12: bound method type
-        public override string GetTypeName() => "method";
 
         /// <summary>
         /// method_richcompare (Objects/classobject.c:245). Only two bound methods compare, and only
@@ -1166,7 +1164,6 @@ public class PyTypedDict : PyObject
         Name = name;
     }
 
-    public override string GetTypeName() => "TypedDict";
     public override string ToString() => $"TypedDict('{Name}')";
 }
 

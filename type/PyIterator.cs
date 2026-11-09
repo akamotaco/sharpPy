@@ -181,7 +181,6 @@ namespace SharpPy
         // type(it).__name__ and repr both derive from this name via
         // PyType.GetIteratorType. Subclasses override IteratorName.
         protected virtual string IteratorName => "iterator";
-        public override string GetTypeName() => IteratorName;
         // Py_TYPE: the iterator family's type, looked up by name once per object.
         private PyType _familyType;
         public override PyType GetPyType() => _customType ?? (_familyType ??= PyType.GetIteratorType(IteratorName));

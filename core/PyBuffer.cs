@@ -892,7 +892,6 @@ namespace SharpPy
         public int ItemSize { get { CheckReleased(); return _itemsize; } }
 
         public override PyType GetPyType() => PyType.MemoryViewType;
-        public override string GetTypeName() => "memoryview";
 
         /// <summary>
         /// CPython: PyGetSetDef memory_getsetlist - expose C# properties as Python attributes

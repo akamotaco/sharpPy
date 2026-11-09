@@ -76,7 +76,6 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => PyType.MethodDescriptorType;
-        public override string GetTypeName() => "method_descriptor";
 
         // CPython method_descriptor_repr: <method 'NAME' of 'TYPE' objects>
         protected internal override PyString Repr()
@@ -193,7 +192,6 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
-        public override string GetTypeName() => "builtin_function_or_method";
 
         /// <summary>
         /// The C tp_new this __new__ stands for, which tp_new_wrapper compares. Itself, unless the
@@ -249,7 +247,6 @@ namespace SharpPy
         private PyObject Function => (PyObject)MethodDescriptor ?? Callable;
 
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
-        public override string GetTypeName() => "builtin_function_or_method";
 
         /// <summary>
         /// meth_richcompare (Objects/methodobject.c:292): equal when m_self is the same object and
@@ -336,7 +333,6 @@ namespace SharpPy
 
         public override PyType GetPyType() => PyType.GetSetDescriptorType;
 
-        public override string GetTypeName() => "getset_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)
         {
@@ -420,7 +416,6 @@ namespace SharpPy
 
         public override PyType GetPyType() => PyType.MemberDescriptorType;
 
-        public override string GetTypeName() => "member_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)
         {
@@ -519,7 +514,6 @@ namespace SharpPy
         /// </summary>
         internal bool CallsVirtual { get; init; }
 
-        public override string GetTypeName() => "wrapper_descriptor";
 
         // CPython wrapper_descriptor_repr: <slot wrapper 'NAME' of 'TYPE' objects>
         protected internal override PyString Repr()
@@ -649,7 +643,6 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => PyType.MethodWrapperType;
-        public override string GetTypeName() => "method-wrapper";
 
         public override bool IsCallable() => true;
 

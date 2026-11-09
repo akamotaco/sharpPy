@@ -64,7 +64,6 @@ namespace SharpPy
             _kwargsImplementation = kwargsImplementation;
         }
 
-        public override string GetTypeName() => "builtin_function_or_method";
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
 
         // m_module: the module that holds this function
@@ -2246,7 +2245,6 @@ namespace SharpPy
         // CPython PySuper_Type: name "super", base object.
         public override PyType GetPyType() => _customType ?? PyType.SuperType;
 
-        public override string GetTypeName() => "super";
 
         // CPython super_repr:
         //   obj_type != NULL: <super: <class 'TYPE'>, <OBJTYPE object>>
@@ -2390,7 +2388,6 @@ namespace SharpPy
     public class PyBaseObject : PyObject
     {
         public override PyType GetPyType() => PyType.ObjectType;
-        public override string GetTypeName() => "object";
         protected internal override PyString Repr() => PyString.From($"<object object at {PyObjectId.Pointer(this)}>");
         protected internal override PyString Str() => ToRepr();
     }

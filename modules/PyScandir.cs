@@ -53,7 +53,6 @@ namespace SharpPy.Modules
         }
 
         public override PyType GetPyType() => Type;
-        public override string GetTypeName() => "DirEntry";
         protected internal override PyString Repr() => PyString.From($"<DirEntry {PyString.From(_name).ToRepr().Value}>");
     }
 
@@ -87,7 +86,6 @@ namespace SharpPy.Modules
         }
 
         public override PyType GetPyType() => Type;
-        public override string GetTypeName() => "ScandirIterator";
         protected internal override PyObject Iter() => this;
 
         protected internal override PyObject IterNext()

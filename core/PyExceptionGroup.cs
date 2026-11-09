@@ -48,7 +48,6 @@ namespace SharpPy
 
         public override PyType GetPyType() => _customType ?? PyType.BaseExceptionGroupType;
 
-        public override string GetTypeName() => _customType?.Name ?? "BaseExceptionGroup";
 
         /// <summary>
         /// BaseExceptionGroup_str: "message (N sub-exception)" - note that the members are NOT
@@ -406,6 +405,5 @@ namespace SharpPy
 
         public override PyType GetPyType() => _customType ?? PyType.ExceptionGroupType;
 
-        public override string GetTypeName() => _customType?.Name ?? "ExceptionGroup";
     }
 }

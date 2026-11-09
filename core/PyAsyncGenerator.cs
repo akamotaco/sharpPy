@@ -106,7 +106,6 @@ namespace SharpPy.Core
             Qualname = PyString.From(qualname ?? frame.Code.QualName ?? name);
         }
         public override PyType GetPyType() => PyType.AsyncGeneratorType;
-        public override string GetTypeName() => "async_generator";
         protected internal override PyString Repr() => PyString.From($"<async_generator object {Name}>");
         public PyObject ANext() => ASend(PyNone.Instance);
         public PyObject ASend(PyObject value)
@@ -170,7 +169,6 @@ namespace SharpPy.Core
                 return type;
             }
             public override PyType GetPyType() => IsThrow ? ThrowType : SendType;
-            public override string GetTypeName() => GetPyType().Name;
             public override bool IsCallable() => false;
             protected internal override PyObject IterNext() => Drive(PyNone.Instance);
             private PyObject Drive(PyObject sent, PyObject[] injected = null)
@@ -387,7 +385,6 @@ namespace SharpPy.Core
             }
         }
 
-        public override string GetTypeName() => "async_generator_wrapped_value";
         public override PyType GetPyType() => PyType.ObjectType; // Internal type, no public PyType
 
         protected internal override PyString Repr() => PyString.From($"<async_generator_wrapped_value {Value.ToRepr().Value}>");
@@ -430,7 +427,6 @@ namespace SharpPy.Core
         }
 
         public override PyType GetPyType() => Type;
-        public override string GetTypeName() => "anext_awaitable";
 
         // anextawaitable_getiter
         private PyObject Awaitable()

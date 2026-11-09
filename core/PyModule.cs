@@ -156,7 +156,6 @@ public class PyModule : PyObject
 
     // ob_type: module, or the ModuleType subclass written in Python that allocated it.
     public override PyType GetPyType() => _customType ?? PyType.ModuleType;
-    public override string GetTypeName() => GetPyType().Name;
 
     // new_module: a dict and nothing in it. module___init__ names it.
     internal static PyModule Allocate(PyType type)

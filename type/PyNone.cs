@@ -13,7 +13,6 @@ namespace SharpPy
         private PyNone() { }
 
         public override PyType GetPyType() => PyType.NoneType;
-        public override string GetTypeName() => "NoneType";
 
         #endregion
 

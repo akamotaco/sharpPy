@@ -120,7 +120,6 @@ namespace SharpPy
         // method_repr
         protected internal override PyString Repr() => PyString.From($"<method '{_name}' of '{_ownerType.FullName}' objects>");
 
-        public override string GetTypeName() => "classmethod_descriptor";
         public override PyType GetPyType() => PyType.ClassMethodDescriptorType;
     }
 }

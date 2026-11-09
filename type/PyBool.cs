@@ -20,7 +20,6 @@ namespace SharpPy
         public static PyBool FromBool(bool value) => value ? True : False;
 
         public override PyType GetPyType() => PyType.BoolType;
-        public override string GetTypeName() => "bool";
 
         // CPython 3.12: Objects/boolobject.c - bool is subclass of int
         // Optimized: Direct value check, no MRO traversal

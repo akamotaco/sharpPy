@@ -55,7 +55,6 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => PyType.MappingProxyType;
-        public override string GetTypeName() => "mappingproxy";
 
         // mappingproxy_len: PyObject_Size(pp->mapping)
         protected internal override long Len() => InternalCount;

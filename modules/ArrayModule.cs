@@ -195,7 +195,6 @@ namespace SharpPy.Modules
             }
 
             public override PyType GetPyType() => _customType ?? ArrayType;
-            public override string GetTypeName() => GetPyType().FullName;
 
             // array_buffer_getbuf: the view is over the items themselves and counts as an export
             // (ob_exports) until it is released.

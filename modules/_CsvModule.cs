@@ -265,7 +265,6 @@ namespace SharpPy.Modules
             public PyObject Strict = PyBool.FromBool(false);
 
             public override PyType GetPyType() => DialectType;
-            public override string GetTypeName() => "Dialect";
         }
 
         // --- PyReader ---
@@ -287,7 +286,6 @@ namespace SharpPy.Modules
             }
 
             public override PyType GetPyType() => ReaderType;
-            public override string GetTypeName() => "reader";
 
             protected internal override PyObject Iter() => this;
 
@@ -601,7 +599,6 @@ namespace SharpPy.Modules
             }
 
             public override PyType GetPyType() => WriterType;
-            public override string GetTypeName() => "writer";
 
             public PyObject WriteRow(PyObject[] args, PyDict kwargs)
             {

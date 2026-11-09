@@ -360,7 +360,6 @@ public class PyBytesIO : PyIOBaseInstance
         }
 
         public override PyType GetPyType() => BufferType;
-        public override string GetTypeName() => "_io._BytesIOBuffer";
         public override bool SupportsBuffer() => true;
 
         // bytesiobuf_getbuffer

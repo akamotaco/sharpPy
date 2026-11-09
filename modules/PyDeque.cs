@@ -191,7 +191,6 @@ namespace SharpPy.Modules
 
         // ob_type: deque, or the Python class that allocated the deque layout.
         public override PyType GetPyType() => _customType ?? PyDequeModule.DequeType;
-        public override string GetTypeName() => GetPyType().FullName;
 
         private static Exception Mutated() => PyRuntimeError.Create("deque mutated during iteration");
 

@@ -1476,7 +1476,6 @@ namespace SharpPy
         public static readonly PyNotImplemented Instance = new PyNotImplemented();
         private PyNotImplemented() { }
 
-        public override string GetTypeName() => "NotImplementedType";
         public override PyType GetPyType() => PyType.NotImplementedType;
         protected internal override PyString Str() => PyString.From("NotImplemented");
         protected internal override PyString Repr() => PyString.From("NotImplemented");

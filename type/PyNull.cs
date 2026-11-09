@@ -15,7 +15,6 @@ namespace SharpPy
         private PyNull() { }
 
         public override PyType GetPyType() => PyType.NullType;
-        public override string GetTypeName() => "NullType";
 
         #endregion
 

@@ -176,7 +176,6 @@ namespace SharpPy
         public PyTuple(params PyObject[] items) => Items = items ?? new PyObject[0];
 
         public override PyType GetPyType() => _customType ?? PyType.TupleType;
-        public override string GetTypeName() => _customType?.Name ?? "tuple";
 
         // CPython 3.12: Objects/tupleobject.c - tuple_bool
         // Optimized: Direct length check, no MRO traversal

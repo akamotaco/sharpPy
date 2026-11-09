@@ -510,7 +510,6 @@ namespace SharpPy
             _items = new List<PyObject>(items);
         }
 
-        public override string GetTypeName() => _customType?.Name ?? "list";
         public override PyType GetPyType() => _customType ?? PyType.ListType;
 
         // CPython 3.12: Objects/listobject.c - list_bool

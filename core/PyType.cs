@@ -568,7 +568,7 @@ namespace SharpPy
 
         // PyType_FromSpec of PyStructSequence_NewType: a heap type made from a spec.
         // A heap type is mutable unless its spec says otherwise: the static default is undone.
-        private protected void MarkHeapType() => _flags = (_flags | PyTypeFlags.HeapType) & ~PyTypeFlags.ImmutableType;
+        internal void MarkHeapType() => _flags = (_flags | PyTypeFlags.HeapType) & ~PyTypeFlags.ImmutableType;
 
         // type_new made it: a class statement or a type() call, whose tp_base is best_base.
         private bool MadeByTypeNew => this is PyClass && this is not PyTypeMetaclass;
@@ -585,7 +585,8 @@ namespace SharpPy
         internal void SetSpecLayout(TypeLayout layout) => _builtinLayout = layout;
 
         /// <summary>tp_name of a type that keeps its module in it, as a compiled one does.</summary>
-        internal virtual string FullName => this is PyClass || string.IsNullOrEmpty(Module) || Module == "builtins" ? Name : Module + "." + Name;
+        // tp_name: a heap type's is its name; a static type of a C module's is "module.name".
+        internal virtual string FullName => this is PyClass || IsHeapType || string.IsNullOrEmpty(Module) || Module == "builtins" ? Name : Module + "." + Name;
 
         /// <summary>type_set_bases (Objects/typeobject.c): new bases, then a new MRO, here and in
         /// every subclass, as mro_hierarchy does.</summary>
@@ -765,7 +766,6 @@ namespace SharpPy
             return PyTypeMetaclass.Instance;
         }
 
-        public override string GetTypeName() => "type";
 
         #endregion
 
@@ -933,7 +933,6 @@ namespace SharpPy
         /// UnsupportedOperation.__module__ = "io", which CPython accepts while it rejects the same
         /// assignment on ValueError, OSError, _io._IOBase and _io.StringIO.
         /// </summary>
-        public bool AllowsModuleAssignment;
 
         // type_setattro is the slot of every type; a metaclass's __setattr__/__delattr__ is its
         // own slot in PyObject_SetAttr.
@@ -956,12 +955,6 @@ namespace SharpPy
         {
             if (HasFeature(PyTypeFlags.ImmutableType))
             {
-                // io.UnsupportedOperation is a heap type in CPython, so Lib/io.py may set its __module__.
-                if (value != null && AllowsModuleAssignment && name == "__module__")
-                {
-                    TypeDict["__module__"] = value;
-                    return;
-                }
                 throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{FullName}'");
             }
             // _PyType_Lookup(Py_TYPE(type), name): a data descriptor of the metatype sets.
@@ -3413,7 +3406,6 @@ namespace SharpPy
     public class PyInstance : PyObject
     {
         public override PyType GetPyType() => PyType.ObjectType;
-        public override string GetTypeName() => "object";
 
         // CPython: str(object()) == repr(object()) == '<object object at 0x...>'
         public override string ToString() => ToRepr().Value;

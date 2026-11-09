@@ -121,7 +121,6 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => PyType.GeneratorType;
-        public override string GetTypeName() => "generator";
 
         #endregion
 

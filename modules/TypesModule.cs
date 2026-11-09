@@ -58,7 +58,6 @@ namespace SharpPy.Modules
         internal PyObject Dict => _dict;
 
         public override PyType GetPyType() => _customType ?? _builtin;
-        public override string GetTypeName() => GetPyType().FullName;
 
 
         // namespace_repr

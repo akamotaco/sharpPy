@@ -56,7 +56,6 @@ namespace SharpPy
 
         internal PyUnraisableHookArgs(PyObject[] items) : base(items) { }
         public override PyType GetPyType() => ArgsType;
-        public override string GetTypeName() => "UnraisableHookArgs";
         protected internal override PyString Repr()
         {
             var parts = new string[5];

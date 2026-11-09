@@ -1581,7 +1581,6 @@ namespace SharpPy
 
         // PyX_CheckExact
         internal bool IsExact => IsExactly(PyType.StrType);
-        public override string GetTypeName() => _customType?.Name ?? "str";
 
         // CPython 3.12: Objects/unicodeobject.c - unicode_bool
         // Optimized: Direct length check, no MRO traversal

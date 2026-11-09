@@ -24,7 +24,6 @@ namespace SharpPy
 
         public override PyType GetPyType() => _customType ?? PyType.GenericAliasType;
 
-        public override string GetTypeName() => GetPyType().FullName;
 
         private static PyObject LookupAttr(PyObject value, string name)
         {

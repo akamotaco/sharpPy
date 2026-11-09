@@ -39,7 +39,6 @@ public class PyIOBaseInstance : PyObject, IObjectDict
     public PyIOBaseInstance(PyType type) => _builtin = Allocated(type);
 
     public override PyType GetPyType() => _customType ?? _builtin;
-    public override string GetTypeName() => GetPyType().Name;
 
     /// <summary>
     /// CPython stores these tp_names dotted ("_io._IOBase") and the attribute error prints

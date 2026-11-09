@@ -1123,7 +1123,6 @@ namespace SharpPy.Modules
         }
 
         public override PyType GetPyType() => _StructModule.UnpackIterType;
-        public override string GetTypeName() => "_struct.unpack_iterator";
         protected override string IteratorName => "_struct.unpack_iterator";
 
         // unpackiter_len

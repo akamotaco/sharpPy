@@ -42,7 +42,6 @@ namespace SharpPy
             DictViewKind.Values => PyType.DictValuesType,
             _ => PyType.DictItemsType
         };
-        public override string GetTypeName() => GetPyType().Name;
         protected internal override long Len() => _dictionary.Length();
         protected internal override bool Bool() => Len() != 0;
 

@@ -243,7 +243,6 @@ public interface IDescriptor
             name == "__set_name__" ? GetAttribute(name) : base.LookupAttribute(name);
 
 
-        public override string GetTypeName() => GetPyType().Name;
         public override PyType GetPyType() => _customType ?? PyType.PropertyType;
         public override string ToString() => "<property object>";
     }

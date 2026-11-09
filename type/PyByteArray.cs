@@ -262,7 +262,6 @@ namespace SharpPy
 
         #region Core Overrides
 
-        public override string GetTypeName() => GetPyType().Name;
         public override PyType GetPyType() => _customType ?? PyType.BytearrayType;
 
         // bytearray_init: the arguments reach the object tp_new allocated.

@@ -280,7 +280,6 @@ namespace SharpPy.Modules
             internal PySet NegativeCache;
             internal ulong NegativeVersion = _invalidationCounter;
 
-            public override string GetTypeName() => "_abc_data";
         }
     }
 }

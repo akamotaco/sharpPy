@@ -71,7 +71,6 @@ namespace SharpPy.Core
             );
         }
 
-        public override string GetTypeName() => "coroutine";
         public override PyType GetPyType() => PyType.CoroutineType;
 
         internal static void CheckSendArguments(string typeName, PyObject[] args, PyDict kwargs)
@@ -488,7 +487,6 @@ namespace SharpPy.Core
 
         private readonly PyCoroutine _coroutine;
 
-        public override string GetTypeName() => "coroutine_wrapper";
         public override PyType GetPyType() => WrapperType;
         public override bool IsCallable() => false;
 

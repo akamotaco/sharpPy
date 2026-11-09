@@ -28,7 +28,6 @@ namespace SharpPy
             : this(start?.ToPyInt(), stop?.ToPyInt(), step?.ToPyInt()) { }
 
         public override PyType GetPyType() => PyType.SliceType;
-        public override string GetTypeName() => "slice";
 
         /// <summary>
         /// CPython 3.12: slice.start, slice.stop, slice.step attributes

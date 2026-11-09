@@ -14,7 +14,6 @@ namespace SharpPy
         private PyEllipsis() { }
 
         public override PyType GetPyType() => PyType.EllipsisType;
-        public override string GetTypeName() => "ellipsis";
 
         #endregion
 

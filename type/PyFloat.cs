@@ -439,7 +439,6 @@ namespace SharpPy
 
         // PyX_CheckExact
         internal bool IsExact => IsExactly(PyType.FloatType);
-        public override string GetTypeName() => _customType?.Name ?? "float";
 
         // CPython 3.12: Objects/floatobject.c - float_bool
         // Optimized: Direct value check, no MRO traversal

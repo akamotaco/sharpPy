@@ -50,7 +50,6 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => PyType.RangeType;
-        public override string GetTypeName() => "range";
 
         internal PyObject Read(string name) => name switch
         {

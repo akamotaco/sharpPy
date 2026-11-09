@@ -390,7 +390,6 @@ namespace SharpPy.Modules
         }
 
         public override PyType GetPyType() => _customType ?? _builtin;
-        public override string GetTypeName() => "lock";
 
         // lock_repr
         protected internal override PyString Repr() => PyString.From($"<{(_locked ? "locked" : "unlocked")} _thread.lock object at {PyObjectId.Pointer(this)}>");
@@ -413,7 +412,6 @@ namespace SharpPy.Modules
         }
 
         public override PyType GetPyType() => _customType ?? _builtin;
-        public override string GetTypeName() => "RLock";
 
         // rlock_repr
         protected internal override PyString Repr() =>

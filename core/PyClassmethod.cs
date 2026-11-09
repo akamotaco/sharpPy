@@ -42,7 +42,6 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => _customType ?? _builtin;
-        public override string GetTypeName() => GetPyType().Name;
 
         public abstract PyObject Get(PyObject instance, PyType owner);
 

@@ -98,7 +98,6 @@ namespace SharpPy
 
         // PyAnySet_CheckExact's halves
         internal bool IsExact => IsExactly(PyType.SetType);
-        public override string GetTypeName() => _customType?.Name ?? "set";
 
         // 내부 HashSet 접근 (읽기 전용)
         public IReadOnlyCollection<PyObject> Items => _items;
@@ -615,7 +614,6 @@ namespace SharpPy
 
         // PyAnySet_CheckExact's halves
         internal bool IsExact => IsExactly(PyType.FrozenSetType);
-        public override string GetTypeName() => _customType?.Name ?? "frozenset";
 
         public IReadOnlyCollection<PyObject> Items => _items;
 

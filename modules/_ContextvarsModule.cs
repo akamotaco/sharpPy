@@ -162,7 +162,6 @@ namespace SharpPy.Modules
 
         private sealed class PyMissing : PyObject
         {
-            public override string GetTypeName() => "Token.MISSING";
             public override string ToString() => "<Token.MISSING>";
         }
 
@@ -174,7 +173,6 @@ namespace SharpPy.Modules
             internal PyContext(ImmutableDictionary<PyObject, PyObject> vars) { Vars = vars; }
 
             public override PyType GetPyType() => ContextType;
-            public override string GetTypeName() => "Context";
             protected internal override PyObject Iter() => IterOf(Keys(this));
         }
 
@@ -190,7 +188,6 @@ namespace SharpPy.Modules
             }
 
             public override PyType GetPyType() => ContextVarType;
-            public override string GetTypeName() => "ContextVar";
             public override string ToString() => $"<ContextVar name='{_name.Value}'>";
 
             internal PyString Name => _name;
@@ -211,7 +208,6 @@ namespace SharpPy.Modules
             }
 
             public override PyType GetPyType() => TokenType;
-            public override string GetTypeName() => "Token";
 
         }
     }

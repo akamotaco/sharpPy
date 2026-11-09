@@ -60,7 +60,6 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => _customType ?? PyType.WeakRefType;
-        public override string GetTypeName() => _customType?.Name ?? "weakref.ReferenceType";
 
         protected internal override PyString Repr() => SlotRepr();
 

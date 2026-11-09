@@ -129,7 +129,6 @@ namespace SharpPy
         // mp_subscript is union_getitem.
         protected internal override PyObject MpSubscript(PyObject key) => Subscript(key);
 
-        public override string GetTypeName() => "types.UnionType";
 
         public override bool Equals(object? obj)
         {

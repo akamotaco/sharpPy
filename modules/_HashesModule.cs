@@ -303,7 +303,6 @@ namespace SharpPy.Modules {
             internal bool LittleEndianLength;
 
             public override PyType GetPyType() => HashType;
-            public override string GetTypeName() => "HASH";
             protected internal override PyString Repr() => PyString.From("<" + Name + " HASH object>");
             protected internal override PyString Str() => ToRepr();
 

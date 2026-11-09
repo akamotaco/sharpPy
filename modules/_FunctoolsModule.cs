@@ -114,7 +114,6 @@ namespace SharpPy.Modules
         }
 
         public override PyType GetPyType() => KeyWrapperType;
-        public override string GetTypeName() => "functools.KeyWrapper";
 
 
         // keyobject_call: PyArg_ParseTupleAndKeywords(args, kwds, "O:K", {"obj"}).

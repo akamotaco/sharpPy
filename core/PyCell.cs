@@ -71,7 +71,6 @@ namespace SharpPy
         }
 
         
-        public override string GetTypeName() => "cell";
         
         public override string ToString()
         {

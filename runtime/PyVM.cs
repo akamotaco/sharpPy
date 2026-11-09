@@ -704,7 +704,6 @@ namespace SharpPy
 
         // PyObject required overrides
         public override PyType GetPyType() => FramePyType;
-        public override string GetTypeName() => "frame";
 
         /// <summary>
         /// CPython 3.12: Frame attribute access for traceback.py compatibility

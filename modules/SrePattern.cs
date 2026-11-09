@@ -126,7 +126,6 @@ namespace SharpPy.Modules
         }
 
         public override PyType GetPyType() => _SreModule.PyPatternType;
-        public override string GetTypeName() => "re.Pattern";
 
         // state_init: pos and endpos clamp to the subject, and the two kinds may not mix.
         internal SreState NewState(SreText text, int pos, int endpos)
@@ -436,7 +435,6 @@ namespace SharpPy.Modules
         }
 
         public override PyType GetPyType() => _SreModule.PyMatchType;
-        public override string GetTypeName() => "re.Match";
 
         // match_getslice_by_index and match_getindex.
         private int GroupNumber(PyObject group)
@@ -564,7 +562,6 @@ namespace SharpPy.Modules
             _items = items;
         }
 
-        public override string GetTypeName() => "re.template";
 
         // expand_template.
         internal PyObject Expand(PySreMatch match)
@@ -605,7 +602,6 @@ namespace SharpPy.Modules
         }
 
         public override PyType GetPyType() => _SreModule.ScannerType;
-        public override string GetTypeName() => "_sre.SRE_Scanner";
 
         internal PyObject Step(bool search)
         {

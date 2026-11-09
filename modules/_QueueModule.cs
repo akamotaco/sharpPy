@@ -91,7 +91,6 @@ namespace SharpPy.Modules
             }
 
             public override PyType GetPyType() => _customType ?? _builtin;
-            public override string GetTypeName() => "SimpleQueue";
 
             internal void Put(PyObject item)
             {
