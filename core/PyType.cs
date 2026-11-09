@@ -1249,107 +1249,15 @@ namespace SharpPy
         // 인스턴스 생성 (기본 구현)
         public virtual PyObject CreateInstance(PyObject[] args, PyDict kwargs = null)
         {
-            // CPython 3.12: bytes_new semantics also apply to bytes subclasses
-            // (Objects/bytesobject.c bytes_new -> "string argument without an encoding").
-            // CPython bytes_new pairs the two refusals: a string without a codec is
-            // "string argument without an encoding", a codec without a string is
-            // "encoding without a string argument". Only the first one was reachable here.
-            bool bytesLikeTarget = ReferenceEquals(this, BytesType) || DerivesFromType(BytesType);
-            if (bytesLikeTarget && !(args.Length > 0 && args[0] is PyString) &&
-                (args.Length > 1 || (kwargs != null && PyObject.KwValue(kwargs, "encoding") != null)))
-                throw PyTypeError.Create("encoding without a string argument");
-
             // The type's own tp_alloc: an exception type's struct (InstallExceptionAllocators).
             if (Allocator != null)
                 return Allocator(args, kwargs);
 
 
-            // bytes_new for bytes itself, which bytes.__new__ hands here; the exceptions are above.
+            // bytes_new for bytes itself, which bytes.__new__ hands here.
             if (ReferenceEquals(this, BytesType))
-            {
-                if (kwargs != null && kwargs.Length() != 0)
-                {
-                    CheckConstructorKeywords(kwargs);
-                    var encoded = PyBytesTextConstruct(args, kwargs, false);
-                    if (encoded != null)
-                        return encoded;
-                }
                 return PyBuiltinFunction.CallBytes(args, kwargs);
-            }
             throw PyTypeError.Create($"cannot create '{FullName}' instances");
-        }
-
-        /// <summary>
-        /// The keyword signature of each builtin constructor, measured against CPython 3.12.15.
-        /// "takes no keyword arguments" and "'x' is an invalid keyword argument for str()" are two
-        /// different refusals: the first is a positional-only signature, the second a named one.
-        /// </summary>
-        private void CheckConstructorKeywords(PyDict kwargs)
-        {
-            if (kwargs == null || kwargs.Length() == 0)
-                return;
-
-            string[] allowed = Name switch
-            {
-                "list" or "tuple" or "set" or "frozenset" or "bool" or "range" or "slice" => null,
-                "complex" => new[] { "real", "imag" },
-                "bytes" or "bytearray" => new[] { "encoding", "errors" },
-                "str" => new[] { "object", "encoding", "errors" },
-                "dict" => new[] { "__any__" },
-                _ => new[] { "__any__" },
-            };
-
-            if (allowed == null)
-                throw PyTypeError.Create($"{Name}() takes no keyword arguments");
-            if (allowed.Length == 1 && allowed[0] == "__any__")
-                return;
-
-            foreach (var entry in kwargs.GetInternalDict())
-            {
-                string key = entry.Key.ToClrString();
-                bool ok = false;
-                foreach (var candidate in allowed)
-                    if (candidate == key) { ok = true; break; }
-                if (!ok)
-                    throw PyTypeError.Create(
-                        $"'{key}' is an invalid keyword argument for {Name}()");
-            }
-        }
-
-        private static PyObject PyBytesTextConstruct(PyObject[] args, PyDict kwargs, bool mutable)
-        {
-            PyObject encodingArg = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "encoding");
-            PyObject errorsArg = args.Length > 2 ? args[2] : PyObject.KwValue(kwargs, "errors");
-            PyObject textArg = args.Length > 0 ? args[0] : null;
-            if (textArg is not PyString text)
-                return null;
-            if (encodingArg is not PyString encodingName)
-                throw PyTypeError.Create(
-                    "string argument without an encoding");
-
-            string encoding = encodingName.Value;
-            string errors = (errorsArg as PyString)?.Value;
-            if (!string.IsNullOrEmpty(errors) && errors != "strict" && errors != "ignore" &&
-                errors != "replace")
-                throw PyLookupError.Create($"'{errors}' is not a known error handler");
-
-            System.Text.Encoding codec = PyStringNewArguments.ResolveCodecPublic(encoding)
-                ?? throw PyLookupError.Create($"unknown encoding: {encoding}");
-            byte[] encodedBytes;
-            try
-            {
-                encodedBytes = codec.GetBytes(text.Value);
-            }
-            catch (EncoderFallbackException)
-            {
-                if (errors == "ignore")
-                    encodedBytes = System.Text.Encoding.ASCII
-                        .GetBytes(text.Value.Replace("\ufffd", ""));
-                else
-                    throw PyUnicodeEncodeError.Create(
-                        $"'{encoding}' codec can't encode character: unencodable text");
-            }
-            return mutable ? (PyObject)new PyByteArray(encodedBytes) : PyBytes.From(encodedBytes);
         }
 
         /// <summary>

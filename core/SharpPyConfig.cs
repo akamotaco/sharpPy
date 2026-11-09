@@ -14,6 +14,19 @@ namespace SharpPy
         /// false: 프로그램 출력만 표시 (Python 기본 동작과 동일)
         /// </summary>
         public static bool VerboseMode { get; set; } = false;
+
+        /// <summary>
+        /// -X options in the order given (config_init_xoptions): the name, and the value after '='
+        /// or null for none (sys._xoptions maps that to True).
+        /// </summary>
+        public static readonly List<KeyValuePair<string, string>> XOptions = new();
+
+        /// <summary>
+        /// PyConfig.dev_mode: -X dev, or a non-empty PYTHONDEVMODE.
+        /// </summary>
+        public static bool DevMode =>
+            XOptions.Exists(option => option.Key == "dev") ||
+            !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("PYTHONDEVMODE"));
         
         /// <summary>
         /// 조용한 모드 (--quiet)

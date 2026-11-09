@@ -874,6 +874,11 @@ namespace SharpPy
             source = args.Length > 0 ? args[0] : kwargs != null ? PyObject.KwValue(kwargs, "source") : null;
             encoding = args.Length > 1 ? args[1] : kwargs != null ? PyObject.KwValue(kwargs, "encoding") : null;
             errors = args.Length > 2 ? args[2] : kwargs != null ? PyObject.KwValue(kwargs, "errors") : null;
+            // _PyArg_UnpackKeywords: source, encoding and errors are the only names.
+            if (kwargs != null)
+                foreach (var key in kwargs.Keys().Items)
+                    if (key is not PyString name || name.Value is not ("source" or "encoding" or "errors"))
+                        throw PyArgs.InvalidKeyword(kind, key);
             if (encoding != null && encoding is not PyString)
                 throw PyArgs.BadArgument(kind, "argument 'encoding'", "str", encoding);
             if (errors != null && errors is not PyString)

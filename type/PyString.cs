@@ -66,13 +66,14 @@ namespace SharpPy
                 return objectArg.ToStr();
             }
 
-            // With encoding or errors present, CPython never accepts a str and never calls str().
-            if (objectArg is PyString)
-                throw PyTypeError.Create("decoding str is not supported");
+            // unicode_new's clinic converts encoding and errors first; then, with either present,
+            // PyUnicode_FromEncodedObject never accepts a str and never calls str().
             if (encodingArg != null && encodingArg is not PyString)
                 throw PyArgs.BadArgument("str", "argument 'encoding'", "str", encodingArg);
             if (errorsArg != null && errorsArg is not PyString)
                 throw PyArgs.BadArgument("str", "argument 'errors'", "str", errorsArg);
+            if (objectArg is PyString)
+                throw PyTypeError.Create("decoding str is not supported");
 
             byte[] data = RawBytesOrNull(objectArg);
             if (data == null)
@@ -169,6 +170,8 @@ namespace SharpPy
 
         internal static string DecodeBytes(byte[] data, string encodingName, string errorName)
         {
+            // PyUnicode_Decode
+            PyCodecRegistry.CheckEncodingErrors(encodingName, errorName);
             System.Text.Encoding encoding = ResolveCodec(encodingName);
             if (encoding == null)
             {
@@ -3198,6 +3201,8 @@ namespace SharpPy
         /// </summary>
         public PyBytes Encode(string encoding = "utf-8", string errors = null)
         {
+            // PyUnicode_AsEncodedString
+            PyCodecRegistry.CheckEncodingErrors(encoding, errors);
             string codec = PyStringNewArguments.NormalizeCodecName(encoding ?? "utf-8");
             var ctx = new EncodeContext(codec, errors);
 

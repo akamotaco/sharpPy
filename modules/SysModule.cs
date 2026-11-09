@@ -176,7 +176,11 @@ namespace SharpPy.Modules
             module.ModuleDict["pycache_prefix"] = PyNone.Instance;
             module.ModuleDict["dont_write_bytecode"] = PyBool.FromBool(!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PYTHONDONTWRITEBYTECODE")));
             module.ModuleDict["_git"] = PyTuple.From(new PyObject[] { PyString.From("SharpPy"), PyString.From(""), PyString.From("") });
-            module.ModuleDict["_xoptions"] = new PyDict();
+            // _PyConfig_CreateXOptionsDict: True for a bare name, else the text after '='.
+            var xoptions = new PyDict();
+            foreach (var (name, value) in SharpPyConfig.XOptions)
+                xoptions.SetItem(PyString.From(name), value == null ? PyBool.True : PyString.From(value));
+            module.ModuleDict["_xoptions"] = xoptions;
             module.ModuleDict["_home"] = PyNone.Instance;
             module.ModuleDict["_vpath"] = PyString.From("");
             module.ModuleDict["_framework"] = PyString.From("");
@@ -445,7 +449,7 @@ namespace SharpPy.Modules
                     "int_max_str_digits" => 4300,
                     _ => 0,
                 });
-            values[Array.IndexOf(fields, "dev_mode")] = PyBool.False;
+            values[Array.IndexOf(fields, "dev_mode")] = PyBool.FromBool(SharpPyConfig.DevMode);
             values[Array.IndexOf(fields, "safe_path")] = PyBool.False;
             return new PyStructSequence(new PyStructSequenceType("sys", "flags", fields), values);
         }

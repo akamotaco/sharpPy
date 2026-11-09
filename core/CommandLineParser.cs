@@ -129,7 +129,11 @@ namespace SharpPy.Core
                     default:
                         // main_run_python: the first argument that is no option is the script,
                         // whatever it is called. -W and -X take a value, joined or not.
-                        if (arg is "-W" or "-X")
+                        if (arg == "-X" && i + 1 < args.Length)
+                            AddXOption(args[++i]);
+                        else if (arg.StartsWith("-X", StringComparison.Ordinal) && arg.Length > 2)
+                            AddXOption(arg.Substring(2));
+                        else if (arg is "-W" or "-X")
                             i++;
                         else if (!arg.StartsWith("-", StringComparison.Ordinal))
                             line.PythonFile = arg;
@@ -138,6 +142,15 @@ namespace SharpPy.Core
             }
 
             return line;
+        }
+
+        // config_add_xoption: "name" or "name=value".
+        private static void AddXOption(string option)
+        {
+            int equals = option.IndexOf('=');
+            SharpPyConfig.XOptions.Add(equals < 0
+                ? new KeyValuePair<string, string>(option, null)
+                : new KeyValuePair<string, string>(option.Substring(0, equals), option.Substring(equals + 1)));
         }
 
         private static string[] Rest(string[] args, int from)

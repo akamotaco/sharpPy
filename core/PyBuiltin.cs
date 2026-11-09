@@ -507,7 +507,8 @@ namespace SharpPy
             var start = args.Length > 1
                 ? args[1]
                 : PyObject.KwValue(kwargs, "start") ?? PyInt.From(0);
-            // builtin_sum_impl
+            // builtin_sum_impl: the iterator first, then start's refusals.
+            var iterator = iterable.GetIterator();
             if (start is PyString)
                 throw PyTypeError.Create("sum() can't sum strings [use ''.join(seq) instead]");
             if (start.GetPyType().IsSubclassOf(PyType.BytesType) || ReferenceEquals(start.GetPyType(), PyType.BytesType))
@@ -515,7 +516,6 @@ namespace SharpPy
             if (start.GetPyType().IsSubclassOf(PyType.BytearrayType) || ReferenceEquals(start.GetPyType(), PyType.BytearrayType))
                 throw PyTypeError.Create("sum() can't sum bytearray [use b''.join(seq) instead]");
             var result = start;
-            var iterator = iterable.GetIterator();
             double compensation = 0;
 
             try
@@ -1297,8 +1297,7 @@ namespace SharpPy
 
         private static PyObject CallNext(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"next expected 1 or 2 arguments ({args.Length} given)");
+            PyArgs.Positional("next", args, kwargs, 1, 2);
 
             var iterator = args[0];
             var defaultValue = args.Length > 1 ? args[1] : null;
@@ -1387,8 +1386,7 @@ namespace SharpPy
         /// </summary>
         private static PyObject CallDivmod(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"divmod expected exactly 2 arguments ({args.Length} given)");
+            PyArgs.Positional("divmod", args, kwargs, 2, 2);
 
             var a = args[0];
             var b = args[1];
@@ -1424,18 +1422,11 @@ namespace SharpPy
         {
             PyArgs.One("chr", args, null);  // METH_O
 
-            if (args[0] is PyInt i)
-            {
-                if (i.Value < 0 || i.Value > 0x10FFFF)
-                    throw PyValueError.Create("chr() arg not in range(0x110000)");
-                
-                int codepoint = (int)i.Value;
-                return PyString.From(codepoint <= 0xffff ? new string((char)codepoint, 1) : char.ConvertFromUtf32(codepoint));
-            }
-            else
-            {
-                throw PyTypeError.Create("an integer is required");
-            }
+            // builtin_chr: _PyLong_AsInt, then PyUnicode_FromOrdinal's range.
+            int codepoint = PyArgs.Int(args[0]);
+            if (codepoint < 0 || codepoint > 0x10FFFF)
+                throw PyValueError.Create("chr() arg not in range(0x110000)");
+            return PyString.From(codepoint <= 0xffff ? new string((char)codepoint, 1) : char.ConvertFromUtf32(codepoint));
         }
 
         // Built-in function은 항상 호출 가능

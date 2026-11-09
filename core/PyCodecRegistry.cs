@@ -75,6 +75,21 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// unicode_check_encoding_errors (Objects/unicodeobject.c): in development mode the codec
+        /// and the error handler are looked up even when nothing needs them (an empty string), so
+        /// a misspelt name fails at once; the common names skip the lookup.
+        /// </summary>
+        internal static void CheckEncodingErrors(string encoding, string errors)
+        {
+            if (encoding == null && errors == null || !SharpPyConfig.DevMode)
+                return;
+            if (encoding != null && encoding is not ("utf-8" or "utf8" or "ascii"))
+                Lookup(encoding);
+            if (errors != null && errors is not ("strict" or "ignore" or "replace" or "surrogateescape" or "surrogatepass"))
+                PyCodecErrors.LookupError(errors);
+        }
+
+        /// <summary>
         /// _PyCodec_Lookup: normalise, cache, builtin entries, then the registered search functions
         /// IN REGISTRATION ORDER, then "unknown encoding" naming the caller's spelling.
         /// </summary>
