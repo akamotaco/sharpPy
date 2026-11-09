@@ -5314,6 +5314,19 @@ namespace SharpPy
                 if (inherited != null)
                     return left.BindSpecialMethod(inherited).Call(new[] { right }, null);
             }
+            // bool_and, bool_or and bool_xor: two bools give a bool; anything else is long_*'s.
+            if (left is PyBool truth && right is PyBool && operation is BinaryOpType.AND or BinaryOpType.OR or BinaryOpType.XOR)
+                return operation switch
+                {
+                    BinaryOpType.AND => truth.BitwiseAnd(right),
+                    BinaryOpType.OR => truth.BitwiseOr(right),
+                    _ => truth.BitwiseXor(right),
+                };
+            // The nb_* slot of a builtin number: its own operand rules, NotImplemented otherwise.
+            if (PyNumberSlots.KindOf(left) is { } kind)
+                return operation == BinaryOpType.POWER
+                    ? PyNumberSlots.Power(kind, left, right, null)
+                    : PyNumberSlots.Binary(kind, operation, left, right);
             right = NumberOperand(left, right);
             return operation switch
             {

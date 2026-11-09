@@ -355,8 +355,8 @@ namespace SharpPy
                         throw PyTypeError.Create($"replace() takes 2 or 3 arguments ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "replace");
 
-                    var old = args[0] is PyString oldStr ? oldStr.Value : throw PyTypeError.Create("replace() old must be str");
-                    var newStr = args[1] is PyString newPyStr ? newPyStr.Value : throw PyTypeError.Create("replace() new must be str");
+                    var old = args[0] is PyString oldStr ? oldStr.Value : throw PyArgs.BadArgument("replace", "argument 1", "str", args[0]);
+                    var newStr = args[1] is PyString newPyStr ? newPyStr.Value : throw PyArgs.BadArgument("replace", "argument 2", "str", args[1]);
 
                     // count is "n": PyLong_AsSsize_t after _PyNumber_Index.
                     long count = args.Length == 3 ? PyArgs.Ssize(args[2]) : -1;
@@ -531,10 +531,8 @@ namespace SharpPy
                         throw PyTypeError.Create(args.Length < 1 ? "find() takes at least 1 argument (0 given)" : $"find() takes from 1 to 3 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "find");
 
-                    if (args[0] is not PyString sub)
-                        throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
 
-                    return FindIndexOf(str, sub.Value, args, backward: false, raiseWhenMissing: false);
+                    return FindIndexOf(str, args[0], args, backward: false, raiseWhenMissing: false);
                 },
                 minArgs: 1, maxArgs: 3
             );
@@ -550,10 +548,8 @@ namespace SharpPy
                         throw PyTypeError.Create(args.Length < 1 ? "index() takes at least 1 argument (0 given)" : $"index() takes from 1 to 3 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "index");
 
-                    if (args[0] is not PyString sub)
-                        throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
 
-                    return FindIndexOf(str, sub.Value, args, backward: false, raiseWhenMissing: true);
+                    return FindIndexOf(str, args[0], args, backward: false, raiseWhenMissing: true);
                 },
                 minArgs: 1, maxArgs: 3
             );
@@ -567,10 +563,8 @@ namespace SharpPy
                         throw PyTypeError.Create(args.Length < 1 ? "rfind() takes at least 1 argument (0 given)" : $"rfind() takes from 1 to 3 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "rfind");
 
-                    if (args[0] is not PyString sub)
-                        throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
 
-                    return FindIndexOf(str, sub.Value, args, backward: true, raiseWhenMissing: false);
+                    return FindIndexOf(str, args[0], args, backward: true, raiseWhenMissing: false);
                 },
                 minArgs: 1, maxArgs: 3
             );
@@ -584,10 +578,8 @@ namespace SharpPy
                         throw PyTypeError.Create(args.Length < 1 ? "rindex() takes at least 1 argument (0 given)" : $"rindex() takes from 1 to 3 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "rindex");
 
-                    if (args[0] is not PyString sub)
-                        throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
 
-                    return FindIndexOf(str, sub.Value, args, backward: true, raiseWhenMissing: true);
+                    return FindIndexOf(str, args[0], args, backward: true, raiseWhenMissing: true);
                 },
                 minArgs: 1, maxArgs: 3
             );
@@ -763,14 +755,13 @@ namespace SharpPy
                         throw PyTypeError.Create(args.Length < 1 ? "count() takes at least 1 argument (0 given)" : $"count() takes from 1 to 3 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "count");
 
-                    if (args[0] is not PyString sub)
-                        throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
-
                     // CPython Objects/stringlib/count.h: the empty pattern counts the boundary
                     // positions of the window ('abc'.count("", 1, 2) == 2, "".count("") == 1,
                     // 'abc'.count("", 9) == 0), otherwise it is a non-overlapping scan in which a
-                    // match has to begin at a character boundary.
+                    // match has to begin at a character boundary. The window is read first.
                     TextWindow win = str.AdjustedWindow(args);
+                    if (args[0] is not PyString sub)
+                        throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
                     if (sub.Value.Length == 0)
                     {
                         int boundaries = win.End - win.Start + 1;
@@ -808,13 +799,13 @@ namespace SharpPy
                         throw PyTypeError.Create($"startswith() takes from 1 to 3 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "startswith");
 
+                    TextWindow win = str.AdjustedWindow(args);
                     // CPython unicode_startswith accepts a str or a tuple of str.
                     var prefixes = NormalizePrefixTuple(args[0], "startswith");
 
                     // CPython Objects/unicodeobject.c unicode_startswith -> tailmatch with
                     // direction 1: PyUnicode_Tailmatch normalises the window on the character
                     // length and fails when start > end.
-                    TextWindow win = str.AdjustedWindow(args);
                     foreach (var prefix in prefixes)
                         if (TailMatch(str.Value, prefix, win, fromEnd: false))
                             return PyBool.True;
@@ -832,10 +823,10 @@ namespace SharpPy
                         throw PyTypeError.Create($"endswith() takes from 1 to 3 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "endswith");
 
+                    TextWindow win = str.AdjustedWindow(args);
                     // CPython unicode_endswith accepts a str or a tuple of str.
                     var suffixes = NormalizePrefixTuple(args[0], "endswith");
 
-                    TextWindow win = str.AdjustedWindow(args);
                     foreach (var suffix in suffixes)
                         if (TailMatch(str.Value, suffix, win, fromEnd: true))
                             return PyBool.True;
@@ -1941,10 +1932,13 @@ namespace SharpPy
         /// arithmetic. Coordinates in and out are code points, the search runs on .NET's unit index
         /// and is converted at both edges.
         /// </summary>
-        private static PyObject FindIndexOf(PyString str, string pattern, PyObject[] args,
+        // stringlib_parse_args_finds and parse_args_finds_unicode: start and end are slice indices,
+        // read before the substring, which must then be a str (ensure_unicode).
+        private static PyObject FindIndexOf(PyString str, PyObject sub, PyObject[] args,
                                             bool backward, bool raiseWhenMissing)
         {
             TextWindow win = str.AdjustedWindow(args);
+            string pattern = sub is PyString needle ? needle.Value : throw PyTypeError.Create("must be str, not " + sub.GetTypeName());
             string text = str.Value;
 
             // any_find_slice: if (end - start < len2) return -1;
@@ -2897,8 +2891,13 @@ namespace SharpPy
 
         #region String Methods
 
+        // unicode_split's clinic: sep is any object and maxsplit a Py_ssize_t, both converted
+        // before the body asks sep to be str or None.
         private static (string, long) SplitArguments(PyObject[] arguments)
         {
+            long limit = -1;
+            if (arguments.Length >= 2 && arguments[1] != null)
+                limit = PyArgs.Ssize(arguments[1]);
             string separator = null;
             if (arguments.Length >= 1 && arguments[0] != null && arguments[0] is not PyNone)
             {
@@ -2910,9 +2909,6 @@ namespace SharpPy
                 if (separator.Length == 0)
                     throw PyValueError.Create("empty separator");
             }
-            long limit = -1;
-            if (arguments.Length >= 2 && arguments[1] != null)
-                limit = PyArgs.Ssize(arguments[1]);
             return (separator, limit);
         }
 

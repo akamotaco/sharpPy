@@ -142,19 +142,6 @@ namespace SharpPy
             // PyFloat, so a float subclass answered TypeError even though it carries a float value.
             // `self` is read through TryFloatSelf, which is the CLR counterpart of nb_reflected
             // reading ob_fval: the subclass contributes its own value, the result stays a plain float.
-            void regFloatRev(string name, Func<PyObject, PyObject, PyObject> fwd)
-            {
-                floatType.TypeDict[name] = new PyWrapperDescriptor(name, floatType, (self, args, kwargs) =>
-                {
-                    if (!PyFloat.TryFloatSelf(self, out var selfFloat))
-                        throw PyTypeError.Create($"descriptor '{name}' requires a 'float' object but received a '{self.GetTypeName()}'");
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                    return fwd(args[0], selfFloat);
-                });
-            }
 
             void regFloatUn(string name, Func<PyFloat, PyObject> impl)
             {
@@ -170,14 +157,6 @@ namespace SharpPy
                 });
             }
 
-            regFloatRev("__radd__", (o, s) => o.Add(s));
-            regFloatRev("__rsub__", (o, s) => o.Subtract(s));
-            regFloatRev("__rmul__", (o, s) => o.Multiply(s));
-            regFloatRev("__rtruediv__", (o, s) => o.Divide(s));
-            regFloatRev("__rfloordiv__", (o, s) => o.FloorDivide(s));
-            regFloatRev("__rmod__", (o, s) => o.Modulo(s));
-            regFloatRev("__rpow__", (o, s) => o.Power(s));
-            regFloatRev("__rdivmod__", (o, s) => DivModValues(o, s));
             regFloatUn("__abs__", s => new PyFloat(Math.Abs(s.Value)));
             regFloatUn("__neg__", s => new PyFloat(-s.Value));
             regFloatUn("__pos__", s => s);
@@ -208,19 +187,6 @@ namespace SharpPy
             // Forward binary slots. CPython lists these on float as slot wrappers and SharpPy had
             // none, so a float subclass reached through a dunder path found nothing at all; only
             // the hard-coded exact-PyFloat CLR path worked.
-            void regFloatBin(string name, Func<PyObject, PyObject, PyObject> impl)
-            {
-                floatType.TypeDict[name] = new PyWrapperDescriptor(name, floatType, (self, args, kwargs) =>
-                {
-                    if (!PyFloat.TryFloatSelf(self, out var selfFloat))
-                        throw PyTypeError.Create($"descriptor '{name}' requires a 'float' object but received a '{self.GetTypeName()}'");
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                    return impl(selfFloat, args[0]);
-                });
-            }
 
             // CPython publishes float.__int__ and float.__float__ too. __float__ returns the object
             // itself, not a fresh float, so it needs the raw self rather than the payload.
@@ -239,14 +205,6 @@ namespace SharpPy
                     return FloatValue(self);
                 });
 
-            regFloatBin("__add__", (s, o) => s.Add(o));
-            regFloatBin("__sub__", (s, o) => s.Subtract(o));
-            regFloatBin("__mul__", (s, o) => s.Multiply(o));
-            regFloatBin("__truediv__", (s, o) => s.Divide(o));
-            regFloatBin("__floordiv__", (s, o) => s.FloorDivide(o));
-            regFloatBin("__mod__", (s, o) => s.Modulo(o));
-            regFloatBin("__pow__", (s, o) => s.Power(o));
-            regFloatRev("__divmod__", (o, s) => DivModValues(s, o));
 
             floatType.TypeDict["__hash__"] = new PyWrapperDescriptor(
                 "__hash__", floatType,

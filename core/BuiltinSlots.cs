@@ -278,25 +278,9 @@ namespace SharpPy
             return size;
         }
 
-        private static PyObject Int(PyObject value) => value is PyIntSubclass subclass ? subclass.GetIntValue() : value;
-
-        private static PyObject Complex(PyObject value) => value switch
-        {
-            PyComplex => value,
-            PyBool truth => new PyComplex(truth.Value ? 1 : 0, 0),
-            PyInt number => new PyComplex((double)number.Value, 0),
-            PyFloat real => new PyComplex(real.Value, 0),
-            _ => null,
-        };
-
-        private static PyObject Reflected(PyObject self, PyObject other, Func<PyObject, PyObject, PyObject> operation)
-        {
-            var left = Complex(other);
-            return left == null ? PyNotImplemented.Instance : operation(left, self);
-        }
-
         private static void InstallNumbers()
         {
+            PyNumberSlots.Install();
             var truth = new Func<PyObject, PyObject[], PyObject>((self, args) => PyBool.FromBool(self switch
             {
                 PyIntSubclass number => number.GetIntValue().IsTrue(),
@@ -314,20 +298,8 @@ namespace SharpPy
             Slot(PyType.NoneType, "__bool__", (self, args) => PyBool.False);
 
             Method(PyType.IntType, "is_integer", (self, args) => PyBool.True);
-            Slot(PyType.IntType, "__rpow__", (self, args) => args[0] is PyInt or PyIntSubclass
-                ? Int(args[0]).Power(Int(self)) : PyNotImplemented.Instance);
 
             var complex = PyType.ComplexType;
-            Slot(complex, "__add__", (self, args) => Complex(args[0]) is { } other ? self.Add(other) : PyNotImplemented.Instance);
-            Slot(complex, "__sub__", (self, args) => Complex(args[0]) is { } other ? self.Subtract(other) : PyNotImplemented.Instance);
-            Slot(complex, "__mul__", (self, args) => Complex(args[0]) is { } other ? self.Multiply(other) : PyNotImplemented.Instance);
-            Slot(complex, "__truediv__", (self, args) => Complex(args[0]) is { } other ? self.Divide(other) : PyNotImplemented.Instance);
-            Slot(complex, "__pow__", (self, args) => Complex(args[0]) is { } other ? self.Power(other) : PyNotImplemented.Instance);
-            Slot(complex, "__radd__", (self, args) => Reflected(self, args[0], (a, b) => a.Add(b)));
-            Slot(complex, "__rsub__", (self, args) => Reflected(self, args[0], (a, b) => a.Subtract(b)));
-            Slot(complex, "__rmul__", (self, args) => Reflected(self, args[0], (a, b) => a.Multiply(b)));
-            Slot(complex, "__rtruediv__", (self, args) => Reflected(self, args[0], (a, b) => a.Divide(b)));
-            Slot(complex, "__rpow__", (self, args) => Reflected(self, args[0], (a, b) => a.Power(b)));
             Slot(complex, "__neg__", (self, args) => self.NbNegative());
             Slot(complex, "__pos__", (self, args) => self.NbPositive());
             // complex___complex___impl: an exact complex, a subclass gives up its type.

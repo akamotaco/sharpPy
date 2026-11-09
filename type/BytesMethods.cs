@@ -134,8 +134,9 @@ namespace SharpPy
         {
             if (args.Length < 1)
                 throw PyTypeError.Create($"{name}() takes at least 1 argument (0 given)");
-            var sub = Needle(args[0]);
+            // stringlib_parse_args_finds reads start and end before parse_args_finds_byte reads sub.
             Range(args, 1, name, out long start, out long end);
+            var sub = Needle(args[0]);
             Adjust(ref start, ref end, text.Length);
             if (end - start < sub.Length)
                 return -1;
@@ -158,8 +159,9 @@ namespace SharpPy
         {
             if (args.Length < 1)
                 throw PyTypeError.Create("count() takes at least 1 argument (0 given)");
-            var sub = Needle(args[0]);
+            // stringlib_parse_args_finds reads start and end before parse_args_finds_byte reads sub.
             Range(args, 1, "count", out long start, out long end);
+            var sub = Needle(args[0]);
             Adjust(ref start, ref end, text.Length);
             long length = end - start;
             if (length < 0)

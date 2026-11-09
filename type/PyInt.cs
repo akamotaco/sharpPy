@@ -60,8 +60,10 @@ namespace SharpPy
         /// </summary>
         internal static PyObject RoundTo(PyObject self, PyObject ndigits)
         {
+            // int___round___impl: no ndigits is the int itself; anything given is _PyNumber_Index's,
+            // None included (unlike float_round, which takes None).
             var value = AsIntForRound(self);
-            if (ndigits == null || ndigits is PyNone)
+            if (ndigits == null)
                 return PyInt.From(value.Value);
 
             var index = PyObject.IndexOrThrow(ndigits);
@@ -141,49 +143,6 @@ namespace SharpPy
             // operands exactly like the C slots.
             static bool IntLike(PyObject o) => LongCheck(o);
             static PyInt AsIntObj(PyObject o) => LongValue(o);
-            // Extended Euclidean inverse for pow(base, -exp, mod) (CPython 3.8+).
-            static BigInteger ModInverse(BigInteger value, BigInteger modulus)
-            {
-                var positive = BigInteger.Abs(modulus);
-                var a = ((value % positive) + positive) % positive;
-                if (BigInteger.GreatestCommonDivisor(a, positive) != 1)
-                    throw PyValueError.Create("base is not invertible for the given modulus");
-                BigInteger oldR = a, r = positive;
-                BigInteger oldS = 1, s = 0;
-                while (r != BigInteger.Zero)
-                {
-                    var quotient = oldR / r;
-                    (oldR, r) = (r, oldR - quotient * r);
-                    (oldS, s) = (s, oldS - quotient * s);
-                }
-                return ((oldS % positive) + positive) % positive;
-            }
-            void regIntBin(string name, Func<PyObject, PyObject, PyObject> impl)
-            {
-                intType.TypeDict[name] = new PyWrapperDescriptor(name, intType, (self, args, kwargs) =>
-                {
-                    if (!IntLike(self))
-                        throw PyTypeError.Create($"descriptor '{name}' requires a 'int' object but received a '{self.GetTypeName()}'");
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                    return impl(AsIntObj(self), args[0]);
-                });
-            }
-            void regIntRev(string name, Func<PyObject, PyObject, PyObject> fwd)
-            {
-                intType.TypeDict[name] = new PyWrapperDescriptor(name, intType, (self, args, kwargs) =>
-                {
-                    if (!IntLike(self))
-                        throw PyTypeError.Create($"descriptor '{name}' requires a 'int' object but received a '{self.GetTypeName()}'");
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                    return IntLike(args[0]) ? fwd(AsIntObj(args[0]), AsIntObj(self)) : PyNotImplemented.Instance;
-                });
-            }
             void regIntUn(string name, Func<PyObject, PyObject> impl)
             {
                 intType.TypeDict[name] = new PyWrapperDescriptor(name, intType, (self, args, kwargs) =>
@@ -197,41 +156,6 @@ namespace SharpPy
                     return impl(AsIntObj(self));
                 });
             }
-            regIntBin("__add__", (s, o) => s.Add(o));
-            regIntRev("__radd__", (s, o) => s.Add(o));
-            regIntBin("__sub__", (s, o) => s.Subtract(o));
-            regIntRev("__rsub__", (s, o) => s.Subtract(o));
-            regIntBin("__mul__", (s, o) => s.Multiply(o));
-            regIntRev("__rmul__", (s, o) => s.Multiply(o));
-            regIntBin("__floordiv__", (s, o) => s.FloorDivide(o));
-            regIntRev("__rfloordiv__", (s, o) => s.FloorDivide(o));
-            regIntBin("__truediv__", (s, o) => s.Divide(o));
-            regIntRev("__rtruediv__", (s, o) => s.Divide(o));
-            regIntBin("__mod__", (s, o) => s.Modulo(o));
-            regIntRev("__rmod__", (s, o) => s.Modulo(o));
-            regIntBin("__lshift__", (s, o) => s.LeftShift(o));
-            regIntRev("__rlshift__", (s, o) => s.LeftShift(o));
-            regIntBin("__rshift__", (s, o) => s.RightShift(o));
-            regIntRev("__rrshift__", (s, o) => s.RightShift(o));
-            regIntBin("__and__", (s, o) => s.BitwiseAnd(o));
-            regIntRev("__rand__", (s, o) => s.BitwiseAnd(o));
-            regIntBin("__xor__", (s, o) => s.BitwiseXor(o));
-            regIntRev("__rxor__", (s, o) => s.BitwiseXor(o));
-            regIntBin("__or__", (s, o) => s.BitwiseOr(o));
-            regIntRev("__ror__", (s, o) => s.BitwiseOr(o));
-            intType.TypeDict["__divmod__"] = new PyWrapperDescriptor("__divmod__", intType, (self, args, kwargs) =>
-            {
-                if (!IntLike(self))
-                    throw PyTypeError.Create($"descriptor '__divmod__' requires a 'int' object but received a '{self.GetTypeName()}'");
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create("wrapper __divmod__() takes no keyword arguments");
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                var quotient = self.FloorDivide(args[0]);
-                if (quotient is PyNotImplemented)
-                    return quotient;
-                return PyTuple.From(quotient, self.Modulo(args[0]));
-            });
             // Measured against dir(int) in CPython, which also publishes __index__, __trunc__,
             // __floor__, __ceil__, __int__ and __float__. SharpPy had none of them, so
             // operator.index(ISub(5)) raised, and bin(ISub(5)) followed a user __index__ (0b11) while
@@ -264,33 +188,7 @@ namespace SharpPy
             });
             regIntUn("__int__", s => s);
             regIntUn("__float__", s => s.NbFloat());
-            regIntRev("__rdivmod__", (o, s) => o.DivMod(s));
 
-            intType.TypeDict["__pow__"] = new PyWrapperDescriptor("__pow__", intType, (self, args, kwargs) =>
-            {
-                if (!IntLike(self))
-                    throw PyTypeError.Create($"descriptor '__pow__' requires a 'int' object but received a '{self.GetTypeName()}'");
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create("wrapper __pow__() takes no keyword arguments");
-                if (args.Length == 1)
-                    return self.Power(args[0]);
-                if (args.Length != 2)
-                    throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                if (!IntLike(args[0]) || !IntLike(args[1]))
-                    throw PyTypeError.Create($"'{(!IntLike(args[0]) ? args[0] : args[1]).GetTypeName()}' object cannot be interpreted as an integer");
-                var modulus = AsIntObj(args[1]).Value;
-                if (modulus.IsZero)
-                    throw PyTypeError.Create("pow() 3rd argument cannot be 0");
-                var exponent = AsIntObj(args[0]).Value;
-                var baseValue = AsIntObj(self).Value % modulus;
-                if (exponent.Sign < 0)
-                {
-                    // CPython 3.8+: pow(base, -exp, mod) is modular inverse.
-                    baseValue = ModInverse(baseValue, modulus);
-                    exponent = -exponent;
-                }
-                return PyInt.From(BigInteger.ModPow(baseValue, exponent, modulus));
-            });
             regIntUn("__neg__", s => s.NbNegative());
             regIntUn("__pos__", s => s.NbPositive());
             regIntUn("__invert__", s => s.NbInvert());
@@ -395,16 +293,15 @@ namespace SharpPy
                     int length = 1;
                     if (lengthArg != null)
                     {
-                        if (lengthArg is not PyInt lengthInt)
-                            throw PyTypeError.Create($"'length' must be an int, not '{lengthArg.GetTypeName()}'");
-                        length = (int)lengthInt.Value;
+                        // int_to_bytes's clinic: length is a Py_ssize_t (_PyNumber_Index).
+                        length = PyAllocation.ArrayLength(PyArgs.Ssize(lengthArg));
                     }
 
                     string byteorder = "big";
                     if (byteorderArg != null)
                     {
                         if (byteorderArg is not PyString byteorderStr)
-                            throw PyTypeError.Create($"'byteorder' must be a str, not '{byteorderArg.GetTypeName()}'");
+                            throw PyArgs.BadArgument("to_bytes", "argument 'byteorder'", "str", byteorderArg);
                         byteorder = byteorderStr.Value;
                     }
 
@@ -478,7 +375,7 @@ namespace SharpPy
                     if (byteorderArg != null)
                     {
                         if (byteorderArg is not PyString byteorderStr)
-                            throw PyTypeError.Create($"'byteorder' must be a str, not '{byteorderArg.GetTypeName()}'");
+                            throw PyArgs.BadArgument("from_bytes", "argument 'byteorder'", "str", byteorderArg);
                         byteorder = byteorderStr.Value;
                     }
 

@@ -1346,8 +1346,9 @@ namespace SharpPy
             if (rounder == null)
                 throw PyTypeError.Create(
                     $"type {number.GetTypeName()} doesn't define __round__ method");
+            // builtin_round: ndigits None calls __round__ with no argument.
             return number.BindSpecialMethod(rounder).Call(
-                ndigits == null ? Array.Empty<PyObject>() : new PyObject[] { ndigits }, null);
+                ndigits == null || ndigits is PyNone ? Array.Empty<PyObject>() : new PyObject[] { ndigits }, null);
         }
 
 

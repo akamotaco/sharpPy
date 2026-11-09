@@ -76,7 +76,8 @@ namespace SharpPy
                     CompareBool(Start, otherSlice.Start, CompareOp.EQ) &&
                     CompareBool(Stop, otherSlice.Stop, CompareOp.EQ) &&
                     CompareBool(Step, otherSlice.Step, CompareOp.EQ)),
-                _ => PyBool.False
+                // slice_richcompare: anything but a slice is NotImplemented.
+                _ => PyNotImplemented.Instance
             };
         }
 
