@@ -250,7 +250,7 @@ namespace SharpPy
             strType.TypeDict["join"] = new PyMethodDescriptor(
                 "join", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "join");
+                    var str = (PyString)self;
 
                     return str.Join(args[0]);
                 },
@@ -263,7 +263,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.upper() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "upper");
+                    var str = (PyString)self;
                     return PyString.Fresh(PyUnicodeCase.Upper(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
@@ -274,7 +274,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.lower() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "lower");
+                    var str = (PyString)self;
                     return PyString.Fresh(PyUnicodeCase.Lower(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
@@ -288,7 +288,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.capitalize() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "capitalize");
+                    var str = (PyString)self;
 
                     // Empty string remains empty
                     if (str.Value.Length == 0)
@@ -308,7 +308,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.title() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "title");
+                    var str = (PyString)self;
 
                     // CPython str.title() uses Unicode cased/uncased word boundaries, so an apostrophe
                     // keeps the next letter uppercase: "it's a test-case 2nd".title() ->
@@ -322,7 +322,7 @@ namespace SharpPy
             strType.TypeDict["split"] = new PyMethodDescriptor(
                 "split", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "split");
+                    var str = (PyString)self;
 
                     var (sep, maxsplit) = SplitArguments(ProjectKeywordSlots(args, kwargs, "sep", "maxsplit"));
 
@@ -334,7 +334,7 @@ namespace SharpPy
             strType.TypeDict["strip"] = new PyMethodDescriptor(
                 "strip", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "strip");
+                    var str = (PyString)self;
                     // do_argstrip: None or nothing is whitespace, else the characters of a str.
                     if (args.Length == 0 || args[0] is PyNone)
                         return str.StripText(BothStrip, null);
@@ -348,7 +348,7 @@ namespace SharpPy
             strType.TypeDict["replace"] = new PyMethodDescriptor(
                 "replace", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "replace");
+                    var str = (PyString)self;
 
                     var old = args[0] is PyString oldStr ? oldStr.Value : throw PyArgs.BadArgument("replace", "argument 1", "str", args[0]);
                     var newStr = args[1] is PyString newPyStr ? newPyStr.Value : throw PyArgs.BadArgument("replace", "argument 2", "str", args[1]);
@@ -367,7 +367,7 @@ namespace SharpPy
             strType.TypeDict["zfill"] = new PyMethodDescriptor(
                 "zfill", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "zfill");
+                    var str = (PyString)self;
 
                     int width = PyArgs.Width(args[0]);
                     string value = str.Value;
@@ -402,7 +402,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.isdigit() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "isdigit");
+                    var str = (PyString)self;
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -426,7 +426,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.isalpha() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "isalpha");
+                    var str = (PyString)self;
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -446,7 +446,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.isalnum() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "isalnum");
+                    var str = (PyString)self;
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -466,7 +466,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.isspace() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "isspace");
+                    var str = (PyString)self;
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -486,7 +486,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.isupper() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "isupper");
+                    var str = (PyString)self;
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -504,7 +504,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.islower() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "islower");
+                    var str = (PyString)self;
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -522,7 +522,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create(args.Length < 1 ? "find() takes at least 1 argument (0 given)" : $"find() takes from 1 to 3 positional arguments but {args.Length} were given");
-                    PyString str = AsStrReceiver(self, "find");
+                    var str = (PyString)self;
 
 
                     return FindIndexOf(str, args[0], args, backward: false, raiseWhenMissing: false);
@@ -539,7 +539,7 @@ namespace SharpPy
                         throw PyTypeError.Create("str.index() takes no keyword arguments");
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create(args.Length < 1 ? "index() takes at least 1 argument (0 given)" : $"index() takes from 1 to 3 positional arguments but {args.Length} were given");
-                    PyString str = AsStrReceiver(self, "index");
+                    var str = (PyString)self;
 
 
                     return FindIndexOf(str, args[0], args, backward: false, raiseWhenMissing: true);
@@ -554,7 +554,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create(args.Length < 1 ? "rfind() takes at least 1 argument (0 given)" : $"rfind() takes from 1 to 3 positional arguments but {args.Length} were given");
-                    PyString str = AsStrReceiver(self, "rfind");
+                    var str = (PyString)self;
 
 
                     return FindIndexOf(str, args[0], args, backward: true, raiseWhenMissing: false);
@@ -569,7 +569,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create(args.Length < 1 ? "rindex() takes at least 1 argument (0 given)" : $"rindex() takes from 1 to 3 positional arguments but {args.Length} were given");
-                    PyString str = AsStrReceiver(self, "rindex");
+                    var str = (PyString)self;
 
 
                     return FindIndexOf(str, args[0], args, backward: true, raiseWhenMissing: true);
@@ -730,7 +730,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create(args.Length < 1 ? "count() takes at least 1 argument (0 given)" : $"count() takes from 1 to 3 positional arguments but {args.Length} were given");
-                    PyString str = AsStrReceiver(self, "count");
+                    var str = (PyString)self;
 
                     // CPython Objects/stringlib/count.h: the empty pattern counts the boundary
                     // positions of the window ('abc'.count("", 1, 2) == 2, "".count("") == 1,
@@ -772,7 +772,7 @@ namespace SharpPy
             strType.TypeDict["startswith"] = new PyMethodDescriptor(
                 "startswith", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "startswith");
+                    var str = (PyString)self;
 
                     TextWindow win = str.AdjustedWindow(args);
                     // CPython unicode_startswith accepts a str or a tuple of str.
@@ -794,7 +794,7 @@ namespace SharpPy
             strType.TypeDict["endswith"] = new PyMethodDescriptor(
                 "endswith", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "endswith");
+                    var str = (PyString)self;
 
                     TextWindow win = str.AdjustedWindow(args);
                     // CPython unicode_endswith accepts a str or a tuple of str.
@@ -813,7 +813,7 @@ namespace SharpPy
             strType.TypeDict["lstrip"] = new PyMethodDescriptor(
                 "lstrip", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "lstrip");
+                    var str = (PyString)self;
                     // do_argstrip: None or nothing is whitespace, else the characters of a str.
                     if (args.Length == 0 || args[0] is PyNone)
                         return str.StripText(LeftStrip, null);
@@ -829,7 +829,7 @@ namespace SharpPy
             strType.TypeDict["rstrip"] = new PyMethodDescriptor(
                 "rstrip", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "rstrip");
+                    var str = (PyString)self;
                     // do_argstrip: None or nothing is whitespace, else the characters of a str.
                     if (args.Length == 0 || args[0] is PyNone)
                         return str.StripText(RightStrip, null);
@@ -845,7 +845,7 @@ namespace SharpPy
             strType.TypeDict["rsplit"] = new PyMethodDescriptor(
                 "rsplit", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "rsplit");
+                    var str = (PyString)self;
 
                     var (sep, maxsplit) = SplitArguments(ProjectKeywordSlots(args, kwargs, "sep", "maxsplit"));
 
@@ -859,7 +859,7 @@ namespace SharpPy
             strType.TypeDict["splitlines"] = new PyMethodDescriptor(
                 "splitlines", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "splitlines");
+                    var str = (PyString)self;
 
                     // CPython unicode_splitlines is METH_FASTCALL|METH_KEYWORDS with keepends=False,
                     // so 'a\nb'.splitlines(keepends=True) -> ['a\n', 'b']. The delegate read only the
@@ -883,7 +883,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.swapcase() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "swapcase");
+                    var str = (PyString)self;
 
                     // do_swapcase decides by the uppercase/lowercase PROPERTIES, and the lowercase
                     // branch needs the sigma context, so it is not a per-char ToLower/ToUpper loop.
@@ -899,7 +899,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.casefold() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "casefold");
+                    var str = (PyString)self;
 
                     return PyString.Fresh(PyUnicodeCase.CaseFold(str.Value));
                 },
@@ -911,7 +911,7 @@ namespace SharpPy
             strType.TypeDict["center"] = new PyMethodDescriptor(
                 "center", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "center");
+                    var str = (PyString)self;
 
                     int width = PyArgs.Width(args[0]);
                     string fillchar = " ";
@@ -941,7 +941,7 @@ namespace SharpPy
             strType.TypeDict["ljust"] = new PyMethodDescriptor(
                 "ljust", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "ljust");
+                    var str = (PyString)self;
 
                     int width = PyArgs.Width(args[0]);
                     string fillchar = " ";
@@ -965,7 +965,7 @@ namespace SharpPy
             strType.TypeDict["rjust"] = new PyMethodDescriptor(
                 "rjust", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "rjust");
+                    var str = (PyString)self;
 
                     int width = PyArgs.Width(args[0]);
                     string fillchar = " ";
@@ -991,7 +991,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.isascii() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "isascii");
+                    var str = (PyString)self;
 
                     foreach (char c in str.Value)
                     {
@@ -1010,7 +1010,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.isdecimal() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "isdecimal");
+                    var str = (PyString)self;
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -1032,7 +1032,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.isnumeric() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "isnumeric");
+                    var str = (PyString)self;
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -1052,7 +1052,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.isidentifier() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "isidentifier");
+                    var str = (PyString)self;
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -1069,7 +1069,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.isprintable() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "isprintable");
+                    var str = (PyString)self;
 
                     foreach (int cp in str.CodePoints())
                         if (!IsPrintableCp(cp))
@@ -1086,7 +1086,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"str.istitle() takes no arguments ({args.Length} given)");
-                    PyString str = AsStrReceiver(self, "istitle");
+                    var str = (PyString)self;
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -1101,7 +1101,7 @@ namespace SharpPy
             strType.TypeDict["partition"] = new PyMethodDescriptor(
                 "partition", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "partition");
+                    var str = (PyString)self;
 
                     if (args[0] is not PyString sep)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
@@ -1127,7 +1127,7 @@ namespace SharpPy
             strType.TypeDict["rpartition"] = new PyMethodDescriptor(
                 "rpartition", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "rpartition");
+                    var str = (PyString)self;
 
                     if (args[0] is not PyString sep)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
@@ -1153,7 +1153,7 @@ namespace SharpPy
             strType.TypeDict["removeprefix"] = new PyMethodDescriptor(
                 "removeprefix", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "removeprefix");
+                    var str = (PyString)self;
 
                     if (args[0] is not PyString prefix)
                         throw PyArgs.BadArgument("removeprefix", "argument", "str", args[0]);
@@ -1171,7 +1171,7 @@ namespace SharpPy
             strType.TypeDict["removesuffix"] = new PyMethodDescriptor(
                 "removesuffix", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "removesuffix");
+                    var str = (PyString)self;
 
                     if (args[0] is not PyString suffix)
                         throw PyArgs.BadArgument("removesuffix", "argument", "str", args[0]);
@@ -1189,7 +1189,7 @@ namespace SharpPy
             strType.TypeDict["expandtabs"] = new PyMethodDescriptor(
                 "expandtabs", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "expandtabs");
+                    var str = (PyString)self;
 
                     // unicode_expandtabs_impl: tabsize is a C int; columns count code points, a
                     // newline or carriage return starts a new one, and no tab is the text unchanged.
@@ -1254,7 +1254,7 @@ namespace SharpPy
             strType.TypeDict["encode"] = new PyMethodDescriptor(
                 "encode", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "encode");
+                    var str = (PyString)self;
 
                     string encoding = "utf-8";
                     string errors = "strict";
@@ -1289,7 +1289,7 @@ namespace SharpPy
             strType.TypeDict["format"] = new PyMethodDescriptor(
                 "format", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "format");
+                    var str = (PyString)self;
                     var formatted = PyStringFormatter.Format(str.Value, args, kwargs);
                     return SoleLiteral(str, str.Value.IndexOf('{') < 0 && str.Value.IndexOf('}') < 0) ?? formatted;
                 }
@@ -1300,7 +1300,7 @@ namespace SharpPy
             strType.TypeDict["format_map"] = new PyMethodDescriptor(
                 "format_map", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "format_map");
+                    var str = (PyString)self;
                     var formatted = PyStringFormatter.Format(str.Value, null, args[0]);
                     return SoleLiteral(str, str.Value.IndexOf('{') < 0 && str.Value.IndexOf('}') < 0) ?? formatted;
                 },
@@ -1399,7 +1399,7 @@ namespace SharpPy
             strType.TypeDict["translate"] = new PyMethodDescriptor(
                 "translate", strType,
                 (self, args, kwargs) => {
-                    PyString str = AsStrReceiver(self, "translate");
+                    var str = (PyString)self;
 
                     // _PyUnicode_TranslateCharmap: each code point is looked up in the table by
                     // charmaptranslate_lookup (PyObject_GetItem); a LookupError keeps it.
@@ -2358,20 +2358,6 @@ namespace SharpPy
         internal static PyString AsStrReceiver(PyObject self)
         {
             return self as PyString;
-        }
-
-        /// <summary>
-        /// Receiver resolution plus CPython's own complaint. Objects/descrobject.c descr_check
-        /// produces "descriptor 'NAME' for 'str' objects doesn't apply to a 'X' object"; every str
-        /// method descriptor used to hand-write "requires a 'str' object but received a 'X'", which
-        /// is a wording CPython never emits. One helper, one message (P0-29).
-        /// </summary>
-        internal static PyString AsStrReceiver(PyObject self, string name)
-        {
-            PyString value = AsStrReceiver(self);
-            if (value == null)
-                throw PyTypeError.Create($"descriptor '{name}' for 'str' objects doesn't apply to a '{self.GetTypeName()}' object");
-            return value;
         }
 
         /// <summary>
