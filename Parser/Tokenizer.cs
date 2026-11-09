@@ -505,9 +505,13 @@ namespace SharpPy.Generated
             {
                 if (text[i] < 0xDC80 || text[i] > 0xDCFF || (i > 0 && char.IsHighSurrogate(text[i - 1])))
                     continue;
-                int line = 1;
+                int line = 1, lineStart = 0;
                 for (int j = 0; j < i; j++)
-                    if (text[j] == '\n') line++;
+                    if (text[j] == '\n') { line++; lineStart = j + 1; }
+                // tok_underflow_file decodes and checks one line at a time: a NUL in an earlier
+                // line is reported first, by the tokenizer ("source code cannot contain null bytes").
+                if (text.IndexOf('\0', 0, lineStart) >= 0)
+                    return;
                 throw PySyntaxError.Create($"Non-UTF-8 code starting with '\\x{text[i] - 0xDC00:x2}' in file {filename} on line {line}, " +
                     "but no encoding declared; see https://peps.python.org/pep-0263/ for details");
             }

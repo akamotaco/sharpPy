@@ -530,7 +530,9 @@ namespace SharpPy
                         else PyGlobalsDict.Clear(self.HeapDict);
                     });
             if (parent.WeakOffset == 0 && own.WeakOffset != 0)
-                created.ClassDict["__weakref__"] = new PyGetSetDescriptor("__weakref__", created, self => PyNone.Instance);
+                created.ClassDict["__weakref__"] = new PyGetSetDescriptor("__weakref__", created,
+                    // subtype_getweakref: the head of the object's weakref list, None when empty.
+                    self => PyFinalizer.WeakReferencesOf(self) is { Count: > 0 } references ? references[0] : PyNone.Instance);
             if (own.Slots == null) return;
             foreach (var stored in own.Slots)
             {

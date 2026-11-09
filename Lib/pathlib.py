@@ -122,6 +122,9 @@ class PurePath:
             current = current.parent
         return parents
 
+    def __fspath__(self):
+        return str(self)
+
     def __str__(self):
         """Return the string representation of the path."""
         if self._parts == ['.']:

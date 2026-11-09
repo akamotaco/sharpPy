@@ -1030,11 +1030,8 @@ namespace SharpPy
             // int optimize = args.Length > 5 ? ... : -1;
 
             // Extract filename
-            string filename;
-            if (filenameArg is PyString pyFilename)
-                filename = pyFilename.Value;
-            else
-                throw PyTypeError.Create($"compile() arg 2 must be str, not '{filenameArg.GetTypeName()}'");
+            // builtin_compile's clinic: filename through PyUnicode_FSDecoder.
+            string filename = PyArgs.FSDecoder(filenameArg);
 
             // Extract mode
             string mode;

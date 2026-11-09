@@ -5489,6 +5489,10 @@ namespace SharpPy
                 if (HasSequenceSlot(right, operation))
                     return SequenceRepeat(right, left);
             }
+            // binary_op: print >> stream is pointed at the call it was in Python 2.
+            if (shown == BinaryOpType.RSHIFT && left is PyBuiltinFunction { Name: "print" } && left.IsExactly(PyType.BuiltinFunctionOrMethodType))
+                throw PyTypeError.Create(
+                    $"unsupported operand type(s) for >>: '{left.GetTypeName()}' and '{right.GetTypeName()}'. Did you mean \"print(<message>, file=<output_stream>)\"?");
             throw PyTypeError.Create(
                 $"unsupported operand type(s) for {GetBinaryOpSymbol(shown)}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
         }
