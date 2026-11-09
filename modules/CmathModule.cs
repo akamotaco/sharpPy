@@ -91,15 +91,11 @@ namespace SharpPy.Modules
         // Py_complex from the argument: PyArg "D".
         private static Pair Argument(PyObject value)
         {
+            // PyComplex_AsCComplex: a complex, else try_complex_special_method, else PyFloat_AsDouble.
             if (value is PyComplex complex)
                 return new Pair(complex.Real, complex.Imag);
-            if (value.LookupSpecialMethodUncached("__complex__") is { } method)
-            {
-                var result = value.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-                if (result is PyComplex converted)
-                    return new Pair(converted.Real, converted.Imag);
-                throw PyTypeError.Create($"__complex__ should return a complex object");
-            }
+            if (PyComplex.TryComplexSpecialMethod(value) is { } converted)
+                return new Pair(converted.Real, converted.Imag);
             return new Pair(PyMathFunction.RealNumber(value), 0.0);
         }
 

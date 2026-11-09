@@ -9,6 +9,22 @@ namespace SharpPy
     /// </summary>
     public class PyComplex : PyObject
     {
+        // try_complex_special_method
+        internal static PyComplex TryComplexSpecialMethod(PyObject value)
+        {
+            var method = value.LookupSpecialMethodUncached("__complex__");
+            if (method == null)
+                return null;
+            var result = value.CallSpecial(method);
+            if (result is not PyComplex complex)
+                throw PyTypeError.Create($"__complex__ returned non-complex (type {result.GetTypeName()})");
+            if (result is PyComplexSubclass)
+                PyWarnings.Deprecated($"__complex__ returned non-complex (type {result.GetTypeName()}).  " +
+                    "The ability to return an instance of a strict subclass of complex is deprecated, and may be removed in a future version of Python.");
+            return complex;
+        }
+
+
         #region Core Properties
 
         public double Real { get; }

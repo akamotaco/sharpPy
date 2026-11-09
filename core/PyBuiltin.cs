@@ -799,21 +799,6 @@ namespace SharpPy
 
         // CPython 3.12: Objects/longobject.c:5598-5641 (long_new_impl)
 
-        // try_complex_special_method
-        private static PyComplex ComplexSpecial(PyObject value)
-        {
-            var method = value.LookupSpecialMethodUncached("__complex__");
-            if (method == null)
-                return null;
-            var result = value.CallSpecial(method);
-            if (result is not PyComplex complex)
-                throw PyTypeError.Create("__complex__ should return a complex object");
-            if (result is PyComplexSubclass)
-                PyWarnings.Deprecated($"__complex__ returned non-complex (type {result.GetPyType().Name}).  " +
-                    "The ability to return an instance of a strict subclass of complex is deprecated, and may be removed in a future version of Python.");
-            return complex;
-        }
-
         private static bool IsNumberLike(PyObject value) =>
             value is PyComplex or PyFloat or PyFloatSubclass or PyInt or PyBool or PyIntSubclass ||
             value.HasTypeSlot("__float__") || value.HasTypeSlot("__index__");
@@ -849,7 +834,7 @@ namespace SharpPy
             if (i is PyString)
                 throw PyTypeError.Create("complex() second arg can't be a string");
 
-            r = ComplexSpecial(r) ?? r;
+            r = PyComplex.TryComplexSpecialMethod(r) ?? r;
             if (!IsNumberLike(r))
                 throw PyTypeError.Create($"complex() first argument must be a string or a number, not '{r.GetPyType().Name}'");
             if (i != null && !IsNumberLike(i))

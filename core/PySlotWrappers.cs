@@ -150,9 +150,11 @@ namespace SharpPy
                 case "__hash__":
                     return PyInt.From(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(self));
                 case "__str__":
-                    // object_str: repr(self), which __repr__ = object.__str__ brings back here.
+                    // object_str: the type's tp_repr itself, not PyObject_Repr, so what it answers
+                    // is judged by PyObject_Str ("__str__ returned non-string"). __repr__ =
+                    // object.__str__ brings it back here.
                     PyCRecursion.Enter(" while calling a Python object");
-                    try { return self.ToRepr(); }
+                    try { return self.TpRepr(); }
                     finally { PyCRecursion.Leave(); }
                 default:
                     return PyClass.ObjectRepr(self);
