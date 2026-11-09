@@ -91,13 +91,16 @@ namespace SharpPy
             }
 
             // longrangeiter_setstate
+            // The clipping compares state as an object (PyObject_RichCompareBool), before any
+            // conversion; start and len then move by it.
             internal override void SetState(PyObject state)
             {
+                var remaining = PyInt.From(_remaining);
+                if (PyObject.CompareBool(state, PyInt.From(0), PyObject.CompareOp.LT))
+                    state = PyInt.From(0);
+                else if (PyObject.CompareBool(remaining, state, PyObject.CompareOp.LT))
+                    state = remaining;
                 var index = IndexValue(state);
-                if (index < 0)
-                    index = 0;
-                else if (index > _remaining)
-                    index = _remaining;
                 _current += index * _step;
                 _remaining -= index;
             }

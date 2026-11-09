@@ -96,9 +96,7 @@ namespace SharpPy
             frame.TypeDict["f_trace_lines"] = new PyMemberDescriptor("f_trace_lines", frame, self => ((PyFrame)self).Read("f_trace_lines"),
                 (self, value) => ((PyFrame)self).TraceLines = value is PyBool flag ? flag.Value : throw PyTypeError.Create("attribute value type must be bool"),
                 deleter: self => throw PyTypeError.Create("can't delete numeric/char attribute"));
-            // frame_methods: clear is METH_NOARGS (no frame sample measures it into the arity table).
-            frame.TypeDict["clear"] = new PyMethodDescriptor("clear", frame, (self, a, k) => ((PyFrame)self).FrameClear())
-                { Convention = new PyArity.Convention(PyCall.NoArgs, 0, 0) };
+            frame.TypeDict["clear"] = new PyMethodDescriptor("clear", frame, (self, a, k) => ((PyFrame)self).FrameClear());
             Repr(frame);
 
             var traceback = PyTraceback.TracebackPyType;

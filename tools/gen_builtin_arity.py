@@ -33,7 +33,7 @@ def sample(t):
         range: range(3), slice: slice(1), memoryview: memoryview(b"ab"), bool: True,
         property: property(), staticmethod: staticmethod(len), classmethod: classmethod(len),
         type: int, object: object(), super: super(int, 5), enumerate: enumerate([]),
-        reversed: reversed([]), zip: zip(), map: map(len, []), filter: filter(None, []),
+        reversed: reversed("ab"), zip: zip(), map: map(len, []), filter: filter(None, []),
     }
     if t in special:
         return special[t]
@@ -227,6 +227,7 @@ def module_sample(t):
         BaseExceptionGroup: lambda: BaseExceptionGroup("m", [ValueError()]),
         ExceptionGroup: lambda: ExceptionGroup("m", [ValueError()]),
     })
+    io_samples.update(unnamed_samples())
     make = io_samples.get(t)
     try:
         return make() if make else t()
@@ -247,13 +248,61 @@ def scanner_type():
     return type(re.compile("").scanner(""))
 
 
+class _Forever:
+    def __await__(self):
+        while True:
+            yield
+
+
+def _generator():
+    while True:
+        yield
+
+
+async def _coroutine():
+    await _Forever()
+
+
+async def _async_generator():
+    yield
+
+
+def _traceback():
+    try:
+        raise ValueError
+    except ValueError as e:
+        return e.__traceback__
+
+
+class _Plain:
+    def method(self):
+        pass
+
+
+def unnamed_samples():
+    """Samples of the static types builtins does not name, keyed by their type."""
+    import sys, types
+    makers = [
+        _generator, _coroutine, _async_generator, lambda: types.MappingProxyType({1: 2}), sys._getframe,
+        lambda: iter(range(2 ** 70)), lambda: iter({1: 2}.items()), lambda: iter({1: 2}.values()),
+        lambda: iter(lambda: 1, 2), lambda: len, lambda: _Plain().method, lambda: (1).__add__,
+        lambda: type.__dict__["__dict__"] if False else int.__dict__["real"], lambda: str.__dict__["join"],
+        lambda: int.__dict__["__add__"], lambda: sys, _traceback, lambda: list[int], lambda: types.SimpleNamespace(),
+        sys.get_asyncgen_hooks, lambda: sys.flags, lambda: sys.float_info, lambda: sys.hash_info, lambda: sys.int_info,
+        lambda: sys.thread_info, lambda: sys.version_info,
+    ]
+    if hasattr(sys, "getwindowsversion"):
+        makers.append(sys.getwindowsversion)
+    return {type(make()): make for make in makers}
+
+
 def module_types():
     import importlib
     seen = set(v for v in vars(builtins).values() if isinstance(v, type))
     # Types builtins has but does not name, and the exception groups its sample() cannot make.
     for v in (type(iter([])), type(reversed([])), type(iter(())), type(iter("")), type(iter({})), type(iter(range(1))),
               type(iter(set())), type(iter(b"")), type(iter(bytearray())), type({}.keys()), type({}.values()),
-              type({}.items()), BaseExceptionGroup, ExceptionGroup, scanner_type()):
+              type({}.items()), BaseExceptionGroup, ExceptionGroup, scanner_type(), *unnamed_samples()):
         if v not in seen or v in (BaseExceptionGroup, ExceptionGroup):
             seen.add(v)
             yield v
@@ -276,7 +325,9 @@ def collect():
             # A lock's acquiring methods would wait on the lock the previous call took.
             if type(value).__name__ != "method_descriptor" or mname in BLOCKING:
                 continue
-            found = classify(t.__qualname__, mname, getattr(module_sample(t), mname))
+            # The descriptor itself, bound: a type's attribute can shadow its metatype's method.
+            obj = module_sample(t)
+            found = classify(t.__qualname__, mname, value.__get__(obj, t))
             if found:
                 entries[f"{key}.{mname}"] = found
     for t in sorted((v for v in vars(builtins).values() if isinstance(v, type)), key=lambda t: t.__name__):
@@ -286,12 +337,13 @@ def collect():
             if kind == "method_descriptor":
                 if obj is None:
                     continue
-                func = getattr(obj, mname)
+                func = value.__get__(obj, t)
             elif kind == "classmethod_descriptor" or (kind == "staticmethod" and mname != "__new__"):
                 func = getattr(t, mname)
             else:
                 continue
-            found = classify(t.__name__, mname, func)
+            # A method bound to a type is named by that type (meth_get__qualname__): int.mro.
+            found = classify(obj.__name__ if isinstance(obj, type) and kind == "method_descriptor" else t.__name__, mname, func)
             if found:
                 entries[f"{t.__name__}.{mname}"] = found
     return entries
