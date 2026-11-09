@@ -750,7 +750,17 @@ namespace SharpPy
         }
 
         // code_replace_impl
-        private PyObject Replace(PyObject[] args, PyDict kwargs)
+        // code__varname_from_oparg: the name of a local, cell or free variable by its index.
+        internal PyObject VarnameFromOparg(PyObject[] args, PyDict kwargs)
+        {
+            var oparg = args.Length > 0 ? args[0] : kwargs.GetItem(PyString.From("oparg"));
+            int index = PyArgs.Int(oparg);
+            if (index < 0 || index >= NLocalsPlus)
+                throw PyIndexError.Create("tuple index out of range");
+            return LocalsPlusKeys[index];
+        }
+
+        internal PyObject Replace(PyObject[] args, PyDict kwargs)
         {
             if (args.Length != 0) throw PyTypeError.Create("replace() takes no positional arguments");
             int argCount = ArgCount - KwonlyArgCount, posonly = PosonlyArgCount, kwonly = KwonlyArgCount;
@@ -825,7 +835,6 @@ namespace SharpPy
         {
             return name switch
             {
-                "replace" => new PyBuiltinFunction("replace", Replace),
                 "co_flags" => PyInt.From(Flags),
                 // SharpPy keeps unique internal lambda names (<lambda_N>) for the
                 // call-error mapping; CPython's co_name is the bare "<lambda>".
@@ -849,16 +858,7 @@ namespace SharpPy
                 "_co_code_adaptive" => PyBytes.From(Tables.Code),
                 "co_linetable" => PyBytes.From(Tables.LineTable),
                 "co_exceptiontable" => PyBytes.From(Tables.ExceptionTable),
-                "co_lines" => new PyBuiltinFunction("co_lines", CoLinesMethod),
-                "_varname_from_oparg" => new PyBuiltinFunction("_varname_from_oparg", args =>
-                {
-                    int index = args[0].ToInt();
-                    if (index < 0 || index >= NLocalsPlus)
-                        throw PyIndexError.Create("tuple index out of range");
-                    return LocalsPlusKeys[index];
-                }),
                 "co_lnotab" => LineNumberNotes(),
-                "co_positions" => new PyBuiltinFunction("co_positions", CoPositionsMethod),
                 _ => base.TpGetattro(name)
             };
         }
@@ -876,7 +876,7 @@ namespace SharpPy
         }
 
         // positionsiter_next
-        private PyObject CoPositionsMethod(PyObject[] args)
+        internal PyObject CoPositionsMethod(PyObject[] args)
         {
             static PyObject Value(int number) => number < 0 ? PyNone.Instance : PyInt.From(number);
             var positions = new List<PyObject>();
@@ -889,7 +889,7 @@ namespace SharpPy
         public AssembledTables Tables { get; set; } = new AssembledTables();
         public int StackSize { get; set; }
 
-        private PyObject CoLinesMethod(PyObject[] args)
+        internal PyObject CoLinesMethod(PyObject[] args)
         {
             // lineiter_next: consecutive units of one line are one range.
             var positions = LocationTable.Read(Tables.LineTable, GetFirstLineNo());

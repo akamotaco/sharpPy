@@ -32,14 +32,6 @@ namespace SharpPy
                     (self, args, kwargs) => call((T)self, args, kwargs), acceptsKwargs: true);
         }
 
-        // The object answers a method with a callable bound to it, so the descriptor calls that.
-        private static void Methods<T>(PyType type, Func<T, string, PyObject> read, params string[] names) where T : PyObject
-        {
-            foreach (var name in names)
-                type.TypeDict[name] = new PyMethodDescriptor(name, type,
-                    (self, args, kwargs) => read((T)self, name).Call(args, kwargs), acceptsKwargs: true);
-        }
-
         private static void Wrapper(PyType type, string name, Func<PyObject, PyObject[], PyObject> operation) =>
             type.TypeDict[name] = new PyWrapperDescriptor(name, type, (self, args, kwargs) => operation(self, args));
 
@@ -84,7 +76,9 @@ namespace SharpPy
                 "co_exceptiontable");
             GetSets<PyCodeObject>(code, (self, name) => self.Read(name),
                 "co_lnotab", "_co_code_adaptive", "co_varnames", "co_cellvars", "co_freevars", "co_code");
-            Methods<PyCodeObject>(code, (self, name) => self.Read(name), "co_lines", "co_positions", "replace", "_varname_from_oparg");
+            Methods<PyCodeObject>(code, ("co_lines", (self, a, k) => self.CoLinesMethod(a)),
+                ("co_positions", (self, a, k) => self.CoPositionsMethod(a)), ("replace", (self, a, k) => self.Replace(a, k)),
+                ("_varname_from_oparg", (self, a, k) => self.VarnameFromOparg(a, k)));
             Repr(code);
             Hashed(code);
             Compared(code);
@@ -102,7 +96,9 @@ namespace SharpPy
             frame.TypeDict["f_trace_lines"] = new PyMemberDescriptor("f_trace_lines", frame, self => ((PyFrame)self).Read("f_trace_lines"),
                 (self, value) => ((PyFrame)self).TraceLines = value is PyBool flag ? flag.Value : throw PyTypeError.Create("attribute value type must be bool"),
                 deleter: self => throw PyTypeError.Create("can't delete numeric/char attribute"));
-            Methods<PyFrame>(frame, (self, name) => self.Read(name), "clear");
+            // frame_methods: clear is METH_NOARGS (no frame sample measures it into the arity table).
+            frame.TypeDict["clear"] = new PyMethodDescriptor("clear", frame, (self, a, k) => ((PyFrame)self).FrameClear())
+                { Convention = new PyArity.Convention(PyCall.NoArgs, 0, 0) };
             Repr(frame);
 
             var traceback = PyTraceback.TracebackPyType;

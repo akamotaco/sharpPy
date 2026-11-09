@@ -747,13 +747,6 @@ namespace SharpPy
                 "f_trace_lines" => PyBool.FromBool(TraceLines),
                 "f_trace_opcodes" => PyBool.False,  // Default to False
 
-                "clear" => new PyBuiltinFunction("clear", args =>
-                {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"frame.clear() takes no arguments ({args.Length} given)");
-                    return FrameClear();
-                }),
-
                 _ => GenericGetAttribute(name)
             };
         }
@@ -858,7 +851,7 @@ namespace SharpPy
 
         // frame_clear (Objects/frameobject.c): a generator's frame closes its generator unless it is
         // running; a frame on a thread's stack cannot be cleared; any other frame lets go of its locals.
-        private PyObject FrameClear()
+        internal PyObject FrameClear()
         {
             var running = PyRuntimeError.Create("cannot clear an executing frame");
             if (OwnerGenerator != null)
