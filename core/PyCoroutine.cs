@@ -20,14 +20,8 @@ namespace SharpPy.Core
             var corType = PyType.CoroutineType;
 
             // send method descriptor
-            corType.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", corType,
-                self => ((PyCoroutine)self).NameObject, (self, value) =>
-                    ((PyCoroutine)self).NameObject = value is PyString ? value
-                        : throw PyTypeError.Create("__name__ must be set to a string object"));
-            corType.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", corType,
-                self => ((PyCoroutine)self).Qualname, (self, value) =>
-                    ((PyCoroutine)self).Qualname = value is PyString ? value
-                        : throw PyTypeError.Create("__qualname__ must be set to a string object"));
+            PyGenerator.InstallNames(corType, self => ((PyCoroutine)self).NameObject, (self, value) => ((PyCoroutine)self).NameObject = value,
+                self => ((PyCoroutine)self).Qualname, (self, value) => ((PyCoroutine)self).Qualname = value);
             corType.TypeDict["send"] = new PyMethodDescriptor(
                 "send", corType,
                 (self, args, kwargs) => {

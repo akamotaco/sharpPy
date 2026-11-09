@@ -84,17 +84,11 @@ namespace SharpPy.Core
                 type.TypeDict[name] = name.StartsWith("__", StringComparison.Ordinal)
                     ? new PyWrapperDescriptor(name, type, body) : new PyMethodDescriptor(name, type, body);
             }
-            type.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", type, self => ((PyAsyncGenerator)self).NameValue,
-                (self, value) => ((PyAsyncGenerator)self).NameValue = NameArgument(value, "__name__"));
-            type.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", type, self => ((PyAsyncGenerator)self).Qualname,
-                (self, value) => ((PyAsyncGenerator)self).Qualname = NameArgument(value, "__qualname__"));
+            PyGenerator.InstallNames(type, self => ((PyAsyncGenerator)self).NameValue, (self, value) => ((PyAsyncGenerator)self).NameValue = value,
+                self => ((PyAsyncGenerator)self).Qualname, (self, value) => ((PyAsyncGenerator)self).Qualname = value);
             type.TypeDict["ag_await"] = new PyGetSetDescriptor("ag_await", type, self => ((PyAsyncGenerator)self)._generator.GetYieldFromReceiver() ?? PyNone.Instance);
             type.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(type);
         }
-
-        // gen_set_name, gen_set_qualname
-        private static PyObject NameArgument(PyObject value, string name) => value is PyString
-            ? value : throw PyTypeError.Create($"{name} must be set to a string object");
 
         public PyAsyncGenerator(PyFrame frame, PyVM vm, string name = "<async_generator>", string qualname = null)
         {

@@ -55,16 +55,8 @@ namespace SharpPy
 
             // CPython 3.12: genobject.c getseters
             // (gi_code, gi_frame, gi_name, gi_running, gi_yieldfrom)
-            genType.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", genType,
-                self => ((PyGenerator)self).NameObject, (self, value) =>
-                    ((PyGenerator)self).NameObject = value is PyString ? value
-                        : throw PyTypeError.Create("__name__ must be set to a string object"),
-                deleter: self => throw PyTypeError.Create("__name__ must be set to a string object"));
-            genType.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", genType,
-                self => ((PyGenerator)self).Qualname, (self, value) =>
-                    ((PyGenerator)self).Qualname = value is PyString ? value
-                        : throw PyTypeError.Create("__qualname__ must be set to a string object"),
-                deleter: self => throw PyTypeError.Create("__qualname__ must be set to a string object"));
+            InstallNames(genType, self => ((PyGenerator)self).NameObject, (self, value) => ((PyGenerator)self).NameObject = value,
+                self => ((PyGenerator)self).Qualname, (self, value) => ((PyGenerator)self).Qualname = value);
             genType.TypeDict["gi_suspended"] = new PyGetSetDescriptor("gi_suspended", genType,
                 self => PyBool.FromBool(((PyGenerator)self)._frame.State == PyFrame.FrameState.Suspended && !((PyGenerator)self)._finished));
             genType.TypeDict["gi_code"] = new PyGetSetDescriptor("gi_code", genType,
@@ -388,6 +380,19 @@ namespace SharpPy
                 }
             }
             return ResumeException(PySuspensionException.Normalize(excType, value, traceback));
+        }
+
+        /// <summary>
+        /// The __name__ and __qualname__ of gen_getsetlist, coro_getsetlist and async_gen_getsetlist:
+        /// gen_set_name and gen_set_qualname refuse anything but a str, a deletion included.
+        /// </summary>
+        internal static void InstallNames(PyType type, Func<PyObject, PyObject> name, Action<PyObject, PyObject> setName,
+            Func<PyObject, PyObject> qualname, Action<PyObject, PyObject> setQualname)
+        {
+            foreach (var (attr, get, set) in new[] { ("__name__", name, setName), ("__qualname__", qualname, setQualname) })
+                type.TypeDict[attr] = new PyGetSetDescriptor(attr, type, get,
+                    (self, value) => set(self, value is PyString ? value : throw PyTypeError.Create($"{attr} must be set to a string object")),
+                    deleter: self => throw PyTypeError.Create($"{attr} must be set to a string object"));
         }
 
         private PyObject ResumeException(PythonException thrownException)
