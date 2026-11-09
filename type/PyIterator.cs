@@ -126,26 +126,8 @@ namespace SharpPy
 
         private static void InitializeIteratorDescriptors()
         {
-            var iterType = PyType.IteratorType;
-
-            // tp_iternext: a slot wrapper, whose arity CheckSlotArguments checks.
-            iterType.TypeDict["__next__"] = new PyWrapperDescriptor(
-                "__next__", iterType,
-                (self, args, kwargs) => {
-                    if (self is not PyIterator iterator)
-                        throw PyTypeError.Create($"descriptor '__next__' requires a 'iterator' object but received a '{self.GetTypeName()}'");
-                    return iterator.IterNext();
-                });
-
-            // __iter__ method descriptor
-            // tp_iter: a slot wrapper, PyObject_SelfIter.
-            iterType.TypeDict["__iter__"] = new PyWrapperDescriptor(
-                "__iter__", iterType,
-                (self, args, kwargs) => {
-                    if (self is not PyIterator iterator)
-                        throw PyTypeError.Create($"descriptor '__iter__' requires a 'iterator' object but received a '{self.GetTypeName()}'");
-                    return iterator;
-                });
+            // calliter_methods: __reduce__.
+            InstallMethods(PyType.CallableIteratorType, false, true, false);
 
             // CPython exposes tp_iternext/tp_iter of map/zip/filter/callable_iterator/
             // reversed as slot wrappers bound to the concrete type (measured wording:

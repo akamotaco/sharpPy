@@ -262,8 +262,7 @@ namespace SharpPy
         // 함수 타입들
         public static readonly PyType FunctionType = new PyType("function", new[] { ObjectType });
         public static readonly PyType MethodType = new PyType("method", new[] { ObjectType });
-        public static readonly PyType IteratorType = new PyType("iterator", new[] { ObjectType });
-        public static readonly PyType GeneratorType = new PyType("generator", new[] { IteratorType });
+        public static readonly PyType GeneratorType = new PyType("generator", new[] { ObjectType });
         public static readonly PyType MapType = new PyType("map", new[] { ObjectType });
         // tp_name "weakref.ReferenceType"
         public static readonly PyType WeakRefType = new PyType("ReferenceType", new[] { ObjectType }, "weakref");
@@ -297,19 +296,26 @@ namespace SharpPy
         private static readonly System.Collections.Generic.Dictionary<string, PyType> _iteratorTypeCache = new();
         public static PyType GetIteratorType(string name)
         {
-            if (name == "reversed")
-                return ReversedType;
+            // The static iterator types of builtins are the objects themselves, not a second type
+            // of the same name.
+            switch (name)
+            {
+                case "reversed": return ReversedType;
+                case "callable_iterator": return CallableIteratorType;
+                case "map": return MapType;
+                case "zip": return ZipType;
+                case "filter": return FilterType;
+            }
             lock (_iteratorTypeCache)
             {
                 if (!_iteratorTypeCache.TryGetValue(name, out var t))
                 {
-                    // Derive from IteratorType so the shared __iter__/__next__
-                    // descriptors resolve via MRO (attribute access keeps working);
-                    // the distinct Name is what type(it).__name__ reports.
-                    // A dotted name is tp_name: the module and then the class.
+                    // A static iterator type: its base is object, and its own tp_iter and
+                    // tp_iternext are in its dict (InstallByName). A dotted name is tp_name: the
+                    // module and then the class.
                     int dot = name.LastIndexOf('.');
                     t = dot < 0
-                        ? new PyType(name, new[] { IteratorType })
+                        ? new PyType(name, new[] { ObjectType })
                         : new PyType(name.Substring(dot + 1), new[] { ObjectType }, name.Substring(0, dot));
                     _iteratorTypeCache[name] = t;
                     PyIterator.InstallByName(t);
@@ -323,7 +329,15 @@ namespace SharpPy
         public static readonly PyType NoneType = new PyType("NoneType", new[] { ObjectType });
         public static readonly PyType NotImplementedType = new PyType("NotImplementedType", new[] { ObjectType });
         public static readonly PyType EllipsisType = new PyType("ellipsis", new[] { ObjectType }); // CPython Objects/sliceobject.c
-        public static readonly PyType NullType = new PyType("NullType", new[] { ObjectType }); // CPython 내부 NULL
+        // The C NULL SharpPy needs as an object (PyNull): no Python type, so object's tp_subclasses
+        // does not list it.
+        public static readonly PyType NullType = Unlisted(new PyType("NullType", new[] { ObjectType }));
+
+        private static PyType Unlisted(PyType type)
+        {
+            foreach (var baseType in type.BaseTypes) baseType.RemoveSubclass(type);
+            return type;
+        }
         public static readonly PyType GenericAliasType = new PyType("GenericAlias", new[] { ObjectType }, "types");
         public static readonly PyType MappingProxyType = new PyType("mappingproxy", new[] { ObjectType }); // CPython Objects/descrobject.c
 
@@ -391,7 +405,6 @@ namespace SharpPy
         public static readonly PyType ExceptionGroupType = new PyType("ExceptionGroup", new[] { BaseExceptionGroupType, ExceptionType });
         
         // Buffer Protocol (PEP 688)
-        public static readonly PyType BufferType = new PyType("buffer", new[] { ObjectType });
         
         // Closure Support
         public static readonly PyType CellType = new PyType("cell", new[] { ObjectType });
@@ -426,10 +439,6 @@ namespace SharpPy
         public static readonly PyType UnionType = new PyType("UnionType", new[] { ObjectType }, "types");
         public static readonly PyType MemberDescriptorType = new PyType("member_descriptor", new[] { ObjectType });
         public static readonly PyType GetSetDescriptorType = new PyType("getset_descriptor", new[] { ObjectType });
-        public static readonly PyType CallableType = new PyType("Callable", new[] { ObjectType });
-        public static readonly PyType AnyType = new PyType("Any", new[] { ObjectType });
-        public static readonly PyType NoReturnType = new PyType("NoReturn", new[] { ObjectType });
-        public static readonly PyType ProtocolType = new PyType("Protocol", new[] { ObjectType });
 
         /// <summary>
         /// Every builtin type adds its observable surface - TypeDict entries, slot wrappers, method

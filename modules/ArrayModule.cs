@@ -869,7 +869,8 @@ namespace SharpPy.Modules
                 _index = 0;
             }
 
-            protected override string IteratorName => "arrayiterator";
+            // tp_name of Arraytype's iterator spec
+            protected override string IteratorName => "array.arrayiterator";
 
             // array_arrayiterator___reduce___impl: (iter, (array,), index), or iter(()) once exhausted.
             internal override PyObject Reduce() =>
