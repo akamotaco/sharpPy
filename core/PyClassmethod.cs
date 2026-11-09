@@ -91,11 +91,10 @@ namespace SharpPy
                 self => ((PyCallableWrapper)self).IsAbstract() ? PyBool.True : PyBool.False, null);
             type.TypeDict["__get__"] = new PyWrapperDescriptor("__get__", type, (self, args, kwargs) =>
             {
-                PyObject instance = args.Length > 0 && args[0] is not PyNone ? args[0] : null;
-                PyObject owner = args.Length > 1 && args[1] is not PyNone ? args[1] : null;
-                if (instance == null && owner == null)
-                    throw PyTypeError.Create("__get__(None, None) is invalid");
-                return ((PyCallableWrapper)self).Get(instance, owner as PyType);
+                var (instance, owner) = TypeTables.DescrGetArguments(args);
+                // cm_descr_get binds whatever owner it is given, a type or not.
+                return self is PyClassmethod classmethod ? classmethod.DescrGet(instance, owner)
+                    : ((PyCallableWrapper)self).Get(instance, owner as PyType);
             }, 1, 2);
         }
     }
@@ -108,7 +107,9 @@ namespace SharpPy
         internal PyClassmethod(PyType type, PyObject callable) : base(type, callable) { }
 
         // cm_descr_get
-        public override PyObject Get(PyObject instance, PyType owner)
+        public override PyObject Get(PyObject instance, PyType owner) => DescrGet(instance, owner);
+
+        internal PyObject DescrGet(PyObject instance, PyObject owner)
         {
             if (Callable == null)
                 throw PyRuntimeError.Create("uninitialized classmethod object");

@@ -321,15 +321,25 @@ namespace SharpPy
         // wrap_descr_get (Objects/typeobject.c): PyArg_UnpackTuple(args, "", 1, 2), None is NULL.
         private static PyObject DescriptorGet(PyObject self, PyObject[] args)
         {
+            var (instance, owner) = DescrGetArguments(args);
+            // classmethod_get is the one tp_descr_get here that reads a type that is not a type.
+            if (self is PyClassMethodDescriptor classMethod)
+                return classMethod.ClassMethodGet(instance, owner);
+            return ((IDescriptor)self).Get(instance, owner as PyType);
+        }
+
+        /// <summary>
+        /// wrap_descr_get's arguments, for every __get__ slot wrapper: one or two, None read as NULL,
+        /// and not both NULL.
+        /// </summary>
+        internal static (PyObject Instance, PyObject Owner) DescrGetArguments(PyObject[] args)
+        {
             PyArgs.Positional("", args, null, 1, 2);
             var instance = args[0] is not PyNone ? args[0] : null;
             var owner = args.Length > 1 && args[1] is not PyNone ? args[1] : null;
             if (instance == null && owner == null)
                 throw PyTypeError.Create("__get__(None, None) is invalid");
-            // classmethod_get is the one tp_descr_get here that reads a type that is not a type.
-            if (self is PyClassMethodDescriptor classMethod)
-                return classMethod.ClassMethodGet(instance, owner);
-            return ((IDescriptor)self).Get(instance, owner as PyType);
+            return (instance, owner);
         }
 
         // wrap_descr_set: PyArg_UnpackTuple(args, "", 2, 2).

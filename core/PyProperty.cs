@@ -162,9 +162,7 @@ public interface IDescriptor
             });
             type.TypeDict["__get__"] = new PyWrapperDescriptor("__get__", type, (self, args, kwargs) =>
             {
-                var target = args[0] is PyNone ? null : args[0];
-                if (target == null && (args.Length < 2 || args[1] is PyNone))
-                    throw PyTypeError.Create("__get__(None, None) is invalid");
+                var (target, _) = TypeTables.DescrGetArguments(args);
                 return Self(self, "__get__").DescriptorGet(target);
             }, 1, 2);
             type.TypeDict["__set__"] = new PyWrapperDescriptor("__set__", type, (self, args, kwargs) =>

@@ -365,11 +365,8 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         funcType.TypeDict["__get__"] = new PyWrapperDescriptor("__get__", funcType, (self, args, kwargs) =>
         {
             // func_descr_get: anything but None binds, a class too.
-            if (args.Length > 0 && args[0] is not PyNone)
-                return new PyMethod(args[0], self);
-            if (args.Length < 2 || args[1] is PyNone)
-                throw PyTypeError.Create("__get__(None, None) is invalid");
-            return self;
+            var (instance, _) = TypeTables.DescrGetArguments(args);
+            return instance != null ? new PyMethod(instance, self) : self;
         });
     }
     
