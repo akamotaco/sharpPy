@@ -1751,9 +1751,7 @@ namespace SharpPy
                 // PyMember_SetOne: a numeric slot can't be NULL, and PyLong_AsSsize_t takes only an int.
                 if (value == null)
                     throw PyTypeError.Create("can't delete numeric/char attribute");
-                if (value is not PyInt number)
-                    throw PyTypeError.Create("an integer is required");
-                value = PyInt.From(number.Value);
+                value = PyInt.From(PyArgs.LongAsSsize(value));
             }
             Fields[field] = value;
             return true;

@@ -384,14 +384,7 @@ namespace SharpPy
         }
 
         // PyLong_AsSsize_t
-        private static long AsSsize(PyObject value)
-        {
-            if (value is not PyInt number)
-                throw PyTypeError.Create("an integer is required");
-            if (number.Value > long.MaxValue || number.Value < long.MinValue)
-                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
-            return (long)number.Value;
-        }
+        private static long AsSsize(PyObject value) => PyArgs.LongAsSsize(value);
 
         // print_error_text: the text as the C string it is, offsets counted in its bytes.
         private static void PrintErrorText(PyObject file, long offset, long endOffset, PyObject textObject)

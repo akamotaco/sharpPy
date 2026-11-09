@@ -842,12 +842,8 @@ namespace SharpPy.Modules
             long maxlen = -1;
             if (maxlenobj != null && maxlenobj is not PyNone)
             {
-                if (!PyInt.LongCheck(maxlenobj))
-                    throw PyTypeError.Create("an integer is required");
-                var value = PyObject.TryGetIndex(maxlenobj).Value;
-                if (value < long.MinValue || value > long.MaxValue)
-                    throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
-                maxlen = (long)value;
+                // deque_init: PyLong_AsSsize_t(maxlenobj).
+                maxlen = PyArgs.LongAsSsize(maxlenobj);
                 if (maxlen < 0)
                     throw PyValueError.Create("maxlen must be non-negative");
             }

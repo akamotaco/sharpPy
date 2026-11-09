@@ -338,12 +338,8 @@ namespace SharpPy.Modules
             long defaultValue = 0;
             if (args.Length == 2)
             {
-                var integer = PyObject.IndexOrThrow(args[1]);
-                try { defaultValue = (long)nint.CreateChecked(integer.Value); }
-                catch (OverflowException)
-                {
-                    throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
-                }
+                // The clinic's Py_ssize_t converter.
+                defaultValue = PyArgs.Ssize(args[1]);
             }
             return PyInt.From(args[0].LengthHint(defaultValue));
         }

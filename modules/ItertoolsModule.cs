@@ -123,14 +123,7 @@ namespace SharpPy.Modules
         }
 
         // PyLong_AsSsize_t: an int and nothing else.
-        internal static long AsSsize(PyObject value)
-        {
-            if (!LongValue(value, out var number))
-                throw PyTypeError.Create("an integer is required");
-            if (number < long.MinValue || number > long.MaxValue)
-                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
-            return (long)number;
-        }
+        internal static long AsSsize(PyObject value) => PyArgs.LongAsSsize(value);
 
         // PyNumber_AsSsize_t(value, PyExc_OverflowError) whose error the caller clears.
         internal static bool TryNumberSsize(PyObject value, out long result)

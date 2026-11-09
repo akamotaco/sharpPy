@@ -30,14 +30,14 @@ namespace SharpPy
         public override long LengthLong()
         {
             if (_length > long.MaxValue)
-                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+                throw PyArgs.SsizeOverflow();
             return (long)_length;
         }
 
         internal override long PythonLength()
         {
             if (_length > (long)nint.MaxValue)
-                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+                throw PyArgs.SsizeOverflow();
             return (long)_length;
         }
 
@@ -100,7 +100,8 @@ namespace SharpPy
                     state = PyInt.From(0);
                 else if (PyObject.CompareBool(remaining, state, PyObject.CompareOp.LT))
                     state = remaining;
-                var index = IndexValue(state);
+                // longrangeiter_setstate: state is any int (PyNumber_Multiply with step), no ssize_t.
+                var index = PyObject.IndexOrThrow(state).Value;
                 _current += index * _step;
                 _remaining -= index;
             }

@@ -44,13 +44,14 @@ namespace SharpPy
         protected static PyObject ReduceExhausted(PyObject empty) => PyTuple.From(new PyObject[]
             { Builtin("iter"), PyTuple.From(new[] { empty }) });
 
-        protected static System.Numerics.BigInteger IndexValue(PyObject state) =>
-            (PyObject.TryGetIndex(state) ?? throw PyTypeError.Create("an integer is required")).Value;
+        // The __setstate__ of the sequence iterators: PyLong_AsSsize_t, an int only.
+        protected static System.Numerics.BigInteger IndexValue(PyObject state) => PyArgs.LongAsSsize(state);
 
         // PyLong_AsSsize_t and the silent clipping of every __setstate__
-        protected static long ClippedIndex(PyObject state, long length)
+        protected static long ClippedIndex(PyObject state, long length) => Clipped(IndexValue(state), length);
+
+        protected static long Clipped(System.Numerics.BigInteger value, long length)
         {
-            var value = IndexValue(state);
             if (value < 0)
                 return 0;
             return value > length ? length : (long)value;
@@ -454,7 +455,8 @@ namespace SharpPy
         // rangeiter_setstate
         internal override void SetState(PyObject state)
         {
-            ulong index = (ulong)ClippedIndex(state, _remaining > long.MaxValue ? long.MaxValue : (long)_remaining);
+            // PyLong_AsLong, which reads __index__, unlike the sequence iterators' PyLong_AsSsize_t.
+            ulong index = (ulong)Clipped(PyArgs.CLong(state), _remaining > long.MaxValue ? long.MaxValue : (long)_remaining);
             _current = unchecked(_current + (long)index * _step);
             _remaining -= index;
         }

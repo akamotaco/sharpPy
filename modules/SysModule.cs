@@ -667,9 +667,8 @@ namespace SharpPy.Modules
                 var method = obj.GetPyType().LookupSpecial("__sizeof__")
                     ?? throw PyTypeError.Create($"Type {obj.GetTypeName()} doesn't define __sizeof__");
                 var result = obj.CallSpecial(method);
-                if (result is not PyInt && result is not PyBool)
-                    throw PyTypeError.Create("an integer is required");
-                long size = PyArgs.Ssize(result);
+                // _PySys_GetSizeOf: PyLong_AsSsize_t of what __sizeof__ answered.
+                long size = PyArgs.LongAsSsize(result);
                 if (size < 0)
                     throw PyValueError.Create("__sizeof__() should return >= 0");
                 // _PyType_PreHeaderSize: sizeof(PyGC_Head) for what the collector tracks (a type

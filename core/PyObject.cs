@@ -954,7 +954,7 @@ namespace SharpPy
             try { value = (long)nint.CreateChecked(TryGetIndex(hint).Value); }
             catch (OverflowException)
             {
-                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+                throw PyArgs.SsizeOverflow();
             }
             if (value < 0) throw PyValueError.Create("__length_hint__() should return >= 0");
             return value;

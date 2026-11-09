@@ -93,7 +93,7 @@ namespace SharpPy
         {
             var length = ExactLength;
             if (length > long.MaxValue)
-                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+                throw PyArgs.SsizeOverflow();
             return length;
         }
 
@@ -317,11 +317,14 @@ namespace SharpPy
         /// </summary>
         protected internal override PyObject Iter()
         {
-            // range_iter: a length or an end that overflows long goes through longrange_iterator.
+            // range_iter: unless start, stop, step and the length are C longs and the last value
+            // cannot overflow one, the iterator is a longrange_iterator.
+            long min = PyArgs.CLongMin, max = PyArgs.CLongMax;
             ulong length = LengthUnsigned();
-            if (length > long.MaxValue || (length != 0 && (NativeStep > 0
-                    ? NativeStop > long.MaxValue - (NativeStep - 1)
-                    : NativeStop < long.MinValue + (-1 - NativeStep))))
+            if (NativeStart < min || NativeStart > max || NativeStop < min || NativeStop > max || NativeStep < min || NativeStep > max
+                || length > (ulong)max || (length != 0 && (NativeStep > 0
+                    ? NativeStop > max - (NativeStep - 1)
+                    : NativeStop < min + (-1 - NativeStep))))
                 return new PyBigRange(NativeStart, NativeStop, NativeStep).GetIterator();
             return new PyRangeIterator(this);
         }
@@ -354,7 +357,7 @@ namespace SharpPy
         {
             ulong length = LengthUnsigned();
             if (length > long.MaxValue)
-                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+                throw PyArgs.SsizeOverflow();
             return (long)length;
         }
 
@@ -364,7 +367,7 @@ namespace SharpPy
         {
             ulong length = LengthUnsigned();
             if (length > (ulong)nint.MaxValue)
-                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+                throw PyArgs.SsizeOverflow();
             return (long)length;
         }
 

@@ -236,7 +236,7 @@ namespace SharpPy
                             _ => throw PyTypeError.Create("memoryview.cast(): elements of shape must be integers"),
                         };
                         if (value > long.MaxValue || value < long.MinValue)
-                            throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+                            throw PyArgs.SsizeOverflow();
                         long x = (long)value;
                         if (x <= 0)
                             throw PyValueError.Create("memoryview.cast(): elements of shape must be integers > 0");
