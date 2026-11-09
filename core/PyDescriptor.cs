@@ -334,6 +334,16 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.GetSetDescriptorType;
 
 
+        /// <summary>
+        /// descr_check and descr_setcheck (Objects/descrobject.c): the object must be an instance of
+        /// the descriptor's type, its real type and no __class__.
+        /// </summary>
+        internal static void DescrCheck(PyObject descriptor, PyType owner, string name, PyObject instance)
+        {
+            if (!PyMethodDescriptor.AppliesTo(owner, instance))
+                throw PyTypeError.Create($"descriptor '{name}' for '{owner.FullName}' objects doesn't apply to a '{instance.GetTypeName()}' object");
+        }
+
         public PyObject Get(PyObject instance, PyType owner)
         {
             if (instance == null)
@@ -342,12 +352,15 @@ namespace SharpPy
                 return this;
             }
 
-            // getter 호출
+            // getset_get: descr_check first.
+            DescrCheck(this, OwnerType, Name, instance);
             return _getter(instance);
         }
 
         public void Set(PyObject instance, PyObject value)
         {
+            // getset_set: descr_setcheck, then the setter or "is not writable".
+            DescrCheck(this, OwnerType, Name, instance);
             if (_setter == null)
             {
                 throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.FullName}' objects is not writable");
@@ -365,6 +378,7 @@ namespace SharpPy
         {
             // A getset with a setter is deleted through it (descr_set with NULL); without one the
             // getset_set refusal is what the interpreter reports (Objects/descrobject.c:255-:264).
+            DescrCheck(this, OwnerType, Name, instance);
             if (_deleter != null)
             {
                 _deleter(instance);
@@ -431,12 +445,13 @@ namespace SharpPy
 
         public void Set(PyObject instance, PyObject value)
         {
+            // member_set: descr_setcheck before PyMember_SetOne's "readonly attribute".
+            Check(instance);
             if (_readonly || _setter == null)
             {
                 throw PyAttributeError.Create("readonly attribute");
             }
 
-            Check(instance);
             _setter(instance, value);
         }
 
@@ -448,19 +463,15 @@ namespace SharpPy
         /// </summary>
         public void Delete(PyObject instance)
         {
+            Check(instance);
             if (_readonly || _setter == null)
                 throw PyAttributeError.Create("readonly attribute");
-            Check(instance);
             if (_deleter != null) _deleter(instance);
             else _setter(instance, PyNone.Instance);
         }
 
         // descr_check and descr_setcheck
-        private void Check(PyObject instance)
-        {
-            if (!PyMethodDescriptor.AppliesTo(OwnerType, instance))
-                throw PyTypeError.Create($"descriptor '{Name}' for '{OwnerType.FullName}' objects doesn't apply to a '{instance.GetTypeName()}' object");
-        }
+        private void Check(PyObject instance) => PyGetSetDescriptor.DescrCheck(this, OwnerType, Name, instance);
 
         // A member has tp_descr_set whether or not it can be written.
         public bool IsDataDescriptor() => true;
