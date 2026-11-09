@@ -21,10 +21,7 @@ namespace SharpPy
             genType.TypeDict["send"] = new PyMethodDescriptor(
                 "send", genType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create("send() takes exactly one argument");
-                    if (self is not PyGenerator generator)
-                        throw PyTypeError.Create($"descriptor 'send' requires a 'generator' object but received a '{self.GetTypeName()}'");
+                    var generator = (PyGenerator)self;
                     return generator.Send(args[0]);
                 },
                 minArgs: 1, maxArgs: 1
@@ -34,10 +31,7 @@ namespace SharpPy
             genType.TypeDict["throw"] = new PyMethodDescriptor(
                 "throw", genType,
                 (self, args, kwargs) => {
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create("throw() takes 1 to 3 arguments");
-                    if (self is not PyGenerator generator)
-                        throw PyTypeError.Create($"descriptor 'throw' requires a 'generator' object but received a '{self.GetTypeName()}'");
+                    var generator = (PyGenerator)self;
 
                     if (args.Length > 1) PyWarnings.DeprecatedThrow();
                     var excType = args[0];
@@ -53,10 +47,7 @@ namespace SharpPy
             genType.TypeDict["close"] = new PyMethodDescriptor(
                 "close", genType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create("close() takes no arguments");
-                    if (self is not PyGenerator generator)
-                        throw PyTypeError.Create($"descriptor 'close' requires a 'generator' object but received a '{self.GetTypeName()}'");
+                    var generator = (PyGenerator)self;
                     return generator.Close();
                 },
                 minArgs: 0, maxArgs: 0

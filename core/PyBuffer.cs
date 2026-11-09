@@ -82,8 +82,7 @@ namespace SharpPy
             // CPython 3.12: memoryview.tobytes()/hex()/tolist(); bytes(view) is the buffer protocol, there is no __bytes__
             type.TypeDict["tobytes"] = new PyMethodDescriptor("tobytes", type, (self, args, kwargs) =>
             {
-                if (self is not PyMemoryView view)
-                    throw PyTypeError.Create($"descriptor 'tobytes' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                var view = (PyMemoryView)self;
                 // memoryview.tobytes(order='C'): the clinic's arguments, then CHECK_RELEASED
                 var order = PyArgs.Unpack("tobytes", args, kwargs, new[] { "order" }, 0, 0, 1)[0];
                 if (order != null && order is not PyNone)
@@ -107,8 +106,7 @@ namespace SharpPy
             }, 0, 0);
             type.TypeDict["tolist"] = new PyMethodDescriptor("tolist", type, (self, args, kwargs) =>
             {
-                if (self is not PyMemoryView view)
-                    throw PyTypeError.Create($"descriptor 'tolist' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                var view = (PyMemoryView)self;
                 if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
                     throw PyTypeError.Create($"tolist() takes no arguments ({args.Length} given)");
                 view.CheckReleased();
@@ -116,8 +114,7 @@ namespace SharpPy
             });
             type.TypeDict["hex"] = new PyMethodDescriptor("hex", type, (self, args, kwargs) =>
             {
-                if (self is not PyMemoryView view)
-                    throw PyTypeError.Create($"descriptor 'hex' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                var view = (PyMemoryView)self;
                 // memoryview.hex(sep=<unrepresentable>, bytes_per_sep=1): the clinic, then CHECK_RELEASED
                 PyArgs.Unpack("hex", args, kwargs, new[] { "sep", "bytes_per_sep" }, 0, 0, 2);
                 view.CheckReleased();
@@ -126,8 +123,7 @@ namespace SharpPy
 
             foreach (var name in new[] { "release", "__enter__", "__exit__" })
                 type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) => {
-                    if (self is not PyMemoryView view)
-                        throw PyTypeError.Create($"descriptor '{name}' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                    var view = (PyMemoryView)self;
                     if (kwargs != null && kwargs.Length() != 0)
                         throw PyTypeError.Create($"{name}() takes no keyword arguments");
                     if (name != "__exit__" && args.Length != 0)
@@ -146,8 +142,7 @@ namespace SharpPy
             // C-contiguous, single-character native formats are supported.
             type.TypeDict["cast"] = new PyMethodDescriptor("cast", type, (self, args, kwargs) =>
             {
-                if (self is not PyMemoryView view)
-                    throw PyTypeError.Create($"descriptor 'cast' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                var view = (PyMemoryView)self;
 
                 // CPython 3.12 Objects/memoryobject.c memory_cast is
                 // METH_FASTCALL|METH_KEYWORDS with parameter names "format" and "shape".
@@ -262,16 +257,14 @@ namespace SharpPy
             type.TypeDict["__getitem__"] = new PyWrapperDescriptor(
                 "__getitem__", type,
                 (self, args, kwargs) => {
-                    if (self is not PyMemoryView view)
-                        throw PyTypeError.Create($"descriptor '__getitem__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                    var view = (PyMemoryView)self;
                     if (args.Length != 1) throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
                     return view.MpSubscript(args[0]);
                 }, minArgs: 1, maxArgs: 1);
             type.TypeDict["__setitem__"] = new PyWrapperDescriptor(
                 "__setitem__", type,
                 (self, args, kwargs) => {
-                    if (self is not PyMemoryView view)
-                        throw PyTypeError.Create($"descriptor '__setitem__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                    var view = (PyMemoryView)self;
                     // CPython's METH_VARARGS "OO" slot wrapper emits a leading space.
                     if (args.Length != 2) throw PyTypeError.Create($" expected 2 arguments, got {args.Length}");
                     view.MpAssSubscript(args[0], args[1]);
@@ -280,8 +273,7 @@ namespace SharpPy
             type.TypeDict["__len__"] = new PyWrapperDescriptor(
                 "__len__", type,
                 (self, args, kwargs) => {
-                    if (self is not PyMemoryView view)
-                        throw PyTypeError.Create($"descriptor '__len__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                    var view = (PyMemoryView)self;
                     if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     return PyInt.From((int)view.Len());
                 }, minArgs: 0, maxArgs: 0);
@@ -291,8 +283,7 @@ namespace SharpPy
             // tp_iter is memory_iter: the slot wrapper calls it.
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) =>
             {
-                if (self is not PyMemoryView view)
-                    throw PyTypeError.Create($"descriptor '__iter__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                var view = (PyMemoryView)self;
                 if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
                     throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                 return view.Iter();

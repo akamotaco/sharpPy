@@ -31,8 +31,7 @@ namespace SharpPy.Core
             corType.TypeDict["send"] = new PyMethodDescriptor(
                 "send", corType,
                 (self, args, kwargs) => {
-                    if (self is not PyCoroutine coroutine)
-                        throw PyTypeError.Create($"descriptor 'send' requires a 'coroutine' object but received a '{self.GetTypeName()}'");
+                    var coroutine = (PyCoroutine)self;
                     CheckSendArguments("coroutine", args, kwargs);
                     return coroutine.Send(args[0]);
                 },
@@ -41,8 +40,7 @@ namespace SharpPy.Core
 
             corType.TypeDict["throw"] = new PyMethodDescriptor("throw", corType,
                 (self, args, kwargs) => {
-                    if (self is not PyCoroutine coroutine)
-                        throw PyTypeError.Create($"descriptor 'throw' requires a 'coroutine' object but received a '{self.GetTypeName()}'");
+                    var coroutine = (PyCoroutine)self;
                     CheckThrowArguments("coroutine", args, kwargs);
                     if (args.Length > 1) PyWarnings.DeprecatedThrow();
                     return coroutine.Throw(args);
@@ -52,8 +50,7 @@ namespace SharpPy.Core
             corType.TypeDict["close"] = new PyMethodDescriptor(
                 "close", corType,
                 (self, args, kwargs) => {
-                    if (self is not PyCoroutine coroutine)
-                        throw PyTypeError.Create($"descriptor 'close' requires a 'coroutine' object but received a '{self.GetTypeName()}'");
+                    var coroutine = (PyCoroutine)self;
                     CheckCloseArguments("coroutine", args, kwargs);
                     coroutine.Close();
                     return PyNone.Instance;
@@ -67,8 +64,7 @@ namespace SharpPy.Core
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create("__await__() takes no arguments");
-                    if (self is not PyCoroutine coroutine)
-                        throw PyTypeError.Create($"descriptor '__await__' requires a 'coroutine' object but received a '{self.GetTypeName()}'");
+                    var coroutine = (PyCoroutine)self;
                     return coroutine.GetAwaiter();
                 },
                 minArgs: 0, maxArgs: 0

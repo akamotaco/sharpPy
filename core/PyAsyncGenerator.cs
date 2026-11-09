@@ -66,8 +66,7 @@ namespace SharpPy.Core
             {
                 // am_aiter and am_anext are slots, their wrappers; asend, athrow and aclose are methods.
                 Func<PyObject, PyObject[], PyDict, PyObject> body = (self, args, kwargs) => {
-                    if (self is not PyAsyncGenerator generator)
-                        throw PyTypeError.Create($"descriptor '{name}' requires a 'async_generator' object but received a '{self.GetTypeName()}'");
+                    var generator = (PyAsyncGenerator)self;
                     if (kwargs != null && kwargs.Length() != 0) throw PyTypeError.Create($"{name}() takes no keyword arguments");
                     if (name == "athrow") return generator.CreateThrow(args);
                     int minimum = name is "asend" or "athrow" ? 1 : 0;
