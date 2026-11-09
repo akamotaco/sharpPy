@@ -68,17 +68,15 @@ namespace SharpPy
 
         public override int ToHash() => unchecked((int)GetPythonHash());
 
-        protected override PyObject PyEquals(PyObject other)
+        // slice_richcompare: two slices compare as the tuples (start, stop, step); anything else is
+        // NotImplemented.
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
-            return other switch
-            {
-                PySlice otherSlice => PyBool.FromBool(
-                    CompareBool(Start, otherSlice.Start, CompareOp.EQ) &&
-                    CompareBool(Stop, otherSlice.Stop, CompareOp.EQ) &&
-                    CompareBool(Step, otherSlice.Step, CompareOp.EQ)),
-                // slice_richcompare: anything but a slice is NotImplemented.
-                _ => PyNotImplemented.Instance
-            };
+            if (other is not PySlice slice)
+                return PyNotImplemented.Instance;
+            if (ReferenceEquals(this, other) && op is CompareOp.EQ or CompareOp.NE)
+                return PyBool.FromBool(op == CompareOp.EQ);
+            return Compare(PyTuple.From(new[] { Start, Stop, Step }), PyTuple.From(new[] { slice.Start, slice.Stop, slice.Step }), op);
         }
 
         #endregion

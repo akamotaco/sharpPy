@@ -93,7 +93,7 @@ namespace SharpPy.Modules
             // deque has sq_item and sq_ass_item only: their wrappers are wrap_sq_item, wrap_sq_setitem and
             // wrap_sq_delitem, which read the index with getindex.
             type.TypeDict["__getitem__"] = new PyWrapperDescriptor("__getitem__", type, (self, args, kwargs) =>
-                Self(self).Item(SlotIndex(self, args[0])));
+                Self(self).Item(SlotIndex(self, args[0]))) { SequenceItem = true };
             type.TypeDict["__setitem__"] = new PyWrapperDescriptor("__setitem__", type, (self, args, kwargs) =>
             {
                 Self(self).AssItem(SlotIndex(self, args[0]), args[1]);

@@ -889,8 +889,7 @@ namespace SharpPy
             value is PyDict || value.GetPyType().IsSubclassOf(PyType.DictType);
 
         // PyMapping_Check
-        private static bool IsMapping(PyObject value) =>
-            value is PyDict || value.HasTypeSlot("__getitem__");
+        private static bool IsMapping(PyObject value) => PyObject.MappingCheck(value);
 
         // What eval and exec share. Names resolve in a dict's storage. A dict subclass given as
         // globals, or any other mapping as locals, also takes LOAD_NAME and STORE_NAME through

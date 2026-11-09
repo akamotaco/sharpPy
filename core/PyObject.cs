@@ -651,6 +651,17 @@ namespace SharpPy
         internal bool HasTypeSlot(string name) => GetPyType().FindNameInMro(name) != null;
 
         /// <summary>
+        /// PyMapping_Check: the type has mp_subscript. A __getitem__ that is wrap_sq_item is sq_item
+        /// alone; a class statement's type gets slot_mp_subscript for any __getitem__ it finds.
+        /// </summary>
+        internal static bool MappingCheck(PyObject value)
+        {
+            var type = value.GetPyType();
+            var item = type.FindNameInMro("__getitem__");
+            return item != null && (type.IsHeapType || item is not PyWrapperDescriptor { SequenceItem: true });
+        }
+
+        /// <summary>
         /// Looks up a special method declared by user classes only, stopping where the C slots take
         /// over. The value-carrying wrappers (PyIntSubclass, PyFloatSubclass) need this narrowing:
         /// their arithmetic is implemented as CLR calls into the wrapped value, so consulting the

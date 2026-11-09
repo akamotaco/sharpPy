@@ -2550,7 +2550,7 @@ namespace SharpPy
                     {
                         // unicode_format: the argument is the dict when its type has mp_subscript and it
                         // is no tuple or str (PyMapping_Check); anything else has no (key).
-                        if (arg is PyString || !arg.HasTypeSlot("__getitem__"))
+                        if (arg is PyString || !PyObject.MappingCheck(arg))
                             throw PyTypeError.Create("format requires a mapping");
                         i++;
                         int keyStart = i;
@@ -2809,7 +2809,7 @@ namespace SharpPy
 
             // PyUnicode_Format: ctx.dict is a mapping that is no tuple or str.
             if ((positional && ai < args.Length) || (!positional && !singleUsed &&
-                (arg is PyString || !arg.HasTypeSlot("__getitem__"))))
+                (arg is PyString || !PyObject.MappingCheck(arg))))
                 throw PyTypeError.Create("not all arguments converted during string formatting");
             return sb.ToString();
         }

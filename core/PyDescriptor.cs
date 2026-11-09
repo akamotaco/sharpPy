@@ -583,6 +583,9 @@ namespace SharpPy
         // This wrapper is wrap_indexargfunc: the slot takes a count, not an operand.
         internal bool IndexArgument { get; init; }
 
+        // This __getitem__ is wrap_sq_item: the type has sq_item and no mp_subscript (deque).
+        internal bool SequenceItem { get; init; }
+
         private static Dictionary<string, (int, int, bool)> BuildSlotArity()
         {
             var table = new Dictionary<string, (int, int, bool)>();

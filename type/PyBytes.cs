@@ -659,7 +659,7 @@ namespace SharpPy
             {
                 seq = new List<PyObject> { other };
                 // _PyBytes_FormatEx: a mapping that is no tuple, bytes, str or bytearray serves %(key)s.
-                if (other is not PyBytes and not PyByteArray and not PyString && other.HasTypeSlot("__getitem__") || other is PyDict)
+                if (other is not PyBytes and not PyByteArray and not PyString && PyObject.MappingCheck(other))
                     named = other;
             }
 

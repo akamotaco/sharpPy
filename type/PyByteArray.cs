@@ -603,92 +603,25 @@ namespace SharpPy
 
         #region Comparison
 
-        protected override PyObject PyEquals(PyObject other)
+        // bytearray_richcompare: anything with a buffer compares by its bytes, memcmp then length.
+        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
-            if (other is PyByteArray otherBa)
+            var mine = BytesMethods.Buffer(this);
+            var theirs = BytesMethods.Buffer(other);
+            if (mine == null || theirs == null)
+                return PyNotImplemented.Instance;
+            if (mine.Length != theirs.Length && op is CompareOp.EQ or CompareOp.NE)
+                return PyBool.FromBool(op == CompareOp.NE);
+            int order = mine.AsSpan().SequenceCompareTo(theirs);
+            return PyBool.FromBool(op switch
             {
-                // Performance: Eliminated LINQ - Manual sequence comparison
-                return BytesEqualList(_bytes, otherBa._bytes) ? PyBool.True : PyBool.False;
-            }
-            else if (other is PyBytes otherBytes)
-            {
-                // Performance: Eliminated LINQ - Manual sequence comparison
-                return BytesEqualArray(_bytes, otherBytes.Value) ? PyBool.True : PyBool.False;
-            }
-
-            return PyNotImplemented.Instance;
-        }
-
-        protected override PyObject PyNotEquals(PyObject other)
-        {
-            var result = PyEquals(other);
-            if (result == PyNotImplemented.Instance)
-                return result;
-            return result == PyBool.True ? PyBool.False : PyBool.True;
-        }
-
-        protected override PyObject PyLess(PyObject other)
-        {
-            if (other is PyByteArray otherBa)
-            {
-                // Performance: Eliminated LINQ - Direct list comparison
-                return CompareBytesList(_bytes, otherBa._bytes) < 0 ? PyBool.True : PyBool.False;
-            }
-            else if (other is PyBytes otherBytes)
-            {
-                // Performance: Eliminated LINQ - Direct list vs array comparison
-                return CompareBytesListArray(_bytes, otherBytes.Value) < 0 ? PyBool.True : PyBool.False;
-            }
-
-            return PyNotImplemented.Instance;
-        }
-
-        protected override PyObject PyLessEqual(PyObject other)
-        {
-            if (other is PyByteArray otherBa)
-            {
-                // Performance: Eliminated LINQ - Direct list comparison
-                return CompareBytesList(_bytes, otherBa._bytes) <= 0 ? PyBool.True : PyBool.False;
-            }
-            else if (other is PyBytes otherBytes)
-            {
-                // Performance: Eliminated LINQ - Direct list vs array comparison
-                return CompareBytesListArray(_bytes, otherBytes.Value) <= 0 ? PyBool.True : PyBool.False;
-            }
-
-            return PyNotImplemented.Instance;
-        }
-
-        protected override PyObject PyGreater(PyObject other)
-        {
-            if (other is PyByteArray otherBa)
-            {
-                // Performance: Eliminated LINQ - Direct list comparison
-                return CompareBytesList(_bytes, otherBa._bytes) > 0 ? PyBool.True : PyBool.False;
-            }
-            else if (other is PyBytes otherBytes)
-            {
-                // Performance: Eliminated LINQ - Direct list vs array comparison
-                return CompareBytesListArray(_bytes, otherBytes.Value) > 0 ? PyBool.True : PyBool.False;
-            }
-
-            return PyNotImplemented.Instance;
-        }
-
-        protected override PyObject PyGreaterEqual(PyObject other)
-        {
-            if (other is PyByteArray otherBa)
-            {
-                // Performance: Eliminated LINQ - Direct list comparison
-                return CompareBytesList(_bytes, otherBa._bytes) >= 0 ? PyBool.True : PyBool.False;
-            }
-            else if (other is PyBytes otherBytes)
-            {
-                // Performance: Eliminated LINQ - Direct list vs array comparison
-                return CompareBytesListArray(_bytes, otherBytes.Value) >= 0 ? PyBool.True : PyBool.False;
-            }
-
-            return PyNotImplemented.Instance;
+                CompareOp.EQ => order == 0,
+                CompareOp.NE => order != 0,
+                CompareOp.LT => order < 0,
+                CompareOp.LE => order <= 0,
+                CompareOp.GT => order > 0,
+                _ => order >= 0,
+            });
         }
 
         #endregion
@@ -843,61 +776,9 @@ namespace SharpPy
 
         private static List<byte> ConvertToBytes(PyObject obj) => new List<byte>(BytesMethods.FromObject(obj, "bytearray"));
 
-        // Performance: Eliminated LINQ - Helper methods for List<byte> operations
 
-        /// <summary>
-        /// Check if two byte lists are equal
-        /// </summary>
-        private static bool BytesEqualList(List<byte> a, List<byte> b)
-        {
-            if (a.Count != b.Count) return false;
-            for (int i = 0; i < a.Count; i++)
-            {
-                if (a[i] != b[i]) return false;
-            }
-            return true;
-        }
 
-        /// <summary>
-        /// Check if byte list equals byte array
-        /// </summary>
-        private static bool BytesEqualArray(List<byte> list, byte[] array)
-        {
-            if (list.Count != array.Length) return false;
-            for (int i = 0; i < list.Count; i++)
-            {
-                if (list[i] != array[i]) return false;
-            }
-            return true;
-        }
 
-        /// <summary>
-        /// Compare two byte lists lexicographically
-        /// </summary>
-        private static int CompareBytesList(List<byte> a, List<byte> b)
-        {
-            int minLen = Math.Min(a.Count, b.Count);
-            for (int i = 0; i < minLen; i++)
-            {
-                if (a[i] != b[i])
-                    return a[i].CompareTo(b[i]);
-            }
-            return a.Count.CompareTo(b.Count);
-        }
-
-        /// <summary>
-        /// Compare byte list with byte array lexicographically
-        /// </summary>
-        private static int CompareBytesListArray(List<byte> list, byte[] array)
-        {
-            int minLen = Math.Min(list.Count, array.Length);
-            for (int i = 0; i < minLen; i++)
-            {
-                if (list[i] != array[i])
-                    return list[i].CompareTo(array[i]);
-            }
-            return list.Count.CompareTo(array.Length);
-        }
 
         #endregion
     }
