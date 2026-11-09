@@ -90,6 +90,11 @@ try:
     with open(os.path.join(CPYTHON_LIB, "test", "support", "testcase.py"), encoding="utf-8") as source:
         exec(source.read(), testcase.__dict__)
     sys.modules["test.support.testcase"] = support_stub.testcase = testcase
+    # ast_helper too (only ast and unittest).
+    ast_helper = support_stub.types.ModuleType("test.support.ast_helper")
+    with open(os.path.join(CPYTHON_LIB, "test", "support", "ast_helper.py"), encoding="utf-8") as source:
+        exec(source.read(), ast_helper.__dict__)
+    sys.modules["test.support.ast_helper"] = support_stub.ast_helper = ast_helper
     module = __import__("test." + name, fromlist=["*"])
     suite = unittest.defaultTestLoader.loadTestsFromModule(module)
     # Quadratic here for now (naive search); the limit would end the whole module. docs/known_gaps.md

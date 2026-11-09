@@ -1067,7 +1067,10 @@ namespace SharpPy
             {
                 if ((compileFlags & PythonAst.PyCF_ONLY_AST) != 0)
                     return source;
-                return Compiler.Compile(PythonAst.ObjectToMod(source, compileMode), filename, optimizeLevel, null);
+                // builtin_compile_impl: PyAST_obj2mod, then _PyAST_Validate before compiling.
+                var mod = PythonAst.ObjectToMod(source, compileMode);
+                AstValidator.Validate(mod);
+                return Compiler.Compile(mod, filename, optimizeLevel, null);
             }
 
             string sourceCode = SourceAsString(source, "compile", "string, bytes or AST", compileMode == CompileMode.File, filename);

@@ -86,7 +86,21 @@ namespace SharpPy
                 {
                     if (type.Name is "Num" or "Str" or "Bytes" or "NameConstant" or "Ellipsis")
                         continue;
-                    return Build(value, type.Name);
+                    // obj2ast_<kind>: _Py_EnterRecursiveCall(" while traversing '<kind>' node"), the
+                    // kind being the abstract base (expr, stmt, ...) or the product type itself.
+                    var kindName = type.BaseTypes.Length > 0 && type.BaseTypes[0].Name != "AST" ? type.BaseTypes[0].Name : type.Name;
+                    // The simple sums (operators, contexts) are singletons, read without the guard.
+                    if (kindName is "boolop" or "operator" or "unaryop" or "cmpop" or "expr_context")
+                        return Build(value, type.Name);
+                    PyCRecursion.Enter($" while traversing '{kindName}' node");
+                    try
+                    {
+                        return Build(value, type.Name);
+                    }
+                    finally
+                    {
+                        PyCRecursion.Leave();
+                    }
                 }
             }
             throw PyTypeError.Create($"expected some sort of AST node, but got {value.ToRepr().Value}");
@@ -121,10 +135,32 @@ namespace SharpPy
             }
         }
 
+        // obj2ast_identifier
         private static GeneratedIdentifier? ToIdentifier(PyObject? value) =>
-            value is null or PyNone ? null : new GeneratedIdentifier(((PyString)value).Value);
+            value is null or PyNone ? null
+            : value is PyString text ? new GeneratedIdentifier(text.Value)
+            : throw PyTypeError.Create("AST identifier must be of type str");
 
         private static string? ToStr(PyObject? value) => value is PyString text ? text.Value : null;
+
+        // An optional int field (ImportFrom.level): missing or None is 0.
+        private static int ToOptionalInt(PyObject? value) => value is null or PyNone ? 0 : ToInt(value, "");
+
+        // A sequence field: its list, or an empty one when the node has no such attribute.
+        private static PyObject SeqField(PyObject o, string name) => Attribute(o, name) ?? new PyList();
+
+        // _PyObject_LookupAttr: the value, or null when there is none.
+        private static PyObject? Attribute(PyObject o, string name)
+        {
+            try
+            {
+                return o.GetAttribute(name);
+            }
+            catch (PythonException error) when (error.PyException is PyAttributeError)
+            {
+                return null;
+            }
+        }
 
         private static int ToInt(PyObject? value, string name) =>
             value is PyInt number ? number.ToInt() : value is PyBool truth ? (truth.Value ? 1 : 0)
@@ -139,30 +175,35 @@ namespace SharpPy
             _ => new GeneratedPyConstantObject(value),
         };
 
-        private T Fill<T>(T seq, PyObject? value) where T : GeneratedSeq
+        private T Fill<T>(T seq, PyObject? value, string owner, string name) where T : GeneratedSeq
         {
             if (value is not PyList list)
-                throw PyTypeError.Create($"field must be a list, not a {value?.GetTypeName()}");
+                throw PyTypeError.Create($"{owner} field \"{name}\" must be a list, not a {value?.GetPyType().Name}");
             for (int i = 0; i < list.Length(); i++)
                 seq.Add(ToNode(list.GetItem(PyInt.From(i))));
             return seq;
         }
 
-        private static T FillIdentifiers<T>(T seq, PyObject? value) where T : GeneratedSeq
+        private static T FillIdentifiers<T>(T seq, PyObject? value, string owner, string name) where T : GeneratedSeq
         {
             if (value is not PyList list)
-                throw PyTypeError.Create($"field must be a list, not a {value?.GetTypeName()}");
+                throw PyTypeError.Create($"{owner} field \"{name}\" must be a list, not a {value?.GetPyType().Name}");
             for (int i = 0; i < list.Length(); i++)
                 seq.Add(ToIdentifier(list.GetItem(PyInt.From(i))));
             return seq;
         }
 
-        private static void Locate(GeneratedAstNode node, PyObject o)
+        // The attributes of obj2ast_<kind>: lineno and col_offset are required ints, end_lineno and
+        // end_col_offset default to them when missing or None.
+        private static void Locate(GeneratedAstNode node, PyObject o, string kind)
         {
-            node.LineNo = ToInt(Field(o, "lineno", false, "node"), "lineno");
-            node.ColOffset = ToInt(Field(o, "col_offset", false, "node"), "col_offset");
-            node.EndLineNo = Field(o, "end_lineno", true, "node") is PyInt end ? end.ToInt() : node.LineNo;
-            node.EndColOffset = Field(o, "end_col_offset", true, "node") is PyInt endColumn ? endColumn.ToInt() : node.ColOffset;
+            node.LineNo = ToInt(Attribute(o, "lineno") ?? throw Missing("lineno", kind), "lineno");
+            node.ColOffset = ToInt(Attribute(o, "col_offset") ?? throw Missing("col_offset", kind), "col_offset");
+            node.EndLineNo = Attribute(o, "end_lineno") is { } end and not PyNone ? ToInt(end, "end_lineno") : node.LineNo;
+            node.EndColOffset = Attribute(o, "end_col_offset") is { } endColumn and not PyNone ? ToInt(endColumn, "end_col_offset") : node.ColOffset;
         }
+
+        private static System.Exception Missing(string field, string kind) =>
+            PyTypeError.Create("required field \"" + field + "\" missing from " + kind);
     }
 }

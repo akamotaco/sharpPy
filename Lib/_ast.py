@@ -708,3 +708,10 @@ class NameConstant(Constant):
 
 class Ellipsis(Constant):
     pass
+
+
+# make_type: the node classes are made in the ast module.
+for _node in list(globals().values()):
+    if isinstance(_node, type) and issubclass(_node, AST):
+        _node.__module__ = 'ast'
+del _node

@@ -947,14 +947,14 @@ namespace SharpPy
                 case "Module":
                 {
                     var n = new GeneratedModule();
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "Module"));
-                    n.TypeIgnores = Fill(new GeneratedTypeIgnoreSeq(), Field(o, "type_ignores", false, "Module"));
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "Module", "body");
+                    n.TypeIgnores = Fill(new GeneratedTypeIgnoreSeq(), SeqField(o, "type_ignores"), "Module", "type_ignores");
                     return n;
                 }
                 case "Interactive":
                 {
                     var n = new GeneratedInteractive();
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "Interactive"));
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "Interactive", "body");
                     return n;
                 }
                 case "Expression":
@@ -966,474 +966,474 @@ namespace SharpPy
                 case "FunctionType":
                 {
                     var n = new GeneratedFunctionType();
-                    n.Argtypes = Fill(new GeneratedExprSeq(), Field(o, "argtypes", false, "FunctionType"));
+                    n.Argtypes = Fill(new GeneratedExprSeq(), SeqField(o, "argtypes"), "FunctionType", "argtypes");
                     n.Returns = (GeneratedExpr?)ToNode(Field(o, "returns", false, "FunctionType"));
                     return n;
                 }
                 case "FunctionDef":
                 {
                     var n = new GeneratedFunctionDef();
+                    Locate(n, o, "stmt");
                     n.Name = ToIdentifier(Field(o, "name", false, "FunctionDef"));
                     n.Args = (GeneratedArguments?)ToNode(Field(o, "args", false, "FunctionDef"));
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "FunctionDef"));
-                    n.DecoratorList = Fill(new GeneratedExprSeq(), Field(o, "decorator_list", false, "FunctionDef"));
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "FunctionDef", "body");
+                    n.DecoratorList = Fill(new GeneratedExprSeq(), SeqField(o, "decorator_list"), "FunctionDef", "decorator_list");
                     n.Returns = (GeneratedExpr?)ToNode(Field(o, "returns", true, "FunctionDef"));
                     n.TypeComment = ToStr(Field(o, "type_comment", true, "FunctionDef"));
-                    n.TypeParams = Fill(new GeneratedTypeParamSeq(), Field(o, "type_params", false, "FunctionDef"));
-                    Locate(n, o);
+                    n.TypeParams = Fill(new GeneratedTypeParamSeq(), SeqField(o, "type_params"), "FunctionDef", "type_params");
                     return n;
                 }
                 case "AsyncFunctionDef":
                 {
                     var n = new GeneratedAsyncFunctionDef();
+                    Locate(n, o, "stmt");
                     n.Name = ToIdentifier(Field(o, "name", false, "AsyncFunctionDef"));
                     n.Args = (GeneratedArguments?)ToNode(Field(o, "args", false, "AsyncFunctionDef"));
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "AsyncFunctionDef"));
-                    n.DecoratorList = Fill(new GeneratedExprSeq(), Field(o, "decorator_list", false, "AsyncFunctionDef"));
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "AsyncFunctionDef", "body");
+                    n.DecoratorList = Fill(new GeneratedExprSeq(), SeqField(o, "decorator_list"), "AsyncFunctionDef", "decorator_list");
                     n.Returns = (GeneratedExpr?)ToNode(Field(o, "returns", true, "AsyncFunctionDef"));
                     n.TypeComment = ToStr(Field(o, "type_comment", true, "AsyncFunctionDef"));
-                    n.TypeParams = Fill(new GeneratedTypeParamSeq(), Field(o, "type_params", false, "AsyncFunctionDef"));
-                    Locate(n, o);
+                    n.TypeParams = Fill(new GeneratedTypeParamSeq(), SeqField(o, "type_params"), "AsyncFunctionDef", "type_params");
                     return n;
                 }
                 case "ClassDef":
                 {
                     var n = new GeneratedClassDef();
+                    Locate(n, o, "stmt");
                     n.Name = ToIdentifier(Field(o, "name", false, "ClassDef"));
-                    n.Bases = Fill(new GeneratedExprSeq(), Field(o, "bases", false, "ClassDef"));
-                    n.Keywords = Fill(new GeneratedKeywordSeq(), Field(o, "keywords", false, "ClassDef"));
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "ClassDef"));
-                    n.DecoratorList = Fill(new GeneratedExprSeq(), Field(o, "decorator_list", false, "ClassDef"));
-                    n.TypeParams = Fill(new GeneratedTypeParamSeq(), Field(o, "type_params", false, "ClassDef"));
-                    Locate(n, o);
+                    n.Bases = Fill(new GeneratedExprSeq(), SeqField(o, "bases"), "ClassDef", "bases");
+                    n.Keywords = Fill(new GeneratedKeywordSeq(), SeqField(o, "keywords"), "ClassDef", "keywords");
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "ClassDef", "body");
+                    n.DecoratorList = Fill(new GeneratedExprSeq(), SeqField(o, "decorator_list"), "ClassDef", "decorator_list");
+                    n.TypeParams = Fill(new GeneratedTypeParamSeq(), SeqField(o, "type_params"), "ClassDef", "type_params");
                     return n;
                 }
                 case "Return":
                 {
                     var n = new GeneratedReturn();
+                    Locate(n, o, "stmt");
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", true, "Return"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Delete":
                 {
                     var n = new GeneratedDelete();
-                    n.Targets = Fill(new GeneratedExprSeq(), Field(o, "targets", false, "Delete"));
-                    Locate(n, o);
+                    Locate(n, o, "stmt");
+                    n.Targets = Fill(new GeneratedExprSeq(), SeqField(o, "targets"), "Delete", "targets");
                     return n;
                 }
                 case "Assign":
                 {
                     var n = new GeneratedAssign();
-                    n.Targets = Fill(new GeneratedExprSeq(), Field(o, "targets", false, "Assign"));
+                    Locate(n, o, "stmt");
+                    n.Targets = Fill(new GeneratedExprSeq(), SeqField(o, "targets"), "Assign", "targets");
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "Assign"));
                     n.TypeComment = ToStr(Field(o, "type_comment", true, "Assign"));
-                    Locate(n, o);
                     return n;
                 }
                 case "TypeAlias":
                 {
                     var n = new GeneratedTypeAlias();
+                    Locate(n, o, "stmt");
                     n.Name = (GeneratedExpr?)ToNode(Field(o, "name", false, "TypeAlias"));
-                    n.TypeParams = Fill(new GeneratedTypeParamSeq(), Field(o, "type_params", false, "TypeAlias"));
+                    n.TypeParams = Fill(new GeneratedTypeParamSeq(), SeqField(o, "type_params"), "TypeAlias", "type_params");
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "TypeAlias"));
-                    Locate(n, o);
                     return n;
                 }
                 case "AugAssign":
                 {
                     var n = new GeneratedAugAssign();
+                    Locate(n, o, "stmt");
                     n.Target = (GeneratedExpr?)ToNode(Field(o, "target", false, "AugAssign"));
                     n.Op = (GeneratedOperator?)ToNode(Field(o, "op", false, "AugAssign"));
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "AugAssign"));
-                    Locate(n, o);
                     return n;
                 }
                 case "AnnAssign":
                 {
                     var n = new GeneratedAnnAssign();
+                    Locate(n, o, "stmt");
                     n.Target = (GeneratedExpr?)ToNode(Field(o, "target", false, "AnnAssign"));
                     n.Annotation = (GeneratedExpr?)ToNode(Field(o, "annotation", false, "AnnAssign"));
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", true, "AnnAssign"));
                     n.Simple = ToInt(Field(o, "simple", false, "AnnAssign"), "simple");
-                    Locate(n, o);
                     return n;
                 }
                 case "For":
                 {
                     var n = new GeneratedFor();
+                    Locate(n, o, "stmt");
                     n.Target = (GeneratedExpr?)ToNode(Field(o, "target", false, "For"));
                     n.Iter = (GeneratedExpr?)ToNode(Field(o, "iter", false, "For"));
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "For"));
-                    n.Orelse = Fill(new GeneratedStmtSeq(), Field(o, "orelse", false, "For"));
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "For", "body");
+                    n.Orelse = Fill(new GeneratedStmtSeq(), SeqField(o, "orelse"), "For", "orelse");
                     n.TypeComment = ToStr(Field(o, "type_comment", true, "For"));
-                    Locate(n, o);
                     return n;
                 }
                 case "AsyncFor":
                 {
                     var n = new GeneratedAsyncFor();
+                    Locate(n, o, "stmt");
                     n.Target = (GeneratedExpr?)ToNode(Field(o, "target", false, "AsyncFor"));
                     n.Iter = (GeneratedExpr?)ToNode(Field(o, "iter", false, "AsyncFor"));
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "AsyncFor"));
-                    n.Orelse = Fill(new GeneratedStmtSeq(), Field(o, "orelse", false, "AsyncFor"));
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "AsyncFor", "body");
+                    n.Orelse = Fill(new GeneratedStmtSeq(), SeqField(o, "orelse"), "AsyncFor", "orelse");
                     n.TypeComment = ToStr(Field(o, "type_comment", true, "AsyncFor"));
-                    Locate(n, o);
                     return n;
                 }
                 case "While":
                 {
                     var n = new GeneratedWhile();
+                    Locate(n, o, "stmt");
                     n.Test = (GeneratedExpr?)ToNode(Field(o, "test", false, "While"));
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "While"));
-                    n.Orelse = Fill(new GeneratedStmtSeq(), Field(o, "orelse", false, "While"));
-                    Locate(n, o);
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "While", "body");
+                    n.Orelse = Fill(new GeneratedStmtSeq(), SeqField(o, "orelse"), "While", "orelse");
                     return n;
                 }
                 case "If":
                 {
                     var n = new GeneratedIf();
+                    Locate(n, o, "stmt");
                     n.Test = (GeneratedExpr?)ToNode(Field(o, "test", false, "If"));
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "If"));
-                    n.Orelse = Fill(new GeneratedStmtSeq(), Field(o, "orelse", false, "If"));
-                    Locate(n, o);
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "If", "body");
+                    n.Orelse = Fill(new GeneratedStmtSeq(), SeqField(o, "orelse"), "If", "orelse");
                     return n;
                 }
                 case "With":
                 {
                     var n = new GeneratedWith();
-                    n.Items = Fill(new GeneratedWithitemSeq(), Field(o, "items", false, "With"));
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "With"));
+                    Locate(n, o, "stmt");
+                    n.Items = Fill(new GeneratedWithitemSeq(), SeqField(o, "items"), "With", "items");
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "With", "body");
                     n.TypeComment = ToStr(Field(o, "type_comment", true, "With"));
-                    Locate(n, o);
                     return n;
                 }
                 case "AsyncWith":
                 {
                     var n = new GeneratedAsyncWith();
-                    n.Items = Fill(new GeneratedWithitemSeq(), Field(o, "items", false, "AsyncWith"));
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "AsyncWith"));
+                    Locate(n, o, "stmt");
+                    n.Items = Fill(new GeneratedWithitemSeq(), SeqField(o, "items"), "AsyncWith", "items");
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "AsyncWith", "body");
                     n.TypeComment = ToStr(Field(o, "type_comment", true, "AsyncWith"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Match":
                 {
                     var n = new GeneratedMatch();
+                    Locate(n, o, "stmt");
                     n.Subject = (GeneratedExpr?)ToNode(Field(o, "subject", false, "Match"));
-                    n.Cases = Fill(new GeneratedMatchCaseSeq(), Field(o, "cases", false, "Match"));
-                    Locate(n, o);
+                    n.Cases = Fill(new GeneratedMatchCaseSeq(), SeqField(o, "cases"), "Match", "cases");
                     return n;
                 }
                 case "Raise":
                 {
                     var n = new GeneratedRaise();
+                    Locate(n, o, "stmt");
                     n.Exc = (GeneratedExpr?)ToNode(Field(o, "exc", true, "Raise"));
                     n.Cause = (GeneratedExpr?)ToNode(Field(o, "cause", true, "Raise"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Try":
                 {
                     var n = new GeneratedTry();
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "Try"));
-                    n.Handlers = Fill(new GeneratedExcepthandlerSeq(), Field(o, "handlers", false, "Try"));
-                    n.Orelse = Fill(new GeneratedStmtSeq(), Field(o, "orelse", false, "Try"));
-                    n.Finalbody = Fill(new GeneratedStmtSeq(), Field(o, "finalbody", false, "Try"));
-                    Locate(n, o);
+                    Locate(n, o, "stmt");
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "Try", "body");
+                    n.Handlers = Fill(new GeneratedExcepthandlerSeq(), SeqField(o, "handlers"), "Try", "handlers");
+                    n.Orelse = Fill(new GeneratedStmtSeq(), SeqField(o, "orelse"), "Try", "orelse");
+                    n.Finalbody = Fill(new GeneratedStmtSeq(), SeqField(o, "finalbody"), "Try", "finalbody");
                     return n;
                 }
                 case "TryStar":
                 {
                     var n = new GeneratedTryStar();
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "TryStar"));
-                    n.Handlers = Fill(new GeneratedExcepthandlerSeq(), Field(o, "handlers", false, "TryStar"));
-                    n.Orelse = Fill(new GeneratedStmtSeq(), Field(o, "orelse", false, "TryStar"));
-                    n.Finalbody = Fill(new GeneratedStmtSeq(), Field(o, "finalbody", false, "TryStar"));
-                    Locate(n, o);
+                    Locate(n, o, "stmt");
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "TryStar", "body");
+                    n.Handlers = Fill(new GeneratedExcepthandlerSeq(), SeqField(o, "handlers"), "TryStar", "handlers");
+                    n.Orelse = Fill(new GeneratedStmtSeq(), SeqField(o, "orelse"), "TryStar", "orelse");
+                    n.Finalbody = Fill(new GeneratedStmtSeq(), SeqField(o, "finalbody"), "TryStar", "finalbody");
                     return n;
                 }
                 case "Assert":
                 {
                     var n = new GeneratedAssert();
+                    Locate(n, o, "stmt");
                     n.Test = (GeneratedExpr?)ToNode(Field(o, "test", false, "Assert"));
                     n.Msg = (GeneratedExpr?)ToNode(Field(o, "msg", true, "Assert"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Import":
                 {
                     var n = new GeneratedImport();
-                    n.Names = Fill(new GeneratedAliasSeq(), Field(o, "names", false, "Import"));
-                    Locate(n, o);
+                    Locate(n, o, "stmt");
+                    n.Names = Fill(new GeneratedAliasSeq(), SeqField(o, "names"), "Import", "names");
                     return n;
                 }
                 case "ImportFrom":
                 {
                     var n = new GeneratedImportFrom();
+                    Locate(n, o, "stmt");
                     n.Module = ToIdentifier(Field(o, "module", true, "ImportFrom"));
-                    n.Names = Fill(new GeneratedAliasSeq(), Field(o, "names", false, "ImportFrom"));
-                    n.Level = ToInt(Field(o, "level", true, "ImportFrom"), "level");
-                    Locate(n, o);
+                    n.Names = Fill(new GeneratedAliasSeq(), SeqField(o, "names"), "ImportFrom", "names");
+                    n.Level = ToOptionalInt(Field(o, "level", true, "ImportFrom"));
                     return n;
                 }
                 case "Global":
                 {
                     var n = new GeneratedGlobal();
-                    n.Names = FillIdentifiers(new GeneratedIdentifierSeq(), Field(o, "names", false, "Global"));
-                    Locate(n, o);
+                    Locate(n, o, "stmt");
+                    n.Names = FillIdentifiers(new GeneratedIdentifierSeq(), SeqField(o, "names"), "Global", "names");
                     return n;
                 }
                 case "Nonlocal":
                 {
                     var n = new GeneratedNonlocal();
-                    n.Names = FillIdentifiers(new GeneratedIdentifierSeq(), Field(o, "names", false, "Nonlocal"));
-                    Locate(n, o);
+                    Locate(n, o, "stmt");
+                    n.Names = FillIdentifiers(new GeneratedIdentifierSeq(), SeqField(o, "names"), "Nonlocal", "names");
                     return n;
                 }
                 case "Expr":
                 {
                     var n = new GeneratedExprStmt();
+                    Locate(n, o, "stmt");
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "Expr"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Pass":
                 {
                     var n = new GeneratedPass();
-                    Locate(n, o);
+                    Locate(n, o, "stmt");
                     return n;
                 }
                 case "Break":
                 {
                     var n = new GeneratedBreak();
-                    Locate(n, o);
+                    Locate(n, o, "stmt");
                     return n;
                 }
                 case "Continue":
                 {
                     var n = new GeneratedContinue();
-                    Locate(n, o);
+                    Locate(n, o, "stmt");
                     return n;
                 }
                 case "BoolOp":
                 {
                     var n = new GeneratedBoolOp();
+                    Locate(n, o, "expr");
                     n.Op = (GeneratedBoolop?)ToNode(Field(o, "op", false, "BoolOp"));
-                    n.Values = Fill(new GeneratedExprSeq(), Field(o, "values", false, "BoolOp"));
-                    Locate(n, o);
+                    n.Values = Fill(new GeneratedExprSeq(), SeqField(o, "values"), "BoolOp", "values");
                     return n;
                 }
                 case "NamedExpr":
                 {
                     var n = new GeneratedNamedExpr();
+                    Locate(n, o, "expr");
                     n.Target = (GeneratedExpr?)ToNode(Field(o, "target", false, "NamedExpr"));
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "NamedExpr"));
-                    Locate(n, o);
                     return n;
                 }
                 case "BinOp":
                 {
                     var n = new GeneratedBinOp();
+                    Locate(n, o, "expr");
                     n.Left = (GeneratedExpr?)ToNode(Field(o, "left", false, "BinOp"));
                     n.Op = (GeneratedOperator?)ToNode(Field(o, "op", false, "BinOp"));
                     n.Right = (GeneratedExpr?)ToNode(Field(o, "right", false, "BinOp"));
-                    Locate(n, o);
                     return n;
                 }
                 case "UnaryOp":
                 {
                     var n = new GeneratedUnaryOp();
+                    Locate(n, o, "expr");
                     n.Op = (GeneratedUnaryop?)ToNode(Field(o, "op", false, "UnaryOp"));
                     n.Operand = (GeneratedExpr?)ToNode(Field(o, "operand", false, "UnaryOp"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Lambda":
                 {
                     var n = new GeneratedLambda();
+                    Locate(n, o, "expr");
                     n.Args = (GeneratedArguments?)ToNode(Field(o, "args", false, "Lambda"));
                     n.Body = (GeneratedExpr?)ToNode(Field(o, "body", false, "Lambda"));
-                    Locate(n, o);
                     return n;
                 }
                 case "IfExp":
                 {
                     var n = new GeneratedIfExp();
+                    Locate(n, o, "expr");
                     n.Test = (GeneratedExpr?)ToNode(Field(o, "test", false, "IfExp"));
                     n.Body = (GeneratedExpr?)ToNode(Field(o, "body", false, "IfExp"));
                     n.Orelse = (GeneratedExpr?)ToNode(Field(o, "orelse", false, "IfExp"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Dict":
                 {
                     var n = new GeneratedDict();
-                    n.Keys = Fill(new GeneratedExprSeq(), Field(o, "keys", false, "Dict"));
-                    n.Values = Fill(new GeneratedExprSeq(), Field(o, "values", false, "Dict"));
-                    Locate(n, o);
+                    Locate(n, o, "expr");
+                    n.Keys = Fill(new GeneratedExprSeq(), SeqField(o, "keys"), "Dict", "keys");
+                    n.Values = Fill(new GeneratedExprSeq(), SeqField(o, "values"), "Dict", "values");
                     return n;
                 }
                 case "Set":
                 {
                     var n = new GeneratedSet();
-                    n.Elts = Fill(new GeneratedExprSeq(), Field(o, "elts", false, "Set"));
-                    Locate(n, o);
+                    Locate(n, o, "expr");
+                    n.Elts = Fill(new GeneratedExprSeq(), SeqField(o, "elts"), "Set", "elts");
                     return n;
                 }
                 case "ListComp":
                 {
                     var n = new GeneratedListComp();
+                    Locate(n, o, "expr");
                     n.Elt = (GeneratedExpr?)ToNode(Field(o, "elt", false, "ListComp"));
-                    n.Generators = Fill(new GeneratedComprehensionSeq(), Field(o, "generators", false, "ListComp"));
-                    Locate(n, o);
+                    n.Generators = Fill(new GeneratedComprehensionSeq(), SeqField(o, "generators"), "ListComp", "generators");
                     return n;
                 }
                 case "SetComp":
                 {
                     var n = new GeneratedSetComp();
+                    Locate(n, o, "expr");
                     n.Elt = (GeneratedExpr?)ToNode(Field(o, "elt", false, "SetComp"));
-                    n.Generators = Fill(new GeneratedComprehensionSeq(), Field(o, "generators", false, "SetComp"));
-                    Locate(n, o);
+                    n.Generators = Fill(new GeneratedComprehensionSeq(), SeqField(o, "generators"), "SetComp", "generators");
                     return n;
                 }
                 case "DictComp":
                 {
                     var n = new GeneratedDictComp();
+                    Locate(n, o, "expr");
                     n.Key = (GeneratedExpr?)ToNode(Field(o, "key", false, "DictComp"));
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "DictComp"));
-                    n.Generators = Fill(new GeneratedComprehensionSeq(), Field(o, "generators", false, "DictComp"));
-                    Locate(n, o);
+                    n.Generators = Fill(new GeneratedComprehensionSeq(), SeqField(o, "generators"), "DictComp", "generators");
                     return n;
                 }
                 case "GeneratorExp":
                 {
                     var n = new GeneratedGeneratorExp();
+                    Locate(n, o, "expr");
                     n.Elt = (GeneratedExpr?)ToNode(Field(o, "elt", false, "GeneratorExp"));
-                    n.Generators = Fill(new GeneratedComprehensionSeq(), Field(o, "generators", false, "GeneratorExp"));
-                    Locate(n, o);
+                    n.Generators = Fill(new GeneratedComprehensionSeq(), SeqField(o, "generators"), "GeneratorExp", "generators");
                     return n;
                 }
                 case "Await":
                 {
                     var n = new GeneratedAwait();
+                    Locate(n, o, "expr");
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "Await"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Yield":
                 {
                     var n = new GeneratedYield();
+                    Locate(n, o, "expr");
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", true, "Yield"));
-                    Locate(n, o);
                     return n;
                 }
                 case "YieldFrom":
                 {
                     var n = new GeneratedYieldFrom();
+                    Locate(n, o, "expr");
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "YieldFrom"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Compare":
                 {
                     var n = new GeneratedCompare();
+                    Locate(n, o, "expr");
                     n.Left = (GeneratedExpr?)ToNode(Field(o, "left", false, "Compare"));
-                    n.Ops = Fill(new GeneratedCmpopSeq(), Field(o, "ops", false, "Compare"));
-                    n.Comparators = Fill(new GeneratedExprSeq(), Field(o, "comparators", false, "Compare"));
-                    Locate(n, o);
+                    n.Ops = Fill(new GeneratedCmpopSeq(), SeqField(o, "ops"), "Compare", "ops");
+                    n.Comparators = Fill(new GeneratedExprSeq(), SeqField(o, "comparators"), "Compare", "comparators");
                     return n;
                 }
                 case "Call":
                 {
                     var n = new GeneratedCall();
+                    Locate(n, o, "expr");
                     n.Func = (GeneratedExpr?)ToNode(Field(o, "func", false, "Call"));
-                    n.Args = Fill(new GeneratedExprSeq(), Field(o, "args", false, "Call"));
-                    n.Keywords = Fill(new GeneratedKeywordSeq(), Field(o, "keywords", false, "Call"));
-                    Locate(n, o);
+                    n.Args = Fill(new GeneratedExprSeq(), SeqField(o, "args"), "Call", "args");
+                    n.Keywords = Fill(new GeneratedKeywordSeq(), SeqField(o, "keywords"), "Call", "keywords");
                     return n;
                 }
                 case "FormattedValue":
                 {
                     var n = new GeneratedFormattedValue();
+                    Locate(n, o, "expr");
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "FormattedValue"));
                     n.Conversion = ToInt(Field(o, "conversion", false, "FormattedValue"), "conversion");
                     n.FormatSpec = (GeneratedExpr?)ToNode(Field(o, "format_spec", true, "FormattedValue"));
-                    Locate(n, o);
                     return n;
                 }
                 case "JoinedStr":
                 {
                     var n = new GeneratedJoinedStr();
-                    n.Values = Fill(new GeneratedExprSeq(), Field(o, "values", false, "JoinedStr"));
-                    Locate(n, o);
+                    Locate(n, o, "expr");
+                    n.Values = Fill(new GeneratedExprSeq(), SeqField(o, "values"), "JoinedStr", "values");
                     return n;
                 }
                 case "Constant":
                 {
                     var n = new GeneratedConstant();
+                    Locate(n, o, "expr");
                     n.Value = ToConstant(Field(o, "value", false, "Constant"));
                     n.Kind = ToStr(Field(o, "kind", true, "Constant"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Attribute":
                 {
                     var n = new GeneratedAttribute();
+                    Locate(n, o, "expr");
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "Attribute"));
                     n.Attr = ToIdentifier(Field(o, "attr", false, "Attribute"));
                     n.Ctx = (GeneratedExprContext?)ToNode(Field(o, "ctx", false, "Attribute"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Subscript":
                 {
                     var n = new GeneratedSubscript();
+                    Locate(n, o, "expr");
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "Subscript"));
                     n.Slice = (GeneratedExpr?)ToNode(Field(o, "slice", false, "Subscript"));
                     n.Ctx = (GeneratedExprContext?)ToNode(Field(o, "ctx", false, "Subscript"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Starred":
                 {
                     var n = new GeneratedStarred();
+                    Locate(n, o, "expr");
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "Starred"));
                     n.Ctx = (GeneratedExprContext?)ToNode(Field(o, "ctx", false, "Starred"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Name":
                 {
                     var n = new GeneratedName();
+                    Locate(n, o, "expr");
                     n.Id = ToIdentifier(Field(o, "id", false, "Name"));
                     n.Ctx = (GeneratedExprContext?)ToNode(Field(o, "ctx", false, "Name"));
-                    Locate(n, o);
                     return n;
                 }
                 case "List":
                 {
                     var n = new GeneratedList();
-                    n.Elts = Fill(new GeneratedExprSeq(), Field(o, "elts", false, "List"));
+                    Locate(n, o, "expr");
+                    n.Elts = Fill(new GeneratedExprSeq(), SeqField(o, "elts"), "List", "elts");
                     n.Ctx = (GeneratedExprContext?)ToNode(Field(o, "ctx", false, "List"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Tuple":
                 {
                     var n = new GeneratedTuple();
-                    n.Elts = Fill(new GeneratedExprSeq(), Field(o, "elts", false, "Tuple"));
+                    Locate(n, o, "expr");
+                    n.Elts = Fill(new GeneratedExprSeq(), SeqField(o, "elts"), "Tuple", "elts");
                     n.Ctx = (GeneratedExprContext?)ToNode(Field(o, "ctx", false, "Tuple"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Slice":
                 {
                     var n = new GeneratedSlice();
+                    Locate(n, o, "expr");
                     n.Lower = (GeneratedExpr?)ToNode(Field(o, "lower", true, "Slice"));
                     n.Upper = (GeneratedExpr?)ToNode(Field(o, "upper", true, "Slice"));
                     n.Step = (GeneratedExpr?)ToNode(Field(o, "step", true, "Slice"));
-                    Locate(n, o);
                     return n;
                 }
                 case "Load":
@@ -1505,54 +1505,54 @@ namespace SharpPy
                     var n = new GeneratedComprehension();
                     n.Target = (GeneratedExpr?)ToNode(Field(o, "target", false, "comprehension"));
                     n.Iter = (GeneratedExpr?)ToNode(Field(o, "iter", false, "comprehension"));
-                    n.Ifs = Fill(new GeneratedExprSeq(), Field(o, "ifs", false, "comprehension"));
+                    n.Ifs = Fill(new GeneratedExprSeq(), SeqField(o, "ifs"), "comprehension", "ifs");
                     n.IsAsync = ToInt(Field(o, "is_async", false, "comprehension"), "is_async");
                     return n;
                 }
                 case "ExceptHandler":
                 {
                     var n = new GeneratedExceptHandler();
+                    Locate(n, o, "excepthandler");
                     n.Type = (GeneratedExpr?)ToNode(Field(o, "type", true, "ExceptHandler"));
                     n.Name = ToIdentifier(Field(o, "name", true, "ExceptHandler"));
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "ExceptHandler"));
-                    Locate(n, o);
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "ExceptHandler", "body");
                     return n;
                 }
                 case "arguments":
                 {
                     var n = new GeneratedArguments();
-                    n.Posonlyargs = Fill(new GeneratedArgSeq(), Field(o, "posonlyargs", false, "arguments"));
-                    n.Args = Fill(new GeneratedArgSeq(), Field(o, "args", false, "arguments"));
+                    n.Posonlyargs = Fill(new GeneratedArgSeq(), SeqField(o, "posonlyargs"), "arguments", "posonlyargs");
+                    n.Args = Fill(new GeneratedArgSeq(), SeqField(o, "args"), "arguments", "args");
                     n.Vararg = (GeneratedArg?)ToNode(Field(o, "vararg", true, "arguments"));
-                    n.Kwonlyargs = Fill(new GeneratedArgSeq(), Field(o, "kwonlyargs", false, "arguments"));
-                    n.KwDefaults = Fill(new GeneratedExprSeq(), Field(o, "kw_defaults", false, "arguments"));
+                    n.Kwonlyargs = Fill(new GeneratedArgSeq(), SeqField(o, "kwonlyargs"), "arguments", "kwonlyargs");
+                    n.KwDefaults = Fill(new GeneratedExprSeq(), SeqField(o, "kw_defaults"), "arguments", "kw_defaults");
                     n.Kwarg = (GeneratedArg?)ToNode(Field(o, "kwarg", true, "arguments"));
-                    n.Defaults = Fill(new GeneratedExprSeq(), Field(o, "defaults", false, "arguments"));
+                    n.Defaults = Fill(new GeneratedExprSeq(), SeqField(o, "defaults"), "arguments", "defaults");
                     return n;
                 }
                 case "arg":
                 {
                     var n = new GeneratedArg();
+                    Locate(n, o, "arg");
                     n.Arg = ToIdentifier(Field(o, "arg", false, "arg"));
                     n.Annotation = (GeneratedExpr?)ToNode(Field(o, "annotation", true, "arg"));
                     n.TypeComment = ToStr(Field(o, "type_comment", true, "arg"));
-                    Locate(n, o);
                     return n;
                 }
                 case "keyword":
                 {
                     var n = new GeneratedKeyword();
+                    Locate(n, o, "keyword");
                     n.Arg = ToIdentifier(Field(o, "arg", true, "keyword"));
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "keyword"));
-                    Locate(n, o);
                     return n;
                 }
                 case "alias":
                 {
                     var n = new GeneratedAlias();
+                    Locate(n, o, "alias");
                     n.Name = ToIdentifier(Field(o, "name", false, "alias"));
                     n.Asname = ToIdentifier(Field(o, "asname", true, "alias"));
-                    Locate(n, o);
                     return n;
                 }
                 case "withitem":
@@ -1567,69 +1567,69 @@ namespace SharpPy
                     var n = new GeneratedMatchCase();
                     n.Pattern = (GeneratedPattern?)ToNode(Field(o, "pattern", false, "match_case"));
                     n.Guard = (GeneratedExpr?)ToNode(Field(o, "guard", true, "match_case"));
-                    n.Body = Fill(new GeneratedStmtSeq(), Field(o, "body", false, "match_case"));
+                    n.Body = Fill(new GeneratedStmtSeq(), SeqField(o, "body"), "match_case", "body");
                     return n;
                 }
                 case "MatchValue":
                 {
                     var n = new GeneratedMatchValue();
+                    Locate(n, o, "pattern");
                     n.Value = (GeneratedExpr?)ToNode(Field(o, "value", false, "MatchValue"));
-                    Locate(n, o);
                     return n;
                 }
                 case "MatchSingleton":
                 {
                     var n = new GeneratedMatchSingleton();
+                    Locate(n, o, "pattern");
                     n.Value = ToConstant(Field(o, "value", false, "MatchSingleton"));
-                    Locate(n, o);
                     return n;
                 }
                 case "MatchSequence":
                 {
                     var n = new GeneratedMatchSequence();
-                    n.Patterns = Fill(new GeneratedPatternSeq(), Field(o, "patterns", false, "MatchSequence"));
-                    Locate(n, o);
+                    Locate(n, o, "pattern");
+                    n.Patterns = Fill(new GeneratedPatternSeq(), SeqField(o, "patterns"), "MatchSequence", "patterns");
                     return n;
                 }
                 case "MatchMapping":
                 {
                     var n = new GeneratedMatchMapping();
-                    n.Keys = Fill(new GeneratedExprSeq(), Field(o, "keys", false, "MatchMapping"));
-                    n.Patterns = Fill(new GeneratedPatternSeq(), Field(o, "patterns", false, "MatchMapping"));
+                    Locate(n, o, "pattern");
+                    n.Keys = Fill(new GeneratedExprSeq(), SeqField(o, "keys"), "MatchMapping", "keys");
+                    n.Patterns = Fill(new GeneratedPatternSeq(), SeqField(o, "patterns"), "MatchMapping", "patterns");
                     n.Rest = ToIdentifier(Field(o, "rest", true, "MatchMapping"));
-                    Locate(n, o);
                     return n;
                 }
                 case "MatchClass":
                 {
                     var n = new GeneratedMatchClass();
+                    Locate(n, o, "pattern");
                     n.Cls = (GeneratedExpr?)ToNode(Field(o, "cls", false, "MatchClass"));
-                    n.Patterns = Fill(new GeneratedPatternSeq(), Field(o, "patterns", false, "MatchClass"));
-                    n.KwdAttrs = FillIdentifiers(new GeneratedIdentifierSeq(), Field(o, "kwd_attrs", false, "MatchClass"));
-                    n.KwdPatterns = Fill(new GeneratedPatternSeq(), Field(o, "kwd_patterns", false, "MatchClass"));
-                    Locate(n, o);
+                    n.Patterns = Fill(new GeneratedPatternSeq(), SeqField(o, "patterns"), "MatchClass", "patterns");
+                    n.KwdAttrs = FillIdentifiers(new GeneratedIdentifierSeq(), SeqField(o, "kwd_attrs"), "MatchClass", "kwd_attrs");
+                    n.KwdPatterns = Fill(new GeneratedPatternSeq(), SeqField(o, "kwd_patterns"), "MatchClass", "kwd_patterns");
                     return n;
                 }
                 case "MatchStar":
                 {
                     var n = new GeneratedMatchStar();
+                    Locate(n, o, "pattern");
                     n.Name = ToIdentifier(Field(o, "name", true, "MatchStar"));
-                    Locate(n, o);
                     return n;
                 }
                 case "MatchAs":
                 {
                     var n = new GeneratedMatchAs();
+                    Locate(n, o, "pattern");
                     n.Pattern = (GeneratedPattern?)ToNode(Field(o, "pattern", true, "MatchAs"));
                     n.Name = ToIdentifier(Field(o, "name", true, "MatchAs"));
-                    Locate(n, o);
                     return n;
                 }
                 case "MatchOr":
                 {
                     var n = new GeneratedMatchOr();
-                    n.Patterns = Fill(new GeneratedPatternSeq(), Field(o, "patterns", false, "MatchOr"));
-                    Locate(n, o);
+                    Locate(n, o, "pattern");
+                    n.Patterns = Fill(new GeneratedPatternSeq(), SeqField(o, "patterns"), "MatchOr", "patterns");
                     return n;
                 }
                 case "TypeIgnore":
@@ -1642,23 +1642,23 @@ namespace SharpPy
                 case "TypeVar":
                 {
                     var n = new GeneratedTypeVar();
+                    Locate(n, o, "type_param");
                     n.Name = ToIdentifier(Field(o, "name", false, "TypeVar"));
                     n.Bound = (GeneratedExpr?)ToNode(Field(o, "bound", true, "TypeVar"));
-                    Locate(n, o);
                     return n;
                 }
                 case "ParamSpec":
                 {
                     var n = new GeneratedParamSpec();
+                    Locate(n, o, "type_param");
                     n.Name = ToIdentifier(Field(o, "name", false, "ParamSpec"));
-                    Locate(n, o);
                     return n;
                 }
                 case "TypeVarTuple":
                 {
                     var n = new GeneratedTypeVarTuple();
+                    Locate(n, o, "type_param");
                     n.Name = ToIdentifier(Field(o, "name", false, "TypeVarTuple"));
-                    Locate(n, o);
                     return n;
                 }
             }
