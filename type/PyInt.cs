@@ -996,19 +996,6 @@ namespace SharpPy
 
         // === To* Methods: Value Extraction (PyObject → C# basic types) ===
         
-        /// <summary>
-        /// CPython PyLong_AsLong 호환: PyInt에서 C# int 값 추출
-        /// Used for array indexing and size operations
-        /// Reference: Objects/longobject.c::PyLong_AsLong
-        /// </summary>
-        public override int ToInt()
-        {
-            if (Value > int.MaxValue || Value < int.MinValue)
-            {
-                throw PyOverflowError.Create("int too large to convert to int32");
-            }
-            return (int)Value;
-        }
         
         /// <summary>
         /// CPython PyLong_AsDouble 호환: PyInt에서 C# double 값 추출

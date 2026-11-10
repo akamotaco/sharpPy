@@ -45,10 +45,6 @@ namespace SharpPy
 
         #region Type Conversion (Ellipsis는 대부분 변환 불가)
 
-        public override int ToInt()
-        {
-            throw PyTypeError.Create("int() argument must be a string, a bytes-like object or a real number, not 'ellipsis'");
-        }
 
         public override double ToFloat()
         {

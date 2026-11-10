@@ -526,13 +526,6 @@ namespace SharpPy
 
         // === To* Methods: Value Extraction (PyTuple → C# basic types) ===
         
-        /// <summary>
-        /// CPython PyLong_AsLong 호환: PyTuple은 일반적으로 int로 변환될 수 없음
-        /// </summary>
-        public override int ToInt()
-        {
-            throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a real number, not 'tuple'");
-        }
         
         /// <summary>
         /// CPython PyFloat_AsDouble 호환: PyTuple은 일반적으로 float로 변환될 수 없음

@@ -64,7 +64,6 @@ namespace SharpPy
 
         protected internal override PyObject NbFloat() => Target.AsFloat();
 
-        public override int ToInt() => Target.ToInt();
 
         public override double ToFloat() => Target.ToFloat();
 

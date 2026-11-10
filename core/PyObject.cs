@@ -868,12 +868,10 @@ namespace SharpPy
         // === To* Methods: PyObject → C# Basic Types (Value Extraction) ===
         
         /// <summary>
-        /// CPython PyLong_AsLong 호환: PyObject에서 C# int 값 추출
+        /// _PyLong_AsInt, what C code reads a C int with: __index__, then the range of a C int.
+        /// One conversion, the clinic's int converter (PyArgs.Int); no float is truncated.
         /// </summary>
-        public virtual int ToInt()
-        {
-            throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a real number, not '{GetTypeName()}'");
-        }
+        public int ToInt() => PyArgs.Int(this);
 
         /// <summary>
         /// CPython PyFloat_AsDouble 호환: PyObject에서 C# double 값 추출

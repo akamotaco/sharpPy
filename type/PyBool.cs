@@ -154,10 +154,6 @@ namespace SharpPy
 
         // === To* Methods: Value Extraction (PyBool → C# basic types) ===
         
-        /// <summary>
-        /// CPython PyLong_AsLong 호환: PyBool에서 C# int 값 추출
-        /// </summary>
-        public override int ToInt() => Value ? 1 : 0;
         
         /// <summary>
         /// CPython PyFloat_AsDouble 호환: PyBool에서 C# double 값 추출  

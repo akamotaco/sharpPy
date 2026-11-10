@@ -70,10 +70,6 @@ namespace SharpPy
 
         #region Type Conversion (NULL은 모든 변환 불가)
 
-        public override int ToInt()
-        {
-            throw PyTypeError.Create("Cannot convert NULL to int");
-        }
 
         public override double ToFloat()
         {

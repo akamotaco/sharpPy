@@ -2970,15 +2970,6 @@ namespace SharpPy
         /// CPython PyObject_IsTrue 호환: PyString에서 C# bool 값 추출
         /// </summary>
         
-        /// <summary>
-        /// CPython PyUnicode_AsLong 호환: PyString에서 C# int 값 추출
-        /// </summary>
-        public override int ToInt()
-        {
-            if (int.TryParse(Value.Trim(), out int result))
-                return result;
-            throw PyValueError.Create($"invalid literal for int() with base 10: '{Value}'");
-        }
         
         public override double ToFloat() => PyFloat.FromObject(this).Value;
 

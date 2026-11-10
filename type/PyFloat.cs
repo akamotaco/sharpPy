@@ -889,19 +889,6 @@ namespace SharpPy
 
         // === To* Methods: Value Extraction (PyFloat → C# basic types) ===
         
-        /// <summary>
-        /// CPython PyLong_AsLong 호환: PyFloat에서 C# int 값 추출
-        /// </summary>
-        public override int ToInt()
-        {
-            if (double.IsInfinity(Value) || double.IsNaN(Value))
-                throw PyOverflowError.Create("cannot convert float infinity to integer");
-
-            if (Value > int.MaxValue || Value < int.MinValue)
-                throw PyOverflowError.Create("int too big to convert to float");
-
-            return (int)Math.Truncate(Value);
-        }
 
         /// <summary>
         /// CPython PyFloat_AsDouble 호환: PyFloat에서 C# double 값 추출

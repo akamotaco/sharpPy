@@ -41,10 +41,6 @@ namespace SharpPy
 
         #region Type Conversion (None은 대부분 변환 불가)
 
-        public override int ToInt()
-        {
-            throw PyTypeError.Create("int() argument must be a string, a bytes-like object or a real number, not 'NoneType'");
-        }
 
         public override double ToFloat()
         {
