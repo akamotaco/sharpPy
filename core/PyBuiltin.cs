@@ -79,6 +79,9 @@ namespace SharpPy
                 PyArity.Check(convention, OwnerModule == "builtins" ? Name : OwnerModule + "." + Name, Name, args, kwargs, bound: true);
         }
 
+        /// <summary>The convention its PyMethodDef declares, where the measured table has no row.</summary>
+        internal PyArity.Convention DeclaredConvention { get; init; }
+
         private PyArity.Convention _convention;
         private bool _conventionLooked;
         private PyArity.Convention Convention
@@ -87,7 +90,7 @@ namespace SharpPy
             {
                 if (!_conventionLooked)
                 {
-                    _convention = PyArity.OfFunction(OwnerModule, Name);
+                    _convention = PyArity.OfFunction(OwnerModule, Name) ?? DeclaredConvention;
                     _conventionLooked = true;
                 }
                 return _convention;
