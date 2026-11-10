@@ -79,10 +79,9 @@ namespace SharpPy.Modules
             // same marker the pinned reference interpreter reports for this host.
             module.ModuleDict["text_encoding"] = new PyBuiltinFunction("text_encoding", (args, kwargs) =>
             {
-                if (args.Length < 1)
-                    throw PyTypeError.Create($"text_encoding expected at least 1 argument, got {args.Length}");
-                if (args.Length > 2)
-                    throw PyTypeError.Create($"text_encoding expected at most 2 arguments, got {args.Length}");
+                // _io_text_encoding's clinic: stacklevel through the int converter.
+                if (args.Length > 1)
+                    PyArgs.Int(args[1]);
                 if (args[0] is not PyNone)
                     return args[0];
                 return PyString.From("locale");

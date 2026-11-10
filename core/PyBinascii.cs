@@ -172,8 +172,9 @@ namespace SharpPy
                 PyBytes.From(B2aBase64(Check(a, "b2a_base64"), Flag(kwargs, "newline", true))));
             module.ModuleDict["a2b_base64"] = new PyBuiltinFunction("a2b_base64", (a, kwargs) =>
                 PyBytes.From(A2bBase64(Check(a, "a2b_base64"), Flag(kwargs, "strict_mode", false))));
-            module.ModuleDict["b2a_hex"] = module.ModuleDict["hexlify"];
-            module.ModuleDict["a2b_hex"] = module.ModuleDict["unhexlify"];
+            // Two PyMethodDefs each in binascii_module_methods, one implementation.
+            module.ModuleDict["b2a_hex"] = new PyBuiltinFunction("b2a_hex", a => PyBytes.From(Hexlify(Check(a, "b2a_hex"))));
+            module.ModuleDict["a2b_hex"] = new PyBuiltinFunction("a2b_hex", a => PyBytes.From(Unhexlify(Check(a, "a2b_hex"))));
             // binascii_crc32: crc32(data, crc=0, /), data a Py_buffer, then crc unsigned_int(bitwise=True).
             module.ModuleDict["crc32"] = new PyBuiltinFunction("crc32", a =>
             {

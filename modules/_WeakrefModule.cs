@@ -43,9 +43,10 @@ namespace SharpPy.Modules
             // _remove_dead_weakref(dict, key): Lib/_weakrefset.py calls it from its reaper.
             module.ModuleDict["_remove_dead_weakref"] = new PyBuiltinFunction("_remove_dead_weakref", a =>
             {
-                if (a.Length != 2)
-                    throw PyTypeError.Create($"_remove_dead_weakref() takes exactly two arguments ({a.Length} given)");
-                if (a[0] is PyDict dict && dict.GetItem(a[1]) is PyWeakRef reference)
+                // _weakref__remove_dead_weakref's clinic: dct is a dict (subclass_of='&PyDict_Type').
+                if (a[0] is not PyDict dict)
+                    throw PyArgs.BadArgument("_remove_dead_weakref", "argument 1", "dict", a[0]);
+                if (dict.GetItem(a[1]) is PyWeakRef reference)
                 {
                     if (reference.Dead) dict.DelItem(a[1]);
                 }

@@ -43,20 +43,24 @@ namespace SharpPy.Modules
         /// <summary>_sre_compile_impl: pattern, flags, code, groups, groupindex, indexgroup.</summary>
         public static PyObject Compile(PyObject[] args)
         {
-            if (args.Length != 6)
-                throw PyTypeError.Create($"compile() takes exactly 6 arguments ({args.Length} given)");
-            var items = ((PyList)args[2]).Items;
+            // _sre_compile's clinic converters, in order: flags int, code list, groups Py_ssize_t,
+            // groupindex dict, indexgroup tuple.
+            int flags = PyArgs.Int(args[1]);
+            var items = (args[2] as PyList ?? throw PyArgs.BadArgument("compile", "argument 3", "list", args[2])).Items;
+            long groups = PyArgs.Ssize(args[3]);
+            var groupIndex = args[4] as PyDict ?? throw PyArgs.BadArgument("compile", "argument 5", "dict", args[4]);
+            var indexGroup = (args[5] as PyTuple ?? throw PyArgs.BadArgument("compile", "argument 6", "tuple", args[5])).Items;
             var code = new uint[items.Length];
             for (int i = 0; i < code.Length; i++)
                 code[i] = (uint)(PyInt.LongValue(items[i]).Value & uint.MaxValue);
-            var indexGroup = args[5] is PyTuple tuple ? tuple.Items : ((PyList)args[5]).Items;
-            return new PySrePattern(args[0], args[1].ToInt(), code, args[3].ToInt(), (PyDict)args[4], indexGroup);
+            return new PySrePattern(args[0], flags, code, (int)groups, groupIndex, indexGroup);
         }
 
         /// <summary>_sre_template_impl: literal, then group and literal in turn.</summary>
         public static PyObject Template(PyObject[] args)
         {
-            var items = args[1] is PyList list ? list.Items : ((PyTuple)args[1]).Items;
+            // _sre_template's clinic: template is a list (subclass_of='&PyList_Type').
+            var items = (args[1] as PyList ?? throw PyArgs.BadArgument("template", "argument 2", "list", args[1])).Items;
             if (items.Length == 0 || (items.Length - 1) % 2 != 0)
                 throw PyTypeError.Create("invalid template");
             return new PySreTemplate((PySrePattern)args[0], items);

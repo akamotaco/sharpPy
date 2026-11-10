@@ -85,13 +85,14 @@ namespace SharpPy.Modules
         internal static int Combining(int code) => int.Parse(Property("combining").At(code), CultureInfo.InvariantCulture);
 
         // The argument of each function: a str of one character.
+        // The clinic's int(accept={str}) character converter: "argument" for the METH_O functions,
+        // "argument 1" for those with a default (METH_FASTCALL).
         private static int Code(string function, PyObject[] args)
         {
-            if (args.Length == 0)
-                throw PyTypeError.Create($"{function}() takes at least 1 argument (0 given)");
             if (args[0] is PyString text && text.CodePointLength() == 1)
                 return text.Value.Length == 1 ? text.Value[0] : char.ConvertToUtf32(text.Value, 0);
-            throw PyArgs.BadArgument(function, "argument", "a unicode character", args[0]);
+            throw PyArgs.BadArgument(function, function is "decimal" or "digit" or "numeric" or "name" ? "argument 1" : "argument",
+                "a unicode character", args[0]);
         }
 
         private static List<int> CodePoints(string text)

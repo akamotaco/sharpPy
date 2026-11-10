@@ -104,10 +104,11 @@ namespace SharpPy.Modules
         // CPython 3.12: Modules/_codecsmodule.c:82-107 (codec_encode)
         private static PyObject PyEncode(PyObject[] args, PyDict kwargs = null)
         {
-            RequireArgs(args, "encode");
-            var obj = args[0];
-            string encoding = args.Length > 1 && args[1] is PyString encStr ? encStr.Value : "utf-8";
-            string errors = args.Length > 2 && args[2] is PyString errStr ? errStr.Value : "strict";
+            // _codecs_encode's clinic: encode(obj, encoding='utf-8', errors='strict'), both by the str converter.
+            var parsed = PyArgs.Unpack("encode", args, kwargs, new[] { "obj", "encoding", "errors" }, 0, 1, 3);
+            var obj = parsed[0];
+            string encoding = PyArgs.ClinicStr("encode", "argument 'encoding'", "str", parsed[1]) ?? "utf-8";
+            string errors = PyArgs.ClinicStr("encode", "argument 'errors'", "str", parsed[2]) ?? "strict";
 
             // Registry first, like _codecsmodule.c: the codec answers for the name, so
             // _codecs.encode(b'ab') reports utf_8_encode's own refusal and _codecs.encode('ab',
@@ -130,26 +131,15 @@ namespace SharpPy.Modules
         // CPython 3.12: Modules/_codecsmodule.c:109-134 (codec_decode)
         private static PyObject PyDecode(PyObject[] args, PyDict kwargs = null)
         {
-            RequireArgs(args, "decode");
-            var obj = args[0];
-            string encoding = args.Length > 1 && args[1] is PyString encStr ? encStr.Value : "utf-8";
-            string decErrors = args.Length > 2 && args[2] is PyString errStr ? errStr.Value : "strict";
+            // _codecs_decode's clinic: decode(obj, encoding='utf-8', errors='strict').
+            var parsed = PyArgs.Unpack("decode", args, kwargs, new[] { "obj", "encoding", "errors" }, 0, 1, 3);
+            var obj = parsed[0];
+            string encoding = PyArgs.ClinicStr("decode", "argument 'encoding'", "str", parsed[1]) ?? "utf-8";
+            string decErrors = PyArgs.ClinicStr("decode", "argument 'errors'", "str", parsed[2]) ?? "strict";
 
             return ResultOf(PyCodecRegistry.DecodeAny(obj, encoding, decErrors));
         }
 
-        /// <summary>
-        /// The clinic wording, measured: encode() missing required argument 'obj' (pos 1) and
-        /// encode() takes from 1 to 3 positional arguments but 4 were given.
-        /// </summary>
-        private static void RequireArgs(PyObject[] args, string name)
-        {
-            if (args.Length < 1)
-                throw PyArgs.MissingArgument(name, "obj", 1);
-            if (args.Length > 3)
-                throw PyTypeError.Create(
-                    $"{name}() takes from 1 to 3 positional arguments but {args.Length} were given");
-        }
 
         // Py_buffer
         private static byte[] ByteArrayOf(PyObject obj) => BytesMethods.RequireBuffer(obj);
@@ -158,12 +148,11 @@ namespace SharpPy.Modules
         private static PyObject PyRegisterError(PyObject[] args, PyDict kwargs = null)
         {
 
-            if (!(args[0] is PyString nameStr))
-                throw PyTypeError.Create("first argument must be a string");
-
+            // _codecs_register_error: errors through the str converter, then the callable check.
+            string name = PyArgs.ClinicStr("register_error", "argument 1", "str", args[0]);
             if (!args[1].IsCallable())
-                throw PyTypeError.Create("second argument must be callable");
-            PyCodecErrors.RegisterError(nameStr.Value, args[1]);
+                throw PyTypeError.Create("handler must be callable");
+            PyCodecErrors.RegisterError(name, args[1]);
             return PyNone.Instance;
         }
 
@@ -171,10 +160,8 @@ namespace SharpPy.Modules
         private static PyObject PyLookupError(PyObject[] args, PyDict kwargs = null)
         {
 
-            if (!(args[0] is PyString nameStr))
-                throw PyTypeError.Create("argument must be a string");
-
-            return PyCodecErrors.LookupError(nameStr.Value);
+            // _codecs_lookup_error: METH_O with the str converter.
+            return PyCodecErrors.LookupError(PyArgs.ClinicStr("lookup_error", "argument", "str", args[0]));
         }
 
         /// <summary>
@@ -284,8 +271,6 @@ namespace SharpPy.Modules
         // UTF-16 encoding
         private static PyObject PyUtf16Encode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
-                throw PyTypeError.Create("argument must be str");
             return Encoded(args, "utf-16", "utf_16_encode");
         }
 
@@ -296,8 +281,6 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf16LeEncode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
-                throw PyTypeError.Create("argument must be str");
             return Encoded(args, "utf-16-le", "utf_16_le_encode");
         }
 
@@ -308,8 +291,6 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf16BeEncode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
-                throw PyTypeError.Create("argument must be str");
             return Encoded(args, "utf-16-be", "utf_16_be_encode");
         }
 
@@ -326,8 +307,6 @@ namespace SharpPy.Modules
         // UTF-32 encoding
         private static PyObject PyUtf32Encode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
-                throw PyTypeError.Create("argument must be str");
             return Encoded(args, "utf-32", "utf_32_encode");
         }
 
@@ -348,8 +327,6 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf32BeEncode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
-                throw PyTypeError.Create("argument must be str");
             return Encoded(args, "utf-32-be", "utf_32_be_encode");
         }
 
@@ -366,8 +343,6 @@ namespace SharpPy.Modules
         // ASCII encoding
         private static PyObject PyAsciiEncode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
-                throw PyTypeError.Create("argument must be str");
             return Encoded(args, "ascii", "ascii_encode");
         }
 
@@ -379,8 +354,6 @@ namespace SharpPy.Modules
         // Latin-1 encoding
         private static PyObject PyLatin1Encode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
-                throw PyTypeError.Create("argument must be str");
             return Encoded(args, "latin-1", "latin_1_encode");
         }
 
@@ -393,9 +366,10 @@ namespace SharpPy.Modules
         private static string ErrorsOf(PyObject[] args, int index) =>
             args.Length > index && args[index] is PyString text ? text.Value : "strict";
 
-        private static string TextOf(PyObject obj, string name) =>
+        // The unicode converter: "argument 1" for METH_FASTCALL, "argument" for METH_O.
+        private static string TextOf(PyObject obj, string name, string displayname = "argument 1") =>
             obj is PyString text ? text.Value
-                : throw PyArgs.BadArgument(name, "argument 1", "str", obj);
+                : throw PyArgs.BadArgument(name, displayname, "str", obj);
 
         private static PyObject Result(PyObject value, int consumed) => PyTuple.From(new[] { value, PyInt.From(consumed) });
 
@@ -527,7 +501,7 @@ namespace SharpPy.Modules
         // PyUnicode_BuildEncodingMap: the reverse table, a dict here
         private static PyObject PyCharmapBuild(PyObject[] args, PyDict kwargs = null)
         {
-            string table = TextOf(args[0], "charmap_build");
+            string table = TextOf(args[0], "charmap_build", "argument");
             var map = new PyDict();
             int index = 0;
             for (int i = 0; i < table.Length; index++)

@@ -1085,7 +1085,8 @@ namespace SharpPy.Modules
             if (format is PyString text)
                 format = text.Encode("ascii");
             if (format is not PyBytes)
-                throw PyArgs.BadArgument("Struct", "argument 1", "a str or bytes object", format);
+                // Struct___init___impl names the type by tp_name, not _PyArg_BadArgument's "None".
+                throw PyTypeError.Create($"Struct() argument 1 must be a str or bytes object, not {format.GetPyType().FullName}");
             _format = format;
             _StructModule.Prepare(this);
         }

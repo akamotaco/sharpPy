@@ -45,7 +45,12 @@ namespace SharpPy.Modules
                 Trip(Number(args[0]));
                 return PyNone.Instance;
             });
-            module.ModuleDict["strsignal"] = new PyBuiltinFunction("strsignal", args => PyNone.Instance);
+            // signal_strsignal's clinic: signalnum through the int converter.
+            module.ModuleDict["strsignal"] = new PyBuiltinFunction("strsignal", args =>
+            {
+                PyArgs.Int(args[0]);
+                return PyNone.Instance;
+            });
             module.ModuleDict["valid_signals"] = new PyBuiltinFunction("valid_signals", args =>
             {
                 var numbers = new List<PyObject>();

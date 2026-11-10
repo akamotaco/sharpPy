@@ -24,14 +24,17 @@ namespace SharpPy.Modules
             module.ModuleDict["Z_BEST_COMPRESSION"] = PyInt.From(9);
             module.ModuleDict["compress"] = new PyBuiltinFunction("compress", (args, kwargs) =>
             {
-                int level = args.Length > 1 ? args[1].ToInt()
-                    : kwargs != null && kwargs.TryGetStoredValue(PyString.From("level"), out var given) ? given.ToInt() : -1;
+                // zlib_compress's clinic: compress(data, /, level=-1, wbits=15), converted in order.
+                var parsed = PyArgs.Unpack("compress", args, kwargs, new[] { "", "level", "wbits" }, 1, 1, 3);
+                var data = Bytes(parsed[0]);
+                int level = parsed[1] == null ? -1 : PyArgs.Int(parsed[1]);
+                if (parsed[2] != null)
+                    PyArgs.Int(parsed[2]);
                 var output = new MemoryStream();
                 using (var stream = new ZLibStream(output, level is 0 ? CompressionLevel.NoCompression
                            : level is 1 or 2 or 3 ? CompressionLevel.Fastest
                            : level == 9 ? CompressionLevel.SmallestSize : CompressionLevel.Optimal, leaveOpen: true))
                 {
-                    var data = Bytes(args[0]);
                     stream.Write(data, 0, data.Length);
                 }
                 return PyBytes.From(output.ToArray());

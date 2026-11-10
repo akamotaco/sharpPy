@@ -52,6 +52,9 @@ namespace SharpPy.Modules
             module.ModuleDict["terminal_size"] = terminalSize;
             module.ModuleDict["get_terminal_size"] = new PyBuiltinFunction("get_terminal_size", args =>
             {
+                // os_get_terminal_size's clinic: fd=<unrepresentable> through the int converter.
+                if (args.Length > 0)
+                    PyArgs.Int(args[0]);
                 if (Console.IsOutputRedirected)
                     throw PyOSError.Create("[Errno 25] Inappropriate ioctl for device");
                 return new PyStructSequence(terminalSize, new PyObject[] { PyInt.From(Console.WindowWidth), PyInt.From(Console.WindowHeight) });
@@ -68,7 +71,7 @@ namespace SharpPy.Modules
                 });
             });
             module.ModuleDict["DirEntry"] = PyDirEntry.Type;
-            module.ModuleDict["lstat"] = new PyBuiltinFunction("lstat", Stat);
+            module.ModuleDict["lstat"] = new PyBuiltinFunction("lstat", args => Stat(args, "lstat"));
             module.ModuleDict["scandir"] = new PyBuiltinFunction("scandir", Scandir);
             module.ModuleDict["replace"] = new PyBuiltinFunction("replace", Replace);
             module.ModuleDict["chmod"] = new PyBuiltinFunction("chmod", Chmod);
@@ -119,7 +122,7 @@ namespace SharpPy.Modules
             module.ModuleDict["mkdir"] = new PyBuiltinFunction("mkdir", Mkdir);
             module.ModuleDict["rmdir"] = new PyBuiltinFunction("rmdir", Rmdir);
             module.ModuleDict["remove"] = new PyBuiltinFunction("remove", Remove);
-            module.ModuleDict["unlink"] = new PyBuiltinFunction("unlink", Remove);  // alias
+            module.ModuleDict["unlink"] = new PyBuiltinFunction("unlink", args => Remove(args, "unlink"));  // alias
             module.ModuleDict["rename"] = new PyBuiltinFunction("rename", Rename);
             module.ModuleDict["stat"] = new PyBuiltinFunction("stat", Stat);
             module.ModuleDict["access"] = new PyBuiltinFunction("access", Access);
@@ -162,7 +165,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"chdir() takes exactly 1 argument ({args.Length} given)");
 
-            string path = PathOf(args[0]);
+            string path = PathOf(args[0], "chdir");
             try
             {
                 Directory.SetCurrentDirectory(path);
@@ -182,7 +185,7 @@ namespace SharpPy.Modules
         // CPython: posixmodule.c os_listdir_impl
         private static PyObject Listdir(PyObject[] args)
         {
-            string path = args.Length > 0 && args[0] is not PyNone ? PathOf(args[0]) : ".";
+            string path = args.Length > 0 && args[0] is not PyNone ? PathOf(args[0], "listdir", nullable: true) : ".";
 
             try
             {
@@ -217,7 +220,7 @@ namespace SharpPy.Modules
             if (args.Length < 1)
                 throw PyArgs.MissingArgument("mkdir", "path", 1);
 
-            string path = PathOf(args[0]);
+            string path = PathOf(args[0], "mkdir");
             // Note: .NET doesn't support Unix-style mode parameter
 
             try
@@ -248,7 +251,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"rmdir() takes exactly 1 argument ({args.Length} given)");
 
-            string path = PathOf(args[0]);
+            string path = PathOf(args[0], "rmdir");
             int attempt = 0;
             while (true)
             try
@@ -273,12 +276,14 @@ namespace SharpPy.Modules
 
         // remove(path) / unlink(path)
         // CPython: posixmodule.c os_unlink_impl
-        private static PyObject Remove(PyObject[] args)
+        private static PyObject Remove(PyObject[] args) => Remove(args, "remove");
+
+        private static PyObject Remove(PyObject[] args, string function)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"remove() takes exactly 1 argument ({args.Length} given)");
 
-            string path = PathOf(args[0]);
+            string path = PathOf(args[0], function);
             int attempt = 0;
             while (true)
             try
@@ -353,12 +358,32 @@ namespace SharpPy.Modules
             (int)(PyObject.IndexOrThrow(value).Value);
 
         // path_converter
-        private static string PathOf(PyObject value)
+        /// <summary>
+        /// path_converter (Modules/posixmodule.c) for a path_t of function, argument, allow_fd and
+        /// nullable: str, bytes or __fspath__, else "function: path should be ..., not T". A
+        /// function that takes a descriptor reads it before calling this.
+        /// </summary>
+        private static string PathOf(PyObject value, string function = null, string argument = "path", bool allowFd = false, bool nullable = false)
         {
-            var path = Fspath(new[] { value });
+            string prefix = function == null ? "" : function + ": ";
+            PyObject path = value;
+            if (value is not PyString && value is not PyBytes)
+            {
+                var method = value.LookupSpecialMethodUncached("__fspath__");
+                if (method == null)
+                {
+                    string allowed = allowFd && nullable ? "string, bytes, os.PathLike, integer or None"
+                        : allowFd ? "string, bytes, os.PathLike or integer"
+                        : nullable ? "string, bytes, os.PathLike or None" : "string, bytes or os.PathLike";
+                    throw PyTypeError.Create($"{prefix}{argument} should be {allowed}, not {value.GetPyType().Name}");
+                }
+                path = value.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+                if (path is not PyString && path is not PyBytes)
+                    throw PyTypeError.Create($"expected {value.GetPyType().Name}.__fspath__() to return str or bytes, not {path.GetPyType().Name}");
+            }
             string text = path is PyBytes bytes ? System.Text.Encoding.UTF8.GetString(bytes.Value) : ((PyString)path).Value;
             if (text.Contains('\0'))
-                throw PyValueError.Create("embedded null character in path");
+                throw PyValueError.Create($"{prefix}embedded null character in {argument}");
             return text;
         }
 
@@ -367,7 +392,7 @@ namespace SharpPy.Modules
         // os_scandir_impl
         private static PyObject Scandir(PyObject[] args)
         {
-            string path = args.Length > 0 && args[0] is not PyNone ? PathOf(args[0]) : ".";
+            string path = args.Length > 0 && args[0] is not PyNone ? PathOf(args[0], "scandir", nullable: true) : ".";
             try
             {
                 if (IOHelper.FileExists(path))
@@ -390,7 +415,7 @@ namespace SharpPy.Modules
         // os_replace_impl: the destination goes.
         private static PyObject Replace(PyObject[] args)
         {
-            string source = PathOf(args[0]), target = PathOf(args[1]);
+            string source = PathOf(args[0], "replace", "src"), target = PathOf(args[1], "replace", "dst");
             try
             {
                 if (IOHelper.DirExists(source))
@@ -410,7 +435,7 @@ namespace SharpPy.Modules
         // win32_chmod: the one bit Windows has.
         private static PyObject Chmod(PyObject[] args)
         {
-            string path = PathOf(args[0]);
+            string path = PathOf(args[0], "chmod");
             if (!IOHelper.FileExists(path) && !IOHelper.DirExists(path))
                 throw WindowsOr(2, path);
             var attributes = File.GetAttributes(path);
@@ -421,7 +446,7 @@ namespace SharpPy.Modules
 
         private static PyObject Utime(PyObject[] args)
         {
-            string path = PathOf(args[0]);
+            string path = PathOf(args[0], "utime");
             if (!IOHelper.FileExists(path) && !IOHelper.DirExists(path))
                 throw WindowsOr(2, path);
             var now = DateTime.Now;
@@ -538,6 +563,8 @@ namespace SharpPy.Modules
 
         private static PyObject Isatty(PyObject[] args)
         {
+            // os_isatty's clinic: fd through the int converter, then isatty of the descriptor.
+            PyArgs.Int(args[0]);
             try
             {
                 return PyBool.FromBool(PyFileDescriptors.Get(Descriptor(args[0])) is PyConsoleStream { IsTerminal: true });
@@ -595,8 +622,8 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"rename() takes exactly 2 arguments ({args.Length} given)");
 
-            string src = PathOf(args[0]);
-            string dst = PathOf(args[1]);
+            string src = PathOf(args[0], "rename", "src");
+            string dst = PathOf(args[1], "rename", "dst");
             int attempt = 0;
             while (true)
             try
@@ -629,12 +656,14 @@ namespace SharpPy.Modules
 
         // stat(path) -> stat_result
         // CPython: posixmodule.c os_stat_impl
-        private static PyObject Stat(PyObject[] args)
-        {
-            if (args.Length < 1)
-                throw PyArgs.MissingArgument("stat", "path", 1);
+        // os_stat_impl and os_lstat_impl: stat's path_t allows a descriptor, lstat's does not.
+        private static PyObject Stat(PyObject[] args) => Stat(args, "stat");
 
-            string path = PathOf(args[0]);
+        private static PyObject Stat(PyObject[] args, string function)
+        {
+            if (function == "stat" && args[0] is not PyString && args[0] is not PyBytes && PyObject.TryGetIndex(args[0]) != null)
+                return Fstat(args);
+            string path = PathOf(args[0], function, allowFd: function == "stat");
             try
             {
                 FileSystemInfo info;
@@ -678,7 +707,7 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"access() takes exactly 2 arguments ({args.Length} given)");
 
-            string path = PathOf(args[0]);
+            string path = PathOf(args[0], "access");
             int mode = args[1].ToInt();
 
             try
