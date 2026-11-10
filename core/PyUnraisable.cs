@@ -114,10 +114,6 @@ namespace SharpPy
 
         internal static PyObject DefaultHook(PyObject[] args, PyDict kwargs)
         {
-            if (kwargs != null && kwargs.Length() != 0)
-                throw PyTypeError.Create("sys.unraisablehook() takes no keyword arguments");
-            if (args.Length != 1)
-                throw PyTypeError.Create($"sys.unraisablehook() takes exactly one argument ({args.Length} given)");
             if (args[0] is not PyUnraisableHookArgs info)
                 throw PyTypeError.Create("sys.unraisablehook argument type must be UnraisableHookArgs");
             WriteDefault(info);

@@ -81,9 +81,6 @@ namespace SharpPy
             PyType.ComplexType.TypeDict["conjugate"] = new PyMethodDescriptor(
                 "conjugate", PyType.ComplexType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create(
-                            $"complex.conjugate() takes no arguments ({args.Length} given)");
                     var cx = (PyComplex)self;
                     // complex_conjugate builds a new object from the C value.
                     return new PyComplex(cx.Real, -cx.Imag);
@@ -94,9 +91,6 @@ namespace SharpPy
             PyType.ComplexType.TypeDict["__getnewargs__"] = new PyMethodDescriptor(
                 "__getnewargs__", PyType.ComplexType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create(
-                            $"complex.__getnewargs__() takes no arguments ({args.Length} given)");
                     var cx = (PyComplex)self;
                     return PyTuple.From(new PyFloat(cx.Real), new PyFloat(cx.Imag));
                 },

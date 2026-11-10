@@ -147,10 +147,14 @@ namespace SharpPy.Core
                         }
                         if (method == "throw")
                         {
+                            // async_gen_asend_throw and athrow_throw: a closed awaitable refuses
+                            // before gen_throw reads the arguments.
+                            if (request._closed)
+                                return request.Drive(PyNone.Instance);
                             PyCoroutine.CheckThrowArguments(name, args, kwargs);
                             return request.Drive(PyNone.Instance, args);
                         }
-                        PyCoroutine.CheckCloseArguments(name + "." + method, args, kwargs);
+                        PyCoroutine.CheckCloseArguments(name, args, kwargs);
                         if (method == "close") { request._closed = true; return PyNone.Instance; }
                         return method == "__next__" ? request.IterNext() : request;
                     };

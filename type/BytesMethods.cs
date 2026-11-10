@@ -959,8 +959,6 @@ namespace SharpPy
 
         private static void NoArguments(string owner, string name, PyObject[] args)
         {
-            if (args.Length != 0)
-                throw PyTypeError.Create($"{owner}.{name}() takes no arguments ({args.Length} given)");
         }
 
         private static void Def(PyType type, string name, Func<PyObject, PyObject[], PyDict, PyObject> implementation, bool keywords = false)
@@ -984,8 +982,6 @@ namespace SharpPy
         private static void One(PyType type, string name, Func<PyObject, PyObject, PyObject> implementation) =>
             Def(type, name, (self, args, kwargs) =>
             {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"{type.Name}.{name}() takes exactly one argument ({args.Length} given)");
                 return implementation(self, args[0]);
             });
 
@@ -1112,8 +1108,6 @@ namespace SharpPy
             Def(type, "hex", (self, args, kwargs) => HexMethod(Self(self), args, kwargs), keywords: true);
             type.TypeDict["fromhex"] = new PyClassMethodDescriptor("fromhex", type, new PyBuiltinFunction("fromhex", (args, kwargs) =>
             {
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create($"{type.Name}.fromhex() takes no keyword arguments");
                 var cls = args[0];
                 var value = FromHex(args[1]);
                 PyObject result = ReferenceEquals(type, PyType.BytesType) ? PyBytes.From(value) : new PyByteArray(value);
@@ -1121,8 +1115,6 @@ namespace SharpPy
             }));
             type.TypeDict["maketrans"] = PyStaticmethod.ForBuiltin(type, "maketrans", (args, kwargs) =>
             {
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create($"{type.Name}.maketrans() takes no keyword arguments");
                 return MakeTrans(args);
             });
         }

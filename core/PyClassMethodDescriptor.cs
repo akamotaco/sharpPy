@@ -29,10 +29,6 @@ namespace SharpPy
         internal static PyClassMethodDescriptor GenericAliasGetItem(PyType type) => new("__class_getitem__", type,
             new PyBuiltinFunction("__class_getitem__", (args, kwargs) =>
             {
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create($"{type.Name}.__class_getitem__() takes no keyword arguments");
-                if (args.Length != 2)
-                    throw PyTypeError.Create($"{type.Name}.__class_getitem__() takes exactly one argument ({args.Length - 1} given)");
                 return new PyGenericAlias((PyType)args[0], args[1]);
             }));
 

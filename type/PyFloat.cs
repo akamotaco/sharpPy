@@ -107,9 +107,6 @@ namespace SharpPy
                 "__round__", floatType,
                 (self, args, kwargs) => {
                     var roundTarget = PyFloat.FloatValue(self);
-                    if (args.Length > 1)
-                        throw PyTypeError.Create(
-                            $"__round__ expected at most 1 argument, got {args.Length}");
 
                     // CPython float_round resolves ndigits with PyNumber_Index, so an __index__
                     // object is valid (measured: round(2.675, Q with __index__ -> 2.67). A positive
@@ -275,9 +272,6 @@ namespace SharpPy
             var fromhexMethod = new PyMethodDescriptor(
                 "fromhex", floatType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create(
-                            $"float.fromhex() takes exactly one argument ({args.Length} given)");
                     if (args[0] is not PyString hexText)
                         throw PyTypeError.Create(
                             $"fromhex() argument must be a string, not '{args[0].GetTypeName()}'");
@@ -298,9 +292,6 @@ namespace SharpPy
             floatType.TypeDict["conjugate"] = new PyMethodDescriptor(
                 "conjugate", floatType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create(
-                            $"float.conjugate() takes no arguments ({args.Length} given)");
                     var floatObj = PyFloat.FloatValue(self);
 
                     // float_conjugate IS float_real in floatobject.c, and float_real builds a new
@@ -335,9 +326,6 @@ namespace SharpPy
             floatType.TypeDict["__getnewargs__"] = new PyMethodDescriptor(
                 "__getnewargs__", floatType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create(
-                            $"float.__getnewargs__() takes no arguments ({args.Length} given)");
                     var floatValue = PyFloat.FloatValue(self);
                     return PyTuple.From(new PyFloat(floatValue.Value));
                 },

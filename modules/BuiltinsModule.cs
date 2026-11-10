@@ -242,8 +242,6 @@ namespace SharpPy.Modules
         // Built-in function implementations
         private static PyObject Abs(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
 
             // This was the implementation actually wired to builtins.abs, and it duplicated
             // core/PyBuiltin's: exact CLR type tests plus a hand-coded PyClassInstance case, so a
@@ -254,8 +252,6 @@ namespace SharpPy.Modules
 
         private static PyObject Len(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"len() takes exactly one argument ({args.Length} given)");
 
             return PyInt.From(args[0].Size());
         }
@@ -477,8 +473,6 @@ namespace SharpPy.Modules
         // CPython 3.12: Python/bltinmodule.c:560 - builtin_bin
         private static PyObject Bin(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"bin() takes exactly one argument ({args.Length} given)");
 
             var obj = args[0];
 
@@ -495,8 +489,6 @@ namespace SharpPy.Modules
         // CPython 3.12: Python/bltinmodule.c:1133 - builtin_hex
         private static PyObject Hex(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"hex() takes exactly one argument ({args.Length} given)");
 
             var obj = args[0];
 
@@ -513,8 +505,6 @@ namespace SharpPy.Modules
         // CPython 3.12: Python/bltinmodule.c:1664 - builtin_oct
         private static PyObject Oct(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"oct() takes exactly one argument ({args.Length} given)");
 
             var obj = args[0];
 
@@ -531,8 +521,6 @@ namespace SharpPy.Modules
         // CPython 3.12: Python/bltinmodule.c:537 - builtin_ascii
         private static PyObject Ascii(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"ascii() takes exactly one argument ({args.Length} given)");
 
             var obj = args[0];
 
@@ -574,8 +562,6 @@ namespace SharpPy.Modules
         // CPython's handwritten family: "vars expected at most 1 argument, got 2".
         private static PyObject Vars(PyObject[] args)
         {
-            if (args.Length > 1)
-                throw PyTypeError.Create($"vars expected at most 1 argument, got {args.Length}");
 
             if (args.Length == 0)
                 return PyBuiltinFunction.CallLocals(new PyObject[0]);
@@ -598,10 +584,6 @@ namespace SharpPy.Modules
         {
             // CPython builtin_format: "format expected at least 1 argument, got 0" /
             // "format expected at most 2 arguments, got 3".
-            if (args.Length < 1)
-                throw PyTypeError.Create($"format expected at least 1 argument, got {args.Length}");
-            if (args.Length > 2)
-                throw PyTypeError.Create($"format expected at most 2 arguments, got {args.Length}");
 
             var value = args[0];
             var formatSpec = args.Length == 2 ? args[1] : PyString.From("");

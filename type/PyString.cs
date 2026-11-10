@@ -1273,8 +1273,6 @@ namespace SharpPy
             // unicode_maketrans: METH_VARARGS|METH_STATIC.
             strType.TypeDict["maketrans"] = PyStaticmethod.ForBuiltin(strType, "maketrans", (args, kwargs) =>
             {
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create("str.maketrans() takes no keyword arguments");
                 return maketransMethod._implementation(strType, args, kwargs);
             });
 
@@ -3378,8 +3376,6 @@ namespace SharpPy
 
         internal PyObject IsIdentifier(PyObject[] args)
         {
-            if (args.Length != 0)
-                throw PyTypeError.Create($"str.isidentifier() takes no arguments ({args.Length} given)");
             return ScanIdentifier(Value) ? PyBool.True : PyBool.False;
         }
 

@@ -171,9 +171,6 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     // Measured CPython slot surface: keywords are refused with the qualified name,
                     // extra positionals with the bare method name.
-                    if (args.Length > 1)
-                        throw PyTypeError.Create(
-                            $"__round__ expected at most 1 argument, got {args.Length}");
                     return PyInt.RoundTo(self, args.Length > 0 ? args[0] : null);
                 },
                 minArgs: 0, maxArgs: 1);
@@ -388,9 +385,6 @@ namespace SharpPy
             intType.TypeDict["conjugate"] = new PyMethodDescriptor(
                 "conjugate", intType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create(
-                            $"int.conjugate() takes no arguments ({args.Length} given)");
                     PyInt.TryLongSelf(self, out var intObj);
 
                     // long_long (Objects/longobject.c:5358-5367): an exact int is returned as itself, a
@@ -446,9 +440,6 @@ namespace SharpPy
             intType.TypeDict["__getnewargs__"] = new PyMethodDescriptor(
                 "__getnewargs__", intType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create(
-                            $"int.__getnewargs__() takes no arguments ({args.Length} given)");
                     PyInt.TryLongSelf(self, out var longValue);
                     return PyTuple.From(longValue);
                 },
