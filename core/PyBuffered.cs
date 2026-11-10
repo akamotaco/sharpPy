@@ -982,8 +982,6 @@ public sealed class PyBuffered : PyIOBaseInstance
         return line;
     }
 
-    private static PyBuffered Self(PyObject self, PyType type, string name) => self as PyBuffered
-        ?? throw PyTypeError.Create($"descriptor '{name}' for '{type.FullName}' objects doesn't apply to a '{self.GetTypeName()}' object");
 
     private static PyIOBaseType MakeType(string name, Kind kind)
     {
@@ -992,7 +990,7 @@ public sealed class PyBuffered : PyIOBaseInstance
             acceptsKwargs: true);
         type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
         {
-            Self(self, type, "__init__").Initialize(kind, args, kwargs);
+            ((PyBuffered)self).Initialize(kind, args, kwargs);
             return PyNone.Instance;
         }, 0, int.MaxValue, acceptsKwargs: true);
         type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type, (self, args, kwargs) => self.Repr());
@@ -1005,7 +1003,7 @@ public sealed class PyBuffered : PyIOBaseInstance
                         ? max == 0 ? $"{name}.{method}() takes no arguments ({args.Length} given)" : $"{name}.{method}() takes exactly one argument ({args.Length} given)"
                         : args.Length < min ? $"{method} expected at least {min} argument{(min == 1 ? "" : "s")}, got {args.Length}"
                         : $"{method} expected at most {max} argument{(max == 1 ? "" : "s")}, got {args.Length}");
-                return body(Self(self, type, method), args);
+                return body(((PyBuffered)self), args);
             }, minArgs: 0, maxArgs: int.MaxValue);
 
         PyObject Forward(PyBuffered self, string method)
@@ -1052,24 +1050,24 @@ public sealed class PyBuffered : PyIOBaseInstance
         else
             Method("flush", (self, args) => self.Flush());
 
-        type.TypeDict["raw"] = new PyMemberDescriptor("raw", type, self => Self(self, type, "raw")._s.Raw ?? PyNone.Instance);
-        type.TypeDict["_finalizing"] = new PyMemberDescriptor("_finalizing", type, self => PyBool.FromBool(Self(self, type, "_finalizing")._s.Finalizing),
-            (self, value) => Self(self, type, "_finalizing")._s.Finalizing = value.IsTrue());
+        type.TypeDict["raw"] = new PyMemberDescriptor("raw", type, self => ((PyBuffered)self)._s.Raw ?? PyNone.Instance);
+        type.TypeDict["_finalizing"] = new PyMemberDescriptor("_finalizing", type, self => PyBool.FromBool(((PyBuffered)self)._s.Finalizing),
+            (self, value) => ((PyBuffered)self)._s.Finalizing = value.IsTrue());
         type.TypeDict["closed"] = new PyGetSetDescriptor("closed", type, self =>
         {
-            var buffered = Self(self, type, "closed");
+            var buffered = ((PyBuffered)self);
             buffered.CheckInitialized();
             return buffered._s.Raw.GetAttribute("closed");
         });
         type.TypeDict["name"] = new PyGetSetDescriptor("name", type, self =>
         {
-            var buffered = Self(self, type, "name");
+            var buffered = ((PyBuffered)self);
             buffered.CheckInitialized();
             return buffered._s.Raw.GetAttribute("name");
         });
         type.TypeDict["mode"] = new PyGetSetDescriptor("mode", type, self =>
         {
-            var buffered = Self(self, type, "mode");
+            var buffered = ((PyBuffered)self);
             buffered.CheckInitialized();
             return buffered._s.Raw.GetAttribute("mode");
         });

@@ -1458,17 +1458,6 @@ namespace SharpPy
                 $"{defining.Name}.{name}() takes no arguments ({args.Length} given)");
         }
 
-        /// <summary>
-        /// The receiver check of a method_descriptor: calling set.__sizeof__(3) reaches the C
-        /// function with an int and CPython answers with this wording rather than a cast failure.
-        /// </summary>
-        internal static PyObject NeedStorage(PyObject self, string name, string defining, PyObject storage)
-        {
-            if (storage != null) return storage;
-            throw PyTypeError.Create(
-                $"descriptor '{name}' for '{defining}' objects doesn't apply to a " +
-                $"'{self.GetTypeName()}' object");
-        }
 
         private PyString _nameString;
         private PyString _qualNameString;
@@ -2399,7 +2388,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"set.add() takes exactly one argument ({args.Length} given)");
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'add' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     return set.Add(args[0]);
                 },
                 minArgs: 1,
@@ -2424,7 +2413,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"set.remove() takes exactly one argument ({args.Length} given)");
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'remove' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     return set.Remove(args[0]);
                 },
                 minArgs: 1,
@@ -2436,7 +2425,7 @@ namespace SharpPy
                 "discard",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'discard' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     return set.Discard(args[0]);
                 },
                 minArgs: 1,
@@ -2448,7 +2437,7 @@ namespace SharpPy
                 "pop",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'pop' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     return set.Pop();
                 },
                 minArgs: 0,
@@ -2460,7 +2449,7 @@ namespace SharpPy
                 "clear",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'clear' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     return set.Clear();
                 },
                 minArgs: 0,
@@ -2472,7 +2461,7 @@ namespace SharpPy
                 "copy",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'copy' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     return set.Copy();
                 },
                 minArgs: 0,
@@ -2484,7 +2473,7 @@ namespace SharpPy
                 "update",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     // CPython set_update(set, *others)
                     foreach (var other in args)
                         set.Update(other);
@@ -2498,7 +2487,7 @@ namespace SharpPy
                 "union",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'union' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     return PySet.UnionOf(set.Copy(), set, args);
                 },
                 minArgs: 0
@@ -2509,7 +2498,7 @@ namespace SharpPy
                 "intersection",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'intersection' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     return PySet.IntersectionOf(set, args);
                 },
                 minArgs: 0
@@ -2520,7 +2509,7 @@ namespace SharpPy
                 "difference",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'difference' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     return PySet.DifferenceOf(set, args);
                 },
                 minArgs: 0
@@ -2531,7 +2520,7 @@ namespace SharpPy
                 "symmetric_difference",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'symmetric_difference' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     // CPython set_symmetric_difference takes exactly one other argument.
                     if (args.Length != 1)
                         throw PyTypeError.Create($"symmetric_difference expected 1 argument, got {args.Length}");
@@ -2546,7 +2535,7 @@ namespace SharpPy
                 "issubset",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'issubset' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     return set.IsSubset(args[0]);
                 },
                 minArgs: 1,
@@ -2558,7 +2547,7 @@ namespace SharpPy
                 "issuperset",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'issuperset' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     return set.IsSuperset(args[0]);
                 },
                 minArgs: 1,
@@ -2570,7 +2559,7 @@ namespace SharpPy
                 "isdisjoint",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'isdisjoint' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     return set.IsDisjoint(args[0]);
                 },
                 minArgs: 1,
@@ -2583,7 +2572,7 @@ namespace SharpPy
                 "intersection_update",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'intersection_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     foreach (var other in args)
                         set.IntersectionUpdate(other);
                     return PyNone.Instance;
@@ -2597,7 +2586,7 @@ namespace SharpPy
                 "difference_update",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'difference_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     foreach (var other in args)
                         set.DifferenceUpdate(other);
                     return PyNone.Instance;
@@ -2611,7 +2600,7 @@ namespace SharpPy
                 "symmetric_difference_update",
                 setType,
                 (self, args, kwargs) => {
-                    var set = (self as PySet) ?? throw PyTypeError.Create("descriptor 'symmetric_difference_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = (PySet)self;
                     if (args.Length != 1)
                         throw PyTypeError.Create($"symmetric_difference_update expected 1 argument, got {args.Length}");
                     return set.SymmetricDifferenceUpdate(args[0]);
@@ -2643,9 +2632,7 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create(
                             $"{name}() takes exactly one argument ({args.Length} given)");
-                    var target = (self as PySet) ?? throw PyTypeError.Create(
-                        "descriptor '" + name + "' for 'set' objects doesn't apply to a '" +
-                        self.GetTypeName() + "' object");
+                    var target = (PySet)self;
                     if (!PySet.IsAnySetOperand(args[0])) return PyNotImplemented.Instance;
                     mutate(target, args[0]);
                     return self;
@@ -2728,8 +2715,7 @@ namespace SharpPy
                 "__reduce__", PyType.SetType,
                 (self, args, kwargs) => {
                     RefuseExtra(PyType.SetType, "__reduce__", args);
-                    return BuildSetReduce(self, PySet.IterableItems(NeedStorage(self, "__reduce__", "set",
-                        (self as PySet))));
+                    return BuildSetReduce(self, PySet.IterableItems((PySet)self));
                 },
                 minArgs: 0, maxArgs: 0);
             PyType.SetType.TypeDict["__sizeof__"] = new PyMethodDescriptor(
@@ -2737,7 +2723,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     RefuseExtra(PyType.SetType, "__sizeof__", args);
                     return PyInt.From(SetSizeInBytes(CountItems(PySet.IterableItems(
-                        NeedStorage(self, "__sizeof__", "set", (self as PySet))))));
+                        (PySet)self))));
                 },
                 minArgs: 0, maxArgs: 0);
             frozensetType.TypeDict["__reduce__"] = new PyMethodDescriptor(
@@ -2745,8 +2731,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     RefuseExtra(PyType.FrozenSetType, "__reduce__", args);
                     return BuildSetReduce(self, PySet.IterableItems(
-                        NeedStorage(self, "__reduce__", "frozenset",
-                            (self as PyFrozenSet))));
+                        (PyFrozenSet)self));
                 },
                 minArgs: 0, maxArgs: 0);
             frozensetType.TypeDict["__sizeof__"] = new PyMethodDescriptor(
@@ -2754,8 +2739,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     RefuseExtra(PyType.FrozenSetType, "__sizeof__", args);
                     return PyInt.From(SetSizeInBytes(CountItems(PySet.IterableItems(
-                        NeedStorage(self, "__sizeof__", "frozenset",
-                            (self as PyFrozenSet))))));
+                        (PyFrozenSet)self))));
                 },
                 minArgs: 0, maxArgs: 0);
 
@@ -2798,9 +2782,7 @@ namespace SharpPy
                         throw PyTypeError.Create(
                             "frozenset." + name + "() " + phrase + " (" + args.Length + " given)");
                     }
-                    var frozen = (self as PyFrozenSet) ?? throw PyTypeError.Create(
-                        "descriptor '" + name + "' for 'frozenset' objects doesn't apply to a '" +
-                        self.GetTypeName() + "' object");
+                    var frozen = (PyFrozenSet)self;
                     return body(frozen, args);
                 },
                 minArgs: 0,
@@ -2937,7 +2919,7 @@ namespace SharpPy
             // dict_init: dict_update_common(self, args, kwds, "dict"), what dict.update does.
             TypeDict["__init__"] = new PyWrapperDescriptor("__init__", dictType, (self, args, kwargs) =>
             {
-                var target = PyDict.RequireDictOperand(self, "__init__");
+                var target = (PyDict)self;
                 if (args.Length > 1)
                     throw PyTypeError.Create($"dict expected at most 1 argument, got {args.Length}");
                 if (args.Length == 1)

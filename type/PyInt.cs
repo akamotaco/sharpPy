@@ -100,12 +100,6 @@ namespace SharpPy
             return value != null;
         }
 
-        // The measured unbound text for every method/getset of a builtin type is the descr_check form
-        // in Objects/descrobject.c: "descriptor '<name>' for '<type>' objects doesn't apply to a
-        // '<self>' object". Sites used to invent per-function wording.
-        internal static System.Exception WrongLongSelf(string name, PyObject self) =>
-            PyTypeError.Create(
-                $"descriptor '{name}' for 'int' objects doesn't apply to a '{self.GetTypeName()}' object");
 
         public static void InitializeIntDescriptors()
         {
@@ -143,8 +137,6 @@ namespace SharpPy
             {
                 intType.TypeDict[name] = new PyWrapperDescriptor(name, intType, (self, args, kwargs) =>
                 {
-                    if (!IntLike(self))
-                        throw PyTypeError.Create($"descriptor '{name}' requires a 'int' object but received a '{self.GetTypeName()}'");
                     return impl(AsIntObj(self));
                 });
             }
@@ -156,24 +148,18 @@ namespace SharpPy
             regIntUn("__index__", s => s);
             intType.TypeDict["__trunc__"] = new PyMethodDescriptor("__trunc__", intType, (self, args, kwargs) =>
             {
-                if (!IntLike(self))
-                    throw PyTypeError.Create($"descriptor '__trunc__' requires a 'int' object but received a '{self.GetTypeName()}'");
                 if (args.Length != 0)
                     throw PyTypeError.Create($"int.__trunc__() takes no arguments ({args.Length} given)");
                 return AsIntObj(self);
             });
             intType.TypeDict["__floor__"] = new PyMethodDescriptor("__floor__", intType, (self, args, kwargs) =>
             {
-                if (!IntLike(self))
-                    throw PyTypeError.Create($"descriptor '__floor__' requires a 'int' object but received a '{self.GetTypeName()}'");
                 if (args.Length != 0)
                     throw PyTypeError.Create($"int.__floor__() takes no arguments ({args.Length} given)");
                 return AsIntObj(self);
             });
             intType.TypeDict["__ceil__"] = new PyMethodDescriptor("__ceil__", intType, (self, args, kwargs) =>
             {
-                if (!IntLike(self))
-                    throw PyTypeError.Create($"descriptor '__ceil__' requires a 'int' object but received a '{self.GetTypeName()}'");
                 if (args.Length != 0)
                     throw PyTypeError.Create($"int.__ceil__() takes no arguments ({args.Length} given)");
                 return AsIntObj(self);
@@ -224,8 +210,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"int.bit_length() takes no arguments ({args.Length} given)");
-                    if (!PyInt.TryLongSelf(self, out var intObj))
-                        throw PyTypeError.Create($"descriptor 'bit_length' requires a 'int' object but received a '{self.GetTypeName()}'");
+                    PyInt.TryLongSelf(self, out var intObj);
 
                     // CPython 3.12: Objects/longobject.c long_bit_length via _PyLong_NumBits:
                     // bit count of abs(n), 0 -> 0. Must work beyond the CLR long range:
@@ -247,8 +232,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"int.bit_count() takes no arguments ({args.Length} given)");
-                    if (!PyInt.TryLongSelf(self, out var intObj))
-                        throw PyTypeError.Create($"descriptor 'bit_count' requires a 'int' object but received a '{self.GetTypeName()}'");
+                    PyInt.TryLongSelf(self, out var intObj);
 
                     return intObj.BitCount();
                 },
@@ -260,8 +244,7 @@ namespace SharpPy
             intType.TypeDict["to_bytes"] = new PyMethodDescriptor(
                 "to_bytes", intType,
                 (self, args, kwargs) => {
-                    if (!PyInt.TryLongSelf(self, out var intObj))
-                        throw PyTypeError.Create($"descriptor 'to_bytes' requires a 'int' object but received a '{self.GetTypeName()}'");
+                    PyInt.TryLongSelf(self, out var intObj);
 
                     // CPython 3.12, Objects/longobject.c: long_to_bytes_impl is
                     // METH_FASTCALL|METH_KEYWORDS with (length=1, byteorder='big', /, signed=False).
@@ -409,8 +392,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"int.as_integer_ratio() takes no arguments ({args.Length} given)");
-                    if (!PyInt.TryLongSelf(self, out var intObj))
-                        throw PyTypeError.Create($"descriptor 'as_integer_ratio' requires a 'int' object but received a '{self.GetTypeName()}'");
+                    PyInt.TryLongSelf(self, out var intObj);
 
                     // For integers, the ratio is simply (self, 1)
                     return PyTuple.From(intObj, PyInt.From(1));
@@ -426,8 +408,7 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create(
                             $"int.conjugate() takes no arguments ({args.Length} given)");
-                    if (!PyInt.TryLongSelf(self, out var intObj))
-                        throw PyInt.WrongLongSelf("conjugate", self);
+                    PyInt.TryLongSelf(self, out var intObj);
 
                     // long_long (Objects/longobject.c:5358-5367): an exact int is returned as itself, a
                     // bool or int subclass becomes a plain int, so type(I(3).conjugate()) is int.
@@ -441,8 +422,7 @@ namespace SharpPy
             intType.TypeDict["real"] = new PyGetSetDescriptor(
                 "real", intType,
                 getter: self => {
-                    if (!PyInt.TryLongSelf(self, out var longValue))
-                        throw PyInt.WrongLongSelf("real", self);
+                    PyInt.TryLongSelf(self, out var longValue);
                     // long_long: exact ints come back as themselves, bool/int subclasses as plain ints.
                     return longValue;
                 }
@@ -453,8 +433,6 @@ namespace SharpPy
             intType.TypeDict["imag"] = new PyGetSetDescriptor(
                 "imag", intType,
                 getter: self => {
-                    if (!PyInt.TryLongSelf(self, out _))
-                        throw PyInt.WrongLongSelf("imag", self);
                     return PyInt.From(0);  // long_get0: a fresh int, not self
                 }
             );
@@ -464,8 +442,7 @@ namespace SharpPy
             intType.TypeDict["numerator"] = new PyGetSetDescriptor(
                 "numerator", intType,
                 getter: self => {
-                    if (!PyInt.TryLongSelf(self, out var longValue))
-                        throw PyInt.WrongLongSelf("numerator", self);
+                    PyInt.TryLongSelf(self, out var longValue);
                     return longValue;  // long_long, same rule as real
                 }
             );
@@ -475,8 +452,6 @@ namespace SharpPy
             intType.TypeDict["denominator"] = new PyGetSetDescriptor(
                 "denominator", intType,
                 getter: self => {
-                    if (!PyInt.TryLongSelf(self, out _))
-                        throw PyInt.WrongLongSelf("denominator", self);
                     return PyInt.From(1);  // long_get1
                 }
             );
@@ -491,8 +466,7 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create(
                             $"int.__getnewargs__() takes no arguments ({args.Length} given)");
-                    if (!PyInt.TryLongSelf(self, out var longValue))
-                        throw PyInt.WrongLongSelf("__getnewargs__", self);
+                    PyInt.TryLongSelf(self, out var longValue);
                     return PyTuple.From(longValue);
                 },
                 minArgs: 0, maxArgs: 0);

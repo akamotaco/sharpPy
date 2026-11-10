@@ -101,16 +101,14 @@ public interface IDescriptor
             return created;
         }
 
-        private static PyProperty Self(PyObject self, string name) => self as PyProperty ?? throw PyTypeError.Create(
-            $"descriptor '{name}' for 'property' objects doesn't apply to a '{self.GetTypeName()}' object");
 
         private static void Member(string name, Func<PyProperty, PyObject?> read) =>
             PyType.PropertyType.TypeDict[name] = new PyMemberDescriptor(name, PyType.PropertyType,
-                self => read(Self(self, name)) ?? PyNone.Instance, readOnly: true);
+                self => read(((PyProperty)self)) ?? PyNone.Instance, readOnly: true);
 
         private static void Copier(string name, Func<PyProperty, PyObject, PyObject> copy) =>
             PyType.PropertyType.TypeDict[name] = new PyMethodDescriptor(name, PyType.PropertyType,
-                (self, args, kwargs) => copy(Self(self, name), args[0]), minArgs: 1, maxArgs: 1);
+                (self, args, kwargs) => copy(((PyProperty)self), args[0]), minArgs: 1, maxArgs: 1);
 
         /// <summary>The slots of the type, reachable by name.</summary>
         internal static void InitializePropertyDescriptors()
@@ -127,14 +125,14 @@ public interface IDescriptor
             }, 0, int.MaxValue, acceptsKwargs: true);
             type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
             {
-                Self(self, "__init__").Initialize(args, kwargs);
+                ((PyProperty)self).Initialize(args, kwargs);
                 return PyNone.Instance;
             }, 0, int.MaxValue);
             type.TypeDict["__set_name__"] = new PyMethodDescriptor("__set_name__", type, (self, args, kwargs) =>
             {
                 if (args.Length != 2)
                     throw PyTypeError.Create($"__set_name__() takes 2 positional arguments but {args.Length} were given");
-                Self(self, "__set_name__")._name = args[1];
+                ((PyProperty)self)._name = args[1];
                 return PyNone.Instance;
             }, minArgs: 0, maxArgs: int.MaxValue);
             Copier("getter", (self, function) => self.Copy(function, null, null));
@@ -144,8 +142,8 @@ public interface IDescriptor
             Member("fset", self => self._set);
             Member("fdel", self => self._del);
             type.TypeDict["__doc__"] = new PyMemberDescriptor("__doc__", type,
-                self => Self(self, "__doc__")._doc ?? PyNone.Instance,
-                (self, value) => Self(self, "__doc__")._doc = value);
+                self => ((PyProperty)self)._doc ?? PyNone.Instance,
+                (self, value) => ((PyProperty)self)._doc = value);
             type.TypeDict["__isabstractmethod__"] = new PyGetSetDescriptor("__isabstractmethod__", type, self =>
             {
                 foreach (var part in new[] { "fget", "fset", "fdel" })
@@ -163,16 +161,16 @@ public interface IDescriptor
             type.TypeDict["__get__"] = new PyWrapperDescriptor("__get__", type, (self, args, kwargs) =>
             {
                 var (target, _) = TypeTables.DescrGetArguments(args);
-                return Self(self, "__get__").DescriptorGet(target);
+                return ((PyProperty)self).DescriptorGet(target);
             }, 1, 2);
             type.TypeDict["__set__"] = new PyWrapperDescriptor("__set__", type, (self, args, kwargs) =>
             {
-                Self(self, "__set__").DescriptorSet(args[0], args[1]);
+                ((PyProperty)self).DescriptorSet(args[0], args[1]);
                 return PyNone.Instance;
             }, 2, 2);
             type.TypeDict["__delete__"] = new PyWrapperDescriptor("__delete__", type, (self, args, kwargs) =>
             {
-                Self(self, "__delete__").DescriptorSet(args[0], null);
+                ((PyProperty)self).DescriptorSet(args[0], null);
                 return PyNone.Instance;
             }, 1, 1);
         }

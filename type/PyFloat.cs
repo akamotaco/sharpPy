@@ -38,10 +38,6 @@ namespace SharpPy
             _ => null,
         };
 
-        // Objects/descrobject.c descr_check wording, shared by float's methods and getsets.
-        internal static System.Exception WrongFloatSelf(string name, PyObject self) =>
-            PyTypeError.Create(
-                $"descriptor '{name}' for 'float' objects doesn't apply to a '{self.GetTypeName()}' object");
 
         /// <summary>
         /// float_new / float_subtype_new, one implementation for both entry points: the
@@ -185,9 +181,6 @@ namespace SharpPy
             floatType.TypeDict["__float__"] = new PyWrapperDescriptor("__float__", floatType,
                 (self, args, kwargs) =>
                 {
-                    if (!PyFloat.TryFloatSelf(self, out _))
-                        throw PyTypeError.Create(
-                            $"descriptor '__float__' requires a 'float' object but received a '{self.GetTypeName()}'");
                     // float_float: an exact float is itself, a subclass instance its exact value.
                     return FloatValue(self);
                 });
@@ -348,8 +341,6 @@ namespace SharpPy
             floatType.TypeDict["imag"] = new PyGetSetDescriptor(
                 "imag", floatType,
                 getter: self => {
-                    if (!PyFloat.TryFloatSelf(self, out _))
-                        throw PyFloat.WrongFloatSelf("imag", self);
                     return new PyFloat(0.0);  // float_getimag
                 }
             );

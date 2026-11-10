@@ -15,30 +15,7 @@ namespace SharpPy
 
         // CPython 3.12: Objects/listobject.c
         // Helper to get PyList storage from self (works for both PyList and list subclasses)
-        private static PyList GetListStorage(PyObject self)
-        {
-            if (self is PyList list)
-                return list;
 
-            throw PyTypeError.Create($"descriptor requires a 'list' object but received a '{self.GetTypeName()}'");
-        }
-
-        // Self check for the item-protocol descriptors, per CPython descriptor kind:
-        // - method_descriptor (list_methods table entries) reports
-        //   "descriptor '<name>' for 'list' objects doesn't apply to a '<T>' object"
-        //   (Objects/descrobject.c call_method_descriptor)
-        // - slot wrapper (sq_contains) reports
-        //   "descriptor '<name>' requires a 'list' object but received a '<T>'"
-        //   (Objects/abstract.c generic slot wrapper self check)
-        private static PyList GetListForItemDescriptor(PyObject self, string name, bool slotStyleMessage)
-        {
-            if (self is PyList list)
-                return list;
-
-            throw PyTypeError.Create(slotStyleMessage
-                ? $"descriptor '{name}' requires a 'list' object but received a '{self.GetTypeName()}'"
-                : $"descriptor '{name}' for 'list' objects doesn't apply to a '{self.GetTypeName()}' object");
-        }
 
         private static void InitializeListDescriptors()
         {
@@ -79,7 +56,7 @@ namespace SharpPy
             listType.TypeDict["append"] = new PyMethodDescriptor(
                 "append", listType,
                 (self, args, kwargs) => {
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     list.Append(args[0]);
                     return PyNone.Instance;
                 },
@@ -92,7 +69,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 2)
                         throw PyTypeError.Create($"insert() takes exactly two arguments ({args.Length} given)");
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     var index = PyArgs.SsizeCount(args[0]);
                     list.Insert(index, args[1]);
                     return PyNone.Instance;
@@ -104,7 +81,7 @@ namespace SharpPy
             listType.TypeDict["remove"] = new PyMethodDescriptor(
                 "remove", listType,
                 (self, args, kwargs) => {
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     list.Remove(args[0]);
                     return PyNone.Instance;
                 },
@@ -117,7 +94,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 1)
                         throw PyTypeError.Create($"pop() takes at most one argument ({args.Length} given)");
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     var index = args.Length == 0 ? -1 : PyArgs.SsizeCount(args[0]);
                     return list.Pop(index);
                 },
@@ -128,7 +105,7 @@ namespace SharpPy
             listType.TypeDict["clear"] = new PyMethodDescriptor(
                 "clear", listType,
                 (self, args, kwargs) => {
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     list.Clear();
                     return PyNone.Instance;
                 },
@@ -139,7 +116,7 @@ namespace SharpPy
             listType.TypeDict["extend"] = new PyMethodDescriptor(
                 "extend", listType,
                 (self, args, kwargs) => {
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     list.Extend(args[0]);
                     return PyNone.Instance;
                 },
@@ -157,7 +134,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"index expected at least 1 argument, got {args.Length}");
                     if (args.Length > 3)
                         throw PyTypeError.Create($"index expected at most 3 arguments, got {args.Length}");
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     long n = list.RawCount();
                     long start = 0, stop = n;
                     if (args.Length >= 2) {
@@ -179,7 +156,7 @@ namespace SharpPy
             listType.TypeDict["count"] = new PyMethodDescriptor(
                 "count", listType,
                 (self, args, kwargs) => {
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     var count = list.Count(args[0]);
                     return PyInt.From(count);
                 },
@@ -190,7 +167,7 @@ namespace SharpPy
             listType.TypeDict["reverse"] = new PyMethodDescriptor(
                 "reverse", listType,
                 (self, args, kwargs) => {
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     list.Reverse();
                     return PyNone.Instance;
                 },
@@ -203,7 +180,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 0)
                         throw PyTypeError.Create($"sort() takes no positional arguments ({args.Length} given)");
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
 
                     ParseSortKeywords(kwargs, out var key, out bool reverse);
                     list.Sort(key, reverse);
@@ -216,7 +193,7 @@ namespace SharpPy
             listType.TypeDict["copy"] = new PyMethodDescriptor(
                 "copy", listType,
                 (self, args, kwargs) => {
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
                     var copy = new PyObject[list._items.Count];
                     list._items.CopyTo(copy, 0);
@@ -239,7 +216,7 @@ namespace SharpPy
                         throw PyTypeError.Create("list() takes no keyword arguments");
 
                     // CPython 3.12: Get actual list storage (works for subclasses)
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
 
                     // CPython 3.12: Empty previous contents
                     list.Clear();
@@ -264,7 +241,7 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create("__iter__() takes no arguments");
 
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     return list.RawIterator();
                 },
                 minArgs: 0,
@@ -280,7 +257,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create("__reversed__() takes no arguments");
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     return new PyReversedIterator(list, list.RawCount(), "list_reverseiterator");
                 },
                 minArgs: 0,
@@ -296,7 +273,7 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create("__len__() takes no arguments");
 
-                    var list = GetListStorage(self);
+                    var list = (PyList)self;
                     return PyInt.From(list.RawCount());
                 },
                 minArgs: 0,
@@ -328,7 +305,7 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"list.__getitem__() takes exactly one argument ({args.Length} given)");
 
-                    return GetListForItemDescriptor(self, "__getitem__", false).MpSubscript(args[0]);
+                    return ((PyList)self).MpSubscript(args[0]);
                 });
 
             // CPython 3.12: Objects/listobject.c list_setitem (METH_VARARGS, "OO")
@@ -342,7 +319,7 @@ namespace SharpPy
                     if (args.Length != 2)
                         throw PyTypeError.Create($" expected 2 arguments, got {args.Length}");
 
-                    GetListForItemDescriptor(self, "__setitem__", false).MpAssSubscript(args[0], args[1]);
+                    ((PyList)self).MpAssSubscript(args[0], args[1]);
                     return PyNone.Instance;
                 });
 
@@ -355,7 +332,7 @@ namespace SharpPy
                 {
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create("list.__delitem__() takes no keyword arguments");
-                    var list = GetListForItemDescriptor(self, "__delitem__", false);
+                    var list = ((PyList)self);
                     var key = args[0];
 
                     if (key is PySlice slice)
@@ -387,7 +364,7 @@ namespace SharpPy
                 {
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create("list.__contains__() takes no keyword arguments");
-                    return PyBool.FromBool(GetListForItemDescriptor(self, "__contains__", true).RawContains(args[0]));
+                    return PyBool.FromBool(((PyList)self).RawContains(args[0]));
                 });
 
             // CPython 3.12: list sq_concat/sq_multiply/nb_inplace slot wrappers
@@ -402,7 +379,7 @@ namespace SharpPy
             {
                 listType.TypeDict[name] = new PyWrapperDescriptor(name, listType, (self, args, kwargs) =>
                 {
-                    var list = GetListForItemDescriptor(self, name, true);
+                    var list = (PyList)self;
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create($"list.{name}() takes no keyword arguments");
                     if (args.Length != 1)
@@ -453,7 +430,7 @@ namespace SharpPy
                 string name = listComparisonNames[i];
                 listType.TypeDict[name] = new PyWrapperDescriptor(name, listType, (self, args, kwargs) =>
                 {
-                    var list = GetListForItemDescriptor(self, name, true);
+                    var list = (PyList)self;
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create($"list.{name}() takes no keyword arguments");
                     return (list.IsExact ? list : new PyList(list.Items)).RichCompare(args[0], op);

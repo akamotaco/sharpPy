@@ -66,8 +66,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"complex.__format__() takes exactly one argument ({args.Length} given)");
                     if (args[0] is not PyString specStr)
                         throw PyArgs.BadArgument("__format__", "argument", "str", args[0]);
-                    if (self is not PyComplex cx)
-                        throw WrongComplexSelf("__format__", self);
+                    var cx = (PyComplex)self;
                     return PyString.From(FormatComplex(cx.Real, cx.Imag, specStr.Value, self.GetPyType().FullName));
                 },
                 minArgs: 1, maxArgs: 1);
@@ -77,20 +76,17 @@ namespace SharpPy
             // hasattr(complex, "real") False while (1+2j).real worked - two answers about one attribute.
             PyType.ComplexType.TypeDict["real"] = new PyMemberDescriptor(
                 "real", PyType.ComplexType,
-                getter: self => self is PyComplex cx ? new PyFloat(cx.Real)
-                    : throw WrongComplexSelf("real", self));
+                getter: self => new PyFloat(((PyComplex)self).Real));
             PyType.ComplexType.TypeDict["imag"] = new PyMemberDescriptor(
                 "imag", PyType.ComplexType,
-                getter: self => self is PyComplex cx ? new PyFloat(cx.Imag)
-                    : throw WrongComplexSelf("imag", self));
+                getter: self => new PyFloat(((PyComplex)self).Imag));
             PyType.ComplexType.TypeDict["conjugate"] = new PyMethodDescriptor(
                 "conjugate", PyType.ComplexType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create(
                             $"complex.conjugate() takes no arguments ({args.Length} given)");
-                    if (self is not PyComplex cx)
-                        throw WrongComplexSelf("conjugate", self);
+                    var cx = (PyComplex)self;
                     // complex_conjugate builds a new object from the C value.
                     return new PyComplex(cx.Real, -cx.Imag);
                 },
@@ -103,17 +99,12 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create(
                             $"complex.__getnewargs__() takes no arguments ({args.Length} given)");
-                    if (self is not PyComplex cx)
-                        throw WrongComplexSelf("__getnewargs__", self);
+                    var cx = (PyComplex)self;
                     return PyTuple.From(new PyFloat(cx.Real), new PyFloat(cx.Imag));
                 },
                 minArgs: 0, maxArgs: 0);
         }
 
-        // Objects/descrobject.c descr_check wording.
-        internal static System.Exception WrongComplexSelf(string name, PyObject self) =>
-            PyTypeError.Create(
-                $"descriptor '{name}' for 'complex' objects doesn't apply to a '{self.GetTypeName()}' object");
 
         /// <summary>
         /// CPython complex_format: format real and |imag| as floats, join with the

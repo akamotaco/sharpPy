@@ -164,8 +164,6 @@ namespace SharpPy.Modules
         public override PyType GetPyType() => _customType ?? PartialType;
         public override bool IsCallable() => true;
 
-        private static PyPartial Self(PyObject self, string name) => self as PyPartial
-            ?? throw PyTypeError.Create($"descriptor '{name}' for 'functools.partial' objects doesn't apply to a '{self.GetTypeName()}' object");
 
         private static PyType MakeType()
         {
@@ -177,16 +175,16 @@ namespace SharpPy.Modules
                 (cls, args, kwargs) => New((PyType)cls, args, kwargs), 0, int.MaxValue, acceptsKwargs: true);
             // Py_tp_call, Py_tp_repr, PyObject_GenericGetAttr and PyObject_GenericSetAttr
             type.TypeDict["__call__"] = new PyWrapperDescriptor("__call__", type,
-                (self, args, kwargs) => Self(self, "__call__").CallPartial(args, kwargs));
+                (self, args, kwargs) => ((PyPartial)self).CallPartial(args, kwargs));
             type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type,
-                (self, args, kwargs) => Self(self, "__repr__").Repr(), minArgs: 0, maxArgs: 0);
+                (self, args, kwargs) => ((PyPartial)self).Repr(), minArgs: 0, maxArgs: 0);
             TypeTables.GenericAttributes(type);
             TypeTables.GenericSetAttributes(type);
             // partial_methods
             type.TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", type,
-                (self, args, kwargs) => Self(self, "__reduce__").Reduce(), 0, 0);
+                (self, args, kwargs) => ((PyPartial)self).Reduce(), 0, 0);
             type.TypeDict["__setstate__"] = new PyMethodDescriptor("__setstate__", type,
-                (self, args, kwargs) => { Self(self, "__setstate__").SetState(args[0]); return PyNone.Instance; }, 1, 1);
+                (self, args, kwargs) => { ((PyPartial)self).SetState(args[0]); return PyNone.Instance; }, 1, 1);
             type.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(type);
             // partial_memberlist: READONLY members, and the offset CPython publishes
             type.TypeDict["func"] = new PyMemberDescriptor("func", type, self => ((PyPartial)self).Fn, readOnly: true);

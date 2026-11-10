@@ -26,13 +26,6 @@ namespace SharpPy
             // __hash__-is-None branch, so mutable builtins used as dict keys raise
             // "unhashable type: 'list'" etc. instead of silently hashing by identity.
             dictType.TypeDict["__hash__"] = PyNone.Instance;
-            // Helper to get PyDict from self (handles both PyDict and PyClassInstance dict subclasses)
-            static PyDict GetDict(PyObject self, PyType dictType)
-            {
-                if (self is PyDict dict)
-                    return dict;
-                throw PyTypeError.Create($"descriptor requires a 'dict' object but received a '{self.GetTypeName()}'");
-            }
 
             // CPython 3.12: Objects/dictobject.c:3627-3630 - dict_get
             // D.get(k[,d]) -> D[k] if k in D, else d.  d defaults to None.
@@ -59,7 +52,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
 
 
-                    return new PyDictView(GetDict(self, dictType), DictViewKind.Keys);
+                    return new PyDictView(((PyDict)self), DictViewKind.Keys);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -71,7 +64,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
 
 
-                    return new PyDictView(GetDict(self, dictType), DictViewKind.Values);
+                    return new PyDictView(((PyDict)self), DictViewKind.Values);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -83,7 +76,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
 
 
-                    return new PyDictView(GetDict(self, dictType), DictViewKind.Items);
+                    return new PyDictView(((PyDict)self), DictViewKind.Items);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -169,7 +162,7 @@ namespace SharpPy
             dictType.TypeDict["update"] = new PyMethodDescriptor(
                 "update", dictType,
                 (self, args, kwargs) => {
-                    var target = RequireDictOperand(self, "update");
+                    var target = (PyDict)self;
 
                     if (args.Length > 1)
                         throw PyTypeError.Create($"update expected at most 1 argument, got {args.Length}");
@@ -195,7 +188,7 @@ namespace SharpPy
             dictType.TypeDict["__or__"] = new PyWrapperDescriptor(
                 "__or__", dictType,
                 (self, args, kwargs) => {
-                    var left = RequireDictOperand(self, "__or__");
+                    var left = (PyDict)self;
                     if (!IsDictLike(args[0])) return PyNotImplemented.Instance;
                     return left.BitwiseOr(args[0]);
                 }
@@ -203,14 +196,13 @@ namespace SharpPy
             dictType.TypeDict["__ror__"] = new PyWrapperDescriptor(
                 "__ror__", dictType,
                 (self, args, kwargs) => {
-                    RequireDictOperand(self, "__ror__");
                     return PyNotImplemented.Instance;
                 }
             );
             dictType.TypeDict["__ior__"] = new PyWrapperDescriptor(
                 "__ior__", dictType,
                 (self, args, kwargs) => {
-                    var target = RequireDictOperand(self, "__ior__");
+                    var target = (PyDict)self;
                     // CPython dict_ior == PyDict_Update(self, other): any update argument,
                     // returns self identity.
                     UpdateCommon(target, args[0]);
@@ -220,7 +212,7 @@ namespace SharpPy
             dictType.TypeDict["__eq__"] = new PyWrapperDescriptor(
                 "__eq__", dictType,
                 (self, args, kwargs) => {
-                    var left = RequireDictOperand(self, "__eq__");
+                    var left = (PyDict)self;
                     if (!IsDictLike(args[0])) return PyNotImplemented.Instance;
                     // dict_richcompare: dict_equal on the two tables.
                     return PyBool.FromBool(left.CheckDictEquality((PyDict)args[0]));
@@ -229,7 +221,7 @@ namespace SharpPy
             dictType.TypeDict["__ne__"] = new PyWrapperDescriptor(
                 "__ne__", dictType,
                 (self, args, kwargs) => {
-                    var left = RequireDictOperand(self, "__ne__");
+                    var left = (PyDict)self;
                     if (!IsDictLike(args[0])) return PyNotImplemented.Instance;
                     return PyBool.FromBool(!left.CheckDictEquality((PyDict)args[0]));
                 }
@@ -240,7 +232,6 @@ namespace SharpPy
                 dictType.TypeDict[slotName] = new PyWrapperDescriptor(
                     slotName, dictType,
                     (self, args, kwargs) => {
-                        RequireDictOperand(self, slotName);
                         return PyNotImplemented.Instance;
                     }
                 );
@@ -253,7 +244,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     // PyDict_Copy: an exact dict copies its table; a subclass goes through dict_merge.
                     if (self is PyDict { IsExact: true } dict) return dict.Copy();
-                    return CopySubclass(self, GetDict(self, dictType));
+                    return CopySubclass(self, ((PyDict)self));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -382,8 +373,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     PyType.RefuseExtra(dictType, "__sizeof__", args);
                     return PyInt.From(DictSizeInBytes(
-                        ((PyDict)PyType.NeedStorage(self, "__sizeof__", "dict",
-                            (self as PyDict))).Length()));
+                        ((PyDict)self).Length()));
                 },
                 minArgs: 0, maxArgs: 0);
         }
@@ -718,12 +708,6 @@ namespace SharpPy
         internal static bool IterIsDictIter(PyObject value) =>
             IsDictLike(value) && (value.GetPyType() is not SharpPy.PyClass heap || heap.IterSlotIs(PyType.DictType));
 
-        internal static PyDict RequireDictOperand(PyObject self, string name)
-        {
-            if (self is PyDict dict)
-                return dict;
-            throw PyTypeError.Create($"descriptor '{name}' requires a 'dict' object but received a '{self.GetTypeName()}'");
-        }
 
         /// <summary>
         /// CPython 3.12: Objects/dictobject.c dict_update_common dispatch:

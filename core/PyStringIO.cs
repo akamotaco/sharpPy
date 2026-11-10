@@ -25,8 +25,6 @@ public class PyStringIO : PyIOBaseInstance
 
     public PyStringIO(PyType type) : base(type ?? StringType) { }
 
-    private static PyStringIO Self(PyObject self, string name) => self as PyStringIO
-        ?? throw PyTypeError.Create($"descriptor '{name}' requires a '_io.StringIO' object but received a '{self.GetTypeName()}'");
 
     // CHECK_INITIALIZED
     private void CheckInitialized()
@@ -370,12 +368,12 @@ public class PyStringIO : PyIOBaseInstance
             acceptsKwargs: true);
         type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
         {
-            Self(self, "__init__").Initialize(args, kwargs);
+            ((PyStringIO)self).Initialize(args, kwargs);
             return PyNone.Instance;
         }, 0, int.MaxValue, acceptsKwargs: true);
 
         void Def(string name, PyCall kind, Func<PyStringIO, PyObject[], PyObject> body, int min = 0, int max = 0) =>
-            PyArgs.Define(type, name, kind, (self, args) => body(Self(self, name), args), min, max);
+            PyArgs.Define(type, name, kind, (self, args) => body(((PyStringIO)self), args), min, max);
         PyObject Arg(PyObject[] args, int i) => args.Length > i ? args[i] : null;
 
         Def("close", PyCall.NoArgs, (self, args) => self.Close());
@@ -401,23 +399,23 @@ public class PyStringIO : PyIOBaseInstance
             });
         Def("__getstate__", PyCall.NoArgs, (self, args) => self.GetState());
         Def("__setstate__", PyCall.One, (self, args) => self.SetState(args[0]));
-        type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => Self(self, "__next__").IterNext(), 0, 0);
+        type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => ((PyStringIO)self).IterNext(), 0, 0);
         type.TypeDict["closed"] = new PyGetSetDescriptor("closed", type, self =>
         {
-            var stream = Self(self, "closed");
+            var stream = ((PyStringIO)self);
             stream.CheckInitialized();
             return PyBool.FromBool(stream._closed);
         });
         type.TypeDict["newlines"] = new PyGetSetDescriptor("newlines", type, self =>
         {
-            var stream = Self(self, "newlines");
+            var stream = ((PyStringIO)self);
             stream.CheckInitialized();
             stream.CheckClosed();
             return stream._decoder == null ? PyNone.Instance : stream._decoder.GetAttribute("newlines");
         });
         type.TypeDict["line_buffering"] = new PyGetSetDescriptor("line_buffering", type, self =>
         {
-            var stream = Self(self, "line_buffering");
+            var stream = ((PyStringIO)self);
             stream.CheckInitialized();
             stream.CheckClosed();
             return PyBool.False;

@@ -28,8 +28,6 @@ public class PyBytesIO : PyIOBaseInstance
         }
     }
 
-    private static PyBytesIO Self(PyObject self, string name) => self as PyBytesIO
-        ?? throw PyTypeError.Create($"descriptor '{name}' requires a '_io.BytesIO' object but received a '{self.GetTypeName()}'");
 
     private static PythonException BufferError() =>
         new(new PyBufferError("Existing exports of data: object cannot be re-sized"));
@@ -384,12 +382,12 @@ public class PyBytesIO : PyIOBaseInstance
             acceptsKwargs: true);
         type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
         {
-            Self(self, "__init__").Initialize(args, kwargs);
+            ((PyBytesIO)self).Initialize(args, kwargs);
             return PyNone.Instance;
         }, 0, int.MaxValue, acceptsKwargs: true);
 
         void Def(string name, PyCall kind, Func<PyBytesIO, PyObject[], PyObject> body, int min = 0, int max = 0) =>
-            PyArgs.Define(type, name, kind, (self, args) => body(Self(self, name), args), min, max);
+            PyArgs.Define(type, name, kind, (self, args) => body(((PyBytesIO)self), args), min, max);
         PyObject Arg(PyObject[] args, int i) => args.Length > i ? args[i] : null;
 
         foreach (var name in new[] { "readable", "writable", "seekable" })
@@ -470,8 +468,8 @@ public class PyBytesIO : PyIOBaseInstance
             PyInt.From(64 + (self._buf != null && !self.Shared ? 33 + self._buf.Length : 0)));
         // tp_iter is PyObject_SelfIter and tp_iternext is bytesio_iternext.
         type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self, 0, 0);
-        type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => Self(self, "__next__").IterNext(), 0, 0);
-        type.TypeDict["closed"] = new PyGetSetDescriptor("closed", type, self => PyBool.FromBool(Self(self, "closed")._buf == null));
+        type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => ((PyBytesIO)self).IterNext(), 0, 0);
+        type.TypeDict["closed"] = new PyGetSetDescriptor("closed", type, self => PyBool.FromBool(((PyBytesIO)self)._buf == null));
         return type;
     }
 }

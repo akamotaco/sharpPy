@@ -358,8 +358,6 @@ public sealed class PyFileIO : PyIOBaseInstance
         return dict;
     }
 
-    private static PyFileIO Self(PyObject self, string name) => self as PyFileIO
-        ?? throw PyTypeError.Create($"descriptor '{name}' requires a '_io.FileIO' object but received a '{self.GetTypeName()}'");
 
     // The methods that take the defining class go through _PyArg_UnpackKeywords; seek is plain
     // METH_FASTCALL and _dealloc_warn METH_O; the rest are METH_NOARGS.
@@ -372,7 +370,7 @@ public sealed class PyFileIO : PyIOBaseInstance
     };
 
     private static void Method(PyType type, string name, Func<PyFileIO, PyObject[], PyObject> body, int min = 0, int max = 0) =>
-        PyArgs.Define(type, name, KindOf(name), (self, args) => body(Self(self, name), args), min, max);
+        PyArgs.Define(type, name, KindOf(name), (self, args) => body(((PyFileIO)self), args), min, max);
 
     private static PyIOBaseType MakeType()
     {
@@ -381,7 +379,7 @@ public sealed class PyFileIO : PyIOBaseInstance
             acceptsKwargs: true);
         type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
         {
-            Self(self, "__init__").Initialize(args, kwargs);
+            ((PyFileIO)self).Initialize(args, kwargs);
             return PyNone.Instance;
         }, 0, int.MaxValue, acceptsKwargs: true);
         type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type, (self, args, kwargs) => self.Repr());
@@ -548,12 +546,12 @@ public sealed class PyFileIO : PyIOBaseInstance
         }, 1, 1);
         Method(type, "__getstate__", (self, args) => throw PyTypeError.Create($"cannot pickle '{self.GetPyType().FullName}' instances"));
 
-        type.TypeDict["closed"] = new PyGetSetDescriptor("closed", type, self => PyBool.FromBool(Self(self, "closed").Fd < 0));
-        type.TypeDict["closefd"] = new PyGetSetDescriptor("closefd", type, self => PyBool.FromBool(Self(self, "closefd")._closefd));
-        type.TypeDict["mode"] = new PyGetSetDescriptor("mode", type, self => PyString.From(Self(self, "mode").ModeString()));
-        type.TypeDict["_blksize"] = new PyMemberDescriptor("_blksize", type, self => PyInt.From(Self(self, "_blksize")._blksize));
-        type.TypeDict["_finalizing"] = new PyMemberDescriptor("_finalizing", type, self => PyBool.FromBool(Self(self, "_finalizing")._finalizing),
-            (self, value) => Self(self, "_finalizing")._finalizing = value.IsTrue());
+        type.TypeDict["closed"] = new PyGetSetDescriptor("closed", type, self => PyBool.FromBool(((PyFileIO)self).Fd < 0));
+        type.TypeDict["closefd"] = new PyGetSetDescriptor("closefd", type, self => PyBool.FromBool(((PyFileIO)self)._closefd));
+        type.TypeDict["mode"] = new PyGetSetDescriptor("mode", type, self => PyString.From(((PyFileIO)self).ModeString()));
+        type.TypeDict["_blksize"] = new PyMemberDescriptor("_blksize", type, self => PyInt.From(((PyFileIO)self)._blksize));
+        type.TypeDict["_finalizing"] = new PyMemberDescriptor("_finalizing", type, self => PyBool.FromBool(((PyFileIO)self)._finalizing),
+            (self, value) => ((PyFileIO)self)._finalizing = value.IsTrue());
         return type;
     }
 }
