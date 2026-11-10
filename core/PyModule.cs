@@ -177,6 +177,7 @@ public class PyModule : PyObject
     }
 
     // module_getattro; a module subclass's __getattribute__ and __getattr__ are its type's slot.
+    internal override bool TpGetattroIsGeneric => false;
     protected internal override PyObject TpGetattro(string name) => ModuleGetAttro(name);
 
     internal PyObject ModuleGetAttro(string name)

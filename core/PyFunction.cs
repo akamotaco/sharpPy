@@ -743,6 +743,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
 
         // method_getattro (Objects/classobject.c): what the method type has (_PyType_Lookup and its
         // __get__: __func__, __self__, __doc__, the slot wrappers) answers, anything else is im_func's.
+        internal override bool TpGetattroIsGeneric => false;
         protected internal override PyObject TpGetattro(string name) =>
             GetPyType().FindNameInMro(name) != null ? base.TpGetattro(name) : Function.GetAttribute(name);
 

@@ -12,6 +12,7 @@ namespace SharpPy.Modules
     {
         internal CollectionsNativeModule(string name, string doc) : base(name, doc) { }
 
+        internal override bool TpGetattroIsGeneric => false;
         protected internal override PyObject TpGetattro(string name) => name == "defaultdict"
             ? PyImportSystem.Import("collections").GetAttribute(name) : base.TpGetattro(name);
     }

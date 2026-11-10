@@ -2890,11 +2890,12 @@ namespace SharpPy
                         }
                         #endif
 
-                        // Get attribute using existing system
+                        // LOAD_ATTR: PyObject_GetAttr, or with the method bit _PyObject_GetMethod.
                         PyObject attr;
+                        bool unboundMethod = false;
                         try
                         {
-                            attr = obj.GetAttribute(attrName);
+                            attr = pushNullForMethod ? obj.GetMethod(attrName, out unboundMethod) : obj.GetAttribute(attrName);
                         }
                         catch (PythonException error) when (error.PyException is PyAttributeError missing)
                         {
@@ -2905,15 +2906,10 @@ namespace SharpPy
 
                         if (pushNullForMethod)
                         {
-                            // _PyObject_GetMethod (Objects/object.c): tp_getattro has bound what it
-                            // found; a method descriptor bound to this very object is the unbound
-                            // descriptor and self, which CALL joins again (meth_found). Only for a
-                            // type whose tp_getattro is PyObject_GenericGetAttr: a type object
-                            // (type_getattro) and a module (module_getattro) keep the bound method.
-                            if (attr is PyBoundMethodDescriptor { MethodDescriptor: not null } boundDescriptor && ReferenceEquals(boundDescriptor.Instance, obj)
-                                && obj is not PyType && obj is not PyModule)
+                            // meth_found: the unbound method descriptor and self, which CALL joins.
+                            if (unboundMethod)
                             {
-                                frame.ValueStack.Push(boundDescriptor.MethodDescriptor);
+                                frame.ValueStack.Push(attr);
                                 frame.ValueStack.Push(obj);
                             }
                             else

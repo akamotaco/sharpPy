@@ -41,6 +41,7 @@ namespace SharpPy
         protected internal override bool Bool() => Target.IsTrue();
 
 
+        internal override bool TpGetattroIsGeneric => false;
         protected internal override PyObject TpGetattro(string name) => Target.GetAttribute(name);
 
         protected internal override void TpSetattro(string name, PyObject value) => Target.SetAttribute(name, value);

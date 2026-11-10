@@ -484,19 +484,51 @@ namespace SharpPy
         private SharpPy.PyClass HeapType() => GetPyType() is SharpPy.PyClass heap && heap.IsHeapType ? heap : null;
 
         /// <summary>tp_getattro of the CLR type: the builtin's own, PyObject_GenericGetAttr by default.</summary>
-        protected internal virtual PyObject TpGetattro(string name)
+        protected internal virtual PyObject TpGetattro(string name) => GenericGetattro(name, false, out _);
+
+        /// <summary>
+        /// Whether tp_getattro is PyObject_GenericGetAttr: false for a CLR type that overrides
+        /// TpGetattro (type, module, function, weakref proxy and the like) - every such override
+        /// says so here too.
+        /// </summary>
+        internal virtual bool TpGetattroIsGeneric => true;
+
+        // PyObject_GenericGetAttr, and with method _PyObject_GetMethod's lookup.
+        private PyObject GenericGetattro(string name, bool method, out bool unbound)
         {
             // A Python subclass of a builtin with no storage of its own for attributes.
             if (_customType is PyClass heap && !HasOwnDict)
             {
                 var attributes = HeapAttributes.GetOrCreateValue(this);
                 if (name == "__dict__" && heap.InstancesHaveDict())
+                {
+                    unbound = false;
                     return PyGlobalsDict.For(attributes);
-                return SubclassInstanceSupport.GenericGetAttrWithDict(this, heap, name, attributes, null) ?? PyGetAttribute(name);
+                }
+                return SubclassInstanceSupport.GenericGetAttrWithDict(this, heap, name, attributes, null, method, out unbound) ?? PyGetAttribute(name);
             }
-
+            if (method)
+                return SubclassInstanceSupport.GenericGetAttrWithDict(this, GetPyType(), name, null, this as IInstanceDictAccessor, true, out unbound)
+                    ?? throw AttributeNotFound(name);
+            unbound = false;
             return PyGetAttribute(name);
         }
+
+        /// <summary>
+        /// _PyObject_GetMethod (Objects/object.c): with a generic tp_getattro, a method descriptor
+        /// found on the type and not shadowed comes back unbound (unbound set), for CALL to pass
+        /// the object as its first argument; anything else is PyObject_GetAttr's answer.
+        /// </summary>
+        internal PyObject GetMethod(string name, out bool unbound)
+        {
+            unbound = false;
+            if (HeapType() is { } heap)
+                return heap.GetattroIsInherited() && TpGetattroIsGeneric ? GenericGetMethod(name, out unbound) : heap.GetattroSlot(this, name);
+            return TpGetattroIsGeneric ? GenericGetMethod(name, out unbound) : TpGetattro(name);
+        }
+
+        // The generic lookup of GetMethod: the CLR type's PyObject_GenericGetAttr.
+        internal virtual PyObject GenericGetMethod(string name, out bool unbound) => GenericGetattro(name, true, out unbound);
 
         /// <summary>
         /// PyObject_GenericGetAttr for this object, which object.__getattribute__ is: tp_getattro

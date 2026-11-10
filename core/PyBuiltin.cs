@@ -2238,6 +2238,7 @@ namespace SharpPy
 
         // super_getattro (Objects/typeobject.c): __class__ is the super object's own; every other
         // name goes through do_super_lookup.
+        internal override bool TpGetattroIsGeneric => false;
         protected internal override PyObject TpGetattro(string name)
         {
             if (name == "__class__")

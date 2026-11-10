@@ -2941,6 +2941,7 @@ namespace SharpPy
         protected override System.Exception AttributeNotFound(string name)
             => PyAttributeError.Create($"type object '{Name}' has no attribute '{name}'");
 
+        internal override bool TpGetattroIsGeneric => false;
         protected internal override PyObject TpGetattro(string name) => TypeGetattro(name);
 
         /// <summary>

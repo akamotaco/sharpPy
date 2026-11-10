@@ -85,6 +85,7 @@ namespace SharpPy
 
         // ga_getattro: the names of attr_exceptions are the alias's own (PyObject_GenericGetAttr),
         // any other is the origin's.
+        internal override bool TpGetattroIsGeneric => false;
         protected internal override PyObject TpGetattro(string name) =>
             Array.IndexOf(AttrExceptions, name) >= 0 ? base.TpGetattro(name) : Origin.GetAttribute(name);
 

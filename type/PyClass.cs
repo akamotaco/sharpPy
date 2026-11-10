@@ -42,6 +42,23 @@ namespace SharpPy
         private ulong _getattroVersion;
         private PyObject _getattribute, _getattr;
 
+        private void UpdateGetattro()
+        {
+            if (_getattroVersion == TypeVersionTag)
+                return;
+            var getattribute = FindNameInMro("__getattribute__", out bool written);
+            _getattribute = written ? getattribute : null;
+            _getattr = FindNameInMro("__getattr__");
+            _getattroVersion = TypeVersionTag;
+        }
+
+        /// <summary>Whether update_one_slot left the base's tp_getattro: neither name is the class's.</summary>
+        internal bool GetattroIsInherited()
+        {
+            UpdateGetattro();
+            return _getattribute == null && _getattr == null;
+        }
+
         /// <summary>
         /// tp_getattro of a class written in Python. update_one_slot leaves the base's tp_getattro
         /// when the class has neither name of its own, else slot_tp_getattr_hook: __getattribute__
@@ -50,13 +67,7 @@ namespace SharpPy
         /// </summary>
         internal PyObject GetattroSlot(PyObject self, string name)
         {
-            if (_getattroVersion != TypeVersionTag)
-            {
-                var getattribute = FindNameInMro("__getattribute__", out bool written);
-                _getattribute = written ? getattribute : null;
-                _getattr = FindNameInMro("__getattr__");
-                _getattroVersion = TypeVersionTag;
-            }
+            UpdateGetattro();
             var hook = _getattr;
             var method = _getattribute;
             if (hook == null)
@@ -947,8 +958,13 @@ namespace SharpPy
 
         internal override PyObject GenericGetAttr(string name) => GetAttributeGeneric(name);
 
-        internal PyObject GetAttributeGeneric(string name)
+        internal override PyObject GenericGetMethod(string name, out bool unbound) => GetAttributeGeneric(name, true, out unbound);
+
+        internal PyObject GetAttributeGeneric(string name) => GetAttributeGeneric(name, false, out _);
+
+        private PyObject GetAttributeGeneric(string name, bool method, out bool unbound)
         {
+            unbound = false;
             #if DEBUG_LOG
             Console.WriteLine($"🔍 PyClassInstance.GetAttributeGeneric: {InstanceType.Name} instance.{name} (no custom __getattribute__)");
             #endif
@@ -973,7 +989,7 @@ namespace SharpPy
 
             // _PyObject_GenericGetAttrWithDict over the instance's own store; what a builtin base
             // holds, and the AttributeError, are object's generic lookup.
-            return SubclassInstanceSupport.GenericGetAttrWithDict(this, InstanceType, name, null, this) ?? base.TpGetattro(name);
+            return SubclassInstanceSupport.GenericGetAttrWithDict(this, InstanceType, name, null, this, method, out unbound) ?? base.TpGetattro(name);
         }
 
         // PyObject_GenericSetAttr: __class__ is object's data descriptor, object_set_class.

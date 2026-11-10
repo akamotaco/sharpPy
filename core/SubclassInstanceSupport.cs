@@ -65,7 +65,17 @@ namespace SharpPy
         /// </summary>
         internal static PyObject GenericGetAttrWithDict(PyObject self, PyType type, string name,
             Dictionary<string, PyObject> dict, IInstanceDictAccessor accessor)
+            => GenericGetAttrWithDict(self, type, name, dict, accessor, false, out _);
+
+        /// <summary>
+        /// The same lookup, and with method set _PyObject_GetMethod's: a method descriptor of the
+        /// type (Py_TPFLAGS_METHOD_DESCRIPTOR: a function, a method or slot wrapper descriptor) that
+        /// no data descriptor or instance dict entry shadows comes back unbound, unbound set.
+        /// </summary>
+        internal static PyObject GenericGetAttrWithDict(PyObject self, PyType type, string name,
+            Dictionary<string, PyObject> dict, IInstanceDictAccessor accessor, bool method, out bool unbound)
         {
+            unbound = false;
             var attribute = type.FindNameInMro(name);
             IDescriptor descriptor = attribute as IDescriptor
                 ?? (attribute != null && attribute.LookupSpecialMethodUncached("__get__") != null
@@ -77,6 +87,11 @@ namespace SharpPy
                 return instanceValue;
             if (attribute == null)
                 return null;
+            if (method && (attribute.GetType() == typeof(PyFunction) || attribute is PyMethodDescriptor || attribute is PyWrapperDescriptor))
+            {
+                unbound = true;
+                return attribute;
+            }
             if (attribute.GetType() == typeof(PyFunction))
                 return new PyMethod(self, attribute);
             return descriptor != null ? descriptor.Get(self, type) : attribute;
