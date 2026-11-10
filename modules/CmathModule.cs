@@ -167,19 +167,9 @@ namespace SharpPy.Modules
 
         private static PyObject IsClose(PyObject[] args, PyDict kwargs)
         {
-            PyObject a = args.Length > 0 ? args[0] : null, b = args.Length > 1 ? args[1] : null, relative = null, absolute = null;
-            if (kwargs != null)
-                foreach (var pair in kwargs.InternalDict)
-                    switch ((pair.Key as PyString)?.Value)
-                    {
-                        case "a": a = pair.Value; break;
-                        case "b": b = pair.Value; break;
-                        case "rel_tol": relative = pair.Value; break;
-                        case "abs_tol": absolute = pair.Value; break;
-                        default: throw PyTypeError.Create($"'{pair.Key.ToStr().Value}' is an invalid keyword argument for isclose()");
-                    }
-            if (a == null || b == null)
-                throw PyArgs.MissingArgument("isclose", (a == null ? "a" : "b"), (a == null ? 1 : 2));
+            // cmath_isclose's clinic: isclose(a, b, *, rel_tol=1e-09, abs_tol=0.0).
+            var parsed = PyArgs.Unpack("isclose", args, kwargs, new[] { "a", "b", "rel_tol", "abs_tol" }, 0, 2, 2);
+            PyObject a = parsed[0], b = parsed[1], relative = parsed[2], absolute = parsed[3];
             Pair left = Argument(a), right = Argument(b);
             double rel = relative == null ? 1e-9 : PyMathFunction.RealNumber(relative);
             double abs = absolute == null ? 0 : PyMathFunction.RealNumber(absolute);

@@ -905,16 +905,10 @@ namespace SharpPy.Modules
         // math_nextafter_impl
         private static PyObject NextAfter(PyObject[] args, PyDict kwargs)
         {
-            Check2("nextafter", args);
-            double x = RealNumber(args[0]), y = RealNumber(args[1]);
-            PyObject steps = null;
-            if (kwargs != null)
-                foreach (var pair in kwargs.InternalDict)
-                {
-                    if ((pair.Key as PyString)?.Value != "steps")
-                        throw PyArgs.InvalidKeyword("nextafter", pair.Key);
-                    steps = pair.Value;
-                }
+            // math_nextafter's clinic: nextafter(x, y, /, *, steps=None).
+            var parsed = PyArgs.Unpack("nextafter", args, kwargs, new[] { "", "", "steps" }, 2, 2, 2);
+            double x = RealNumber(parsed[0]), y = RealNumber(parsed[1]);
+            PyObject steps = parsed[2];
             if (steps == null || steps is PyNone)
                 return new PyFloat(NextToward(x, y));
             var count = Index(steps);
@@ -950,33 +944,9 @@ namespace SharpPy.Modules
 
         private static PyObject IsClose(PyObject[] args, PyDict kwargs)
         {
-            PyObject a = args.Length > 0 ? args[0] : null, b = args.Length > 1 ? args[1] : null, relative = null, absolute = null;
-            // _PyArg_UnpackKeywords: the count, the names that are taken, what is missing, then the rest.
-            if (args.Length > 2)
-                throw PyTypeError.Create($"isclose() takes exactly 2 positional arguments ({args.Length} given)");
-            string unknown = null;
-            if (kwargs != null)
-                foreach (var pair in kwargs.GetInternalDict())
-                {
-                    string name = pair.Key.ToStr().Value;
-                    switch (name)
-                    {
-                        case "a":
-                            if (a != null) throw PyTypeError.Create("argument for isclose() given by name ('a') and position (1)");
-                            a = pair.Value;
-                            break;
-                        case "b":
-                            if (b != null) throw PyTypeError.Create("argument for isclose() given by name ('b') and position (2)");
-                            b = pair.Value;
-                            break;
-                        case "rel_tol": relative = pair.Value; break;
-                        case "abs_tol": absolute = pair.Value; break;
-                        default: unknown ??= name; break;
-                    }
-                }
-            if (a == null) throw PyArgs.MissingArgument("isclose", "a", 1);
-            if (b == null) throw PyArgs.MissingArgument("isclose", "b", 2);
-            if (unknown != null) throw PyTypeError.Create($"'{unknown}' is an invalid keyword argument for isclose()");
+            // math_isclose's clinic: isclose(a, b, *, rel_tol=1e-09, abs_tol=0.0).
+            var parsed = PyArgs.Unpack("isclose", args, kwargs, new[] { "a", "b", "rel_tol", "abs_tol" }, 0, 2, 2);
+            PyObject a = parsed[0], b = parsed[1], relative = parsed[2], absolute = parsed[3];
             double left = RealNumber(a), right = RealNumber(b);
             double rel = relative == null ? 1e-9 : RealNumber(relative);
             double abs = absolute == null ? 0 : RealNumber(absolute);

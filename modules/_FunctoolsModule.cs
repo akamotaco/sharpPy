@@ -63,17 +63,8 @@ namespace SharpPy.Modules
         /// </summary>
         public static PyObject PyCmpToKey(PyObject[] args, PyDict? kwargs)
         {
-            var compare = args.Length > 0 ? args[0] : null;
-            if (kwargs != null && kwargs.TryGetStoredValue(PyString.From("mycmp"), out var named))
-            {
-                if (compare != null)
-                    throw PyTypeError.Create("argument for cmp_to_key() given by name ('mycmp') and position (1)");
-                compare = named;
-            }
-            if (compare == null)
-                throw PyArgs.MissingArgument("cmp_to_key", "mycmp", 1);
-            if (args.Length + (kwargs?.Length() ?? 0) > 1)
-                throw PyTypeError.Create($"cmp_to_key() takes at most 1 argument ({args.Length + (kwargs?.Length() ?? 0)} given)");
+            // _functools_cmp_to_key's clinic: cmp_to_key(mycmp).
+            var compare = PyArgs.Unpack("cmp_to_key", args, kwargs, new[] { "mycmp" }, 0, 1, 1)[0];
             // functools_cmp_to_key_impl: a keyobject with no object yet.
             return new PyKeyWrapper(compare, null);
         }

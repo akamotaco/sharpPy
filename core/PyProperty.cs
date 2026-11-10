@@ -40,21 +40,8 @@ public interface IDescriptor
         // property_init_impl
         private void Initialize(PyObject[] args, PyDict? kwargs)
         {
-            if (args.Length > 4)
-                throw PyTypeError.Create($"property expected at most 4 arguments, got {args.Length}");
-            var names = new[] { "fget", "fset", "fdel", "doc" };
-            var given = new PyObject?[4];
-            Array.Copy(args, given, args.Length);
-            if (kwargs != null)
-                foreach (var entry in kwargs.GetInternalDict())
-                {
-                    int index = entry.Key is PyString key ? Array.IndexOf(names, key.Value) : -1;
-                    if (index < 0)
-                        throw PyArgs.InvalidKeyword("property", entry.Key);
-                    if (index < args.Length)
-                        throw PyTypeError.Create($"argument for property() given by name ('{names[index]}') and position ({index + 1})");
-                    given[index] = entry.Value;
-                }
+            // property_init's clinic: property(fget=None, fset=None, fdel=None, doc=None).
+            var given = PyArgs.Unpack("property", args, kwargs, new[] { "fget", "fset", "fdel", "doc" }, 0, 0, 4);
             _get = OrNull(given[0]);
             _set = OrNull(given[1]);
             _del = OrNull(given[2]);

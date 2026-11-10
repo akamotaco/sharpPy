@@ -155,11 +155,12 @@ namespace SharpPy
                 return _kwargsImplementation(args, kwargs);
             }
 
-            // METH_FASTCALL and METH_O: a function that takes no keywords says so.
+            // METH_FASTCALL and METH_O: cfunction_check_kwargs, "%U takes no keyword arguments" of
+            // _PyObject_FunctionStr - the module named unless it is builtins.
             if (_implementation != null)
             {
                 if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create($"{Name}() takes no keyword arguments");
+                    throw PyTypeError.Create($"{(OwnerClass == null && OwnerModule is { } module && module != "builtins" ? module + "." : "")}{Name}() takes no keyword arguments");
 #if DEBUG_LOG
                 Console.WriteLine($"[PyBuiltinFunction.Call] Using _implementation for {Name}");
 #endif
