@@ -330,23 +330,59 @@ namespace SharpPy
             return PyRange.Create(start, stop, step);
         }
 
+        /// <summary>
+        /// enumerate_vectorcall (Objects/enumobject.c): enumerate(iterable, start=...) read by hand,
+        /// the keywords in the order given.
+        /// </summary>
+        private static (PyObject Iterable, PyObject Start) EnumerateArguments(PyObject[] args, PyDict kwargs)
+        {
+            int nargs = args.Length;
+            var names = new List<PyObject>();
+            var values = new List<PyObject>();
+            if (kwargs != null)
+                foreach (var pair in kwargs.InternalDict)
+                {
+                    names.Add(pair.Key);
+                    values.Add(pair.Value);
+                }
+            int nkwargs = names.Count;
+            var all = new List<PyObject>(args);
+            all.AddRange(values);
+            void CheckKeyword(int index, string name)
+            {
+                if (names[index] is not PyString text || text.Value != name)
+                    throw PyTypeError.Create($"'{names[index].ToStr().Value}' is an invalid keyword argument for enumerate()");
+            }
+            if (nargs + nkwargs == 2)
+            {
+                if (nkwargs == 1)
+                    CheckKeyword(0, "start");
+                else if (nkwargs == 2)
+                {
+                    if (names[0] is PyString first && first.Value == "start")
+                    {
+                        CheckKeyword(1, "iterable");
+                        return (all[1], all[0]);
+                    }
+                    CheckKeyword(0, "iterable");
+                    CheckKeyword(1, "start");
+                }
+                return (all[0], all[1]);
+            }
+            if (nargs + nkwargs == 1)
+            {
+                if (nkwargs == 1)
+                    CheckKeyword(0, "iterable");
+                return (all[0], null);
+            }
+            if (nargs == 0)
+                throw PyTypeError.Create("enumerate() missing required argument 'iterable'");
+            throw PyTypeError.Create($"enumerate() takes at most 2 arguments ({nargs + nkwargs} given)");
+        }
+
         private static PyObject CallEnumerate(PyObject[] args, PyDict kwargs = null)
         {
-            // enumerate's CPython signature is (iterable, start=0) with no positional-only marker, so
-            // both names are legal keywords: list(enumerate(iterable=[1])) is [(0, 1)]. Too many
-            // positionals and a missing iterable have different texts, and an unknown name is named.
-            if (args.Length > 2)
-                throw PyTypeError.Create($"enumerate() takes at most 2 arguments ({args.Length} given)");
-
-            // Order matters and is measured: enumerate(zzz=1) reports the invalid keyword, while
-            // min(zzz=1) reports the missing argument. enumerate parses keywords first.
-            RejectUnknownKeywords(kwargs, "enumerate", "iterable", "start");
-            var iterable = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "iterable");
-            if (iterable == null)
-                throw PyTypeError.Create("enumerate() missing required argument 'iterable'");
-
-            // CPython 3.12: Objects/enumobject.c:246-292 - enum_new, PyNumber_Index on start
-            var startValue = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "start");
+            var (iterable, startValue) = EnumerateArguments(args, kwargs);
             var start = System.Numerics.BigInteger.Zero;
             if (startValue != null)
             {
@@ -494,18 +530,10 @@ namespace SharpPy
 
         private static PyObject CallSum(PyObject[] args, PyDict kwargs = null)
         {
-            // Measured: sum(iterable, start=0) takes the iterable positionally only, and reports too
-            // few and too many positionals with two different texts.
-            if (args.Length < 1)
-                throw PyTypeError.Create($"sum() takes at least 1 positional argument ({args.Length} given)");
-            if (args.Length > 2)
-                throw PyTypeError.Create($"sum() takes at most 2 arguments ({args.Length} given)");
-            RejectUnknownKeywords(kwargs, "sum", "start");
-
-            var iterable = args[0];
-            var start = args.Length > 1
-                ? args[1]
-                : PyObject.KwValue(kwargs, "start") ?? PyInt.From(0);
+            // builtin_sum's clinic: sum(iterable, /, start=0).
+            var a = PyArgs.Unpack("sum", args, kwargs, new[] { "iterable", "start" }, 1, 1, 2);
+            var iterable = a[0];
+            var start = a[1] ?? PyInt.From(0);
             // builtin_sum_impl: the iterator first, then start's refusals.
             var iterator = iterable.GetIterator();
             if (start is PyString)
@@ -997,28 +1025,17 @@ namespace SharpPy
             // CPython 3.12: Python/bltinmodule.c:builtin_compile_impl
             // compile(source, filename, mode, flags=0, dont_inherit=False, optimize=-1)
 
-            if (args.Length > 6)
-                throw PyTypeError.Create($"compile() takes at most 7 arguments ({args.Length} given)");
-            // The clinic parser: the first three by position or by name.
-            string[] required = { "source", "filename", "mode" };
-            for (int i = 0; i < Math.Min(3, args.Length); i++)
-                if (KwValue(kwargs, required[i]) != null)
-                    throw PyTypeError.Create($"argument for compile() given by name ('{required[i]}') and position ({i + 1})");
-            if (args.Length < 3)
-            {
-                var filled = new PyObject[3];
-                Array.Copy(args, filled, args.Length);
-                for (int i = args.Length; i < 3; i++)
-                    filled[i] = KwValue(kwargs, required[i]) ??
-                        throw PyArgs.MissingArgument("compile", required[i], i + 1);
-                args = filled;
-            }
+            // builtin_compile's clinic: compile(source, filename, mode, flags=0, dont_inherit=False,
+            // optimize=-1, *, _feature_version=-1).
+            args = PyArgs.Unpack("compile", args, kwargs,
+                new[] { "source", "filename", "mode", "flags", "dont_inherit", "optimize", "_feature_version" }, 0, 3, 6);
+            kwargs = null;
 
             var source = args[0];
             var filenameArg = args[1];
             var modeArg = args[2];
             // builtin_compile_impl: PyCF_MASK, PyCF_MASK_OBSOLETE and PyCF_COMPILE_MASK.
-            var flagsArgument = args.Length > 3 ? args[3] : KwValue(kwargs, "flags");
+            var flagsArgument = args[3];
             // The clinic's int converter: _PyLong_AsInt over __index__.
             int compileFlags = flagsArgument == null ? 0 : PyArgs.Int(flagsArgument);
             if ((compileFlags & ~(0x1FE0000 | 0x10 | 0x400 | 0x200 | 0x1000 | 0x2000 | 0x4000)) != 0)
@@ -1047,8 +1064,7 @@ namespace SharpPy
                 return pyCode;
 
             // builtin_compile_impl: flags, dont_inherit, optimize, and a tree in place of text.
-            PyObject Option(int position, string name) => args.Length > position ? args[position]
-                : kwargs != null ? PyObject.KwValue(kwargs, name) : null;
+            PyObject Option(int position, string name) => args[position];
             int optimizeLevel = Option(5, "optimize") is PyObject optimizeValue ? PyArgs.Int(optimizeValue) : -1;
             if (optimizeLevel < 0)
                 optimizeLevel = 0;
@@ -1321,14 +1337,9 @@ namespace SharpPy
             // by name, so round(number=2.567, ndigits=2) is a legal call. A name matching neither is
             // invalid, and a missing required parameter is reported before that: round(zzz=1) says
             // "round() missing required argument 'number' (pos 1)".
-            if (args.Length > 2)
-                throw PyTypeError.Create($"round() takes at most 2 arguments ({args.Length} given)");
-
-            var number = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "number");
-            PyObject ndigits = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "ndigits");
-            if (number == null)
-                throw PyArgs.MissingArgument("round", "number", 1);
-            RejectUnknownKeywords(kwargs, "round", "number", "ndigits");
+            var a = PyArgs.Unpack("round", args, kwargs, new[] { "number", "ndigits" }, 0, 1, 2);
+            var number = a[0];
+            PyObject ndigits = a[1];
 
             var rounder = number.LookupSpecialMethodUncached("__round__");
             if (rounder == null)
@@ -1347,17 +1358,10 @@ namespace SharpPy
         {
             // Measured clinic behaviour: base/exp/mod are positional-or-keyword, a missing required
             // parameter names its position, and too many positionals gets its own text.
-            if (args.Length > 3)
-                throw PyTypeError.Create($"pow() takes at most 3 arguments ({args.Length} given)");
-
-            var base_ = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "base");
-            var exp = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "exp");
-            var mod = args.Length > 2 ? args[2] : PyObject.KwValue(kwargs, "mod");
-            if (base_ == null)
-                throw PyArgs.MissingArgument("pow", "base", 1);
-            if (exp == null)
-                throw PyArgs.MissingArgument("pow", "exp", 2);
-            RejectUnknownKeywords(kwargs, "pow", "base", "exp", "mod");
+            var a = PyArgs.Unpack("pow", args, kwargs, new[] { "base", "exp", "mod" }, 0, 2, 3);
+            var base_ = a[0];
+            var exp = a[1];
+            var mod = a[2];
 
             if (mod != null && mod is not PyNone)
                 return PyAbstract.Power(base_, exp, mod);
@@ -1578,17 +1582,13 @@ namespace SharpPy
             // CPython 3.12: __import__(name, globals=None, locals=None, fromlist=(), level=0)
             // Signature has 5 parameters: name (required), globals, locals, fromlist, level
 
-            // PyArg_ParseTupleAndKeywords "U|OOOi:__import__"
-            if (args.Length > 5)
-                throw PyTypeError.Create($"__import__() takes at most 5 arguments ({args.Length} given)");
-            if (args.Length >= 1 && kwargs != null && kwargs.Contains(PyString.From("name")).Value)
-                throw PyTypeError.Create("argument for __import__() given by name ('name') and position (1)");
-            var nameArgument = args.Length >= 1 ? args[0] : KwValue(kwargs, "name");
-            if (nameArgument == null)
-                throw PyArgs.MissingArgument("__import__", "name", 1);
+            // builtin___import__'s clinic: __import__(name, globals=None, locals=None, fromlist=(), level=0).
+            args = PyArgs.Unpack("__import__", args, kwargs, new[] { "name", "globals", "locals", "fromlist", "level" }, 0, 1, 5);
+            kwargs = null;
+            var nameArgument = args[0];
             if (nameArgument is not PyString)
                 throw PyTypeError.Create("module name must be a string");  // PyImport_ImportModuleLevelObject
-            var levelArgument = args.Length >= 5 ? args[4] : KwValue(kwargs, "level");
+            var levelArgument = args[4];
             if (nameArgument.Length() == 0 && (levelArgument == null || !levelArgument.IsTrue()))
                 throw PyValueError.Create("Empty module name");
 

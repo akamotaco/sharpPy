@@ -866,16 +866,11 @@ namespace SharpPy
 
         private static void ConstructorArguments(PyObject[] args, PyDict kwargs, string kind, out PyObject source, out PyObject encoding, out PyObject errors)
         {
-            if (args.Length > 3)
-                throw PyTypeError.Create($"{kind}() takes at most 3 arguments ({args.Length} given)");
-            source = args.Length > 0 ? args[0] : kwargs != null ? PyObject.KwValue(kwargs, "source") : null;
-            encoding = args.Length > 1 ? args[1] : kwargs != null ? PyObject.KwValue(kwargs, "encoding") : null;
-            errors = args.Length > 2 ? args[2] : kwargs != null ? PyObject.KwValue(kwargs, "errors") : null;
-            // _PyArg_UnpackKeywords: source, encoding and errors are the only names.
-            if (kwargs != null)
-                foreach (var key in kwargs.Keys().Items)
-                    if (key is not PyString name || name.Value is not ("source" or "encoding" or "errors"))
-                        throw PyArgs.InvalidKeyword(kind, key);
+            // bytes_new and bytearray___init__'s clinic: (source=<unrepresentable>, encoding=NULL, errors=NULL).
+            var a = PyArgs.Unpack(kind, args, kwargs, new[] { "source", "encoding", "errors" }, 0, 0, 3);
+            source = a[0];
+            encoding = a[1];
+            errors = a[2];
             if (encoding != null && encoding is not PyString)
                 throw PyArgs.BadArgument(kind, "argument 'encoding'", "str", encoding);
             if (errors != null && errors is not PyString)

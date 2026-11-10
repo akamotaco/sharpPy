@@ -357,7 +357,8 @@ namespace SharpPy
                     // long, so 10 bytes of 2**70 shifted out and the call returned 0 silently; and
                     // the top bit was read as a sign unconditionally, so int.from_bytes(b'\xff', 'big')
                     // answered -1 where CPython answers 255.
-                    var data = BytesMethods.ObjectBytes(args[0]).Value;
+                    // The Defining row has checked the call; bytes may come by name.
+                    var data = BytesMethods.ObjectBytes(args.Length > 0 ? args[0] : KwValue(kwargs, "bytes")).Value;
                     System.Numerics.BigInteger magnitude = 0;
                     for (int i = 0; i < data.Length; i++)
                     {
