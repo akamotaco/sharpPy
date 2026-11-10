@@ -22,15 +22,11 @@ namespace SharpPy.Modules
         // METH_O
         private static PyObject One(string name, PyObject[] args, Func<PyObject, PyObject> body)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"math.{name}() takes exactly one argument ({args.Length} given)");
             return body(args[0]);
         }
 
         private static void Check2(string name, PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"{name} expected 2 arguments, got {args.Length}");
         }
 
         // math_1
@@ -491,8 +487,6 @@ namespace SharpPy.Modules
 
         private static PyObject Perm(PyObject[] args)
         {
-            if (args.Length is < 1 or > 2)
-                throw PyTypeError.Create(args.Length < 1 ? $"perm expected at least 1 argument, got {args.Length}" : $"perm expected at most 2 arguments, got {args.Length}");
             if (args.Length == 1 || args[1] is PyNone)
                 return Factorial(args[0]);
             BigInteger n = Index(args[0]), k = Index(args[1]);
@@ -1029,8 +1023,6 @@ namespace SharpPy.Modules
             FuncO("log10", value => LogHelper(value, M_Log10));
             Func("log", args =>
             {
-                if (args.Length is < 1 or > 2)
-                    throw PyTypeError.Create(args.Length < 1 ? "log expected at least 1 argument, got 0" : $"log expected at most 2 arguments, got {args.Length}");
                 var number = LogHelper(args[0], M_Log);
                 if (args.Length == 1)
                     return number;

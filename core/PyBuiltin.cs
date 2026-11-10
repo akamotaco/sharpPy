@@ -69,6 +69,31 @@ namespace SharpPy
         // m_module: the module that holds this function
         internal string OwnerModule = "builtins";
 
+        /// <summary>
+        /// cfunction_vectorcall_* and the clinic: a module's function has its calling convention
+        /// checked before the body, named as _PyObject_FunctionStr names it.
+        /// </summary>
+        protected void CheckConvention(PyObject[] args, PyDict kwargs)
+        {
+            if (OwnerClass == null && OwnerType == null && Convention is { } convention)
+                PyArity.Check(convention, OwnerModule == "builtins" ? Name : OwnerModule + "." + Name, Name, args, kwargs, bound: true);
+        }
+
+        private PyArity.Convention _convention;
+        private bool _conventionLooked;
+        private PyArity.Convention Convention
+        {
+            get
+            {
+                if (!_conventionLooked)
+                {
+                    _convention = PyArity.OfFunction(OwnerModule, Name);
+                    _conventionLooked = true;
+                }
+                return _convention;
+            }
+        }
+
         // A method of a class: its name goes before this one in __qualname__.
         internal string OwnerClass;
         // The type a METH_CLASS function belongs to, which its doc is filed under.
@@ -140,6 +165,9 @@ namespace SharpPy
             Console.WriteLine($"[PyBuiltinFunction.Call] Name={Name}, args.Length={args.Length}");
 #endif
 
+            // cfunction_vectorcall_* and the clinic: a module's function has its calling convention
+            // checked before the body (core/BuiltinArity.g.cs, "<__module__>.<name>").
+            CheckConvention(args, kwargs);
             // A positional-only function of builtins has no way to receive a keyword, and the clinic
             // refuses it before looking at anything else; a function of another module of the same
             // name (_operator.abs) has its own convention.
@@ -249,12 +277,8 @@ namespace SharpPy
             // If the user hits EOF, raise EOFError.
 
             // input()은 kwargs를 받지 않음 (positional-only parameter)
-            if (kwargs != null && kwargs.InternalDict.Count > 0)
-                throw PyTypeError.Create("input() takes no keyword arguments");
 
             // 최대 1개 인수 (prompt)
-            if (args.Length > 1)
-                throw PyTypeError.Create($"input() takes at most 1 argument ({args.Length} given)");
 
             // builtin_input: through sys.stdin and sys.stdout, whatever they are now.
             var sys = PyImportSystem.Import("sys");
@@ -300,8 +324,6 @@ namespace SharpPy
 
         private static PyObject CallCallable(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"callable() takes exactly one argument ({args.Length} given)");
 
             return PyBool.FromBool(args[0].IsCallable());
         }
@@ -741,8 +763,6 @@ namespace SharpPy
 
         private static PyObject CallHasAttr(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"hasattr expected 2 arguments, got {args.Length}");
 
             var obj = args[0];
             var name = AttributeNameOf(args[1]);
@@ -756,10 +776,6 @@ namespace SharpPy
         private static PyObject CallGetAttr(PyObject[] args, PyDict kwargs = null)
         {
             // Measured: getattr's arity texts use "at least" / "at most", unlike hasattr's plain form.
-            if (args.Length < 2)
-                throw PyTypeError.Create($"getattr expected at least 2 arguments, got {args.Length}");
-            if (args.Length > 3)
-                throw PyTypeError.Create($"getattr expected at most 3 arguments, got {args.Length}");
 
             var obj = args[0];
             var name = AttributeNameOf(args[1]);
@@ -777,8 +793,6 @@ namespace SharpPy
 
         private static PyObject CallSetAttr(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 3)
-                throw PyTypeError.Create($"setattr expected 3 arguments, got {args.Length}");
 
             var obj = args[0];
             var name = AttributeNameOf(args[1]);
@@ -789,8 +803,6 @@ namespace SharpPy
 
         private static PyObject CallDelAttr(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"delattr expected 2 arguments, got {args.Length}");
 
             var obj = args[0];
             var name = AttributeNameOf(args[1]);
@@ -811,10 +823,6 @@ namespace SharpPy
 
         private static PyObject CallHash(PyObject[] args, PyDict kwargs = null)
         {
-            if (kwargs != null && kwargs.Length() != 0)
-                throw PyTypeError.Create("hash() takes no keyword arguments");
-            if (args.Length != 1)
-                throw PyTypeError.Create($"hash() takes exactly one argument ({args.Length} given)");
 
             long hash = args[0].GetPythonHash();
             return PyInt.From(hash);
@@ -921,11 +929,7 @@ namespace SharpPy
             // CPython 3.12: Python/bltinmodule.c:builtin_eval_impl
             // eval(source, globals=None, locals=None)
 
-            if (args.Length == 0)
-                throw PyTypeError.Create("eval expected at least 1 argument, got 0");
 
-            if (args.Length > 3)
-                throw PyTypeError.Create($"eval expected at most 3 arguments, got {args.Length}");
 
             var source = args[0];
             var globalsArgument = args.Length > 1 && args[1] != PyNone.Instance ? args[1] : null;
@@ -1033,28 +1037,16 @@ namespace SharpPy
             kwargs = null;
 
             var source = args[0];
-            var filenameArg = args[1];
-            var modeArg = args[2];
+            // The clinic's conversions, in order: filename by PyUnicode_FSDecoder, mode by the str
+            // converter, flags and optimize by the int converter, dont_inherit by PyObject_IsTrue.
+            string filename = PyArgs.FSDecoder(args[1]);
+            string mode = PyArgs.ClinicStr("compile", "argument 'mode'", "str", args[2]);
+            int compileFlags = args[3] == null ? 0 : PyArgs.Int(args[3]);
+            bool dontInherit = args[4] != null && args[4].IsTrue();
+            int optimizeLevel = args[5] == null ? -1 : PyArgs.Int(args[5]);
             // builtin_compile_impl: PyCF_MASK, PyCF_MASK_OBSOLETE and PyCF_COMPILE_MASK.
-            var flagsArgument = args[3];
-            // The clinic's int converter: _PyLong_AsInt over __index__.
-            int compileFlags = flagsArgument == null ? 0 : PyArgs.Int(flagsArgument);
             if ((compileFlags & ~(0x1FE0000 | 0x10 | 0x400 | 0x200 | 0x1000 | 0x2000 | 0x4000)) != 0)
                 throw PyValueError.Create("compile(): unrecognised flags");
-            // int flags = args.Length > 3 ? ... : 0;  // Future: compilation flags
-            // bool dont_inherit = args.Length > 4 ? ... : false;
-            // int optimize = args.Length > 5 ? ... : -1;
-
-            // Extract filename
-            // builtin_compile's clinic: filename through PyUnicode_FSDecoder.
-            string filename = PyArgs.FSDecoder(filenameArg);
-
-            // Extract mode
-            string mode;
-            if (modeArg is PyString pyMode)
-                mode = pyMode.Value;
-            else
-                throw PyTypeError.Create($"compile() arg 3 must be str, not '{modeArg.GetTypeName()}'");
 
             // Validate mode
             if (mode != "exec" && mode != "eval" && mode != "single")
@@ -1065,8 +1057,6 @@ namespace SharpPy
                 return pyCode;
 
             // builtin_compile_impl: flags, dont_inherit, optimize, and a tree in place of text.
-            PyObject Option(int position, string name) => args[position];
-            int optimizeLevel = Option(5, "optimize") is PyObject optimizeValue ? PyArgs.Int(optimizeValue) : -1;
             if (optimizeLevel < 0)
                 optimizeLevel = 0;
             var compileMode = mode switch
@@ -1086,7 +1076,6 @@ namespace SharpPy
             }
 
             string sourceCode = SourceAsString(source, "compile", "string, bytes or AST", compileMode == CompileMode.File, filename);
-            bool dontInherit = Option(4, "dont_inherit") is PyObject dontInheritValue && dontInheritValue.IsTrue();
             if (!dontInherit)
                 compileFlags |= InheritedCompilerFlags();
 
@@ -1157,11 +1146,7 @@ namespace SharpPy
             // CPython 3.12: Python/bltinmodule.c:builtin_exec_impl
             // exec(object, globals=None, locals=None)
 
-            if (args.Length == 0)
-                throw PyTypeError.Create("exec expected at least 1 argument, got 0");
 
-            if (args.Length > 3)
-                throw PyTypeError.Create($"exec expected at most 3 arguments, got {args.Length}");
 
             var source = args[0];
             var globalsArgument = args.Length > 1 && args[1] != PyNone.Instance ? args[1] : null;
@@ -1287,10 +1272,6 @@ namespace SharpPy
         {
             // CPython 3.12: iter(obj) or iter(callable, sentinel)
             // (Python/bltinmodule.c builtin_iter).
-            if (args.Length < 1)
-                throw PyTypeError.Create($"iter expected at least 1 argument, got {args.Length}");
-            if (args.Length > 2)
-                throw PyTypeError.Create($"iter expected at most 2 arguments, got {args.Length}");
 
             if (args.Length == 2)
             {
@@ -1433,8 +1414,6 @@ namespace SharpPy
 
         private static PyObject CallDir(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length > 1)
-                throw PyTypeError.Create($"dir expected at most 1 argument, got {args.Length}");
 
             // CPython 3.12: Python/bltinmodule.c:844-851 - builtin_dir
             // CPython 3.12: Objects/object.c:1754-1781 - _dir_object
@@ -1587,6 +1566,9 @@ namespace SharpPy
             args = PyArgs.Unpack("__import__", args, kwargs, new[] { "name", "globals", "locals", "fromlist", "level" }, 0, 1, 5);
             kwargs = null;
             var nameArgument = args[0];
+            // The clinic's int converter on level, before the body looks at name.
+            if (args[4] != null)
+                PyArgs.Int(args[4]);
             if (nameArgument is not PyString)
                 throw PyTypeError.Create("module name must be a string");  // PyImport_ImportModuleLevelObject
             var levelArgument = args[4];
@@ -1934,8 +1916,6 @@ namespace SharpPy
         /// </summary>
         private static PyObject CallRepr(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"repr() takes exactly one argument ({args.Length} given)");
 
             var obj = args[0];
 

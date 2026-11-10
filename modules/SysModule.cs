@@ -192,8 +192,6 @@ namespace SharpPy.Modules
             module.ModuleDict["set_asyncgen_hooks"] = new PyBuiltinFunction("set_asyncgen_hooks", SetAsyncgenHooks);
             module.ModuleDict["call_tracing"] = new PyBuiltinFunction("call_tracing", args =>
             {
-                if (args.Length != 2)
-                    throw PyTypeError.Create($"call_tracing expected 2 arguments, got {args.Length}");
                 if (args[1] is not PyTuple arguments)
                     throw PyArgs.BadArgument("call_tracing", "argument 2", "tuple", args[1]);
                 return args[0].Call(arguments.Items, null);
@@ -283,8 +281,6 @@ namespace SharpPy.Modules
             // keeps (unsigned long)(1e6 * interval), 32 bits here.
             module.ModuleDict["setswitchinterval"] = new PyBuiltinFunction("setswitchinterval", args =>
             {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"sys.setswitchinterval() takes exactly one argument ({args.Length} given)");
                 double interval = args[0] is PyFloat { IsExact: true } exact ? exact.Value : SharpPy.Modules.PyMathFunction.RealNumber(args[0]);
                 if (interval <= 0.0)
                     throw PyValueError.Create("switch interval must be strictly positive");
@@ -502,11 +498,9 @@ namespace SharpPy.Modules
         // sys__getframemodulename_impl
         private static PyObject GetFrameModuleName(PyObject[] args, PyDict kwargs)
         {
-            int depth = args.Length > 0 ? args[0].ToInt() : 0;
-            if (kwargs != null)
-                foreach (var pair in kwargs.InternalDict)
-                    if ((pair.Key as PyString)?.Value == "depth")
-                        depth = pair.Value.ToInt();
+            // sys__getframemodulename's clinic: (depth=0), the int converter.
+            var depthArgument = PyArgs.Unpack("_getframemodulename", args, kwargs, new[] { "depth" }, 0, 0, 1)[0];
+            int depth = depthArgument == null ? 0 : PyArgs.Int(depthArgument);
             var frame = PyVM.CurrentFrame;
             while (frame != null && depth-- > 0)
                 frame = frame.ParentFrame;
@@ -560,6 +554,7 @@ namespace SharpPy.Modules
 
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
+            CheckConvention(args, kwargs);
             if (Name is "get_int_max_str_digits" or "set_int_max_str_digits")
             {
                 if (Name == "get_int_max_str_digits")
@@ -613,16 +608,12 @@ namespace SharpPy.Modules
 
         private PyObject CallGetDefaultEncoding(PyObject[] args)
         {
-            if (args.Length != 0)
-                throw PyTypeError.Create($"getdefaultencoding() takes no arguments ({args.Length} given)");
             
             return PyString.From("utf-8");
         }
 
         private PyObject CallGetFilesystemEncoding(PyObject[] args)
         {
-            if (args.Length != 0)
-                throw PyTypeError.Create($"getfilesystemencoding() takes no arguments ({args.Length} given)");
             
             return PyString.From("utf-8");
         }
@@ -636,10 +627,6 @@ namespace SharpPy.Modules
         /// </summary>
         private PyObject CallExit(PyObject[] args, PyDict kwargs)
         {
-            if (kwargs != null && kwargs.Length() != 0)
-                throw PyTypeError.Create("sys.exit() takes no keyword arguments");
-            if (args.Length > 1)
-                throw PyTypeError.Create($"exit expected at most 1 argument, got {args.Length}");
             // sys.exit is sys_exit_impl (Python/sysmodule.c:947), which ends in
             // PyErr_SetObject(PyExc_SystemExit, status) (:951). That normalizes through
             // _PyErr_CreateException (Python/errors.c:39): None or missing builds the exception with
@@ -686,8 +673,6 @@ namespace SharpPy.Modules
 
         private PyObject CallGetRefCount(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"getrefcount() takes exactly one argument ({args.Length} given)");
 
             // C#에서는 참조 카운팅을 직접 구현하지 않으므로 더미 값 반환
             return PyInt.From(1);
@@ -700,8 +685,6 @@ namespace SharpPy.Modules
         /// </summary>
         private PyObject CallExcInfo(PyObject[] args)
         {
-            if (args.Length != 0)
-                throw PyTypeError.Create($"exc_info() takes no arguments ({args.Length} given)");
 
             // CPython 3.12: Python/sysmodule.c:902
             // _PyErr_StackItem *err_info = _PyErr_GetTopmostException(_PyThreadState_GET());
@@ -769,8 +752,6 @@ namespace SharpPy.Modules
 
         private PyObject CallExceptHook(PyObject[] args)
         {
-            if (args.Length != 3)
-                throw PyTypeError.Create($"excepthook expected 3 arguments, got {args.Length}");
             // sys_excepthook_impl: PyErr_Display(NULL, value, traceback), the C writer (traceback.py is
             // the library's formatter, and in 3.12 it draws some locations differently).
             PyErrorDisplay.Display(args[1], args[2]);
@@ -779,15 +760,11 @@ namespace SharpPy.Modules
 
         private PyObject CallGetRecursionLimit(PyObject[] args)
         {
-            if (args.Length != 0)
-                throw PyTypeError.Create($"getrecursionlimit() takes no arguments ({args.Length} given)");
             return PyInt.From(RecursionLimitValue);
         }
 
         private PyObject CallSetRecursionLimit(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"setrecursionlimit() takes exactly one argument ({args.Length} given)");
             var idx = PyObject.IndexOrThrow(args[0]);
             if (idx.Value <= 0)
                 throw PyValueError.Create("recursion limit must be greater than zero");
@@ -803,8 +780,6 @@ namespace SharpPy.Modules
         // sys_intern: METH_O, a str (clinic), and then an exact one (sys_intern_impl).
         private PyObject CallIntern(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"sys.intern() takes exactly one argument ({args.Length} given)");
             if (args[0] is not PyString s)
                 throw PyArgs.BadArgument("intern", "argument", "str", args[0]);
             if (!s.IsExact)
@@ -840,18 +815,8 @@ namespace SharpPy.Modules
         private PyObject CallGetFrame(PyObject[] args)
         {
             // Parse optional depth argument (default 0)
-            int depth = 0;
-            if (args.Length > 0)
-            {
-                if (args[0] is PyInt depthInt)
-                {
-                    depth = (int)depthInt.Value;
-                }
-                else
-                {
-                    throw PyTypeError.Create("_getframe() argument must be an integer");
-                }
-            }
+            // sys__getframe's clinic: depth through the int converter.
+            int depth = args.Length > 0 ? PyArgs.Int(args[0]) : 0;
 
             if (args.Length > 1)
             {

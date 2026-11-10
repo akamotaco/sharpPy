@@ -16,18 +16,18 @@ namespace SharpPy.Modules
                 d["__doc__"] = PyString.From(doc);
             d["heappush"] = Fast("heappush", 2, args =>
             {
-                var heap = ListArg("heappush", args[0]);
+                var heap = ListArg("heappush", "argument 1", args[0]);
                 heap.Append(args[1]);
                 SiftDown(heap, 0, heap.RawCount() - 1);
                 return PyNone.Instance;
             });
-            d["heappushpop"] = Fast("heappushpop", 2, args => PushPop(ListArg("heappushpop", args[0]), args[1]));
+            d["heappushpop"] = Fast("heappushpop", 2, args => PushPop(ListArg("heappushpop", "argument 1", args[0]), args[1]));
             d["heappop"] = One("heappop", heap => PopInternal(heap, SiftUp));
-            d["heapreplace"] = Fast("heapreplace", 2, args => ReplaceInternal(ListArg("heapreplace", args[0]), args[1], SiftUp));
+            d["heapreplace"] = Fast("heapreplace", 2, args => ReplaceInternal(ListArg("heapreplace", "argument 1", args[0]), args[1], SiftUp));
             d["heapify"] = One("heapify", heap => HeapifyInternal(heap, SiftUp));
             d["_heappop_max"] = One("_heappop_max", heap => PopInternal(heap, SiftUpMax));
             d["_heapify_max"] = One("_heapify_max", heap => HeapifyInternal(heap, SiftUpMax));
-            d["_heapreplace_max"] = Fast("_heapreplace_max", 2, args => ReplaceInternal(ListArg("_heapreplace_max", args[0]), args[1], SiftUpMax));
+            d["_heapreplace_max"] = Fast("_heapreplace_max", 2, args => ReplaceInternal(ListArg("_heapreplace_max", "argument 1", args[0]), args[1], SiftUpMax));
             return module;
         }
 
@@ -37,11 +37,12 @@ namespace SharpPy.Modules
 
         // METH_O with the subclass_of='&PyList_Type' converter.
         private static PyBuiltinFunction One(string name, Func<PyList, PyObject> body) =>
-            PyArgs.MethO("_heapq", name, args => body(ListArg(name, args[0])));
+            PyArgs.MethO("_heapq", name, args => body(ListArg(name, "argument", args[0])));
 
         // _PyArg_BadArgument
-        private static PyList ListArg(string name, PyObject value) =>
-            value as PyList ?? throw PyArgs.BadArgument(name, "argument 1", "list", value);
+        // _PyArg_BadArgument: "argument" for METH_O, "argument 1" for a positional of METH_FASTCALL.
+        private static PyList ListArg(string name, string displayname, PyObject value) =>
+            value as PyList ?? throw PyArgs.BadArgument(name, displayname, "list", value);
 
         private static Exception ChangedSize() => PyRuntimeError.Create("list changed size during iteration");
 

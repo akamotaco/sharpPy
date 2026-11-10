@@ -268,28 +268,9 @@ namespace SharpPy.Modules
             return args[0].Contains(args[1]);
         }
 
-        private static PyObject CountOf(PyObject[] args)
-        {
-            // _PySequence_IterSearch, PY_ITERSEARCH_COUNT
-            int count = 0;
-            var iterator = args[0].GetIterator();
-            while (true)
-            {
-                PyObject item;
-                try
-                {
-                    item = iterator.Next();
-                }
-                catch (PythonException error) when (error.PyException is PyStopIteration)
-                {
-                    break;
-                }
-                if (PyObject.CompareBool(item, args[1], PyObject.CompareOp.EQ))
-                    count++;
-            }
-
-            return PyInt.From(count);
-        }
+        // PySequence_Count
+        private static PyObject CountOf(PyObject[] args) =>
+            PyInt.From(PyObject.IterSearch(args[0], args[1], PyObject.IterSearchOperation.Count));
 
         private static PyObject DelItem(PyObject[] args)
         {
@@ -304,27 +285,9 @@ namespace SharpPy.Modules
             return PyAbstract.GetItem(args[0], args[1]);
         }
 
-        private static PyObject IndexOf(PyObject[] args)
-        {
-            // _PySequence_IterSearch, PY_ITERSEARCH_INDEX
-            int index = 0;
-            var iterator = args[0].GetIterator();
-            while (true)
-            {
-                PyObject item;
-                try
-                {
-                    item = iterator.Next();
-                }
-                catch (PythonException error) when (error.PyException is PyStopIteration)
-                {
-                    throw PyValueError.Create("sequence.index(x): x not in sequence");
-                }
-                if (PyObject.CompareBool(item, args[1], PyObject.CompareOp.EQ))
-                    return PyInt.From(index);
-                index++;
-            }
-        }
+        // PySequence_Index
+        private static PyObject IndexOf(PyObject[] args) =>
+            PyInt.From(PyObject.IterSearch(args[0], args[1], PyObject.IterSearchOperation.Index));
 
         private static PyObject SetItem(PyObject[] args)
         {

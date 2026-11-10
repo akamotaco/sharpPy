@@ -27,8 +27,6 @@ namespace SharpPy.Modules
         // until it ends; only the end of the iterator stops the loop, every other error propagates.
         public static PyObject PyReduce(PyObject[] args, PyDict? kwargs)
         {
-            if (kwargs != null && kwargs.Length() != 0)
-                throw PyTypeError.Create("reduce() takes no keyword arguments");
             PyArgs.Positional("reduce", args, null, 2, 3);
             var function = args[0];
             PyObject? result = args.Length == 3 ? args[2] : null;

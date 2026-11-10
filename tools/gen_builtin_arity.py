@@ -53,7 +53,8 @@ def answer(func, args, kwargs):
         func(*args, **kwargs)
     except TypeError as e:
         return str(e)
-    except Exception:
+    except BaseException:
+        # sys.exit's SystemExit, input's EOFError (stdin is closed): not an arity answer.
         return None
     return None
 
@@ -134,7 +135,8 @@ def keyword_answer(func):
         func(zzunknown=1)
     except TypeError as e:
         return str(e)
-    except Exception:
+    except BaseException:
+        # sys.exit's SystemExit, input's EOFError (stdin is closed): not an arity answer.
         return None
     return None
 
@@ -162,8 +164,8 @@ def bounds(seen, low, high):
     return lo, (hi if hi < MAXN else 10**6)
 
 
-def classify(tname, mname, func):
-    q = f"{tname}.{mname}"
+def classify(tname, mname, func, q=None):
+    q = q or f"{tname}.{mname}"
     seen, seen_kw = observed(func)
     if fits(lambda n, kw: noargs(q, n, kw), seen, seen_kw):
         return ("NoArgs", 0, 0)
@@ -238,6 +240,17 @@ def module_sample(t):
 BLOCKING = {"acquire", "acquire_lock", "release", "release_lock", "_release_save", "_acquire_restore",
             "__enter__", "__exit__", "_at_fork_reinit"}
 
+
+# The functions of builtins and of the C modules SharpPy has, keyed "<__module__>.<name>". Run with
+# stdin and stdout redirected (input meets EOF); what would start a debugger, install a hook that
+# outlives the call or change the interpreter's state for good is not called.
+FUNCTION_MODULES = {
+    "builtins": {"breakpoint"},
+    "math": set(), "cmath": set(), "_operator": set(), "_functools": set(), "_bisect": set(), "_heapq": set(),
+    "time": set(),
+    "sys": {"breakpointhook", "addaudithook", "activate_stack_trampoline", "deactivate_stack_trampoline",
+            "set_asyncgen_hooks"},
+}
 
 # The C modules whose types SharpPy has, and the types module's types that builtins does not name.
 MODULES = ("_io", "re", "array", "_thread", "operator", "itertools", "collections", "functools", "_struct", "types")
@@ -346,6 +359,17 @@ def collect():
             found = classify(obj.__name__ if isinstance(obj, type) and kind == "method_descriptor" else t.__name__, mname, func)
             if found:
                 entries[f"{t.__name__}.{mname}"] = found
+    # A module's function: cfunction_vectorcall_* names it by _PyObject_FunctionStr, the module
+    # in front unless it is builtins.
+    import importlib
+    for modname, skip in FUNCTION_MODULES.items():
+        for fname, func in sorted(vars(importlib.import_module(modname)).items()):
+            if type(func).__name__ != "builtin_function_or_method" or fname in skip or fname.startswith("__") and fname != "__import__":
+                continue
+            module = func.__module__ or modname
+            found = classify(module, fname, func, fname if module == "builtins" else f"{module}.{fname}")
+            if found:
+                entries[f"{module}.{fname}"] = found
     return entries
 
 

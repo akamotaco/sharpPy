@@ -114,8 +114,6 @@ namespace SharpPy.Modules
         private static void Register(PyModule module, string name, Func<Pair, Pair> function) =>
             module.ModuleDict[name] = new PyBuiltinFunction(name, args =>
             {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"cmath.{name}() takes exactly one argument ({args.Length} given)");
                 var z = Argument(args[0]);
                 _errno = Fault.None;
                 return Result(function(z));
@@ -124,8 +122,6 @@ namespace SharpPy.Modules
         // cmath_log_impl
         private static PyObject LogOf(PyObject[] args)
         {
-            if (args.Length is < 1 or > 2)
-                throw PyTypeError.Create(args.Length < 1 ? "log expected at least 1 argument, got 0" : $"log expected at most 2 arguments, got {args.Length}");
             var x = Argument(args[0]);
             _errno = Fault.None;
             var numerator = CLog(x);
@@ -140,8 +136,6 @@ namespace SharpPy.Modules
 
         private static PyObject Rect(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"rect expected 2 arguments, got {args.Length}");
             double r = PyMathFunction.RealNumber(args[0]), phi = PyMathFunction.RealNumber(args[1]);
             _errno = Fault.None;
             var z = default(Pair);

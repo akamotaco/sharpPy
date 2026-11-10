@@ -35,8 +35,18 @@ namespace SharpPy
         /// after the class it is bound to (meth_get__qualname__ of a type self), given as cls.
         /// </summary>
         internal static void Check(Convention convention, PyType owner, string name, PyObject[] args, PyDict kwargs, bool bound = false, PyObject cls = null)
+            => Check(convention, (cls != null ? PyBuiltinFunction.QualifiedClassLabel(cls) : owner.Name) + "." + name, name, args, kwargs, bound);
+
+        /// <summary>
+        /// The convention of a module's function ("<__module__>.<name>"), or null: builtins and the
+        /// C modules SharpPy implements.
+        /// </summary>
+        internal static Convention OfFunction(string module, string name) =>
+            module != null && Table.TryGetValue(module + "." + name, out var found) ? found : null;
+
+        /// <summary>The checks of the convention, the callable named qualname (_PyObject_FunctionStr).</summary>
+        internal static void Check(Convention convention, string qualname, string name, PyObject[] args, PyDict kwargs, bool bound)
         {
-            string qualname = (cls != null ? PyBuiltinFunction.QualifiedClassLabel(cls) : owner.Name) + "." + name;
             bool keywords = kwargs != null && kwargs.Length() != 0;
             bool qualified = !bound || convention.QualifiedKeywordRefusal;
             switch (convention.Kind)

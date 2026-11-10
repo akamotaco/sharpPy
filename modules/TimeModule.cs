@@ -61,8 +61,6 @@ namespace SharpPy
         // METH_VARARGS: no keywords, then PyArg_ParseTuple's count.
         private static void VarArgs(string name, PyObject[] args, PyDict kwargs, int min, int max)
         {
-            if (kwargs != null && kwargs.Length() != 0)
-                throw PyTypeError.Create($"{name}() takes no keyword arguments");
             PyArgs.ParseTuple(name, args, min, max);
         }
 
@@ -296,8 +294,6 @@ namespace SharpPy
         // time_strptime: _strptime._strptime_time(*args)
         private static PyObject StrPTime(PyObject[] args, PyDict kwargs)
         {
-            if (kwargs != null && kwargs.Length() != 0)
-                throw PyTypeError.Create("strptime() takes no keyword arguments");
             var func = PyImportSystem.Import("_strptime").GetAttribute("_strptime_time");
             return func.Call(args, null);
         }
@@ -312,10 +308,6 @@ namespace SharpPy
         // time_asctime
         private static PyObject AscTime(PyObject[] args, PyDict kwargs)
         {
-            if (kwargs != null && kwargs.Length() != 0)
-                throw PyTypeError.Create("asctime() takes no keyword arguments");
-            if (args.Length > 1)
-                throw PyTypeError.Create($"asctime expected at most 1 argument, got {args.Length}");
             CTm buf;
             if (args.Length == 0)
             {

@@ -1405,7 +1405,17 @@ namespace SharpPy
             GetPyType() is SharpPy.PyClass heap ? heap.ContainsSlot(this, item) : ContainsItem(item);
 
         /// <summary>_PySequence_IterSearch with PY_ITERSEARCH_CONTAINS.</summary>
-        internal static PyBool IterSearchContains(PyObject seq, PyObject item)
+        internal static PyBool IterSearchContains(PyObject seq, PyObject item) =>
+            PyBool.FromBool(IterSearch(seq, item, IterSearchOperation.Contains) == 1);
+
+        internal enum IterSearchOperation { Count, Index, Contains }
+
+        /// <summary>
+        /// _PySequence_IterSearch (Objects/abstract.c): iterate seq comparing each item with obj -
+        /// how many equal (PySequence_Count), the first index (PySequence_Index), or whether one does
+        /// (PySequence_Contains without sq_contains).
+        /// </summary>
+        internal static long IterSearch(PyObject seq, PyObject obj, IterSearchOperation operation)
         {
             PyObject iterator;
             try
@@ -1416,14 +1426,40 @@ namespace SharpPy
             {
                 throw PyTypeError.Create($"argument of type '{seq.GetPyType().FullName}' is not iterable");
             }
+            long n = 0;
+            bool wrapped = false;
             while (true)
             {
-                PyObject current;
-                try { current = iterator.Next(); }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration) { return PyBool.False; }
-                if (CompareBool(current, item, CompareOp.EQ))
-                    return PyBool.True;
+                PyObject item;
+                try { item = iterator.Next(); }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration) { break; }
+                if (CompareBool(item, obj, CompareOp.EQ))
+                {
+                    switch (operation)
+                    {
+                        case IterSearchOperation.Count:
+                            if (n == long.MaxValue)
+                                throw PyOverflowError.Create("count exceeds C integer size");
+                            ++n;
+                            break;
+                        case IterSearchOperation.Index:
+                            if (wrapped)
+                                throw PyOverflowError.Create("index exceeds C integer size");
+                            return n;
+                        default:
+                            return 1;
+                    }
+                }
+                if (operation == IterSearchOperation.Index)
+                {
+                    if (n == long.MaxValue)
+                        wrapped = true;
+                    ++n;
+                }
             }
+            if (operation != IterSearchOperation.Index)
+                return n;
+            throw PyValueError.Create("sequence.index(x): x not in sequence");
         }
 
         /// <summary>
