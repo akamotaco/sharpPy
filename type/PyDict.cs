@@ -293,19 +293,13 @@ namespace SharpPy
                         throw PyTypeError.Create($"dict.__getitem__() takes exactly one argument ({args.Length} given)");
 
                     // dict_subscript: the table, then __missing__ when the type is not exactly dict.
-                    if (self is PyDict pyDict)
-                    {
-                        if (pyDict.TryGetStoredValue(args[0], out var value))
-                            return value;
-                        // dict_subscript: only !PyDict_CheckExact looks __missing__ up.
-                        if (!pyDict.IsExact && pyDict.LookupSpecialMethodUncached("__missing__") is { } missing)
-                            return pyDict.CallSpecial(missing, args[0]);
-                        throw PyKeyError.Create(args[0]);
-                    }
-
-                    // CPython 3.12.15 measured: dict methods are method_descriptors
-                    // (descrobject.c call_method), not slot wrappers.
-                    throw PyTypeError.Create($"descriptor '__getitem__' for 'dict' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    var pyDict = (PyDict)self;
+                    if (pyDict.TryGetStoredValue(args[0], out var value))
+                        return value;
+                    // dict_subscript: only !PyDict_CheckExact looks __missing__ up.
+                    if (!pyDict.IsExact && pyDict.LookupSpecialMethodUncached("__missing__") is { } missing)
+                        return pyDict.CallSpecial(missing, args[0]);
+                    throw PyKeyError.Create(args[0]);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -326,13 +320,9 @@ namespace SharpPy
                         throw PyTypeError.Create($" expected 2 arguments, got {args.Length}");
 
                     // dict_ass_sub: the table itself.
-                    if (self is PyDict pyDict)
-                    {
-                        pyDict.MpAssSubscript(args[0], args[1]);
-                        return PyNone.Instance;
-                    }
-
-                    throw PyTypeError.Create($"descriptor '__setitem__' for 'dict' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    var pyDict = (PyDict)self;
+                    pyDict.MpAssSubscript(args[0], args[1]);
+                    return PyNone.Instance;
                 },
                 minArgs: 2, maxArgs: 2
             );
@@ -349,13 +339,9 @@ namespace SharpPy
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create("dict.__delitem__() takes no keyword arguments");
                     // dict_ass_sub without a value: the table itself.
-                    if (self is PyDict pyDict)
-                    {
-                        pyDict.MpDelSubscript(args[0]);
-                        return PyNone.Instance;
-                    }
-
-                    throw PyTypeError.Create($"descriptor '__delitem__' for 'dict' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    var pyDict = (PyDict)self;
+                    pyDict.MpDelSubscript(args[0]);
+                    return PyNone.Instance;
                 },
                 minArgs: 1, maxArgs: 1
             );

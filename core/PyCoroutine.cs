@@ -455,22 +455,15 @@ namespace SharpPy.Core
             // tp_iter: a slot wrapper.
             WrapperType.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", WrapperType,
                 (self, args, kwargs) => {
-                    CheckIteratorArguments(self, args, kwargs, "__iter__");
                     return self;
                 });
             // tp_iternext: a slot wrapper.
             WrapperType.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", WrapperType,
                 (self, args, kwargs) => {
-                    CheckIteratorArguments(self, args, kwargs, "__next__");
                     return ((PyCoroutineAwaiter)self).IterNext();
                 });
         }
 
-        private static void CheckIteratorArguments(PyObject self, PyObject[] args, PyDict kwargs, string name)
-        {
-            if (self is not PyCoroutineAwaiter)
-                throw PyTypeError.Create($"descriptor '{name}' requires a 'coroutine_wrapper' object but received a '{self.GetTypeName()}'");
-        }
 
         private readonly PyCoroutine _coroutine;
 

@@ -137,9 +137,8 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             "__name__",
             funcType,
             getter: self => {
-                if (self is PyFunction func)
-                    return func._nameObject ??= PyString.From(func.Name);
-                throw PyTypeError.Create("descriptor '__name__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                var func = (PyFunction)self;
+                return func._nameObject ??= PyString.From(func.Name);
             },
             setter: (self, value) => {
                 if (value is not PyString text)
@@ -157,21 +156,17 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             "__qualname__",
             funcType,
             getter: self => {
-                if (self is PyFunction func)
-                    return func._qualNameObject ??= PyString.From(func.QualName);
-                throw PyTypeError.Create("descriptor '__qualname__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                var func = (PyFunction)self;
+                return func._qualNameObject ??= PyString.From(func.QualName);
             },
             setter: (self, value) => {
-                if (!(self is PyFunction func))
-                    throw PyTypeError.Create("descriptor '__qualname__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                var func = (PyFunction)self;
                 if (!(value is PyString text))
                     throw PyTypeError.Create("__qualname__ must be set to a string object");
                 func.SetQualName(text.Value);
                 func._qualNameObject = text;
             },
             deleter: self => {
-                if (!(self is PyFunction))
-                    throw PyTypeError.Create("descriptor '__qualname__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                 throw PyTypeError.Create("__qualname__ must be set to a string object");
             }
         );
@@ -235,9 +230,8 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             "__code__",
             funcType,
             getter: self => {
-                if (self is PyFunction func)
-                    return (PyObject)(func.CodeObject ?? (object)PyNone.Instance);
-                throw PyTypeError.Create("descriptor '__code__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                var func = (PyFunction)self;
+                return (PyObject)(func.CodeObject ?? (object)PyNone.Instance);
             },
             setter: (self, value) => {
                 // func_set_code: a code of the same closure size, and nothing else.
@@ -276,19 +270,16 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             "__globals__",
             funcType,
             getter: self => {
-                if (self is PyFunction func)
-                {
-                    if (func.GlobalsDict == null)
-                        return PyNone.Instance;
+                var func = (PyFunction)self;
+                if (func.GlobalsDict == null)
+                    return PyNone.Instance;
 
-                    // Lazy-initialize and cache the globals dict wrapper
-                    if (func._globalsCache == null)
-                    {
-                        func._globalsCache = PyGlobalsDict.For(func.GlobalsDict);
-                    }
-                    return func._globalsCache;
+                // Lazy-initialize and cache the globals dict wrapper
+                if (func._globalsCache == null)
+                {
+                    func._globalsCache = PyGlobalsDict.For(func.GlobalsDict);
                 }
-                throw PyTypeError.Create("descriptor '__globals__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                return func._globalsCache;
             }
         );
 
@@ -310,9 +301,8 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             "__defaults__",
             funcType,
             getter: self => {
-                if (self is PyFunction func)
-                    return func._defaults ?? PyNone.Instance;
-                throw PyTypeError.Create("descriptor '__defaults__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                var func = (PyFunction)self;
+                return func._defaults ?? PyNone.Instance;
             },
             setter: (self, value) => {
                 if (value is PyNone)

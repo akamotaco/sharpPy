@@ -723,6 +723,12 @@ namespace SharpPy
 
         internal PyObject BindSpecialMethod(PyObject method)
         {
+            // lookup_maybe_method: a method descriptor (Py_TPFLAGS_METHOD_DESCRIPTOR) is not bound but
+            // called with self first, so one taken from another class fails in wrapperdescr_call or
+            // method_vectorcall's self check, not in binding.
+            if (method is PyWrapperDescriptor { Name: not "__new__" } wrapper && !PyMethodDescriptor.AppliesTo(wrapper.OwnerType, this)
+                || method is PyMethodDescriptor { Name: not "__new__" } methodDescriptor && !PyMethodDescriptor.AppliesTo(methodDescriptor.OwnerType, this))
+                return new PyMethod(this, method);
             if (method is IDescriptor descriptor)
                 return descriptor.Get(this, GetPyType());
 

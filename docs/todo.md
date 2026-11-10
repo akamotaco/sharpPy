@@ -77,6 +77,7 @@
 - 3-6. `raise`한 객체와 `except`에서 받은 객체의 동일성 (P0-70).
 - 3-7. 내장 이터레이터를 상속한 클래스, `set` 하위 클래스의 `repr` 경로, `__bases__` 대입 검사 (P0-83).
 - 3-8. `type_setattro`는 `PyType.TypeSetAttribute` 하나다(불변 검사, 메타타입 데이터 디스크립터, `tp_dict`, `PyType_Modified`). `PyStructSequence_NewType`으로 만드는 타입(`time.struct_time`, `os.stat_result`, `os.terminal_size`, `nt.times_result`)은 힙 타입이다. 남은 것: `os.stat_result`에 `st_birthtime`, `st_birthtime_ns`가 없다(n_fields 18, CPython 20).
+- 3-9. 메서드 형태 `LOAD_ATTR`가 `_PyObject_GetMethod`가 아니다. SharpPy는 속성을 바인드한 뒤 메서드 디스크립터를 다시 푼다. 그래서 다른 클래스에서 가져온 슬롯 래퍼(`class A(int): __eq__ = str.__eq__`)의 `a.__eq__(a)`가 CPython의 `wrapperdescr_call` 문구("requires a 'str' object but received a 'A'") 대신 `wrapperdescr_get`의 `descr_check` 문구("doesn't apply to a 'A' object")를 낸다. 경로: 타입 MRO에서 찾은 메서드 디스크립터(`Py_TPFLAGS_METHOD_DESCRIPTOR`)를 인스턴스 dict와 데이터 디스크립터 우선순위를 지키며 바인드 없이 돌려준다.
 
 ## 1a. 예외 출력
 

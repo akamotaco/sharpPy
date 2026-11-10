@@ -539,6 +539,8 @@ namespace SharpPy
                 return this;
             }
 
+            // wrapperdescr_get: descr_check, then the method-wrapper.
+            PyGetSetDescriptor.DescrCheck(this, OwnerType, Name, instance);
             return new PyBoundWrapperDescriptor(instance, this);
         }
 

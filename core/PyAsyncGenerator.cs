@@ -139,8 +139,7 @@ namespace SharpPy.Core
                 foreach (var method in new[] { "__await__", "__iter__", "__next__", "send", "throw", "close" })
                 {
                     Func<PyObject, PyObject[], PyDict, PyObject> run = (self, args, kwargs) => {
-                        if (self is not Awaitable request || request.GetPyType() != type)
-                            throw PyTypeError.Create($"descriptor '{method}' requires a '{name}' object but received a '{self.GetTypeName()}'");
+                        var request = (Awaitable)self;
                         if (method == "send")
                         {
                             PyCoroutine.CheckSendArguments(name, args, kwargs);

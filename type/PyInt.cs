@@ -112,8 +112,6 @@ namespace SharpPy
                 intType.TypeDict[name] = new PyWrapperDescriptor(name, intType,
                     (self, args, kwargs) => {
                         var left = self as PyInt ?? (self as PyIntSubclass)?.GetIntValue();
-                        if (left == null && self is not PyBool)
-                            throw PyTypeError.Create($"descriptor '{name}' requires a 'int' object but received a '{self.GetTypeName()}'");
                         var right = args[0] as PyInt ?? (args[0] as PyIntSubclass)?.GetIntValue();
                         if (right == null && args[0] is not PyBool)
                             return PyNotImplemented.Instance;
@@ -192,8 +190,6 @@ namespace SharpPy
                 "__hash__", intType,
                 (self, args, kwargs) => {
                     var number = self as PyInt ?? (self as PyIntSubclass)?.GetIntValue();
-                    if (number == null && self is not PyBool)
-                        throw PyTypeError.Create($"descriptor '__hash__' requires a 'int' object but received a '{self.GetTypeName()}'");
                     if (number != null) return PyInt.From(PythonHash(number.Value));
                     return PyInt.From(((PyBool)self).Value ? 1 : 0);
                 });
@@ -492,10 +488,8 @@ namespace SharpPy
                         value = intObj.Value;
                     else if (self is PyIntSubclass intSubclass)
                         value = intSubclass.GetIntValue().Value;
-                    else if (self is PyBool boolean)
-                        value = boolean.Value ? BigInteger.One : BigInteger.Zero;
                     else
-                        throw PyTypeError.Create($"descriptor '__format__' requires a 'int' object but received a '{self.GetTypeName()}'");
+                        value = ((PyBool)self).Value ? BigInteger.One : BigInteger.Zero;
 
                     return PyString.From(FormatInt(value, specStr.Value, self.GetPyType().FullName));
                 },

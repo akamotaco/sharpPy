@@ -3262,8 +3262,6 @@ namespace SharpPy
             // BaseException.__init__(self, *args) - stores args in self.args
             TypeDict["__init__"] = new PyWrapperDescriptor("__init__", this, (self, args, kwargs) =>
             {
-                if (!self.GetPyType().IsSubclassOf(BaseExceptionType))
-                    throw PyTypeError.Create($"descriptor '__init__' requires a 'BaseException' object but received a '{self.GetTypeName()}'");
                 if (kwargs != null && kwargs.Length() != 0)
                     throw PyTypeError.Create($"{self.GetTypeName()}() takes no keyword arguments");
                 StoreExceptionArgs(self, args);
@@ -3279,9 +3277,6 @@ namespace SharpPy
             // is what repr(SubK(1)) shows in probes/l23_exit_fields.py.
             TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", this, (self, args, kwargs) =>
             {
-                if (!self.GetPyType().IsSubclassOf(BaseExceptionType))
-                    throw PyTypeError.Create(
-                        $"descriptor '__repr__' requires a 'BaseException' object but received a '{self.GetTypeName()}'");
                 return PyString.From(self.GetTypeName()
                     + ArgsReprForException(PyExceptionSlots.ArgsOf(self)));
             });
@@ -3321,9 +3316,6 @@ namespace SharpPy
         {
             TypeDict["__init__"] = new PyWrapperDescriptor("__init__", this, (self, args, kwargs) =>
             {
-                if (!self.GetPyType().IsSubclassOf(SystemExitType))
-                    throw PyTypeError.Create(
-                        $"descriptor '__init__' requires a 'SystemExit' object but received a '{self.GetTypeName()}'");
                 if (kwargs != null && kwargs.Length() != 0)
                     throw PyTypeError.Create($"{self.GetTypeName()}() takes no keyword arguments");
                 StoreExceptionArgs(self, args);

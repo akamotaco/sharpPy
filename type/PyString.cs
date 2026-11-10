@@ -594,12 +594,7 @@ namespace SharpPy
                 {
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create("str.__len__() takes no keyword arguments");
-                    if (self is not PyString selfStr){
-                            selfStr = AsStrReceiver(self);
-                            if (selfStr == null){
-                                throw PyTypeError.Create($"descriptor '__len__' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    var selfStr = (PyString)self;
 
                     return PyInt.From(selfStr.Value.Length);
                 });
@@ -613,12 +608,11 @@ namespace SharpPy
                 {
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create("str.__str__() takes no keyword arguments");
-                    if (self is PyString text)
-                        return text.Str();
+                    
                     // Measured CPython 3.12.15: str.__str__(CS("w")) == "w" (raw content,
                     // exact str), NOT the user __str__ result; str(CS("w")) dispatches
                     // type(x).__str__ separately.
-                    throw PyTypeError.Create($"descriptor '__str__' requires a 'str' object but received a '{self.GetTypeName()}'");
+                    return ((PyString)self).Str();
                 });
             strType.TypeDict["__repr__"] = new PyWrapperDescriptor(
                 "__repr__", strType,
@@ -626,9 +620,7 @@ namespace SharpPy
                 {
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create("str.__repr__() takes no keyword arguments");
-                    var reprSelf = AsStrReceiver(self);
-                    if (reprSelf == null)
-                        throw PyTypeError.Create($"descriptor '__repr__' requires a 'str' object but received a '{self.GetTypeName()}'");
+                    var reprSelf = (PyString)self;
                     return PyString.From("'" + reprSelf.Value + "'");
                 });
 
@@ -647,9 +639,7 @@ namespace SharpPy
                 "__mod__", strType,
                 (self, args, kwargs) =>
                 {
-                    var recv = AsStrReceiver(self);
-                    if (recv == null)
-                        throw PyTypeError.Create($"descriptor '__mod__' requires a 'str' object but received a '{self.GetTypeName()}'");
+                    var recv = (PyString)self;
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create("str.__mod__() takes no keyword arguments");
                     return recv.Modulo(args[0]);
@@ -664,9 +654,7 @@ namespace SharpPy
                 string name = strComparisonNames[i];
                 strType.TypeDict[name] = new PyWrapperDescriptor(name, strType, (self, args, kwargs) =>
                 {
-                    var recv = AsStrReceiver(self);
-                    if (recv == null)
-                        throw PyTypeError.Create($"descriptor '{name}' requires a 'str' object but received a '{self.GetTypeName()}'");
+                    var recv = (PyString)self;
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create($"str.{name}() takes no keyword arguments");
                     return recv.TpRichCompare(args[0], op);
@@ -679,12 +667,7 @@ namespace SharpPy
                 {
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create("str.__add__() takes no keyword arguments");
-                    if (self is not PyString selfStr)
-                    {
-                        selfStr = AsStrReceiver(self);
-                        if (selfStr == null)
-                            throw PyTypeError.Create($"descriptor '__add__' requires a 'str' object but received a '{self.GetTypeName()}'");
-                    }
+                    var selfStr = (PyString)self;
 
                     var concat = selfStr.Add(args[0]);
                     if (ReferenceEquals(concat, PyNotImplemented.Instance))
@@ -698,12 +681,7 @@ namespace SharpPy
                 {
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create("str.__getitem__() takes no keyword arguments");
-                    if (self is not PyString selfStr)
-                    {
-                        selfStr = AsStrReceiver(self);
-                        if (selfStr == null)
-                            throw PyTypeError.Create($"descriptor '__getitem__' requires a 'str' object but received a '{self.GetTypeName()}'");
-                    }
+                    var selfStr = (PyString)self;
 
                     return selfStr.MpSubscript(args[0]);
                 });
@@ -714,12 +692,7 @@ namespace SharpPy
                 {
                     if (kwargs != null && kwargs.InternalDict.Count > 0)
                         throw PyTypeError.Create("str.__contains__() takes no keyword arguments");
-                    if (self is not PyString selfStr)
-                    {
-                        selfStr = AsStrReceiver(self);
-                        if (selfStr == null)
-                            throw PyTypeError.Create($"descriptor '__contains__' requires a 'str' object but received a '{self.GetTypeName()}'");
-                    }
+                    var selfStr = (PyString)self;
 
                     // unicode_contains: the slot itself, not PyObject_Contains (a subclass would re-enter it).
                     return selfStr.ContainsItem(args[0]);
@@ -1444,12 +1417,7 @@ namespace SharpPy
             strType.TypeDict["__format__"] = new PyMethodDescriptor(
                 "__format__", strType,
                 (self, args, kwargs) => {
-                    if (self is not PyString strObj){
-                            strObj = AsStrReceiver(self);
-                            if (strObj == null){
-                                throw PyTypeError.Create($"descriptor '__format__' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    var strObj = (PyString)self;
                     if (args[0] is not PyString specStr)
                         throw PyArgs.BadArgument("__format__", "argument", "str", args[0]);
 
@@ -2355,10 +2323,6 @@ namespace SharpPy
             else text.Append(char.ConvertFromUtf32(cp));
         }
 
-        internal static PyString AsStrReceiver(PyObject self)
-        {
-            return self as PyString;
-        }
 
         /// <summary>
         /// CPython 3.12: str.__mul__ and str.__rmul__ - String repetition
