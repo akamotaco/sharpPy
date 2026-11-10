@@ -874,11 +874,23 @@ namespace SharpPy
         public int ToInt() => PyArgs.Int(this);
 
         /// <summary>
-        /// CPython PyFloat_AsDouble 호환: PyObject에서 C# double 값 추출
+        /// PyFloat_AsDouble, what C code reads a C double with: a float's value, an exact int by
+        /// PyLong_AsDouble, __float__, then __index__. One conversion.
         /// </summary>
-        public virtual double ToFloat()
+        public double ToFloat()
         {
-            throw PyTypeError.Create($"float() argument must be a string or a real number, not '{GetTypeName()}'");
+            if (PyFloat.TryFloatSelf(this, out var real)) return real.Value;
+            if (this is PyInt { IsExact: true } integer) return integer.AsDouble();
+            var method = LookupSpecialMethodUncached("__float__");
+            if (method != null)
+            {
+                var result = BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+                if (result is PyFloat converted) return converted.Value;
+                throw PyTypeError.Create($"{GetTypeName()}.__float__ returned non-float (type {result.GetTypeName()})");
+            }
+            var index = TryGetIndex(this);
+            if (index != null) return index.AsDouble();
+            throw PyTypeError.Create($"must be real number, not {GetTypeName()}");
         }
 
         /// <summary>

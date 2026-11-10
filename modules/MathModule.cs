@@ -1050,24 +1050,6 @@ namespace SharpPy.Modules
     public static class PyMathFunction
     {
         // PyFloat_AsDouble
-        internal static double RealNumber(PyObject value)
-        {
-            if (PyFloat.TryFloatSelf(value, out var real)) return real.Value;
-            if (value is PyBool boolean) return boolean.Value ? 1 : 0;
-            if (value is PyInt { IsExact: true } integer) return IntegerDouble(integer);
-            var method = value.LookupSpecialMethodUncached("__float__");
-            if (method != null)
-            {
-                var result = value.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-                if (result is PyFloat converted) return converted.Value;
-                throw PyTypeError.Create($"{value.GetTypeName()}.__float__ returned non-float (type {result.GetTypeName()})");
-            }
-            var index = PyObject.TryGetIndex(value);
-            if (index != null) return IntegerDouble(index);
-            throw PyTypeError.Create($"must be real number, not {value.GetTypeName()}");
-        }
-
-        // PyLong_AsDouble: correctly rounded, OverflowError past a double.
-        private static double IntegerDouble(PyInt value) => value.ToFloat();
+        internal static double RealNumber(PyObject value) => value.ToFloat();
     }
 }

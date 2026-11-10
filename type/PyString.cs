@@ -2971,7 +2971,6 @@ namespace SharpPy
         /// </summary>
         
         
-        public override double ToFloat() => PyFloat.FromObject(this).Value;
 
         // === As* Methods: Type Conversion (PyString → PyObject types) ===
         

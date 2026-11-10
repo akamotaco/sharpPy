@@ -1002,7 +1002,8 @@ namespace SharpPy
         /// Reference: Objects/longobject.c::PyLong_AsDouble
         /// </summary>
         // PyLong_AsDouble (Objects/longobject.c): correctly rounded, and an error rather than infinity.
-        public override double ToFloat()
+        /// <summary>PyLong_AsDouble: correctly rounded, OverflowError past a double.</summary>
+        internal double AsDouble()
         {
             const long Exact = 1L << 53;
             if (Value < Exact && Value > -Exact) return (double)Value;

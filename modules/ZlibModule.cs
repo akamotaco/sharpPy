@@ -53,16 +53,23 @@ namespace SharpPy.Modules
             });
             module.ModuleDict["adler32"] = new PyBuiltinFunction("adler32", args =>
             {
-                uint value = args.Length > 1 ? (uint)(args[1].ToFloat()) : 1;
+                // zlib_adler32: data a Py_buffer, then value unsigned_int(bitwise=True).
+                var data = Bytes(args[0]);
+                uint value = args.Length > 1 ? PyArgs.UnsignedIntMask(args[1]) : 1;
                 uint low = value & 0xFFFF, high = value >> 16;
-                foreach (byte b in Bytes(args[0]))
+                foreach (byte b in data)
                 {
                     low = (low + b) % 65521;
                     high = (high + low) % 65521;
                 }
                 return PyInt.From((long)((high << 16) | low));
             });
-            module.ModuleDict["crc32"] = PyImportSystem.Import("binascii").GetAttribute("crc32");
+            // zlib_crc32: its own function, the same CRC as binascii.
+            module.ModuleDict["crc32"] = new PyBuiltinFunction("crc32", args =>
+            {
+                var data = Bytes(args[0]);
+                return PyInt.From((long)PyBinascii.Crc32(data, args.Length > 1 ? PyArgs.UnsignedIntMask(args[1]) : 0));
+            });
             return module;
         }
 

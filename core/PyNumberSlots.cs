@@ -36,7 +36,7 @@ namespace SharpPy
         {
             PyFloatSubclass real => real.GetFloatValue(),
             PyFloat real => real,
-            _ => AsLong(value) is { } number ? new PyFloat(number.ToFloat()) : null,
+            _ => AsLong(value) is { } number ? new PyFloat(number.AsDouble()) : null,
         };
 
         // to_complex: a complex, else what CONVERT_TO_DOUBLE reads.

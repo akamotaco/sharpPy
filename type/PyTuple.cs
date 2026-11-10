@@ -527,13 +527,6 @@ namespace SharpPy
         // === To* Methods: Value Extraction (PyTuple → C# basic types) ===
         
         
-        /// <summary>
-        /// CPython PyFloat_AsDouble 호환: PyTuple은 일반적으로 float로 변환될 수 없음
-        /// </summary>
-        public override double ToFloat()
-        {
-            throw PyTypeError.Create($"float() argument must be a string or a real number, not 'tuple'");
-        }
         
         
         // === As* Methods: Type Conversion (PyTuple → PyObject types) ===

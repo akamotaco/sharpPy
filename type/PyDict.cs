@@ -1035,13 +1035,6 @@ namespace SharpPy
         // === To* Methods: Value Extraction (PyDict → C# basic types) ===
         
         
-        /// <summary>
-        /// CPython PyFloat_AsDouble 호환: PyDict는 일반적으로 float로 변환될 수 없음
-        /// </summary>
-        public override double ToFloat()
-        {
-            throw PyTypeError.Create($"float() argument must be a string or a real number, not 'dict'");
-        }
         
         
         // === As* Methods: Type Conversion (PyDict → PyObject types) ===

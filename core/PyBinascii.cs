@@ -174,18 +174,25 @@ namespace SharpPy
                 PyBytes.From(A2bBase64(Check(a, "a2b_base64"), Flag(kwargs, "strict_mode", false))));
             module.ModuleDict["b2a_hex"] = module.ModuleDict["hexlify"];
             module.ModuleDict["a2b_hex"] = module.ModuleDict["unhexlify"];
+            // binascii_crc32: crc32(data, crc=0, /), data a Py_buffer, then crc unsigned_int(bitwise=True).
             module.ModuleDict["crc32"] = new PyBuiltinFunction("crc32", a =>
             {
-                uint crc = a.Length > 1 ? (uint)(new System.Numerics.BigInteger(uint.MaxValue) & ((PyInt)a[1]).Value) : 0;
-                crc = ~crc;
-                foreach (byte b in Buffer(a[0]))
-                {
-                    crc ^= b;
-                    for (int bit = 0; bit < 8; bit++) crc = (crc >> 1) ^ (0xEDB88320u & (uint)-(int)(crc & 1));
-                }
-                return PyInt.From((long)~crc & 0xFFFFFFFFL);
+                var data = Buffer(a[0]);
+                return PyInt.From((long)Crc32(data, a.Length > 1 ? PyArgs.UnsignedIntMask(a[1]) : 0));
             });
             return module;
+        }
+
+        /// <summary>The CRC-32 binascii.crc32 and zlib.crc32 both compute.</summary>
+        internal static uint Crc32(byte[] data, uint crc)
+        {
+            crc = ~crc;
+            foreach (byte b in data)
+            {
+                crc ^= b;
+                for (int bit = 0; bit < 8; bit++) crc = (crc >> 1) ^ (0xEDB88320u & (uint)-(int)(crc & 1));
+            }
+            return ~crc;
         }
 
         private static bool Flag(PyDict kwargs, string name, bool fallback) =>

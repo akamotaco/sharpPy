@@ -46,10 +46,6 @@ namespace SharpPy
         #region Type Conversion (Ellipsis는 대부분 변환 불가)
 
 
-        public override double ToFloat()
-        {
-            throw PyTypeError.Create("float() argument must be a string or a real number, not 'ellipsis'");
-        }
 
         #endregion
 
