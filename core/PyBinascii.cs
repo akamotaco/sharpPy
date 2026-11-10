@@ -28,17 +28,6 @@ namespace SharpPy
         private const string HexDigits = "0123456789abcdef";
 
         /// <summary>binascii.hexlify - accepts bytes-like input only.</summary>
-        internal static byte[] Hexlify(PyObject obj)
-        {
-            byte[] data = Buffer(obj);
-            var outBytes = new byte[data.Length * 2];
-            for (int i = 0; i < data.Length; i++)
-            {
-                outBytes[i * 2] = (byte)HexDigits[data[i] >> 4];
-                outBytes[i * 2 + 1] = (byte)HexDigits[data[i] & 0xF];
-            }
-            return outBytes;
-        }
 
         // The two refusals differ per function in CPython and both are measured.
         // binascii's other refusal names the type without quotes: not str, not int.
@@ -160,12 +149,19 @@ namespace SharpPy
                 ?? throw PyTypeError.Create($"argument should be bytes, buffer or ASCII string, not '{obj.GetTypeName()}'");
         }
 
+        // binascii_hexlify_impl: _Py_strhex_bytes_with_sep, the bytes.hex text as bytes.
+        private static PyObject HexlifyWithSep(string name, PyObject[] args, PyDict kwargs)
+        {
+            var parsed = PyArgs.Unpack(name, args, kwargs, new[] { "data", "sep", "bytes_per_sep" }, 0, 1, 3);
+            var text = (PyString)BytesMethods.Hex(Buffer(parsed[0]), parsed[1], parsed[2]);
+            return PyBytes.From(System.Text.Encoding.ASCII.GetBytes(text.Value));
+        }
+
         public static PyModule CreateBinasciiModule()
         {
             var module = new PyModule("binascii", "Conversion between binary data and ASCII");
             module.ModuleDict["Error"] = PyBinasciiError.ErrorType;
-            module.ModuleDict["hexlify"] = new PyBuiltinFunction("hexlify", a =>
-                PyBytes.From(Hexlify(Check(a, "hexlify"))));
+            module.ModuleDict["hexlify"] = new PyBuiltinFunction("hexlify", (a, kw) => HexlifyWithSep("hexlify", a, kw));
             module.ModuleDict["unhexlify"] = new PyBuiltinFunction("unhexlify", a =>
                 PyBytes.From(Unhexlify(Check(a, "unhexlify"))));
             module.ModuleDict["b2a_base64"] = new PyBuiltinFunction("b2a_base64", (a, kwargs) =>
@@ -173,7 +169,7 @@ namespace SharpPy
             module.ModuleDict["a2b_base64"] = new PyBuiltinFunction("a2b_base64", (a, kwargs) =>
                 PyBytes.From(A2bBase64(Check(a, "a2b_base64"), Flag(kwargs, "strict_mode", false))));
             // Two PyMethodDefs each in binascii_module_methods, one implementation.
-            module.ModuleDict["b2a_hex"] = new PyBuiltinFunction("b2a_hex", a => PyBytes.From(Hexlify(Check(a, "b2a_hex"))));
+            module.ModuleDict["b2a_hex"] = new PyBuiltinFunction("b2a_hex", (a, kw) => HexlifyWithSep("b2a_hex", a, kw));
             module.ModuleDict["a2b_hex"] = new PyBuiltinFunction("a2b_hex", a => PyBytes.From(Unhexlify(Check(a, "a2b_hex"))));
             // binascii_crc32: crc32(data, crc=0, /), data a Py_buffer, then crc unsigned_int(bitwise=True).
             module.ModuleDict["crc32"] = new PyBuiltinFunction("crc32", a =>

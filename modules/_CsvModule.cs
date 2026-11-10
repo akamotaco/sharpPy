@@ -245,9 +245,10 @@ namespace SharpPy.Modules
             int old = _fieldSizeLimit;
             if (args.Length > 0)
             {
-                long val = args[0].ToInt();
-                if (val < 1) throw PyValueError.Create("field size limit must be >= 1");
-                _fieldSizeLimit = (int)val;
+                // _csv_field_size_limit_impl: an exact int, then PyLong_AsLong.
+                if (args[0].GetPyType() != PyType.IntType)
+                    throw PyTypeError.Create("limit must be an integer");
+                _fieldSizeLimit = (int)PyArgs.CLong(args[0]);
             }
             return PyInt.From(old);
         }

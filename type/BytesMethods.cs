@@ -703,7 +703,8 @@ namespace SharpPy
             return Hex(data, a[0], a[1]);
         }
 
-        private static PyObject Hex(byte[] text, PyObject sep, PyObject bytesPerSep)
+        // _Py_strhex_with_sep: bytes.hex, bytearray.hex, memoryview.hex and binascii.hexlify.
+        internal static PyObject Hex(byte[] text, PyObject sep, PyObject bytesPerSep)
         {
             int group = bytesPerSep == null ? 1 : (int)Math.Clamp((long)IndexValue(bytesPerSep), int.MinValue, int.MaxValue);
             char separator = '\0';

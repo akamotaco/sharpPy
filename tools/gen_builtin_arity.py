@@ -164,6 +164,27 @@ def bounds(seen, low, high):
     return lo, (hi if hi < MAXN else 10**6)
 
 
+def signature(func):
+    """inspect.signature, or the __text_signature__ read directly where a default is
+    <unrepresentable> (the clinic's NULL default), which inspect refuses."""
+    try:
+        return inspect.signature(func)
+    except (TypeError, ValueError):
+        pass
+    text = getattr(func, "__text_signature__", None)
+    if not text:
+        return None
+    # The bound parameter goes; a "/" left first marks nothing positional-only.
+    text = re.sub(r"^\(\$\w+(, )?", "(", text).replace("<unrepresentable>", "None")
+    text = re.sub(r"^\(/(, )?", "(", text)
+    try:
+        scope = {}
+        exec(f"def _f{text}: pass", {}, scope)
+        return inspect.signature(scope["_f"])
+    except Exception:
+        return None
+
+
 def classify(tname, mname, func, q=None):
     q = q or f"{tname}.{mname}"
     seen, seen_kw = observed(func)
@@ -180,9 +201,8 @@ def classify(tname, mname, func, q=None):
     for kwname, flag in ((None, False), (q, True)):
         if fits(lambda n, kw: parsetuple(mname, n, kw, lo, hi, kwname), seen, seen_kw):
             return ("ParseTuple", lo, hi, flag)
-    try:
-        sig = inspect.signature(func)
-    except (TypeError, ValueError):
+    sig = signature(func)
+    if sig is None:
         return None
     params = list(sig.parameters.values())
     if any(p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p in params):
