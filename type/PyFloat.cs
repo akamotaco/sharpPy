@@ -151,22 +151,16 @@ namespace SharpPy
             floatType.TypeDict["__floor__"] = new PyMethodDescriptor("__floor__", floatType, (self, args, kwargs) =>
             {
                 var selfFloat = PyFloat.FloatValue(self);
-                if (args.Length != 0)
-                    throw PyTypeError.Create($"float.__floor__() takes no arguments ({args.Length} given)");
                 return ((Func<PyFloat, PyObject>)(s => FromDouble(Math.Floor(s.Value))))(selfFloat);
             });
             floatType.TypeDict["__trunc__"] = new PyMethodDescriptor("__trunc__", floatType, (self, args, kwargs) =>
             {
                 var selfFloat = PyFloat.FloatValue(self);
-                if (args.Length != 0)
-                    throw PyTypeError.Create($"float.__trunc__() takes no arguments ({args.Length} given)");
                 return ((Func<PyFloat, PyObject>)(s => FromDouble(Math.Truncate(s.Value))))(selfFloat);
             });
             floatType.TypeDict["__ceil__"] = new PyMethodDescriptor("__ceil__", floatType, (self, args, kwargs) =>
             {
                 var selfFloat = PyFloat.FloatValue(self);
-                if (args.Length != 0)
-                    throw PyTypeError.Create($"float.__ceil__() takes no arguments ({args.Length} given)");
                 return ((Func<PyFloat, PyObject>)(s => FromDouble(Math.Ceiling(s.Value))))(selfFloat);
             });
             // Forward binary slots. CPython lists these on float as slot wrappers and SharpPy had
@@ -197,8 +191,6 @@ namespace SharpPy
             floatType.TypeDict["is_integer"] = new PyMethodDescriptor(
                 "is_integer", floatType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"float.is_integer() takes no arguments ({args.Length} given)");
                     var floatObj = PyFloat.FloatValue(self);
 
                     double value = floatObj.Value;
@@ -231,8 +223,6 @@ namespace SharpPy
             floatType.TypeDict["as_integer_ratio"] = new PyMethodDescriptor(
                 "as_integer_ratio", floatType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"float.as_integer_ratio() takes no arguments ({args.Length} given)");
                     var floatObj = PyFloat.FloatValue(self);
 
                     double value = floatObj.Value;
@@ -267,8 +257,6 @@ namespace SharpPy
             floatType.TypeDict["hex"] = new PyMethodDescriptor(
                 "hex", floatType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"float.hex() takes no arguments ({args.Length} given)");
                     var floatObj = PyFloat.FloatValue(self);
 
                     // CPython 3.12: Objects/floatobject.c float_hex_impl

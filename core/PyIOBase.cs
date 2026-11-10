@@ -294,8 +294,6 @@ public static class PyIOBaseSlots
             "writelines", IOBaseType, (self, args, kwargs) =>
             {
                 // METH_O: the count is checked before the file is.
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"_IOBase.writelines() takes exactly one argument ({args.Length} given)");
                 CheckClosed(self);
                 foreach (var line in PyObject.IterateItems(args[0]))
                     CallWith(self, "write", One(line));

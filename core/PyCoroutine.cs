@@ -56,8 +56,6 @@ namespace SharpPy.Core
             corType.TypeDict["__await__"] = new PyWrapperDescriptor(
                 "__await__", corType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create("__await__() takes no arguments");
                     var coroutine = (PyCoroutine)self;
                     return coroutine.GetAwaiter();
                 },

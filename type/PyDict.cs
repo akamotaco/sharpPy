@@ -33,8 +33,6 @@ namespace SharpPy
                 "get", dictType,
                 (self, args, kwargs) => {
 
-                    if (args.Length < 1 || args.Length > 2)
-                        throw PyTypeError.Create(args.Length < 1 ? "get expected at least 1 argument, got 0" : $"get expected at most 2 arguments, got {args.Length}");
 
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : PyNone.Instance;
@@ -87,8 +85,6 @@ namespace SharpPy
                 "setdefault", dictType,
                 (self, args, kwargs) => {
 
-                    if (args.Length < 1 || args.Length > 2)
-                        throw PyTypeError.Create(args.Length < 1 ? "setdefault expected at least 1 argument, got 0" : $"setdefault expected at most 2 arguments, got {args.Length}");
 
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : PyNone.Instance;
@@ -116,8 +112,6 @@ namespace SharpPy
                 "pop", dictType,
                 (self, args, kwargs) => {
 
-                    if (args.Length < 1 || args.Length > 2)
-                        throw PyTypeError.Create(args.Length < 1 ? "pop expected at least 1 argument, got 0" : $"pop expected at most 2 arguments, got {args.Length}");
 
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : null;
@@ -164,6 +158,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var target = (PyDict)self;
 
+                    // dict_update_arg: PyArg_UnpackTuple(args, "update", 0, 1) - METH_VARARGS has no row.
                     if (args.Length > 1)
                         throw PyTypeError.Create($"update expected at most 1 argument, got {args.Length}");
 
@@ -259,8 +254,6 @@ namespace SharpPy
                 new PyBuiltinFunction("fromkeys", (args, kwargs) => {
                     // First arg is the class (from classmethod binding)
                     // Remaining args are: keys, [value]
-                    if (args.Length < 2 || args.Length > 3)
-                        throw PyTypeError.Create(args.Length < 2 ? "fromkeys expected at least 1 argument, got 0" : $"fromkeys expected at most 2 arguments, got {args.Length - 1}");
 
                     return PyDict.FromKeys(args[0], args[1], args.Length == 3 ? args[2] : PyNone.Instance);
                 })
@@ -276,8 +269,6 @@ namespace SharpPy
             // dict_methods: {"__contains__", dict___contains__, METH_O | METH_COEXIST}
             dictType.TypeDict["__contains__"] = new PyMethodDescriptor("__contains__", dictType, (self, args, kwargs) =>
             {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"dict.__contains__() takes exactly one argument ({args.Length} given)");
                 var dict = (PyDict)self;
                 return dict.ContainsItem(args[0]);
             }, acceptsKwargs: true);
@@ -285,8 +276,6 @@ namespace SharpPy
                 "__getitem__", dictType,
                 (self, args, kwargs) => {
                     // CPython 3.12.15 measured: dict.__getitem__ is METH_O in the dict method table
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"dict.__getitem__() takes exactly one argument ({args.Length} given)");
 
                     // dict_subscript: the table, then __missing__ when the type is not exactly dict.
                     var pyDict = (PyDict)self;
@@ -310,8 +299,6 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     // CPython 3.12.15 measured: dict.__setitem__ is METH_VARARGS with format "OO";
                     // PyArg_ParseTuple reports without the function name (note leading space).
-                    if (args.Length != 2)
-                        throw PyTypeError.Create($" expected 2 arguments, got {args.Length}");
 
                     // dict_ass_sub: the table itself.
                     var pyDict = (PyDict)self;

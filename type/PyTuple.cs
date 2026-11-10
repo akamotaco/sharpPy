@@ -76,8 +76,6 @@ namespace SharpPy
 
                     var tuple = (PyTuple)self;
 
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"index expected at most 3 arguments, got {args.Length}");
 
                     var value = args[0];
                     // CPython tuple.index uses PyNumber_Index for start/stop: bool and
@@ -95,8 +93,6 @@ namespace SharpPy
             tupleType.TypeDict["count"] = new PyMethodDescriptor(
                 "count", tupleType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"tuple.count() takes exactly one argument ({args.Length} given)");
                     var tuple = (PyTuple)self;
 
                     var value = args[0];

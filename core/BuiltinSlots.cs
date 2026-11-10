@@ -375,8 +375,6 @@ namespace SharpPy
             // frozenset_methods: __contains__ METH_COEXIST beside sq_contains
             PyType.FrozenSetType.TypeDict["__contains__"] = new PyMethodDescriptor("__contains__", PyType.FrozenSetType, (self, args, kwargs) =>
             {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"frozenset.__contains__() takes exactly one argument ({args.Length} given)");
                 return (self as PyFrozenSet).ContainsItem(args[0]);
             }, acceptsKwargs: true);
             Slot(PyType.FrozenSetType, "__iter__", (self, args) => (self as PyFrozenSet).Iter());

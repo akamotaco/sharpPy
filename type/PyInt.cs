@@ -146,20 +146,14 @@ namespace SharpPy
             regIntUn("__index__", s => s);
             intType.TypeDict["__trunc__"] = new PyMethodDescriptor("__trunc__", intType, (self, args, kwargs) =>
             {
-                if (args.Length != 0)
-                    throw PyTypeError.Create($"int.__trunc__() takes no arguments ({args.Length} given)");
                 return AsIntObj(self);
             });
             intType.TypeDict["__floor__"] = new PyMethodDescriptor("__floor__", intType, (self, args, kwargs) =>
             {
-                if (args.Length != 0)
-                    throw PyTypeError.Create($"int.__floor__() takes no arguments ({args.Length} given)");
                 return AsIntObj(self);
             });
             intType.TypeDict["__ceil__"] = new PyMethodDescriptor("__ceil__", intType, (self, args, kwargs) =>
             {
-                if (args.Length != 0)
-                    throw PyTypeError.Create($"int.__ceil__() takes no arguments ({args.Length} given)");
                 return AsIntObj(self);
             });
             regIntUn("__int__", s => s);
@@ -202,8 +196,6 @@ namespace SharpPy
             intType.TypeDict["bit_length"] = new PyMethodDescriptor(
                 "bit_length", intType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"int.bit_length() takes no arguments ({args.Length} given)");
                     PyInt.TryLongSelf(self, out var intObj);
 
                     // CPython 3.12: Objects/longobject.c long_bit_length via _PyLong_NumBits:
@@ -224,8 +216,6 @@ namespace SharpPy
             intType.TypeDict["bit_count"] = new PyMethodDescriptor(
                 "bit_count", intType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"int.bit_count() takes no arguments ({args.Length} given)");
                     PyInt.TryLongSelf(self, out var intObj);
 
                     return intObj.BitCount();
@@ -385,8 +375,6 @@ namespace SharpPy
             intType.TypeDict["as_integer_ratio"] = new PyMethodDescriptor(
                 "as_integer_ratio", intType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"int.as_integer_ratio() takes no arguments ({args.Length} given)");
                     PyInt.TryLongSelf(self, out var intObj);
 
                     // For integers, the ratio is simply (self, 1)

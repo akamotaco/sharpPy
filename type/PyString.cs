@@ -261,8 +261,6 @@ namespace SharpPy
             strType.TypeDict["upper"] = new PyMethodDescriptor(
                 "upper", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.upper() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
                     return PyString.Fresh(PyUnicodeCase.Upper(str.Value));
                 },
@@ -272,8 +270,6 @@ namespace SharpPy
             strType.TypeDict["lower"] = new PyMethodDescriptor(
                 "lower", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.lower() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
                     return PyString.Fresh(PyUnicodeCase.Lower(str.Value));
                 },
@@ -286,8 +282,6 @@ namespace SharpPy
             strType.TypeDict["capitalize"] = new PyMethodDescriptor(
                 "capitalize", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.capitalize() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     // Empty string remains empty
@@ -306,8 +300,6 @@ namespace SharpPy
             strType.TypeDict["title"] = new PyMethodDescriptor(
                 "title", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.title() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     // CPython str.title() uses Unicode cased/uncased word boundaries, so an apostrophe
@@ -400,8 +392,6 @@ namespace SharpPy
             strType.TypeDict["isdigit"] = new PyMethodDescriptor(
                 "isdigit", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.isdigit() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     if (str.Value.Length == 0)
@@ -424,8 +414,6 @@ namespace SharpPy
             strType.TypeDict["isalpha"] = new PyMethodDescriptor(
                 "isalpha", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.isalpha() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     if (str.Value.Length == 0)
@@ -444,8 +432,6 @@ namespace SharpPy
             strType.TypeDict["isalnum"] = new PyMethodDescriptor(
                 "isalnum", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.isalnum() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     if (str.Value.Length == 0)
@@ -464,8 +450,6 @@ namespace SharpPy
             strType.TypeDict["isspace"] = new PyMethodDescriptor(
                 "isspace", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.isspace() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     if (str.Value.Length == 0)
@@ -484,8 +468,6 @@ namespace SharpPy
             strType.TypeDict["isupper"] = new PyMethodDescriptor(
                 "isupper", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.isupper() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     if (str.Value.Length == 0)
@@ -502,8 +484,6 @@ namespace SharpPy
             strType.TypeDict["islower"] = new PyMethodDescriptor(
                 "islower", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.islower() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     if (str.Value.Length == 0)
@@ -520,8 +500,6 @@ namespace SharpPy
             strType.TypeDict["find"] = new PyMethodDescriptor(
                 "find", strType,
                 (self, args, kwargs) => {
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create(args.Length < 1 ? "find() takes at least 1 argument (0 given)" : $"find() takes from 1 to 3 positional arguments but {args.Length} were given");
                     var str = (PyString)self;
 
 
@@ -535,8 +513,6 @@ namespace SharpPy
             strType.TypeDict["index"] = new PyMethodDescriptor(
                 "index", strType,
                 (self, args, kwargs) => {
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create(args.Length < 1 ? "index() takes at least 1 argument (0 given)" : $"index() takes from 1 to 3 positional arguments but {args.Length} were given");
                     var str = (PyString)self;
 
 
@@ -550,8 +526,6 @@ namespace SharpPy
             strType.TypeDict["rfind"] = new PyMethodDescriptor(
                 "rfind", strType,
                 (self, args, kwargs) => {
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create(args.Length < 1 ? "rfind() takes at least 1 argument (0 given)" : $"rfind() takes from 1 to 3 positional arguments but {args.Length} were given");
                     var str = (PyString)self;
 
 
@@ -565,8 +539,6 @@ namespace SharpPy
             strType.TypeDict["rindex"] = new PyMethodDescriptor(
                 "rindex", strType,
                 (self, args, kwargs) => {
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create(args.Length < 1 ? "rindex() takes at least 1 argument (0 given)" : $"rindex() takes from 1 to 3 positional arguments but {args.Length} were given");
                     var str = (PyString)self;
 
 
@@ -683,8 +655,6 @@ namespace SharpPy
             strType.TypeDict["count"] = new PyMethodDescriptor(
                 "count", strType,
                 (self, args, kwargs) => {
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create(args.Length < 1 ? "count() takes at least 1 argument (0 given)" : $"count() takes from 1 to 3 positional arguments but {args.Length} were given");
                     var str = (PyString)self;
 
                     // CPython Objects/stringlib/count.h: the empty pattern counts the boundary
@@ -836,8 +806,6 @@ namespace SharpPy
             strType.TypeDict["swapcase"] = new PyMethodDescriptor(
                 "swapcase", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.swapcase() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     // do_swapcase decides by the uppercase/lowercase PROPERTIES, and the lowercase
@@ -852,8 +820,6 @@ namespace SharpPy
             strType.TypeDict["casefold"] = new PyMethodDescriptor(
                 "casefold", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.casefold() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     return PyString.Fresh(PyUnicodeCase.CaseFold(str.Value));
@@ -944,8 +910,6 @@ namespace SharpPy
             strType.TypeDict["isascii"] = new PyMethodDescriptor(
                 "isascii", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.isascii() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     foreach (char c in str.Value)
@@ -963,8 +927,6 @@ namespace SharpPy
             strType.TypeDict["isdecimal"] = new PyMethodDescriptor(
                 "isdecimal", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.isdecimal() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     if (str.Value.Length == 0)
@@ -985,8 +947,6 @@ namespace SharpPy
             strType.TypeDict["isnumeric"] = new PyMethodDescriptor(
                 "isnumeric", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.isnumeric() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     if (str.Value.Length == 0)
@@ -1005,8 +965,6 @@ namespace SharpPy
             strType.TypeDict["isidentifier"] = new PyMethodDescriptor(
                 "isidentifier", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.isidentifier() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     if (str.Value.Length == 0)
@@ -1022,8 +980,6 @@ namespace SharpPy
             strType.TypeDict["isprintable"] = new PyMethodDescriptor(
                 "isprintable", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.isprintable() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     foreach (int cp in str.CodePoints())
@@ -1039,8 +995,6 @@ namespace SharpPy
             strType.TypeDict["istitle"] = new PyMethodDescriptor(
                 "istitle", strType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"str.istitle() takes no arguments ({args.Length} given)");
                     var str = (PyString)self;
 
                     if (str.Value.Length == 0)

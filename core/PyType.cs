@@ -1681,15 +1681,11 @@ namespace SharpPy
             TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", objectType,
                 (self, args, kwargs) =>
                 {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"object.__reduce__() takes no arguments ({args.Length} given)");
                     return CommonReduce(self, 0);
                 }, 0, 0);
             TypeDict["__reduce_ex__"] = new PyMethodDescriptor("__reduce_ex__", objectType,
                 (self, args, kwargs) =>
                 {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"object.__reduce_ex__() takes exactly one argument ({args.Length} given)");
                     // object.__reduce_ex__(protocol: int): the int converter
                     int protocol = PyArgs.Int(args[0]);
                     // object___reduce_ex___impl: a class that overrides __reduce__ decides.
@@ -2317,8 +2313,6 @@ namespace SharpPy
                 (self as PySet).Iter());
             TypeDict["__contains__"] = new PyMethodDescriptor("__contains__", this, (self, args, kwargs) =>
             {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"set.__contains__() takes exactly one argument ({args.Length} given)");
                 return (self as PySet).ContainsItem(args[0]);
             });
 
@@ -2386,8 +2380,6 @@ namespace SharpPy
                 "add",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"set.add() takes exactly one argument ({args.Length} given)");
                     var set = (PySet)self;
                     return set.Add(args[0]);
                 },
@@ -2411,8 +2403,6 @@ namespace SharpPy
                 "remove",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"set.remove() takes exactly one argument ({args.Length} given)");
                     var set = (PySet)self;
                     return set.Remove(args[0]);
                 },
@@ -2522,8 +2512,6 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var set = (PySet)self;
                     // CPython set_symmetric_difference takes exactly one other argument.
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"symmetric_difference expected 1 argument, got {args.Length}");
                     return set.SymmetricDifference(args[0]);
                 },
                 minArgs: 1,
@@ -2601,8 +2589,6 @@ namespace SharpPy
                 setType,
                 (self, args, kwargs) => {
                     var set = (PySet)self;
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"symmetric_difference_update expected 1 argument, got {args.Length}");
                     return set.SymmetricDifferenceUpdate(args[0]);
                 },
                 minArgs: 1,

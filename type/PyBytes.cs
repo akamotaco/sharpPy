@@ -350,8 +350,6 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     // Measured: the arity/keyword texts are qualified with the defining type, while the
                     // argument-type text is not. bytearray repeats the qualified form with its own name.
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"bytes.fromhex() takes exactly one argument ({args.Length} given)");
 
                     if (args[0] is not PyString hexStr)
                         throw PyArgs.BadArgument("fromhex", "argument", "str", args[0]);
@@ -454,8 +452,6 @@ namespace SharpPy
                 {
                     // Measured: bytes.maketrans reports its arity with its own wording, and the same
                     // text comes out of bytearray.maketrans, which delegates here.
-                    if (args.Length != 2)
-                        throw PyTypeError.Create($"maketrans expected 2 arguments, got {args.Length}");
 
                     if (args[0] is not PyBytes frmBytes)
                         throw PyTypeError.Create("maketrans() argument 1 must be bytes");

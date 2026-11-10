@@ -107,8 +107,6 @@ namespace SharpPy
             type.TypeDict["tolist"] = new PyMethodDescriptor("tolist", type, (self, args, kwargs) =>
             {
                 var view = (PyMemoryView)self;
-                if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
-                    throw PyTypeError.Create($"tolist() takes no arguments ({args.Length} given)");
                 view.CheckReleased();
                 return view.ToNestedList();
             });
@@ -124,8 +122,6 @@ namespace SharpPy
             foreach (var name in new[] { "release", "__enter__", "__exit__" })
                 type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) => {
                     var view = (PyMemoryView)self;
-                    if (name != "__exit__" && args.Length != 0)
-                        throw PyTypeError.Create($"{name}() takes no arguments ({args.Length} given)");
                     if (name == "__enter__")
                     {
                         view.CheckReleased();
@@ -255,8 +251,6 @@ namespace SharpPy
             type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) =>
             {
                 var view = (PyMemoryView)self;
-                if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
-                    throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                 return view.Iter();
             });
         }

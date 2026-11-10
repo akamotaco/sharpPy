@@ -128,10 +128,6 @@ namespace SharpPy
                 "index", listType,
                 (self, args, kwargs) => {
                     // CPython list.index(value, start=0, stop=len): positional-only.
-                    if (args.Length < 1)
-                        throw PyTypeError.Create($"index expected at least 1 argument, got {args.Length}");
-                    if (args.Length > 3)
-                        throw PyTypeError.Create($"index expected at most 3 arguments, got {args.Length}");
                     var list = (PyList)self;
                     long n = list.RawCount();
                     long start = 0, stop = n;
@@ -236,8 +232,6 @@ namespace SharpPy
                 "__iter__",
                 listType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create("__iter__() takes no arguments");
 
                     var list = (PyList)self;
                     return list.RawIterator();
@@ -253,8 +247,6 @@ namespace SharpPy
                 "__reversed__",
                 listType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create("__reversed__() takes no arguments");
                     var list = (PyList)self;
                     return new PyReversedIterator(list, list.RawCount(), "list_reverseiterator");
                 },
@@ -268,8 +260,6 @@ namespace SharpPy
                 "__len__",
                 listType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create("__len__() takes no arguments");
 
                     var list = (PyList)self;
                     return PyInt.From(list.RawCount());
@@ -298,8 +288,6 @@ namespace SharpPy
                 listType,
                 (self, args, kwargs) =>
                 {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"list.__getitem__() takes exactly one argument ({args.Length} given)");
 
                     return ((PyList)self).MpSubscript(args[0]);
                 });
@@ -310,8 +298,6 @@ namespace SharpPy
                 listType,
                 (self, args, kwargs) =>
                 {
-                    if (args.Length != 2)
-                        throw PyTypeError.Create($" expected 2 arguments, got {args.Length}");
 
                     ((PyList)self).MpAssSubscript(args[0], args[1]);
                     return PyNone.Instance;

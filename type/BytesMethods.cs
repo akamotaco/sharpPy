@@ -1113,8 +1113,6 @@ namespace SharpPy
             {
                 if (kwargs != null && kwargs.Length() != 0)
                     throw PyTypeError.Create($"{type.Name}.fromhex() takes no keyword arguments");
-                if (args.Length != 2)
-                    throw PyTypeError.Create($"{type.Name}.fromhex() takes exactly one argument ({args.Length - 1} given)");
                 var cls = args[0];
                 var value = FromHex(args[1]);
                 PyObject result = ReferenceEquals(type, PyType.BytesType) ? PyBytes.From(value) : new PyByteArray(value);
