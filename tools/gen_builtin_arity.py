@@ -250,6 +250,19 @@ FUNCTION_MODULES = {
     "time": set(),
     "sys": {"breakpointhook", "addaudithook", "activate_stack_trampoline", "deactivate_stack_trampoline",
             "set_asyncgen_hooks"},
+    "_codecs": set(), "_io": set(), "_sre": set(), "_string": set(), "_struct": set(), "_weakref": set(),
+    "_csv": set(), "_contextvars": set(), "_opcode": set(), "array": set(), "binascii": set(),
+    "marshal": set(), "unicodedata": set(), "zlib": set(),
+    "_signal": {"raise_signal", "default_int_handler", "signal", "set_wakeup_fd"},
+    "_thread": {"interrupt_main", "start_new_thread", "start_new", "exit", "exit_thread", "_exit"},
+    "atexit": {"_run_exitfuncs", "_clear", "register", "unregister"},
+    "gc": {"disable", "enable", "freeze", "unfreeze", "set_debug", "set_threshold"},
+    "nt": {"abort", "_exit", "system", "startfile", "kill", "chdir", "umask", "putenv", "unsetenv", "remove",
+           "unlink", "rmdir", "mkdir", "rename", "replace", "close", "closerange", "dup2", "write", "fsync",
+           "truncate", "ftruncate", "chmod", "utime", "symlink", "link", "spawnv", "spawnve", "execv", "execve",
+           "pipe", "_add_dll_directory", "_remove_dll_directory", "set_blocking", "set_inheritable",
+           "set_handle_inheritable", "waitpid", "lseek", "read", "open", "dup", "times", "listdrives",
+           "listmounts", "listvolumes"},
 }
 
 # The C modules whose types SharpPy has, and the types module's types that builtins does not name.
