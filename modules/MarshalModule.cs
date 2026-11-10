@@ -61,16 +61,12 @@ namespace SharpPy.Modules
         // marshal_dumps_impl
         private static PyObject Dumps(PyObject[] args)
         {
-            if (args.Length < 1)
-                throw PyTypeError.Create("dumps expected at least 1 argument, got 0");
             return PyBytes.From(Write(args[0], VersionArgument(args, 1, "dumps")));
         }
 
         // marshal_dump_impl
         private static PyObject Dump(PyObject[] args)
         {
-            if (args.Length < 2)
-                throw PyTypeError.Create($"dump expected at least 2 arguments, got {args.Length}");
             var data = PyBytes.From(Write(args[0], VersionArgument(args, 2, "dump")));
             return args[1].GetAttribute("write").Call(new PyObject[] { data }, null);
         }
@@ -78,8 +74,6 @@ namespace SharpPy.Modules
         // marshal_loads_impl
         private static PyObject Loads(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"loads() takes exactly one argument ({args.Length} given)");
             var data = BytesMethods.Buffer(args[0]) ??
                 throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
             return new Reader(data).ReadObject();
@@ -88,8 +82,6 @@ namespace SharpPy.Modules
         // marshal_load: read(0) proves the file gives bytes.
         private static PyObject Load(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"load() takes exactly one argument ({args.Length} given)");
             var data = args[0].GetAttribute("read").Call(new PyObject[] { PyInt.From(0) }, null);
             if (data is not PyBytes)
                 throw PyTypeError.Create($"file.read() returned not bytes but {data.GetTypeName()}");

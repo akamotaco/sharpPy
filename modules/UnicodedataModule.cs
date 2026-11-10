@@ -224,8 +224,6 @@ namespace SharpPy.Modules
 
         private static PyObject TwoArguments(string function, PyObject[] args, Func<PyObject, PyObject, PyObject> body)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"{function} expected 2 arguments, got {args.Length}");
             return body(args[0], args[1]);
         }
 

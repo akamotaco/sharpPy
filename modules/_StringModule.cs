@@ -23,8 +23,6 @@ namespace SharpPy.Modules
         /// </summary>
         private static PyObject FormatterParser(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"formatter_parser() takes exactly one argument ({args.Length} given)");
 
             if (args[0] is not PyString s)
                 throw PyTypeError.Create($"expected str, got {args[0].GetPyType().FullName}");
@@ -38,8 +36,6 @@ namespace SharpPy.Modules
         /// </summary>
         private static PyObject FormatterFieldNameSplit(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"formatter_field_name_split() takes exactly one argument ({args.Length} given)");
 
             if (args[0] is not PyString s)
                 throw PyTypeError.Create($"expected str, got {args[0].GetPyType().FullName}");

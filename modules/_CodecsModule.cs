@@ -85,8 +85,6 @@ namespace SharpPy.Modules
         // CPython 3.12: Python/codecs.c:56 (PyCodec_Unregister)
         private static PyObject PyUnregister(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"unregister() takes exactly one argument ({args.Length} given)");
             PyCodecRegistry.Unregister(args[0]);
             return PyNone.Instance;
         }
@@ -185,8 +183,6 @@ namespace SharpPy.Modules
 
         private static PyObject Decoded(PyObject[] args, string codec, string name)
         {
-            if (args.Length < 1)
-                throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
             var data = BufferArgument(args, name);
             string decoded = PyStringNewArguments.DecodeBytes(data, codec, ErrorsOf(args, 1));
             return PyTuple.From(new PyObject[] { PyString.From(decoded), PyInt.From(data.Length) });
@@ -195,8 +191,6 @@ namespace SharpPy.Modules
         // utf_8_decode(data, errors=None, final=False): what the decoder consumed.
         private static PyObject DecodedUtf8(PyObject[] args, string name)
         {
-            if (args.Length < 1)
-                throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
             var data = BufferArgument(args, name);
             bool final = args.Length > 2 && args[2].IsTrue();
             string decoded = PyBytes.DecodeUtf8(data, ErrorsOf(args, 1), final, out int consumed);
@@ -215,8 +209,6 @@ namespace SharpPy.Modules
 
         private static PyObject DecodedWithOrder(PyObject[] args, string name, int width)
         {
-            if (args.Length < 1)
-                throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
             var data = BufferArgument(args, name);
             int order = args.Length > 2 ? args[2].ToInt() : 0;
             bool final = args.Length > 3 && args[3].IsTrue();
@@ -226,8 +218,6 @@ namespace SharpPy.Modules
 
         private static PyObject DecodedFixed(PyObject[] args, string name, int width, int order)
         {
-            if (args.Length < 1)
-                throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
             var data = BufferArgument(args, name);
             bool final = args.Length > 2 && args[2].IsTrue();
             var (text, consumed, _) = DecodedUtfWide(data, ErrorsOf(args, 1), order, final, width);
@@ -239,8 +229,6 @@ namespace SharpPy.Modules
             // getargs.c words the positional errors of these parsers without the () that the
             // clinic-generated ones carry: "utf_8_encode expected at most 2 arguments, got 3" and
             // "utf_8_encode() argument 1 must be str, not bytes" for the converter itself.
-            if (args.Length < 1)
-                throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
             if (!(args[0] is PyString pyStr))
                 throw PyArgs.BadArgument(name, "argument 1", "str", args[0]);
             string errors = args.Length > 1 && args[1] is PyString errorName ? errorName.Value : null;
@@ -250,8 +238,6 @@ namespace SharpPy.Modules
         // UTF-8 encoding - CPython 3.12: Modules/_codecsmodule.c:488-520
         private static PyObject PyUtf8Encode(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"utf_8_encode expected at most 2 arguments, got {args.Length}");
 
             if (!(args[0] is PyString pyStr))
                 throw PyArgs.BadArgument("utf_8_encode", "argument 1", "str", args[0]);
