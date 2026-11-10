@@ -698,11 +698,9 @@ namespace SharpPy
         // bytes.hex, bytearray.hex and memoryview.hex: one _Py_strhex_with_sep.
         internal static PyObject HexMethod(byte[] data, PyObject[] args, PyDict kwargs)
         {
-            // The clinic's own count (no arity row: its parser fits none of the table's formulas).
-            if (args.Length > 2)
-                throw PyTypeError.Create($"hex() takes at most 2 arguments ({args.Length} given)");
-            CheckKeywords("hex", kwargs, "sep", "bytes_per_sep");
-            return Hex(data, Named(args, 0, kwargs, "sep"), Named(args, 1, kwargs, "bytes_per_sep"));
+            // The clinic's _PyArg_UnpackKeywords for hex(sep=<unrepresentable>, bytes_per_sep=1).
+            var a = PyArgs.Unpack("hex", args, kwargs, new[] { "sep", "bytes_per_sep" }, 0, 0, 2);
+            return Hex(data, a[0], a[1]);
         }
 
         private static PyObject Hex(byte[] text, PyObject sep, PyObject bytesPerSep)
@@ -1001,18 +999,6 @@ namespace SharpPy
         private static void Transform(PyType type, string name, Func<byte[], byte[]> transform) =>
             Zero(type, name, self => NewFresh(self, transform(Self(self))));
 
-        private static PyObject Named(PyObject[] args, int position, PyDict kwargs, string name) =>
-            args.Length > position ? args[position] : kwargs != null ? PyObject.KwValue(kwargs, name) : null;
-
-        private static void CheckKeywords(string function, PyDict kwargs, params string[] names)
-        {
-            if (kwargs == null)
-                return;
-            foreach (var key in kwargs.Keys().Items)
-                if (key is PyString text && Array.IndexOf(names, text.Value) < 0)
-                    throw PyArgs.InvalidKeyword(function, text);
-        }
-
         // PyNumber_AsSsize_t(index, PyExc_IndexError)
         internal static bool IsIndex(PyObject index) => index is not PySlice && HasIndex(index);
 
@@ -1066,18 +1052,17 @@ namespace SharpPy
             Def(type, "endswith", (self, args, kwargs) => StartsEnds(Self(self), "endswith", args, false));
             Def(type, "split", (self, args, kwargs) =>
             {
-                CheckKeywords("split", kwargs, "sep", "maxsplit");
-                return Split(self, Named(args, 0, kwargs, "sep"), Named(args, 1, kwargs, "maxsplit"));
+                var a = PyArgs.Unpack("split", args, kwargs, new[] { "sep", "maxsplit" }, 0, 0, 2);
+                return Split(self, a[0], a[1]);
             }, keywords: true);
             Def(type, "rsplit", (self, args, kwargs) =>
             {
-                CheckKeywords("rsplit", kwargs, "sep", "maxsplit");
-                return RSplit(self, Named(args, 0, kwargs, "sep"), Named(args, 1, kwargs, "maxsplit"));
+                var a = PyArgs.Unpack("rsplit", args, kwargs, new[] { "sep", "maxsplit" }, 0, 0, 2);
+                return RSplit(self, a[0], a[1]);
             }, keywords: true);
             Def(type, "splitlines", (self, args, kwargs) =>
             {
-                CheckKeywords("splitlines", kwargs, "keepends");
-                var keep = Named(args, 0, kwargs, "keepends");
+                var keep = PyArgs.Unpack("splitlines", args, kwargs, new[] { "keepends" }, 0, 0, 1)[0];
                 return SplitLines(self, keep != null && keep.IsTrue());
             }, keywords: true);
             One(type, "partition", (self, sep) => Partition(self, sep, true));
@@ -1096,8 +1081,7 @@ namespace SharpPy
             One(type, "zfill", ZFill);
             Def(type, "expandtabs", (self, args, kwargs) =>
             {
-                CheckKeywords("expandtabs", kwargs, "tabsize");
-                var size = Named(args, 0, kwargs, "tabsize");
+                var size = PyArgs.Unpack("expandtabs", args, kwargs, new[] { "tabsize" }, 0, 0, 1)[0];
                 return ExpandTabs(self, size == null ? 8 : PyArgs.Int(size));
             }, keywords: true);
             Def(type, "replace", (self, args, kwargs) => Replace(self, args));

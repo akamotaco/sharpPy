@@ -142,35 +142,10 @@ namespace SharpPy
             {
                 var view = (PyMemoryView)self;
 
-                // CPython 3.12 Objects/memoryobject.c memory_cast is
-                // METH_FASTCALL|METH_KEYWORDS with parameter names "format" and "shape".
-                PyObject fmtArg = args.Length > 0 ? args[0] : null;
-                PyObject shapeArg = args.Length > 1 ? args[1] : null;
-                int extra = 0;
-                if (kwargs != null && kwargs.InternalDict.Count > 0)
-                {
-                    foreach (var kv in kwargs.InternalDict)
-                    {
-                        string key = kv.Key.ToClrString();
-                        if (key == "format")
-                        {
-                            if (args.Length > 0)
-                                throw PyTypeError.Create("argument for cast() given by name ('format') and position (1)");
-                            fmtArg = kv.Value;
-                        }
-                        else if (key == "shape")
-                        {
-                            if (args.Length > 1)
-                                throw PyTypeError.Create("argument for cast() given by name ('shape') and position (2)");
-                            shapeArg = kv.Value;
-                        }
-                        else extra++;
-                    }
-                }
-                if (args.Length + extra > 2)
-                    throw PyTypeError.Create($"cast() takes at most 2 arguments ({args.Length + extra} given)");
-                if (fmtArg == null)
-                    throw PyArgs.MissingArgument("cast", "format", 1);
+                // memoryview_cast: the clinic's _PyArg_UnpackKeywords for cast(format, shape=<unrepresentable>).
+                var parsed = PyArgs.Unpack("cast", args, kwargs, new[] { "format", "shape" }, 0, 1, 2);
+                PyObject fmtArg = parsed[0];
+                PyObject shapeArg = parsed[1];
                 if (fmtArg is not PyString fmtStr)
                     // CPython names the None type "None" in this message and uses the
                     // ordinary tp_name for everything else.
