@@ -77,6 +77,7 @@
 - 3-6. `raise`한 객체와 `except`에서 받은 객체의 동일성 (P0-70).
 - 3-7. 내장 이터레이터를 상속한 클래스, `set` 하위 클래스의 `repr` 경로, `__bases__` 대입 검사 (P0-83).
 - 3-8. `type_setattro`는 `PyType.TypeSetAttribute` 하나다(불변 검사, 메타타입 데이터 디스크립터, `tp_dict`, `PyType_Modified`). `PyStructSequence_NewType`으로 만드는 타입(`time.struct_time`, `os.stat_result`, `os.terminal_size`, `nt.times_result`)은 힙 타입이다. 남은 것: `os.stat_result`에 `st_birthtime`, `st_birthtime_ns`가 없다(n_fields 18, CPython 20).
+- 3-9. `PyObject_Call`의 vectorcall 분기가 없다. CPython은 vectorcall을 가진 호출 대상(함수, 바운드 메서드, method_descriptor, METH_VARARGS가 아닌 builtin, `tp_vectorcall`이 있는 내장 타입)만 `_PyStack_UnpackDict`에서 "keywords must be strings"를 먼저 낸다. 나머지(클래스의 `type_call`, slot wrapper, method-wrapper, METH_VARARGS builtin인 `max`·`min`·`dir`·`vars`·`str.count` 등)는 자기 인자 해석의 오류를 낸다. SharpPy는 `CALL_FUNCTION_EX`가 모든 대상에 검사를 먼저 해서, 측정한 경우 중 `C(**{1: 2})`, `max(**{1: 2})`, `object(**{1: 2})`, `OrderedDict(**{1: 2})` 등이 다르다. 경로: 호출 대상마다 vectorcall 여부(METH 플래그와 `tp_vectorcall`, 측정으로 생성)를 두고, `PyObject_Call` 한 곳에서 그 대상에만 검사한다. `PyFunction.Call`, `list.sort`, `PyArgs`의 같은 검사도 그 한 곳으로 모인다.
 
 ## 1a. 예외 출력
 
