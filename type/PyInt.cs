@@ -1239,26 +1239,17 @@ namespace SharpPy
 
         internal static PyInt FromArguments(PyObject[] args, PyDict kwargs, int offset = 0)
         {
-            int count = args.Length - offset;
-            int keywords = kwargs?.Length() ?? 0;
-            if (count > 2 || count + keywords > 2)
-                throw PyTypeError.Create($"int() takes at most 2 arguments ({count + keywords} given)");
-            PyObject radix = count > 1 ? args[offset + 1] : null;
-            if (keywords != 0)
-            {
-                foreach (var pair in kwargs.GetInternalDict())
-                {
-                    if (pair.Key is not PyString key || key.Value != "base")
-                        throw PyTypeError.Create($"'{pair.Key.ToStr().Value}' is an invalid keyword argument for int()");
-                    radix = pair.Value;
-                }
-            }
+            // long_new's clinic: int(x=<unrepresentable>, /, base=10).
+            var given = offset == 0 ? args : args[offset..];
+            var parsed = PyArgs.Unpack("int", given, kwargs, new[] { "", "base" }, 1, 0, 2);
+            int count = parsed[0] == null ? 0 : 1;
+            PyObject radix = parsed[1];
             if (count == 0)
             {
                 if (radix != null) throw PyTypeError.Create("int() missing string argument");
                 return PyInt.From(0);
             }
-            var value = args[offset];
+            var value = parsed[0];
             int baseValue = 10;
             if (radix != null)
             {

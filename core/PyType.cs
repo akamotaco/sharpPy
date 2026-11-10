@@ -2905,14 +2905,7 @@ namespace SharpPy
             // dict_init: dict_update_common(self, args, kwds, "dict"), what dict.update does.
             TypeDict["__init__"] = new PyWrapperDescriptor("__init__", dictType, (self, args, kwargs) =>
             {
-                var target = (PyDict)self;
-                if (args.Length > 1)
-                    throw PyTypeError.Create($"dict expected at most 1 argument, got {args.Length}");
-                if (args.Length == 1)
-                    PyDict.UpdateCommon(target, args[0]);
-                if (kwargs != null)
-                    foreach (var entry in kwargs.GetInternalDict())
-                        target.SetItemStorage(entry.Key, entry.Value);
+                PyDict.UpdateCommon((PyDict)self, args, kwargs, "dict");
                 return PyNone.Instance;
             }, minArgs: 0, maxArgs: int.MaxValue, acceptsKwargs: true);
         }

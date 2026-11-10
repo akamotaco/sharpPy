@@ -424,15 +424,19 @@ namespace SharpPy
         {
             // CPython 3.12: zip is a lazy iterator; strict=True is keyword-only.
             bool strict = false;
+            // zip_new: PyArg_ParseTupleAndKeywords(empty, kwds, "|$p:zip", {"strict"}).
             if (kwargs != null && kwargs.Length() > 0)
             {
-                foreach (var key in kwargs.Keys().Items)
+                if (kwargs.Length() > 1)
+                    throw PyTypeError.Create($"zip() takes at most 1 keyword argument ({kwargs.Length()} given)");
+                foreach (var pair in kwargs.InternalDict)
                 {
-                    if (!(key is PyString ks && ks.Value == "strict"))
-                        throw PyArgs.InvalidKeyword("zip", key);
+                    if (pair.Key is not PyString name)
+                        throw PyTypeError.Create("keywords must be strings");
+                    if (name.Value != "strict")
+                        throw PyArgs.InvalidKeyword("zip", name);
+                    strict = pair.Value.IsTrue();
                 }
-                if (kwargs.Contains(PyString.From("strict")).ToBool())
-                    strict = kwargs.GetItem(PyString.From("strict")).IsTrue();
             }
 
             var iterators = new PyObject[args.Length];
@@ -486,6 +490,9 @@ namespace SharpPy
                 return;
             foreach (var entry in kwargs.GetInternalDict())
             {
+                // vgetargskeywords: a name that is not a str is refused as such.
+                if (entry.Key is not PyString)
+                    throw PyTypeError.Create("keywords must be strings");
                 string key = entry.Key.ToClrString();
                 bool known = false;
                 foreach (var name in allowed)
@@ -844,21 +851,10 @@ namespace SharpPy
         // complex_new_impl
         internal static PyObject CallComplex(PyObject[] args, PyDict kwargs = null)
         {
-            int total = args.Length + (kwargs?.Length() ?? 0);
-            if (total > 2)
-                throw PyTypeError.Create($"complex() takes at most 2 arguments ({total} given)");
-            PyObject r = args.Length > 0 ? args[0] : null;
-            PyObject i = args.Length > 1 ? args[1] : null;
-            if (kwargs != null)
-                foreach (var entry in kwargs.GetInternalDict())
-                {
-                    if (entry.Key is PyString { Value: "real" } && r == null) r = entry.Value;
-                    else if (entry.Key is PyString { Value: "imag" } && i == null) i = entry.Value;
-                    else if (entry.Key is PyString { Value: "real" or "imag" } duplicate)
-                        throw PyTypeError.Create($"argument for complex() given by name ('{duplicate.Value}') and position ({(duplicate.Value == "real" ? 1 : 2)})");
-                    else
-                        throw PyTypeError.Create($"{entry.Key.ToRepr().Value} is an invalid keyword argument for complex()");
-                }
+            // complex_new's clinic: complex(real=0, imag=0).
+            var parsed = PyArgs.Unpack("complex", args, kwargs, new[] { "real", "imag" }, 0, 0, 2);
+            PyObject r = parsed[0];
+            PyObject i = parsed[1];
             r ??= PyInt.From(0);
 
             if (r.IsExactly(PyType.ComplexType) && i == null)

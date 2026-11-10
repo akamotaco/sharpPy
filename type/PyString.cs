@@ -18,37 +18,12 @@ namespace SharpPy
         internal static void Project(PyObject[] args, PyDict kwargs, bool hasReceiver,
             out PyObject objectArg, out PyObject encodingArg, out PyObject errorsArg)
         {
-            int offset = hasReceiver ? 1 : 0;
-            int count = System.Math.Max(0, args.Length - offset);
-            if (count > 3)
-                throw PyTypeError.Create($"str() takes at most 3 arguments ({count} given)");
-
-            objectArg = count > 0 ? args[offset] : null;
-            encodingArg = count > 1 ? args[offset + 1] : null;
-            errorsArg = count > 2 ? args[offset + 2] : null;
-
-            if (kwargs != null)
-            {
-                foreach (var entry in kwargs.GetInternalDict())
-                {
-                    var key = entry.Key.ToClrString();
-                    switch (key)
-                    {
-                        case "object":
-                            objectArg ??= entry.Value;
-                            break;
-                        case "encoding":
-                            encodingArg ??= entry.Value;
-                            break;
-                        case "errors":
-                            errorsArg ??= entry.Value;
-                            break;
-                        default:
-                            throw PyTypeError.Create(
-                                $"'{key}' is an invalid keyword argument for str()");
-                    }
-                }
-            }
+            // unicode_new's clinic: str(object=<unrepresentable>, encoding=<unrepresentable>, errors=<unrepresentable>).
+            var given = hasReceiver ? args[System.Math.Min(1, args.Length)..] : args;
+            var parsed = PyArgs.Unpack("str", given, kwargs, new[] { "object", "encoding", "errors" }, 0, 0, 3);
+            objectArg = parsed[0];
+            encodingArg = parsed[1];
+            errorsArg = parsed[2];
         }
 
         // unicode_new_impl: PyObject_Str of the object, the object itself as it comes back, or the

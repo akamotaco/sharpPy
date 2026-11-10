@@ -44,6 +44,51 @@ namespace SharpPy
         internal static Convention OfFunction(string module, string name) =>
             module != null && Table.TryGetValue(module + "." + name, out var found) ? found : null;
 
+        // A builtin type's key in the table: its name, or "<module>.<name>".
+        private static string TypeKey(PyType type) =>
+            type.Module == null || type.Module == "builtins" ? type.Name : type.Module + "." + type.Name;
+
+        /// <summary>
+        /// PyObject_Call's vectorcall branch (Objects/call.c _PyVectorcall_Call): a callable with
+        /// vectorcall has the keyword dict unpacked by _PyStack_UnpackDict, which refuses a name that
+        /// is not a str before the callable runs. A builtin function or bound method has it unless it
+        /// is METH_VARARGS (measured, core/BuiltinArity.g.cs), an unbound method descriptor always.
+        /// A Python function checks in its own call; a static type when it has tp_vectorcall
+        /// (measured), else its tp_new or tp_init parser meets the names in order;
+        /// tp_new_wrapper is METH_VARARGS.
+        /// </summary>
+        internal static bool RefusesNonStrKeywordFirst(PyObject callable) => callable switch
+        {
+            PyBuiltinFunction { Name: "__new__" } or PyMethodDescriptor { Name: "__new__" } => false,
+            PyMethodDescriptor => true,
+            PyBoundMethodDescriptor { MethodDescriptor: { } method } =>
+                !KeywordsNotFirst.Contains(TypeKey(method.OwnerType) + "." + method.Name),
+            // classmethod_get's binding of a METH_CLASS method: the function it wraps.
+            PyBoundMethodDescriptor { Callable: PyBuiltinFunction bound } => RefusesNonStrKeywordFirst(bound),
+            PyBuiltinFunction function when function.OwnerType != null =>
+                !KeywordsNotFirst.Contains(TypeKey(function.OwnerType) + "." + function.Name),
+            PyBuiltinFunction function when function.OwnerClass != null =>
+                !KeywordsNotFirst.Contains(function.OwnerClass + "." + function.Name),
+            PyBuiltinFunction function =>
+                !KeywordsNotFirst.Contains(function.OwnerModule + "." + function.Name),
+            PyClass { IsHeapType: true } => false,
+            PyType type => TypeKeywordsFirst.Contains(TypeKey(type)),
+            _ => false,
+        };
+
+        /// <summary>
+        /// PyObject_Call (Objects/call.c): a dict of keywords, the vectorcall branch's refusal of a
+        /// name that is not a str, then the callable. CALL_FUNCTION_EX and wrap_call call through it.
+        /// </summary>
+        internal static PyObject ObjectCall(PyObject callable, PyObject[] args, PyDict kwargs)
+        {
+            if (kwargs != null && kwargs.Length() != 0 && RefusesNonStrKeywordFirst(callable))
+                foreach (var pair in kwargs.InternalDict)
+                    if (pair.Key is not PyString)
+                        throw PyTypeError.Create("keywords must be strings");
+            return callable.Call(args, kwargs);
+        }
+
         /// <summary>The checks of the convention, the callable named qualname (_PyObject_FunctionStr).</summary>
         internal static void Check(Convention convention, string qualname, string name, PyObject[] args, PyDict kwargs, bool bound)
         {

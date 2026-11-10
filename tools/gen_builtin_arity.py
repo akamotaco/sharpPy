@@ -339,6 +339,25 @@ def module_types():
                 yield v
 
 
+def keywords_first(func):
+    """PyObject_Call's vectorcall branch: _PyStack_UnpackDict refuses a key that is not a str
+    before the callable sees anything. Without vectorcall the callable's own parser answers, and
+    meets the str name in front of the other first."""
+    try:
+        func(**{"zzunknown": 1, 2: 3})
+    except TypeError as e:
+        return str(e) == "keywords must be strings"
+    except BaseException:
+        return False
+    return False
+
+
+# Callables measured as not refusing a non-str keyword first: functions and bound methods without
+# vectorcall (METH_VARARGS). Types are the other way round: the ones that do.
+NOT_FIRST = set()
+TYPES_FIRST = set()
+
+
 def collect():
     entries = {}
     # A type of a module other than builtins is keyed by its module too, as PyArity.Of looks it up.
@@ -356,6 +375,8 @@ def collect():
             found = classify(t.__qualname__, mname, value.__get__(obj, t))
             if found:
                 entries[f"{key}.{mname}"] = found
+            if not keywords_first(value.__get__(module_sample(t), t)):
+                NOT_FIRST.add(f"{key}.{mname}")
     for t in sorted((v for v in vars(builtins).values() if isinstance(v, type)), key=lambda t: t.__name__):
         obj = sample(t)
         for mname, value in vars(t).items():
@@ -372,6 +393,8 @@ def collect():
             found = classify(obj.__name__ if isinstance(obj, type) and kind == "method_descriptor" else t.__name__, mname, func)
             if found:
                 entries[f"{t.__name__}.{mname}"] = found
+            if not keywords_first(func):
+                NOT_FIRST.add(f"{t.__name__}.{mname}")
     # A module's function: cfunction_vectorcall_* names it by _PyObject_FunctionStr, the module
     # in front unless it is builtins.
     import importlib
@@ -383,6 +406,13 @@ def collect():
             found = classify(module, fname, func, fname if module == "builtins" else f"{module}.{fname}")
             if found:
                 entries[f"{module}.{fname}"] = found
+            if not keywords_first(func):
+                NOT_FIRST.add(f"{module}.{fname}")
+    # Types: type_call has no vectorcall; a type with tp_vectorcall refuses a non-str name first.
+    for t in list(module_types()) + [v for v in vars(builtins).values() if isinstance(v, type) and not issubclass(v, BaseException)]:
+        key = t.__qualname__ if t.__module__ == "builtins" else f"{t.__module__}.{t.__qualname__}"
+        if keywords_first(t):
+            TYPES_FIRST.add(key)
     return entries
 
 
@@ -418,7 +448,15 @@ def main():
         else:
             extra = ""
         lines.append(f"            [{literal(key)}] = new(PyCall.{kind}, {lo}, {hi}{extra}),")
-    lines += ["        };", "    }", "}", ""]
+    lines += ["        };", ""]
+    for name, values in (("KeywordsNotFirst", NOT_FIRST), ("TypeKeywordsFirst", TYPES_FIRST)):
+        lines.append(f"        private static readonly HashSet<string> {name} = new()")
+        lines.append("        {")
+        for key in sorted(values):
+            lines.append(f"            {literal(key)},")
+        lines.append("        };")
+        lines.append("")
+    lines += ["    }", "}", ""]
     with open(os.path.join(root, "core", "BuiltinArity.g.cs"), "w", encoding="utf-8", newline="\n") as stream:
         stream.write("\n".join(lines))
     counts = {}

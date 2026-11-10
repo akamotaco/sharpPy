@@ -158,19 +158,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var target = (PyDict)self;
 
-                    // dict_update_arg: PyArg_UnpackTuple(args, "update", 0, 1) - METH_VARARGS has no row.
-                    if (args.Length > 1)
-                        throw PyTypeError.Create($"update expected at most 1 argument, got {args.Length}");
-
-                    // CPython dict_update: merge E first, then apply **F (F wins on collision)
-                    if (args.Length == 1)
-                        UpdateCommon(target, args[0]);
-
-                    if (kwargs != null)
-                    {
-                        foreach (var entry in kwargs.GetInternalDict())
-                            target.SetItemStorage(entry.Key, entry.Value);
-                    }
+                    UpdateCommon(target, args, kwargs, "update");
                     return PyNone.Instance;
                 },
                 minArgs: 0, maxArgs: 1
@@ -675,6 +663,26 @@ namespace SharpPy
 
 
         /// <summary>
+        /// <summary>
+        /// dict_update_common (Objects/dictobject.c), dict.update's and dict.__init__'s body:
+        /// PyArg_UnpackTuple(args, methname, 0, 1), the argument merged, then the keywords once
+        /// PyArg_ValidateKeywordArguments has found every name a str.
+        /// </summary>
+        internal static void UpdateCommon(PyDict target, PyObject[] args, PyDict kwargs, string methname)
+        {
+            if (args.Length > 1)
+                throw PyTypeError.Create($"{methname} expected at most 1 argument, got {args.Length}");
+            if (args.Length == 1)
+                UpdateCommon(target, args[0]);
+            if (kwargs == null || kwargs.Length() == 0)
+                return;
+            foreach (var entry in kwargs.GetInternalDict())
+                if (entry.Key is not PyString)
+                    throw PyTypeError.Create("keywords must be strings");
+            foreach (var entry in kwargs.GetInternalDict())
+                target.SetItemStorage(entry.Key, entry.Value);
+        }
+
         /// CPython 3.12: Objects/dictobject.c dict_update_common dispatch:
         ///   - dict (incl. subclass) instances merge from internal storage
         ///   - other objects with a keys() attribute merge via keys() + __getitem__

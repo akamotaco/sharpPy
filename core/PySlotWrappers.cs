@@ -190,7 +190,8 @@ namespace SharpPy
                 case "__delitem__":
                     value.MpDelSubscript(args[0]);
                     return PyNone.Instance;
-                case "__call__": return value.Call(args, kwargs);
+                // wrap_call: PyObject_Call(self, args, kwds).
+                case "__call__": return PyArity.ObjectCall(value, args, kwargs);
                 case "__bool__": return PyBool.FromBool(value.Bool());
                 case "__abs__": return value.NbAbsolute();
                 case "__neg__": return value.NbNegative();

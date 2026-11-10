@@ -2776,19 +2776,11 @@ namespace SharpPy
                         }
                     }
 
-                    // PyObject_Call(func, callargs, kwargs): the keywords as one dict of str keys.
-                    PyDict callKeywords = null;
-                    if (hasKwargs && kwargsDict is PyDict kwargsPyDict && kwargsPyDict.Length() != 0)
-                    {
-                        callKeywords = new PyDict();
-                        foreach (var kvp in kwargsPyDict.InternalDict)
-                        {
-                            if (kvp.Key is not PyString)
-                                throw PyTypeError.Create("keywords must be strings");
-                            callKeywords.SetItem(kvp.Key, kvp.Value);
-                        }
-                    }
-                    PyObject unpackedResult = functionToCall.Call(argsList.ToArray(), callKeywords);
+                    // PyObject_Call(func, callargs, kwargs): the dict DICT_MERGE built. A callable with
+                    // vectorcall refuses a name that is not a str first (_PyStack_UnpackDict); any
+                    // other meets it in its own parser.
+                    PyDict callKeywords = hasKwargs && kwargsDict is PyDict kwargsPyDict && kwargsPyDict.Length() != 0 ? kwargsPyDict : null;
+                    PyObject unpackedResult = PyArity.ObjectCall(functionToCall, argsList.ToArray(), callKeywords);
 
                     frame.ValueStack.Push(unpackedResult);
                     break;
