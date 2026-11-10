@@ -107,8 +107,6 @@ namespace SharpPy
                 "__round__", floatType,
                 (self, args, kwargs) => {
                     var roundTarget = PyFloat.FloatValue(self);
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create("float.__round__() takes no keyword arguments");
                     if (args.Length > 1)
                         throw PyTypeError.Create(
                             $"__round__ expected at most 1 argument, got {args.Length}");

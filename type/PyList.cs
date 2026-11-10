@@ -128,8 +128,6 @@ namespace SharpPy
                 "index", listType,
                 (self, args, kwargs) => {
                     // CPython list.index(value, start=0, stop=len): positional-only.
-                    if (kwargs != null && kwargs.Length() > 0)
-                        throw PyTypeError.Create("list.index() takes no keyword arguments");
                     if (args.Length < 1)
                         throw PyTypeError.Create($"index expected at least 1 argument, got {args.Length}");
                     if (args.Length > 3)
@@ -300,8 +298,6 @@ namespace SharpPy
                 listType,
                 (self, args, kwargs) =>
                 {
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("list.__getitem__() takes no keyword arguments");
                     if (args.Length != 1)
                         throw PyTypeError.Create($"list.__getitem__() takes exactly one argument ({args.Length} given)");
 
@@ -314,8 +310,6 @@ namespace SharpPy
                 listType,
                 (self, args, kwargs) =>
                 {
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("list.__setitem__() takes no keyword arguments");
                     if (args.Length != 2)
                         throw PyTypeError.Create($" expected 2 arguments, got {args.Length}");
 
@@ -330,8 +324,6 @@ namespace SharpPy
                 listType,
                 (self, args, kwargs) =>
                 {
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("list.__delitem__() takes no keyword arguments");
                     var list = ((PyList)self);
                     var key = args[0];
 
@@ -362,8 +354,6 @@ namespace SharpPy
                 listType,
                 (self, args, kwargs) =>
                 {
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("list.__contains__() takes no keyword arguments");
                     return PyBool.FromBool(((PyList)self).RawContains(args[0]));
                 });
 
@@ -380,8 +370,6 @@ namespace SharpPy
                 listType.TypeDict[name] = new PyWrapperDescriptor(name, listType, (self, args, kwargs) =>
                 {
                     var list = (PyList)self;
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create($"list.{name}() takes no keyword arguments");
                     if (args.Length != 1)
                         throw PyTypeError.Create(varargsStyle
                             ? $" expected 1 argument, got {args.Length}"
@@ -431,8 +419,6 @@ namespace SharpPy
                 listType.TypeDict[name] = new PyWrapperDescriptor(name, listType, (self, args, kwargs) =>
                 {
                     var list = (PyList)self;
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create($"list.{name}() takes no keyword arguments");
                     return (list.IsExact ? list : new PyList(list.Items)).RichCompare(args[0], op);
                 });
             }

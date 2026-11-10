@@ -352,8 +352,6 @@ namespace SharpPy
                     // argument-type text is not. bytearray repeats the qualified form with its own name.
                     if (args.Length != 1)
                         throw PyTypeError.Create($"bytes.fromhex() takes exactly one argument ({args.Length} given)");
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create("bytes.fromhex() takes no keyword arguments");
 
                     if (args[0] is not PyString hexStr)
                         throw PyArgs.BadArgument("fromhex", "argument", "str", args[0]);

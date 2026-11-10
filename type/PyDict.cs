@@ -276,8 +276,6 @@ namespace SharpPy
             // dict_methods: {"__contains__", dict___contains__, METH_O | METH_COEXIST}
             dictType.TypeDict["__contains__"] = new PyMethodDescriptor("__contains__", dictType, (self, args, kwargs) =>
             {
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create("dict.__contains__() takes no keyword arguments");
                 if (args.Length != 1)
                     throw PyTypeError.Create($"dict.__contains__() takes exactly one argument ({args.Length} given)");
                 var dict = (PyDict)self;
@@ -287,8 +285,6 @@ namespace SharpPy
                 "__getitem__", dictType,
                 (self, args, kwargs) => {
                     // CPython 3.12.15 measured: dict.__getitem__ is METH_O in the dict method table
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("dict.__getitem__() takes no keyword arguments");
                     if (args.Length != 1)
                         throw PyTypeError.Create($"dict.__getitem__() takes exactly one argument ({args.Length} given)");
 
@@ -314,8 +310,6 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     // CPython 3.12.15 measured: dict.__setitem__ is METH_VARARGS with format "OO";
                     // PyArg_ParseTuple reports without the function name (note leading space).
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("dict.__setitem__() takes no keyword arguments");
                     if (args.Length != 2)
                         throw PyTypeError.Create($" expected 2 arguments, got {args.Length}");
 
@@ -336,8 +330,6 @@ namespace SharpPy
                 "__delitem__", dictType,
                 (self, args, kwargs) => {
                     // CPython 3.12.15 measured: dict.__delitem__ reports "expected 1 argument, got N".
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("dict.__delitem__() takes no keyword arguments");
                     // dict_ass_sub without a value: the table itself.
                     var pyDict = (PyDict)self;
                     pyDict.MpDelSubscript(args[0]);

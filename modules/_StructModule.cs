@@ -958,8 +958,6 @@ namespace SharpPy.Modules
         private static void Fast(PyType type, string name, Func<PyObject, PyObject[], PyObject> body) =>
             type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) =>
             {
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create($"{type.Name}.{name}() takes no keyword arguments");
                 return body(self, args);
             }, minArgs: 0, maxArgs: int.MaxValue, acceptsKwargs: true);
 

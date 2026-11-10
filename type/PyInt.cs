@@ -177,8 +177,6 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     // Measured CPython slot surface: keywords are refused with the qualified name,
                     // extra positionals with the bare method name.
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create("int.__round__() takes no keyword arguments");
                     if (args.Length > 1)
                         throw PyTypeError.Create(
                             $"__round__ expected at most 1 argument, got {args.Length}");

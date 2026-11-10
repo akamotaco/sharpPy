@@ -124,8 +124,6 @@ namespace SharpPy
             foreach (var name in new[] { "release", "__enter__", "__exit__" })
                 type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) => {
                     var view = (PyMemoryView)self;
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create($"{name}() takes no keyword arguments");
                     if (name != "__exit__" && args.Length != 0)
                         throw PyTypeError.Create($"{name}() takes no arguments ({args.Length} given)");
                     if (name == "__enter__")

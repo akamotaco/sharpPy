@@ -535,8 +535,6 @@ namespace SharpPy
             strType.TypeDict["index"] = new PyMethodDescriptor(
                 "index", strType,
                 (self, args, kwargs) => {
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create("str.index() takes no keyword arguments");
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create(args.Length < 1 ? "index() takes at least 1 argument (0 given)" : $"index() takes from 1 to 3 positional arguments but {args.Length} were given");
                     var str = (PyString)self;
@@ -592,8 +590,6 @@ namespace SharpPy
                 "__len__", strType,
                 (self, args, kwargs) =>
                 {
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("str.__len__() takes no keyword arguments");
                     var selfStr = (PyString)self;
 
                     return PyInt.From(selfStr.Value.Length);
@@ -606,8 +602,6 @@ namespace SharpPy
                 "__str__", strType,
                 (self, args, kwargs) =>
                 {
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("str.__str__() takes no keyword arguments");
                     
                     // Measured CPython 3.12.15: str.__str__(CS("w")) == "w" (raw content,
                     // exact str), NOT the user __str__ result; str(CS("w")) dispatches
@@ -618,8 +612,6 @@ namespace SharpPy
                 "__repr__", strType,
                 (self, args, kwargs) =>
                 {
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("str.__repr__() takes no keyword arguments");
                     var reprSelf = (PyString)self;
                     return PyString.From("'" + reprSelf.Value + "'");
                 });
@@ -640,8 +632,6 @@ namespace SharpPy
                 (self, args, kwargs) =>
                 {
                     var recv = (PyString)self;
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("str.__mod__() takes no keyword arguments");
                     return recv.Modulo(args[0]);
                 });
 
@@ -655,8 +645,6 @@ namespace SharpPy
                 strType.TypeDict[name] = new PyWrapperDescriptor(name, strType, (self, args, kwargs) =>
                 {
                     var recv = (PyString)self;
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create($"str.{name}() takes no keyword arguments");
                     return recv.TpRichCompare(args[0], op);
                 });
             }
@@ -665,8 +653,6 @@ namespace SharpPy
                 "__add__", strType,
                 (self, args, kwargs) =>
                 {
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("str.__add__() takes no keyword arguments");
                     var selfStr = (PyString)self;
 
                     var concat = selfStr.Add(args[0]);
@@ -679,8 +665,6 @@ namespace SharpPy
                 "__getitem__", strType,
                 (self, args, kwargs) =>
                 {
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("str.__getitem__() takes no keyword arguments");
                     var selfStr = (PyString)self;
 
                     return selfStr.MpSubscript(args[0]);
@@ -690,8 +674,6 @@ namespace SharpPy
                 "__contains__", strType,
                 (self, args, kwargs) =>
                 {
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                        throw PyTypeError.Create("str.__contains__() takes no keyword arguments");
                     var selfStr = (PyString)self;
 
                     // unicode_contains: the slot itself, not PyObject_Contains (a subclass would re-enter it).

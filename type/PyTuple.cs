@@ -73,8 +73,6 @@ namespace SharpPy
             tupleType.TypeDict["index"] = new PyMethodDescriptor(
                 "index", tupleType,
                 (self, args, kwargs) => {
-                    if (kwargs != null && kwargs.Length() != 0)
-                        throw PyTypeError.Create("tuple.index() takes no keyword arguments");
 
                     var tuple = (PyTuple)self;
 
