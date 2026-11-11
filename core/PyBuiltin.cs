@@ -1875,19 +1875,7 @@ namespace SharpPy
             }
 
             // _PyEval_GetFrameLocals: _PyFrame_GetLocals(frame, include_hidden=1), as f_locals.
-            var localScope = currentFrame.ScopeChain?.CurrentScope;
-            if (currentFrame.ClassLocalsDict != null || (currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
-                || localScope == null || localScope.Type == ScopeType.Global)
-                return currentFrame.BuildLocalsDict();
-
-            // Convert the local scope variables to a Python dictionary
-            var result = new PyDict();
-            foreach (var variable in localScope.Variables)
-            {
-                result.SetItem(PyString.From(variable.Key), variable.Value);
-            }
-
-            return result;
+            return currentFrame.BuildLocalsDict();
         }
         
 

@@ -164,7 +164,6 @@ namespace SharpPy.Tools
             Console.WriteLine(new string('=', 60));
             
             var scopeChain = new PyScopeChain();
-            scopeChain.PrintSystemState();
 
             // 6. 모듈 시스템과 Import
             Console.WriteLine("\n📦 6. 모듈 시스템과 Import");

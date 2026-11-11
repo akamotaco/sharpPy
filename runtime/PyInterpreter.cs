@@ -440,12 +440,6 @@ namespace SharpPy
             }
         }
         
-        // 현재 전역 스코프 상태 출력
-        public void PrintGlobalState()
-        {
-            Console.WriteLine("\n📊 전역 스코프 상태:");
-            _globalScope.PrintSystemState();
-        }
 
         /// <summary>
         /// 전역 스코프에서 변수 값 가져오기

@@ -19,19 +19,6 @@ internal static class FrameChecks
         var probeCode = probe.CodeObject ?? throw new InvalidOperationException("Missing probe code");
         var scopeFrame = new PyFrame(probeCode, new PyObject[] { PyInt.One },
             new PyScopeChain(probe.GlobalsDict, "probe"));
-        var localScope = scopeFrame.LocalScope ?? throw new InvalidOperationException("Missing function scope");
-        var variables = localScope.Variables;
-        if (!ReferenceEquals(variables["value"], PyInt.One))
-            throw new InvalidOperationException("C# scope parameter lookup changed");
-        scopeFrame.LocalsPlus[0] = new PyInt(2);
-        if (!ReferenceEquals(variables, localScope.Variables) ||
-            ((PyInt)variables["value"]).Value != 2)
-            throw new InvalidOperationException("C# scope refresh or identity changed");
-        variables["extra"] = PyInt.One;
-        scopeFrame.LocalsPlus[0] = PyNull.Instance;
-        if (localScope.Variables.ContainsKey("value") || !variables.ContainsKey("extra"))
-            throw new InvalidOperationException("C# scope deletion or extra key retention changed");
-
         scopeFrame.LocalsPlus[0] = PyInt.One;
         var observed = (PyDict)scopeFrame.GetAttribute("f_locals");
         if (((PyInt)observed.GetItem(new PyString("value"))).Value != 1)

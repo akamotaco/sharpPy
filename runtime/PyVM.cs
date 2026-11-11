@@ -103,7 +103,6 @@ namespace SharpPy
         }
 
         // Helper property to access local scope from ScopeChain
-        public PyScope? LocalScope => ScopeChain?.CurrentScope;
 
         // CPython-style error location tracking
         // PyFrame_GetLineNumber: PyCode_Addr2Line(code, lasti), the line of the last instruction (-1
@@ -1852,7 +1851,7 @@ namespace SharpPy
                     PyObject? value = null;
 
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔍 LOAD_NAME({name}): 현재 스코프 = {frame.ScopeChain.CurrentScope?.Name ?? "null"}");
+                    Console.WriteLine($"🔍 LOAD_NAME({name}): 현재 스코프 = {frame.ScopeChain.GlobalScope?.Name ?? "null"}");
                     #endif
 
                     // CPython 3.12: Check LOCALS() first (line 1711)
@@ -2082,7 +2081,8 @@ namespace SharpPy
                     }
                     else
                     {
-                        var targetScope = frame.ScopeChain.CurrentScope;
+                        // LOCALS() of module code is its globals.
+                        var targetScope = frame.ScopeChain.GlobalScope;
                         if (targetScope.GetVariable(annotationsKey.Value) == null)
                             targetScope.SetVariable(annotationsKey.Value, new PyDict());
                     }

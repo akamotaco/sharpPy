@@ -148,129 +148,41 @@ namespace SharpPy
     }
 
 
-    // LEGB 스코프 체인 관리자 (Builtin 특별 관리)
+    /// <summary>
+    /// A frame's f_globals: the module (or exec) namespace and the builtins module beside it. The
+    /// locals of a function are its localsplus slots, of a class body or exec its mapping
+    /// (PyFrame.ClassLocalsDict); this holds no other scope.
+    /// </summary>
     public class PyScopeChain
     {
-        // 일반 스코프들만 리스트로 관리 (G, E, L)
-        private readonly List<PyScope> _normalScopes;
+        public PyScope GlobalScope { get; }
+        public PyBuiltinsModule BuiltinModule { get; } = PyBuiltinsModule.Instance;
 
-        // Builtin은 전역 싱글톤 모듈로 특별 관리!
-        private readonly PyBuiltinsModule _builtinModule;
-
-        public PyScope CurrentScope => _normalScopes.LastOrDefault();
-        public PyScope GlobalScope => _normalScopes.FirstOrDefault();
-        public PyBuiltinsModule BuiltinModule => _builtinModule;
-
-        // LOAD_NAME's locals and globals, for a frame whose builtins are its own.
-        public int ScopeCount => _normalScopes.Count;
-
+        /// <summary>A fresh namespace with the builtins module as its __builtins__.</summary>
         public PyScopeChain()
         {
-            // Builtin은 전역 싱글톤 모듈 (특별!)
-            _builtinModule = PyBuiltinsModule.Instance;
-
-            // 일반 스코프들 (Global부터 시작)
-            _normalScopes = new List<PyScope>();
-            var globalScope = new PyScope(ScopeType.Global, null, "global");
-            _normalScopes.Add(globalScope);
-
-            // Global 스코프에 __builtins__ 참조 추가 (Python과 동일)
-            globalScope.SetVariable("__builtins__", _builtinModule);
-
-            SharpPyConfig.DebugWriteInternal("🏗️ LEGB 시스템 초기화 (Builtin 특별 관리)");
+            GlobalScope = new PyScope(ScopeType.Global, null, "global");
+            GlobalScope.SetVariable("__builtins__", BuiltinModule);
         }
 
-        /// <summary>
-        /// 모듈용 생성자: 기존 모듈 딕셔너리를 글로벌 스코프로 사용
-        /// </summary>
-        // CPython 3.12: Python/ceval.c - frame->f_globals references module->md_dict
-        // Constructor for module scope - requires module reference
+        // CPython 3.12: frame->f_globals references module->md_dict.
         public PyScopeChain(IDictionary<string, PyObject> moduleDict, string moduleName, PyModule module = null)
         {
-            // Builtin은 전역 싱글톤 모듈 (특별!)
-            _builtinModule = PyBuiltinsModule.Instance;
-
-            // 일반 스코프들 (모듈 딕셔너리를 Global로 시작)
-            _normalScopes = new List<PyScope>();
-            var globalScope = new PyScope(ScopeType.Global, moduleDict, null, moduleName, module);
-            _normalScopes.Add(globalScope);
-
-            // Global 스코프에 __builtins__ 참조 추가 (Python과 동일) - moduleDict가 이미 포함할 수 있음
+            GlobalScope = new PyScope(ScopeType.Global, moduleDict, null, moduleName, module);
             // exec_code_in_module: only __main__ holds the module, other modules hold its dict.
             if (moduleDict is not PyDictVariables && !moduleDict.ContainsKey("__builtins__"))
-            {
-                globalScope.SetVariable("__builtins__", moduleName == "__main__" ? _builtinModule : _builtinModule.GetAttribute("__dict__"));
-            }
-
-            SharpPyConfig.DebugWriteInternal($"🏗️ 모듈용 LEGB 시스템 초기화: {moduleName}");
+                GlobalScope.SetVariable("__builtins__", moduleName == "__main__" ? BuiltinModule : BuiltinModule.GetAttribute("__dict__"));
         }
-
-
-
-
 
         // The host's lookup of a name: the globals, then the builtins.
         public PyObject LookupVariable(string name)
         {
-            return GlobalScope?.GetVariable(name) ?? _builtinModule.GetBuiltin(name)
+            return GlobalScope?.GetVariable(name) ?? BuiltinModule.GetBuiltin(name)
                 ?? throw PyNameError.Create($"name '{name}' is not defined", name);
         }
 
         public void AssignVariable(string name, PyObject value) => GlobalScope.SetVariable(name, value);
-
-        // 시스템 상태 출력
-        public void PrintSystemState()
-        {
-#if DEBUG_LOG
-            Console.WriteLine($"\n📊 LEGB 시스템 상태:");
-#endif
-#if DEBUG_LOG
-            Console.WriteLine($"  일반 스코프 수: {_normalScopes.Count}");
-#endif
-#if DEBUG_LOG
-            Console.WriteLine($"  Builtin 모듈: {_builtinModule} (전역 싱글톤)");
-#endif
-#if DEBUG_LOG
-            Console.WriteLine($"  Builtin 객체 수: {_builtinModule.BuiltinDict.Count}");
-#endif
-
-#if DEBUG_LOG
-            Console.WriteLine($"📚 스코프 체인:");
-#endif
-            for (int i = _normalScopes.Count - 1; i >= 0; i--)
-            {
-                var scope = _normalScopes[i];
-                var arrow = i == _normalScopes.Count - 1 ? "👉 " : "   ";
-#if DEBUG_LOG
-                Console.WriteLine($"  {arrow}{scope}");
-#endif
-            }
-#if DEBUG_LOG
-            Console.WriteLine($"  ⭐ Builtin Module (전역): {_builtinModule}");
-#endif
-        }
-
-
-        /// <summary>
-        /// 글로벌 스코프의 모든 변수를 반환 (모듈 실행 후 변수 추출용)
-        /// 모듈 실행 시에는 CurrentScope(Local)의 변수들이 실제로는 모듈의 global 변수들임
-        /// </summary>
-        public Dictionary<string, PyObject> GetGlobalVariables()
-        {
-            var result = new Dictionary<string, PyObject>();
-
-            // 글로벌 스코프의 변수들 반환 (CPython 3.12 호환)
-            if (GlobalScope?.Variables != null)
-            {
-                foreach (var kvp in GlobalScope.Variables)
-                {
-                    result[kvp.Key] = kvp.Value;
-                }
-            }
-
-            return result;
-        }
-
     }
+
     #endregion
 }
