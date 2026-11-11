@@ -2913,15 +2913,6 @@ namespace SharpPy
                         Console.WriteLine($"   Frame locals: {string.Join(", ", frameLocalDescriptions)}");
                     }
                     #endif
-                    if (iterable is PyTuple iterTuple)
-                    {
-                        for (int i = 0; i < iterTuple.Items.Length; i++)
-                        {
-                        }
-                    }
-                    else
-                    {
-                    }
                     var iterator = iterable.GetIterator();
                     frame.ValueStack.Push(iterator);
                     #if DEBUG_VM_LOG

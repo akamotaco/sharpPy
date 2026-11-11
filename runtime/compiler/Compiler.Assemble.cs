@@ -45,7 +45,9 @@ namespace SharpPy
             {
                 WarnExplicit("SyntaxWarning", message, _filename, loc.Line);
             }
-            catch (PythonException error) when (error.PyException.GetTypeName() == "SyntaxWarning")
+            // PyErr_ExceptionMatches(PyExc_SyntaxWarning): the warning turned into an error, a
+            // subclass included, becomes the SyntaxError.
+            catch (PythonException error) when (error.PyException.GetPyType().IsSubclassOf(PyType.SyntaxWarningType))
             {
                 throw Error(loc, message);
             }
