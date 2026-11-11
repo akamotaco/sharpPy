@@ -147,7 +147,9 @@ namespace SharpPy
             }
         }
 
-        private static string ReadSource(string path) => Generated.Tokenizer.DecodeFile(IOHelper.ReadAllBytes(path), path);
+        internal static string LocateSource(string relative) => LocateInSysPath(relative);
+
+        internal static string ReadSource(string path) => Generated.Tokenizer.DecodeFile(IOHelper.ReadAllBytes(path), path);
 
         private static string LocateInSysPath(string relative)
         {
