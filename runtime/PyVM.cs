@@ -1412,48 +1412,12 @@ namespace SharpPy
 
             // CPython 3.12 compatibility: SharpPy Exception Table stores instruction indices, not byte offsets
             var instructionIndex = handlerOffset.Value;
-            if (instructionIndex >= 0 && instructionIndex < frame.Code.Instructions.Count)
-            {
-                frame.InstructionPointer = instructionIndex;
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 Jumping to instruction {instructionIndex}: {frame.Code.Instructions[instructionIndex].OpCode}");
-                #endif
-            }
-            else
-            {
-                // Invalid handler index - provide detailed diagnostic information
-                #if DEBUG_LOG
-                Console.WriteLine($"❌ Invalid handler instruction index: {instructionIndex}");
-                #endif
-                #if DEBUG_LOG
-                Console.WriteLine($"   Max valid index: {frame.Code.Instructions.Count - 1}");
-                #endif
-                #if DEBUG_LOG
-                Console.WriteLine($"   Exception Table entries: {frame.Code.ExceptionTable.Count}");
-                #endif
-                #if DEBUG_LOG
-                Console.WriteLine($"   Current IP: {frame.InstructionPointer}");
-                #endif
-
-                // Try to find a valid handler or fall back gracefully
-                if (frame.Code.Instructions.Count > 0)
-                {
-                    // Jump to the last instruction as a safer fallback
-                    int safeIndex = frame.Code.Instructions.Count - 1;
-                    frame.InstructionPointer = safeIndex;
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 Fallback: Jumping to safe instruction {safeIndex}");
-                    #endif
-                }
-                else
-                {
-                    // No instructions available - re-throw the original exception
-                    #if DEBUG_LOG
-                    Console.WriteLine("❌ No valid instructions to jump to - re-throwing exception");
-                    #endif
-                    throw pyEx;
-                }
-            }
+            // The exception table is the compiler's: a target outside the code is its bug, not a
+            // place to resume (CPython has no such recovery).
+            if (instructionIndex < 0 || instructionIndex >= frame.Code.Instructions.Count)
+                throw new PythonException(new PySystemError(
+                    $"exception table of {frame.Code.Name} names instruction {instructionIndex} outside the code"));
+            frame.InstructionPointer = instructionIndex;
 
             return true;
         }
