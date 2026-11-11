@@ -1,17 +1,7 @@
 namespace SharpPy
 {
-    #region LEGB Scope System with Special Builtin Management
+    #region Globals and the builtins module
 
-    // 스코프 타입
-    public enum ScopeType
-    {
-        Builtin,    // B - Built-in (특별 관리!)
-        Global,     // G - Global (모듈 레벨)
-        Enclosing,  // E - Enclosing (중첩 함수의 바깥 스코프)
-        Local,      // L - Local (함수 내부)
-        Module,     // M - Module level (for annotations)
-        Class       // C - Class body (for annotations)
-    }
 
     // CPython 3.12 compatible: Builtin module (singleton)
     // This wraps the PyModule created by BuiltinsModule.CreateBuiltinsModule()
@@ -80,73 +70,36 @@ namespace SharpPy
         public override string ToString() => "<module 'builtins' (built-in)>";
     }
 
-    // 일반 스코프 (G, E, L만)
+    /// <summary>
+    /// A globals namespace: a module's dict (md_dict) or the dict exec and eval were given, read
+    /// and written as PyGlobalsDict keeps the Python dict and the host view in step.
+    /// </summary>
     public class PyScope
     {
-        public ScopeType Type { get; }
-        private IDictionary<string, PyObject> _variables;
-        public virtual IDictionary<string, PyObject> Variables => _variables ??= CreateVariables();
-        public PyScope EnclosingScope { get; }
+        public IDictionary<string, PyObject> Variables { get; }
         public string Name { get; }
-        // CPython 3.12: frame->f_globals references module->md_dict
-        // Store module reference for global scopes to support globals() builtin
+        // CPython 3.12: frame->f_globals references module->md_dict; globals() returns its dict.
         public PyModule Module { get; }
 
-        public PyScope(ScopeType type, PyScope enclosingScope = null, string name = "")
-            : this(type, enclosingScope, name, false)
-        {
-        }
+        public PyScope(string name) : this(null, name) { }
 
-        protected PyScope(ScopeType type, PyScope enclosingScope, string name, bool deferVariables)
+        public PyScope(IDictionary<string, PyObject> existingVariables, string name, PyModule module = null)
         {
-            Type = type;
-            if (!deferVariables) _variables = CreateVariables();
-            EnclosingScope = enclosingScope;
+            Variables = existingVariables ?? new PyNamespace();
             Name = name;
-            Module = null;
+            Module = module;
         }
 
-        /// <summary>
-        /// 모듈용 생성자: 기존 딕셔너리를 Variables로 사용
-        /// CPython 3.12: Python/ceval.c - frame->f_globals points to module->md_dict
-        /// </summary>
-        public PyScope(ScopeType type, IDictionary<string, PyObject> existingVariables, PyScope enclosingScope = null, string name = "", PyModule module = null)
-        {
-            Type = type;
-            _variables = existingVariables ?? CreateVariables();
-            EnclosingScope = enclosingScope;
-            Name = name;
-            Module = module; // Store module for globals() to return module.__dict__
-        }
+        public void SetVariable(string name, PyObject value) => PyGlobalsDict.Store(Variables, name, value);
 
-        private IDictionary<string, PyObject> CreateVariables() => Type == ScopeType.Global || Type == ScopeType.Module
-            ? new PyNamespace() : new Dictionary<string, PyObject>();
+        public bool DeleteVariable(string name) => PyGlobalsDict.Delete(Variables, name);
 
-        public void SetVariable(string name, PyObject value)
-        {
-            if (Type == ScopeType.Global || Type == ScopeType.Module) PyGlobalsDict.Store(Variables, name, value);
-            else Variables[name] = value;
-        }
+        public PyObject GetVariable(string name) => Variables.TryGetValue(name, out PyObject value) ? value : null;
 
-        public bool DeleteVariable(string name) => Type == ScopeType.Global || Type == ScopeType.Module
-            ? PyGlobalsDict.Delete(Variables, name) : Variables.Remove(name);
+        public bool HasVariable(string name) => Variables.ContainsKey(name);
 
-        public PyObject GetVariable(string name)
-        {
-            return Variables.TryGetValue(name, out PyObject value) ? value : null;
-        }
-
-        public bool HasVariable(string name)
-        {
-            return Variables.ContainsKey(name);
-        }
-
-        public override string ToString()
-        {
-            return $"{Type} Scope '{Name}': {Variables.Count} variables";
-        }
+        public override string ToString() => $"Globals '{Name}': {Variables.Count} variables";
     }
-
 
     /// <summary>
     /// A frame's f_globals: the module (or exec) namespace and the builtins module beside it. The
@@ -161,14 +114,14 @@ namespace SharpPy
         /// <summary>A fresh namespace with the builtins module as its __builtins__.</summary>
         public PyScopeChain()
         {
-            GlobalScope = new PyScope(ScopeType.Global, null, "global");
+            GlobalScope = new PyScope("global");
             GlobalScope.SetVariable("__builtins__", BuiltinModule);
         }
 
         // CPython 3.12: frame->f_globals references module->md_dict.
         public PyScopeChain(IDictionary<string, PyObject> moduleDict, string moduleName, PyModule module = null)
         {
-            GlobalScope = new PyScope(ScopeType.Global, moduleDict, null, moduleName, module);
+            GlobalScope = new PyScope(moduleDict, moduleName, module);
             // exec_code_in_module: only __main__ holds the module, other modules hold its dict.
             if (moduleDict is not PyDictVariables && !moduleDict.ContainsKey("__builtins__"))
                 GlobalScope.SetVariable("__builtins__", moduleName == "__main__" ? BuiltinModule : BuiltinModule.GetAttribute("__dict__"));

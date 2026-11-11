@@ -25,16 +25,7 @@ internal static class FrameAllocationProbes
         }
         Measure("argument_array_2", () => new PyObject[2]);
         Measure("empty_cells_array", () => new PyCell[0]);
-        Measure("legacy_handler_stack", () => new Stack<int>());
         Measure("value_stack", () => new PyStack());
-        Measure("local_scope_empty", () => new PyScope(ScopeType.Local, null, "probe"));
-        Measure("local_scope_2_parameters", () =>
-        {
-            var scope = new PyScope(ScopeType.Local, null, "probe");
-            scope.SetVariable("a", twoArgs[0]);
-            scope.SetVariable("b", twoArgs[1]);
-            return scope;
-        });
         Measure("global_scope_chain", () => new PyScopeChain(globals, "probe"));
         var scopes = new PyScopeChain[iterations];
         for (int i = 0; i < iterations; i++) scopes[i] = new PyScopeChain(globals, "probe");
