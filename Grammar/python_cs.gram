@@ -81,7 +81,7 @@ public GeneratedMod ParseFuncType() => (GeneratedMod)RunParser(Parse_FuncType);
 # - [expr_ty] → [GeneratedExpr] (single expression)
 
 # CPython: file[mod_ty]: a=[statements] ENDMARKER { MakeModule(p, a) }
-file[GeneratedMod]: a=[statements] ENDMARKER { (GeneratedMod)PyParserHelpers.MakeModule((GeneratedStmtSeq?)a) }
+file[GeneratedMod]: a=[statements] ENDMARKER { (GeneratedMod)PyParserRuntime.MakeModule((GeneratedStmtSeq?)a) }
 
 # CPython: interactive[mod_ty]: a=statement_newline { _PyAST_Interactive(a, p->arena) }
 interactive[GeneratedMod]: a=statement_newline { (GeneratedMod)PyAst.Interactive((GeneratedStmtSeq)a) }
@@ -99,32 +99,32 @@ func_type[GeneratedMod]: '(' a=[type_expressions] ')' '->' b=expression NEWLINE*
 # C → C# 타입 변환:
 # - [asdl_stmt_seq*] → [GeneratedStmtSeq] (statement sequence)
 # - [stmt_ty] → [GeneratedStmt] (single statement)
-# - _PyPegen_* → PyParserHelpers.* (C# static methods)
+# - _PyPegen_* → PyParserRuntime.* (C# static methods)
 # - _PyAST_* → PyAst.* (C# static methods)
 # - CHECK<stmt_ty> → Check<GeneratedStmt>
 
 # CPython: statements[asdl_stmt_seq*]: a=statement+ { (asdl_stmt_seq*)SeqFlatten(p, a) }
 # C#: GeneratedSeq → GeneratedStmtSeq (flatten nested sequences)
-statements[GeneratedStmtSeq]: a=statement+ { PyParserHelpers.FlattenStatementSequence(a).Cast<GeneratedStmtSeq>() }
+statements[GeneratedStmtSeq]: a=statement+ { PyParserRuntime.SeqFlatten(a).Cast<GeneratedStmtSeq>() }
 
 # CPython: statement[asdl_stmt_seq*]: a=compound_stmt { (asdl_stmt_seq*)SingletonSeq(p, a) } | a[asdl_stmt_seq*]=simple_stmts { a }
 # C#: compound_stmt는 singleton sequence로 변환, simple_stmts는 이미 sequence
 statement[GeneratedStmtSeq]:
-    | a=compound_stmt { PyParserHelpers.SingletonSequence((GeneratedStmt)a).Cast<GeneratedStmtSeq>() }
+    | a=compound_stmt { PyParserRuntime.SingletonSeq((GeneratedStmt)a).Cast<GeneratedStmtSeq>() }
     | a=simple_stmts { a }
 
 # CPython: statement_newline[asdl_stmt_seq*]: ...
 # C#: Interactive mode용 - NEWLINE만 있으면 Pass statement, ENDMARKER는 종료
 statement_newline[GeneratedStmtSeq]:
-    | a=compound_stmt NEWLINE { PyParserHelpers.SingletonSequence((GeneratedStmt)a).Cast<GeneratedStmtSeq>() }
+    | a=compound_stmt NEWLINE { PyParserRuntime.SingletonSeq((GeneratedStmt)a).Cast<GeneratedStmtSeq>() }
     | simple_stmts
-    | NEWLINE { PyParserHelpers.SingletonSequence(Check<GeneratedStmt>(PyAst.Pass(EXTRA))).Cast<GeneratedStmtSeq>() }
-    | ENDMARKER { PyParserHelpers.InteractiveExit() }
+    | NEWLINE { PyParserRuntime.SingletonSeq(Check<GeneratedStmt>(PyAst.Pass(EXTRA))).Cast<GeneratedStmtSeq>() }
+    | ENDMARKER { PyParserRuntime.InteractiveExit() }
 
 # CPython: simple_stmts[asdl_stmt_seq*]: ...
 # C#: 단일 simple_stmt 또는 ';'로 구분된 여러 simple_stmt를 sequence로 반환
 simple_stmts[GeneratedStmtSeq]:
-    | a=simple_stmt !';' NEWLINE { PyParserHelpers.SingletonSequence((GeneratedStmt)a).Cast<GeneratedStmtSeq>() } # Not needed, there for speedup
+    | a=simple_stmt !';' NEWLINE { PyParserRuntime.SingletonSeq((GeneratedStmt)a).Cast<GeneratedStmtSeq>() } # Not needed, there for speedup
     | a=';'.simple_stmt+ [';'] NEWLINE { a.Cast<GeneratedStmtSeq>() }
 
 # NOTE: assignment MUST precede expression, else parsing a simple assignment
@@ -172,7 +172,7 @@ compound_stmt[GeneratedStmt]:
 # - [AugOperator*] → [GeneratedOperator] (augmented assignment operator)
 # - CHECK_VERSION(stmt_ty, ...) → CheckVersion(...) (returns GeneratedStmt)
 # - _PyAST_* → PyAst.* (C# static methods)
-# - _PyPegen_* → PyParserHelpers.* (C# static methods)
+# - _PyPegen_* → PyParserRuntime.* (C# static methods)
 
 # NOTE: annotated_rhs may start with 'yield'; yield_expr must start with 'yield'
 # CPython: assignment[stmt_ty]: ...
@@ -182,7 +182,7 @@ assignment[GeneratedStmt]:
         CheckVersion(
             6,
             "Variable annotation syntax is",
-            PyAst.AnnAssign(Check<GeneratedExpr>(PyParserHelpers.SetExprContext(NameToken(a), Store)), (GeneratedExpr)b, (GeneratedExpr?)c, 1, EXTRA)
+            PyAst.AnnAssign(Check<GeneratedExpr>(PyParserRuntime.SetExprContext(NameToken(a), Store)), (GeneratedExpr)b, (GeneratedExpr?)c, 1, EXTRA)
         ) }
     | a=('(' b=single_target ')' { b }
          | single_subscript_attribute_target) ':' b=expression c=['=' d=annotated_rhs { d }] {
@@ -200,19 +200,19 @@ annotated_rhs[GeneratedExpr]: a=yield_expr { a } | a=star_expressions { a }
 # CPython: augassign[AugOperator*]: ...
 # C#: Augmented assignment operators (+=, -=, *=, etc.)
 augassign[GeneratedOperator]:
-    | '+=' { PyParserHelpers.AugOperator(Add) }
-    | '-=' { PyParserHelpers.AugOperator(Sub) }
-    | '*=' { PyParserHelpers.AugOperator(Mult) }
-    | '@=' { CheckVersion(5, "The '@' operator is", PyParserHelpers.AugOperator(MatMult)) }
-    | '/=' { PyParserHelpers.AugOperator(Div) }
-    | '%=' { PyParserHelpers.AugOperator(Mod) }
-    | '&=' { PyParserHelpers.AugOperator(BitAnd) }
-    | '|=' { PyParserHelpers.AugOperator(BitOr) }
-    | '^=' { PyParserHelpers.AugOperator(BitXor) }
-    | '<<=' { PyParserHelpers.AugOperator(LShift) }
-    | '>>=' { PyParserHelpers.AugOperator(RShift) }
-    | '**=' { PyParserHelpers.AugOperator(Pow) }
-    | '//=' { PyParserHelpers.AugOperator(FloorDiv) }
+    | '+=' { Add }
+    | '-=' { Sub }
+    | '*=' { Mult }
+    | '@=' { CheckVersion(5, "The '@' operator is", MatMult) }
+    | '/=' { Div }
+    | '%=' { Mod }
+    | '&=' { BitAnd }
+    | '|=' { BitOr }
+    | '^=' { BitXor }
+    | '<<=' { LShift }
+    | '>>=' { RShift }
+    | '**=' { Pow }
+    | '//=' { FloorDiv }
 
 # CPython: return_stmt[stmt_ty]: 'return' a=[star_expressions] { _PyAST_Return(a, EXTRA) }
 # C#: return statement with optional expressions
@@ -228,12 +228,12 @@ raise_stmt[GeneratedStmt]:
 # CPython: global_stmt[stmt_ty]: 'global' a[asdl_expr_seq*]=','.NAME+ { _PyAST_Global(CHECK<asdl_identifier_seq>(MapNamesToIds(a)), EXTRA) }
 # C#: global statement - converts NAME sequence to identifier sequence
 global_stmt[GeneratedStmt]: 'global' a[GeneratedExprSeq]=','.NAME+ {
-    PyAst.Global(Check<GeneratedIdentifierSeq>(PyParserHelpers.MapNamesToIds((GeneratedExprSeq)a)), EXTRA) }
+    PyAst.Global(Check<GeneratedIdentifierSeq>(PyParserRuntime.MapNamesToIds((GeneratedExprSeq)a)), EXTRA) }
 
 # CPython: nonlocal_stmt[stmt_ty]: 'nonlocal' a[asdl_expr_seq*]=','.NAME+ { _PyAST_Nonlocal(CHECK<asdl_identifier_seq>(MapNamesToIds(a)), EXTRA) }
 # C#: nonlocal statement - converts NAME sequence to identifier sequence
 nonlocal_stmt[GeneratedStmt]: 'nonlocal' a[GeneratedExprSeq]=','.NAME+ {
-    PyAst.Nonlocal(Check<GeneratedIdentifierSeq>(PyParserHelpers.MapNamesToIds((GeneratedExprSeq)a)), EXTRA) }
+    PyAst.Nonlocal(Check<GeneratedIdentifierSeq>(PyParserRuntime.MapNamesToIds((GeneratedExprSeq)a)), EXTRA) }
 
 # CPython: del_stmt[stmt_ty]: 'del' a=del_targets &(';' | NEWLINE) { _PyAST_Delete(a, EXTRA) } | invalid_del_stmt
 # C#: del statement - deletes targets
@@ -268,16 +268,16 @@ import_name[GeneratedStmt]: 'import' a=dotted_as_names { PyAst.Import((Generated
 # C#: 'from x import y' - relative or absolute import with optional dots
 import_from[GeneratedStmt]:
     | 'from' a=('.' | '...')* b=dotted_name 'import' c=import_from_targets {
-        CheckedFutureImport(b.GetIdentifier(), (GeneratedAliasSeq)c, PyParserHelpers.SeqCountDots(a.ToRawList()), EXTRA) }
+        CheckedFutureImport(b.GetIdentifier(), (GeneratedAliasSeq)c, PyParserRuntime.SeqCountDots(a), EXTRA) }
     | 'from' a=('.' | '...')+ 'import' b=import_from_targets {
-        PyAst.ImportFrom(null, (GeneratedAliasSeq)b, PyParserHelpers.SeqCountDots(a.ToRawList()), EXTRA) }
+        PyAst.ImportFrom(null, (GeneratedAliasSeq)b, PyParserRuntime.SeqCountDots(a), EXTRA) }
 
 # CPython: import_from_targets[asdl_alias_seq*]: ...
 # C#: Targets for 'from...import' - can be (a, b), a, or *
 import_from_targets[GeneratedAliasSeq]:
     | '(' a=import_from_as_names [','] ')' { a }
     | import_from_as_names !','
-    | '*' { PyParserHelpers.SingletonSequence(Check<GeneratedAlias>(PyParserHelpers.AliasForStar(EXTRA))).Cast<GeneratedAliasSeq>() }
+    | '*' { PyParserRuntime.SingletonSeq(Check<GeneratedAlias>(PyParserRuntime.AliasForStar(EXTRA))).Cast<GeneratedAliasSeq>() }
     | invalid_import_from_targets
 
 # CPython: import_from_as_names[asdl_alias_seq*]: a[asdl_alias_seq*]=','.import_from_as_name+ { a }
@@ -307,7 +307,7 @@ dotted_as_name[GeneratedAlias]:
 # CPython: dotted_name[expr_ty]: a=dotted_name '.' b=NAME { JoinNamesWithDot(a, b) } | NAME
 # C#: Dotted name like 'x.y.z' - recursively joined names
 dotted_name[GeneratedExpr]:
-    | a=dotted_name '.' b=NAME { PyParserHelpers.JoinNamesWithDot(a, NameToken(b)) }
+    | a=dotted_name '.' b=NAME { PyParserRuntime.JoinNamesWithDot(a, NameToken(b)) }
     | NAME
 
 # COMPOUND STATEMENTS
@@ -346,7 +346,7 @@ decorators[GeneratedExprSeq]: a[GeneratedExprSeq]=('@' f=named_expression NEWLIN
 # CPython: class_def[stmt_ty]: a=decorators b=class_def_raw { ClassDefDecorators(a, b) } | class_def_raw
 # C#: Class definition with optional decorators
 class_def[GeneratedStmt]:
-    | a=decorators b=class_def_raw { PyParserHelpers.ClassDefDecorators(a, b) }
+    | a=decorators b=class_def_raw { PyParserRuntime.ClassDefDecorators(a, b) }
     | class_def_raw
 
 # CPython: class_def_raw[stmt_ty]: invalid_class_def_raw | 'class' a=NAME t=[type_params] b=['(' z=[arguments] ')' { z }] ':' c=block { _PyAST_ClassDef(...) }
@@ -365,7 +365,7 @@ class_def_raw[GeneratedStmt]:
 # CPython: function_def[stmt_ty]: d=decorators f=function_def_raw { FunctionDefDecorators(d, f) } | function_def_raw
 # C#: Function definition with optional decorators
 function_def[GeneratedStmt]:
-    | d=decorators f=function_def_raw { PyParserHelpers.FunctionDefDecorators(d, f) }
+    | d=decorators f=function_def_raw { PyParserRuntime.FunctionDefDecorators(d, f) }
     | function_def_raw
 
 # CPython: function_def_raw[stmt_ty]: ...
@@ -374,14 +374,14 @@ function_def_raw[GeneratedStmt]:
     | invalid_def_raw
     | 'def' n=NAME t=[type_params] &&'(' params_=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
         PyAst.FunctionDef(n.GetNameValue(),
-                        (params_ != null) ? params_ : (GeneratedArguments)Check<GeneratedArguments>(PyParserHelpers.EmptyArguments()),
+                        (params_ != null) ? params_ : (GeneratedArguments)Check<GeneratedArguments>(PyParserRuntime.EmptyArguments()),
                         b, null, (GeneratedExpr?)a, tc.GetCommentValue(), t, EXTRA) }
     | ASYNC 'def' n=NAME t=[type_params] &&'(' params_=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
         CheckVersion(
             5,
             "Async functions are",
             PyAst.AsyncFunctionDef(n.GetNameValue(),
-                            (params_ != null) ? params_ : (GeneratedArguments)Check<GeneratedArguments>(PyParserHelpers.EmptyArguments()),
+                            (params_ != null) ? params_ : (GeneratedArguments)Check<GeneratedArguments>(PyParserRuntime.EmptyArguments()),
                             b, null, (GeneratedExpr?)a, tc.GetCommentValue(), t, EXTRA)
         ) }
 
@@ -398,13 +398,13 @@ params[GeneratedArguments]:
 # C#: Function parameter combinations (positional-only, regular, keyword-only, *args, **kwargs)
 parameters[GeneratedArguments]:
     | a=slash_no_default b[GeneratedArgSeq]=param_no_default* c=param_with_default* d=[star_etc] {
-        CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments((GeneratedArgSeq)a, null, b, c?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)d)) }
+        CheckVersion(8, "Positional-only parameters are", PyParserRuntime.MakeArguments((GeneratedArgSeq)a, null, b, c?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)d)) }
     | a=slash_with_default b=param_with_default* c=[star_etc] {
-        CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments(null, (GeneratedSlashWithDefault)a, null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c)) }
+        CheckVersion(8, "Positional-only parameters are", PyParserRuntime.MakeArguments(null, (GeneratedSlashWithDefault)a, null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c)) }
     | a[GeneratedArgSeq]=param_no_default+ b=param_with_default* c=[star_etc] {
-        PyParserHelpers.MakeArguments(null, null, a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c) }
-    | a=param_with_default+ b=[star_etc] { PyParserHelpers.MakeArguments(null, null, null, a?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)b)}
-    | a=star_etc { PyParserHelpers.MakeArguments(null, null, null, null, (GeneratedStarEtc)a) }
+        PyParserRuntime.MakeArguments(null, null, a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c) }
+    | a=param_with_default+ b=[star_etc] { PyParserRuntime.MakeArguments(null, null, null, a?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)b)}
+    | a=star_etc { PyParserRuntime.MakeArguments(null, null, null, null, (GeneratedStarEtc)a) }
 
 # Some duplication here because we can't write (',' | &')'),
 # which is because we don't support empty alternatives (yet).
@@ -418,20 +418,20 @@ slash_no_default[GeneratedArgSeq]:
 # CPython: slash_with_default[SlashWithDefault*]: a=param_no_default* b=param_with_default+ '/' ',' { _PyPegen_slash_with_default(a, b) } | ...
 # C#: Positional-only parameters with defaults (PEP 570)
 slash_with_default[GeneratedSlashWithDefault]:
-    | a=param_no_default* b=param_with_default+ '/' ',' { PyParserHelpers.SlashWithDefault(a?.Cast<GeneratedArgSeq>(), b?.Cast<GeneratedNameDefaultPairSeq>()) }
-    | a=param_no_default* b=param_with_default+ '/' &')' { PyParserHelpers.SlashWithDefault(a?.Cast<GeneratedArgSeq>(), b?.Cast<GeneratedNameDefaultPairSeq>()) }
+    | a=param_no_default* b=param_with_default+ '/' ',' { PyParserRuntime.SlashWithDefault(a?.Cast<GeneratedArgSeq>(), b?.Cast<GeneratedNameDefaultPairSeq>()) }
+    | a=param_no_default* b=param_with_default+ '/' &')' { PyParserRuntime.SlashWithDefault(a?.Cast<GeneratedArgSeq>(), b?.Cast<GeneratedNameDefaultPairSeq>()) }
 
 # CPython: star_etc[StarEtc*]: ...
 # C#: *args and **kwargs parameters
 star_etc[GeneratedStarEtc]:
     | invalid_star_etc
     | '*' a=param_no_default b=param_maybe_default* c=[kwds] {
-        PyParserHelpers.StarEtc((GeneratedArg)a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
+        PyParserRuntime.StarEtc((GeneratedArg)a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
     | '*' a=param_no_default_star_annotation b=param_maybe_default* c=[kwds] {
-        PyParserHelpers.StarEtc((GeneratedArg)a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
+        PyParserRuntime.StarEtc((GeneratedArg)a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
     | '*' ',' b=param_maybe_default+ c=[kwds] {
-        PyParserHelpers.StarEtc(null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
-    | a=kwds { PyParserHelpers.StarEtc(null, null, (GeneratedArg)a) }
+        PyParserRuntime.StarEtc(null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
+    | a=kwds { PyParserRuntime.StarEtc(null, null, (GeneratedArg)a) }
 
 # CPython: kwds[arg_ty]: invalid_kwds | '**' a=param_no_default { a }
 # C#: **kwargs parameter
@@ -455,26 +455,26 @@ kwds[GeneratedArg]:
 # CPython: param_no_default[arg_ty]: a=param ',' tc=TYPE_COMMENT? { _PyPegen_add_type_comment_to_arg(a, tc) } | ...
 # C#: Parameter without default value
 param_no_default[GeneratedArg]:
-    | a=param ',' tc=TYPE_COMMENT? { PyParserHelpers.AddTypeCommentToArg(a, tc) }
-    | a=param tc=TYPE_COMMENT? &')' { PyParserHelpers.AddTypeCommentToArg(a, tc) }
+    | a=param ',' tc=TYPE_COMMENT? { PyParserRuntime.AddTypeCommentToArg(a, tc) }
+    | a=param tc=TYPE_COMMENT? &')' { PyParserRuntime.AddTypeCommentToArg(a, tc) }
 
 # CPython: param_no_default_star_annotation[arg_ty]: a=param_star_annotation ',' tc=TYPE_COMMENT? { _PyPegen_add_type_comment_to_arg(a, tc) } | ...
 # C#: Parameter with star annotation (for *args)
 param_no_default_star_annotation[GeneratedArg]:
-    | a=param_star_annotation ',' tc=TYPE_COMMENT? { PyParserHelpers.AddTypeCommentToArg(a, tc) }
-    | a=param_star_annotation tc=TYPE_COMMENT? &')' { PyParserHelpers.AddTypeCommentToArg(a, tc) }
+    | a=param_star_annotation ',' tc=TYPE_COMMENT? { PyParserRuntime.AddTypeCommentToArg(a, tc) }
+    | a=param_star_annotation tc=TYPE_COMMENT? &')' { PyParserRuntime.AddTypeCommentToArg(a, tc) }
 
 # CPython: param_with_default[NameDefaultPair*]: a=param c=default ',' tc=TYPE_COMMENT? { _PyPegen_name_default_pair(a, c, tc) } | ...
 # C#: Parameter with default value
 param_with_default[GeneratedNameDefaultPair]:
-    | a=param c=default ',' tc=TYPE_COMMENT? { PyParserHelpers.NameDefaultPair(a, c, tc?.Value) }
-    | a=param c=default tc=TYPE_COMMENT? &')' { PyParserHelpers.NameDefaultPair(a, c, tc?.Value) }
+    | a=param c=default ',' tc=TYPE_COMMENT? { PyParserRuntime.NameDefaultPair(a, c, tc) }
+    | a=param c=default tc=TYPE_COMMENT? &')' { PyParserRuntime.NameDefaultPair(a, c, tc) }
 
 # CPython: param_maybe_default[NameDefaultPair*]: a=param c=default? ',' tc=TYPE_COMMENT? { _PyPegen_name_default_pair(a, c, tc) } | ...
 # C#: Parameter with optional default value
 param_maybe_default[GeneratedNameDefaultPair]:
-    | a=param c=default? ',' tc=TYPE_COMMENT? { PyParserHelpers.NameDefaultPair(a, c, tc?.Value) }
-    | a=param c=default? tc=TYPE_COMMENT? &')' { PyParserHelpers.NameDefaultPair(a, c, tc?.Value) }
+    | a=param c=default? ',' tc=TYPE_COMMENT? { PyParserRuntime.NameDefaultPair(a, c, tc) }
+    | a=param c=default? tc=TYPE_COMMENT? &')' { PyParserRuntime.NameDefaultPair(a, c, tc) }
 
 # CPython: param[arg_ty]: a=NAME b=annotation? { _PyAST_arg(a.GetNameValue(), b, null, EXTRA) }
 # C#: Single parameter (name and optional type annotation)
@@ -504,7 +504,7 @@ default[GeneratedExpr]: '=' a=expression { a } | invalid_default
 if_stmt[GeneratedStmt]:
     | invalid_if_stmt
     | 'if' a=named_expression ':' b=block c=elif_stmt {
-        PyAst.If((GeneratedExpr)a, (GeneratedStmtSeq)b, Check<GeneratedStmtSeq>(PyParserHelpers.SingletonSequence((GeneratedStmt)c).Cast<GeneratedStmtSeq>()), EXTRA) }
+        PyAst.If((GeneratedExpr)a, (GeneratedStmtSeq)b, Check<GeneratedStmtSeq>(PyParserRuntime.SingletonSeq((GeneratedStmt)c).Cast<GeneratedStmtSeq>()), EXTRA) }
     | 'if' a=named_expression ':' b=block c=[else_block] { PyAst.If((GeneratedExpr)a, (GeneratedStmtSeq)b, (GeneratedStmtSeq?)c, EXTRA) }
 
 # CPython: elif_stmt[stmt_ty]: ...
@@ -512,7 +512,7 @@ if_stmt[GeneratedStmt]:
 elif_stmt[GeneratedStmt]:
     | invalid_elif_stmt
     | 'elif' a=named_expression ':' b=block c=elif_stmt {
-        PyAst.If((GeneratedExpr)a, (GeneratedStmtSeq)b, Check<GeneratedStmtSeq>(PyParserHelpers.SingletonSequence((GeneratedStmt)c).Cast<GeneratedStmtSeq>()), EXTRA) }
+        PyAst.If((GeneratedExpr)a, (GeneratedStmtSeq)b, Check<GeneratedStmtSeq>(PyParserRuntime.SingletonSeq((GeneratedStmt)c).Cast<GeneratedStmtSeq>()), EXTRA) }
     | 'elif' a=named_expression ':' b=block c=[else_block] { PyAst.If((GeneratedExpr)a, (GeneratedStmtSeq)b, (GeneratedStmtSeq?)c, EXTRA) }
 
 # CPython: else_block[asdl_stmt_seq*]: invalid_else_stmt | 'else' &&':' b=block { b }
@@ -621,7 +621,7 @@ match_stmt[GeneratedStmt]:
 # C#: match subject expression (can be tuple or single expression)
 subject_expr[GeneratedExpr]:
     | value=star_named_expression ',' values=star_named_expressions? {
-        PyAst.Tuple(Check<GeneratedExprSeq>(PyParserHelpers.SeqInsertInFront((GeneratedExpr)value, (GeneratedExprSeq?)values).Cast<GeneratedExprSeq>()), Load, EXTRA) }
+        PyAst.Tuple(Check<GeneratedExprSeq>(PyParserRuntime.SeqInsertInFront((GeneratedExpr)value, (GeneratedExprSeq?)values).Cast<GeneratedExprSeq>()), Load, EXTRA) }
     | named_expression
 
 # CPython: case_block[match_case_ty]: invalid_case_block | "case" pattern=patterns guard=guard? ':' body=block { _PyAST_match_case(pattern, guard, body) }
@@ -734,7 +734,7 @@ capture_pattern[GeneratedPattern]:
 # C#: Pattern capture target (name that's not '_')
 pattern_capture_target[GeneratedExpr]:
     | !"_" name=NAME !('.' | '(' | '=') {
-        PyParserHelpers.SetExprContext(NameToken(name), Store) }
+        PyParserRuntime.SetExprContext(NameToken(name), Store) }
 
 # CPython: wildcard_pattern[pattern_ty]: "_" { _PyAST_MatchAs(null, null, EXTRA) }
 # C#: Wildcard pattern (_)
@@ -773,7 +773,7 @@ sequence_pattern[GeneratedPattern]:
 # C#: Open sequence pattern (at least one comma)
 open_sequence_pattern[GeneratedSeq]:
     | pattern=maybe_star_pattern ',' patterns=maybe_sequence_pattern? {
-        PyParserHelpers.SeqInsertInFront((GeneratedPattern)pattern, (GeneratedSeq?)patterns).Cast<GeneratedPatternSeq>() }
+        PyParserRuntime.SeqInsertInFront((GeneratedPattern)pattern, (GeneratedSeq?)patterns).Cast<GeneratedPatternSeq>() }
 
 # CPython: maybe_sequence_pattern[asdl_seq*]: patterns=','.maybe_star_pattern+ ','? { patterns }
 # C#: Maybe sequence pattern (comma-separated)
@@ -803,14 +803,14 @@ mapping_pattern[GeneratedPattern]:
         PyAst.MatchMapping(null, null, rest.GetIdentifier(), EXTRA) }
     | '{' items=items_pattern ',' rest=double_star_pattern ','? '}' {
         PyAst.MatchMapping(
-            Check<GeneratedExprSeq>(PyParserHelpers.GetPatternKeys(items)),
-            Check<GeneratedPatternSeq>(PyParserHelpers.GetPatterns(items)),
+            Check<GeneratedExprSeq>(PyParserRuntime.GetPatternKeys(items)),
+            Check<GeneratedPatternSeq>(PyParserRuntime.GetPatterns(items)),
             rest.GetIdentifier(),
             EXTRA) }
     | '{' items=items_pattern ','? '}' {
         PyAst.MatchMapping(
-            Check<GeneratedExprSeq>(PyParserHelpers.GetPatternKeys(items)),
-            Check<GeneratedPatternSeq>(PyParserHelpers.GetPatterns(items)),
+            Check<GeneratedExprSeq>(PyParserRuntime.GetPatternKeys(items)),
+            Check<GeneratedPatternSeq>(PyParserRuntime.GetPatterns(items)),
             null,
             EXTRA) }
 
@@ -823,7 +823,7 @@ items_pattern[GeneratedSeq]:
 # C#: Key-value pattern pair
 key_value_pattern[GeneratedKeyPatternPair]:
     | key=(literal_expr | attr) ':' pattern=pattern {
-        PyParserHelpers.KeyPatternPair((GeneratedExpr)key, (GeneratedPattern)pattern) }
+        PyParserRuntime.KeyPatternPair((GeneratedExpr)key, (GeneratedPattern)pattern) }
 
 # CPython: double_star_pattern[expr_ty]: '**' target=pattern_capture_target { target }
 # C#: Double star pattern (**rest)
@@ -840,17 +840,17 @@ class_pattern[GeneratedPattern]:
     | cls=name_or_attr '(' keywords=keyword_patterns ','? ')' {
         PyAst.MatchClass(
             (GeneratedExpr)cls, null,
-            Check<GeneratedIdentifierSeq>(PyParserHelpers.MapNamesToIds(
-                Check<GeneratedExprSeq>(PyParserHelpers.GetPatternKeys((GeneratedSeq)keywords)))),
-            Check<GeneratedPatternSeq>(PyParserHelpers.GetPatterns((GeneratedSeq)keywords)),
+            Check<GeneratedIdentifierSeq>(PyParserRuntime.MapNamesToIds(
+                Check<GeneratedExprSeq>(PyParserRuntime.GetPatternKeys((GeneratedSeq)keywords)))),
+            Check<GeneratedPatternSeq>(PyParserRuntime.GetPatterns((GeneratedSeq)keywords)),
             EXTRA) }
     | cls=name_or_attr '(' patterns=positional_patterns ',' keywords=keyword_patterns ','? ')' {
         PyAst.MatchClass(
             (GeneratedExpr)cls,
             (GeneratedPatternSeq)patterns,
-            Check<GeneratedIdentifierSeq>(PyParserHelpers.MapNamesToIds(
-                Check<GeneratedExprSeq>(PyParserHelpers.GetPatternKeys((GeneratedSeq)keywords)))),
-            Check<GeneratedPatternSeq>(PyParserHelpers.GetPatterns((GeneratedSeq)keywords)),
+            Check<GeneratedIdentifierSeq>(PyParserRuntime.MapNamesToIds(
+                Check<GeneratedExprSeq>(PyParserRuntime.GetPatternKeys((GeneratedSeq)keywords)))),
+            Check<GeneratedPatternSeq>(PyParserRuntime.GetPatterns((GeneratedSeq)keywords)),
             EXTRA) }
     | invalid_class_pattern
 
@@ -867,7 +867,7 @@ keyword_patterns[GeneratedSeq]:
 # CPython: keyword_pattern[KeyPatternPair*]: arg=NAME '=' value=pattern { KeyPatternPair(arg, value) }
 # C#: Keyword pattern pair
 keyword_pattern[GeneratedKeyPatternPair]:
-    | arg=NAME '=' value=pattern { PyParserHelpers.KeyPatternPair(NameToken(arg), (GeneratedPattern)value) }
+    | arg=NAME '=' value=pattern { PyParserRuntime.KeyPatternPair(NameToken(arg), (GeneratedPattern)value) }
 
 # Type statement
 # ---------------
@@ -877,7 +877,7 @@ keyword_pattern[GeneratedKeyPatternPair]:
 type_alias[GeneratedStmt]:
     | "type" n=NAME t=[type_params] '=' b=expression {
         CheckVersion(12, "Type statement is",
-        PyAst.TypeAlias(Check<GeneratedExpr>(PyParserHelpers.SetExprContext(NameToken(n), Store)), (GeneratedTypeParamSeq?)t, (GeneratedExpr)b, EXTRA)) }
+        PyAst.TypeAlias(Check<GeneratedExpr>(PyParserRuntime.SetExprContext(NameToken(n), Store)), (GeneratedTypeParamSeq?)t, (GeneratedExpr)b, EXTRA)) }
 
 # Type parameter declaration
 # --------------------------
@@ -925,8 +925,8 @@ type_param_bound[GeneratedExpr]: ':' e=expression { e }
 # C#: Multiple expressions (can form tuple)
 expressions[GeneratedExpr]:
     | a=expression b=(',' c=expression { c })+ [','] {
-        PyAst.Tuple(Check<GeneratedExprSeq>(PyParserHelpers.SeqInsertInFront((GeneratedExpr)a, (GeneratedSeq)b).Cast<GeneratedExprSeq>()), Load, EXTRA) }
-    | a=expression ',' { PyAst.Tuple(Check<GeneratedExprSeq>(PyParserHelpers.SingletonSequence((GeneratedExpr)a).Cast<GeneratedExprSeq>()), Load, EXTRA) }
+        PyAst.Tuple(Check<GeneratedExprSeq>(PyParserRuntime.SeqInsertInFront((GeneratedExpr)a, (GeneratedSeq)b).Cast<GeneratedExprSeq>()), Load, EXTRA) }
+    | a=expression ',' { PyAst.Tuple(Check<GeneratedExprSeq>(PyParserRuntime.SingletonSeq((GeneratedExpr)a).Cast<GeneratedExprSeq>()), Load, EXTRA) }
     | expression
 
 # CPython: expression[expr_ty] (memo): ...
@@ -948,8 +948,8 @@ yield_expr[GeneratedExpr]:
 # C#: Star expressions (*x, can form tuple)
 star_expressions[GeneratedExpr]:
     | a=star_expression b=(',' c=star_expression { c })+ [','] {
-        PyAst.Tuple(Check<GeneratedExprSeq>(PyParserHelpers.SeqInsertInFront((GeneratedExpr)a, (GeneratedSeq)b).Cast<GeneratedExprSeq>()), Load, EXTRA) }
-    | a=star_expression ',' { PyAst.Tuple(Check<GeneratedExprSeq>(PyParserHelpers.SingletonSequence((GeneratedExpr)a).Cast<GeneratedExprSeq>()), Load, EXTRA) }
+        PyAst.Tuple(Check<GeneratedExprSeq>(PyParserRuntime.SeqInsertInFront((GeneratedExpr)a, (GeneratedSeq)b).Cast<GeneratedExprSeq>()), Load, EXTRA) }
+    | a=star_expression ',' { PyAst.Tuple(Check<GeneratedExprSeq>(PyParserRuntime.SingletonSeq((GeneratedExpr)a).Cast<GeneratedExprSeq>()), Load, EXTRA) }
     | star_expression
 
 # CPython: star_expression[expr_ty] (memo): '*' a=bitwise_or { _PyAST_Starred(a, Load, EXTRA) } | expression
@@ -973,7 +973,7 @@ star_named_expression[GeneratedExpr]:
 assignment_expression[GeneratedExpr]:
     | a=NAME ':=' ~ b=expression {
         CheckVersion(8, "Assignment expressions are",
-        PyAst.NamedExpr(Check<GeneratedExpr>(PyParserHelpers.SetExprContext(NameToken(a), Store)), (GeneratedExpr)b, EXTRA)) }
+        PyAst.NamedExpr(Check<GeneratedExpr>(PyParserRuntime.SetExprContext(NameToken(a), Store)), (GeneratedExpr)b, EXTRA)) }
 
 # CPython: named_expression[expr_ty]: assignment_expression | invalid_named_expression | expression !':='
 # C#: Named expression (assignment or regular expression)
@@ -987,7 +987,7 @@ named_expression[GeneratedExpr]:
 disjunction[GeneratedExpr] (memo):
     | a=conjunction b=('or' c=conjunction { c })+ { PyAst.BoolOp(
         Or,
-        Check<GeneratedExprSeq>(PyParserHelpers.SeqInsertInFront((GeneratedExpr)a, (GeneratedSeq)b).Cast<GeneratedExprSeq>()),
+        Check<GeneratedExprSeq>(PyParserRuntime.SeqInsertInFront((GeneratedExpr)a, (GeneratedSeq)b).Cast<GeneratedExprSeq>()),
         EXTRA) }
     | conjunction
 
@@ -996,7 +996,7 @@ disjunction[GeneratedExpr] (memo):
 conjunction[GeneratedExpr] (memo):
     | a=inversion b=('and' c=inversion { c })+ { PyAst.BoolOp(
         And,
-        Check<GeneratedExprSeq>(PyParserHelpers.SeqInsertInFront((GeneratedExpr)a, (GeneratedSeq)b).Cast<GeneratedExprSeq>()),
+        Check<GeneratedExprSeq>(PyParserRuntime.SeqInsertInFront((GeneratedExpr)a, (GeneratedSeq)b).Cast<GeneratedExprSeq>()),
         EXTRA) }
     | inversion
 
@@ -1015,8 +1015,8 @@ comparison[GeneratedExpr]:
     | a=bitwise_or b=compare_op_bitwise_or_pair+ {
         PyAst.Compare(
             (GeneratedExpr)a,
-            Check<GeneratedCmpopSeq>(PyParserHelpers.GetCmpops((GeneratedSeq)b).Cast<GeneratedCmpopSeq>()),
-            Check<GeneratedExprSeq>(PyParserHelpers.GetExprs((GeneratedSeq)b)),
+            Check<GeneratedCmpopSeq>(PyParserRuntime.GetCmpops((GeneratedSeq)b).Cast<GeneratedCmpopSeq>()),
+            Check<GeneratedExprSeq>(PyParserRuntime.GetExprs((GeneratedSeq)b)),
             EXTRA) }
     | bitwise_or
 
@@ -1036,17 +1036,17 @@ compare_op_bitwise_or_pair[GeneratedCmpopExprPair]:
 
 # CPython: eq_bitwise_or[CmpopExprPair*]: '==' a=bitwise_or { _PyPegen_cmpop_expr_pair(Eq, a) }
 # C#: Individual comparison operators
-eq_bitwise_or[GeneratedCmpopExprPair]: '==' a=bitwise_or { PyParserHelpers.CmpopExprPair(Eq, (GeneratedExpr)a) }
+eq_bitwise_or[GeneratedCmpopExprPair]: '==' a=bitwise_or { PyParserRuntime.CmpopExprPair(Eq, (GeneratedExpr)a) }
 noteq_bitwise_or[GeneratedCmpopExprPair]:
-    | (tok='!=' { CheckBarryAsFlufl(tok) ? null : tok}) a=bitwise_or {PyParserHelpers.CmpopExprPair(NotEq, (GeneratedExpr)a) }
-lte_bitwise_or[GeneratedCmpopExprPair]: '<=' a=bitwise_or { PyParserHelpers.CmpopExprPair(LtE, (GeneratedExpr)a) }
-lt_bitwise_or[GeneratedCmpopExprPair]: '<' a=bitwise_or { PyParserHelpers.CmpopExprPair(Lt, (GeneratedExpr)a) }
-gte_bitwise_or[GeneratedCmpopExprPair]: '>=' a=bitwise_or { PyParserHelpers.CmpopExprPair(GtE, (GeneratedExpr)a) }
-gt_bitwise_or[GeneratedCmpopExprPair]: '>' a=bitwise_or { PyParserHelpers.CmpopExprPair(Gt, (GeneratedExpr)a) }
-notin_bitwise_or[GeneratedCmpopExprPair]: 'not' 'in' a=bitwise_or { PyParserHelpers.CmpopExprPair(NotIn, (GeneratedExpr)a) }
-in_bitwise_or[GeneratedCmpopExprPair]: 'in' a=bitwise_or { PyParserHelpers.CmpopExprPair(In, (GeneratedExpr)a) }
-isnot_bitwise_or[GeneratedCmpopExprPair]: 'is' 'not' a=bitwise_or { PyParserHelpers.CmpopExprPair(IsNot, (GeneratedExpr)a) }
-is_bitwise_or[GeneratedCmpopExprPair]: 'is' a=bitwise_or { PyParserHelpers.CmpopExprPair(Is, (GeneratedExpr)a) }
+    | (tok='!=' { CheckBarryAsFlufl(tok) ? null : tok}) a=bitwise_or {PyParserRuntime.CmpopExprPair(NotEq, (GeneratedExpr)a) }
+lte_bitwise_or[GeneratedCmpopExprPair]: '<=' a=bitwise_or { PyParserRuntime.CmpopExprPair(LtE, (GeneratedExpr)a) }
+lt_bitwise_or[GeneratedCmpopExprPair]: '<' a=bitwise_or { PyParserRuntime.CmpopExprPair(Lt, (GeneratedExpr)a) }
+gte_bitwise_or[GeneratedCmpopExprPair]: '>=' a=bitwise_or { PyParserRuntime.CmpopExprPair(GtE, (GeneratedExpr)a) }
+gt_bitwise_or[GeneratedCmpopExprPair]: '>' a=bitwise_or { PyParserRuntime.CmpopExprPair(Gt, (GeneratedExpr)a) }
+notin_bitwise_or[GeneratedCmpopExprPair]: 'not' 'in' a=bitwise_or { PyParserRuntime.CmpopExprPair(NotIn, (GeneratedExpr)a) }
+in_bitwise_or[GeneratedCmpopExprPair]: 'in' a=bitwise_or { PyParserRuntime.CmpopExprPair(In, (GeneratedExpr)a) }
+isnot_bitwise_or[GeneratedCmpopExprPair]: 'is' 'not' a=bitwise_or { PyParserRuntime.CmpopExprPair(IsNot, (GeneratedExpr)a) }
+is_bitwise_or[GeneratedCmpopExprPair]: 'is' a=bitwise_or { PyParserRuntime.CmpopExprPair(Is, (GeneratedExpr)a) }
 
 # Bitwise operators
 # -----------------
@@ -1125,7 +1125,7 @@ await_primary[GeneratedExpr] (memo):
 # C#: Primary expressions (attribute, call, subscript, atom)
 primary[GeneratedExpr]:
     | a=primary '.' b=NAME { PyAst.Attribute((GeneratedExpr)a, b.GetNameValue(), Load, EXTRA) }
-    | a=primary b=genexp { PyAst.Call((GeneratedExpr)a, Check<GeneratedExprSeq>(PyParserHelpers.SingletonSequence((GeneratedExpr)b).Cast<GeneratedExprSeq>()), null, EXTRA) }
+    | a=primary b=genexp { PyAst.Call((GeneratedExpr)a, Check<GeneratedExprSeq>(PyParserRuntime.SingletonSeq((GeneratedExpr)b).Cast<GeneratedExprSeq>()), null, EXTRA) }
     | a=primary '(' b=[arguments] ')' {
         PyAst.Call((GeneratedExpr)a,
                  (b != null) ? ((GeneratedCall)b).Args : null!,
@@ -1173,7 +1173,7 @@ group[GeneratedExpr]:
 # C#: Lambda function
 lambdef[GeneratedExpr]:
     | 'lambda' a=[lambda_params] ':' b=expression {
-        PyAst.Lambda((a != null) ? a : (GeneratedArguments)Check<GeneratedArguments>(PyParserHelpers.EmptyArguments()), b, EXTRA) }
+        PyAst.Lambda((a != null) ? a : (GeneratedArguments)Check<GeneratedArguments>(PyParserRuntime.EmptyArguments()), b, EXTRA) }
 
 # CPython: lambda_params[arguments_ty]: invalid_lambda_parameters | lambda_parameters
 # C#: Lambda parameters
@@ -1189,13 +1189,13 @@ lambda_params[GeneratedArguments]:
 # C#: Lambda parameters (same as parameters but without annotations)
 lambda_parameters[GeneratedArguments]:
     | a=lambda_slash_no_default b[GeneratedArgSeq]=lambda_param_no_default* c=lambda_param_with_default* d=[lambda_star_etc] {
-        CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments((GeneratedArgSeq)a, null, b, c?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)d)) }
+        CheckVersion(8, "Positional-only parameters are", PyParserRuntime.MakeArguments((GeneratedArgSeq)a, null, b, c?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)d)) }
     | a=lambda_slash_with_default b=lambda_param_with_default* c=[lambda_star_etc] {
-        CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments(null, (GeneratedSlashWithDefault)a, null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c)) }
+        CheckVersion(8, "Positional-only parameters are", PyParserRuntime.MakeArguments(null, (GeneratedSlashWithDefault)a, null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c)) }
     | a[GeneratedArgSeq]=lambda_param_no_default+ b=lambda_param_with_default* c=[lambda_star_etc] {
-        PyParserHelpers.MakeArguments(null, null, a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c) }
-    | a=lambda_param_with_default+ b=[lambda_star_etc] { PyParserHelpers.MakeArguments(null, null, null, a?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)b)}
-    | a=lambda_star_etc { PyParserHelpers.MakeArguments(null, null, null, null, (GeneratedStarEtc)a) }
+        PyParserRuntime.MakeArguments(null, null, a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c) }
+    | a=lambda_param_with_default+ b=[lambda_star_etc] { PyParserRuntime.MakeArguments(null, null, null, a?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)b)}
+    | a=lambda_star_etc { PyParserRuntime.MakeArguments(null, null, null, null, (GeneratedStarEtc)a) }
 
 # CPython: lambda_slash_no_default[asdl_arg_seq*]: ...
 # C#: Lambda positional-only parameters without defaults
@@ -1206,18 +1206,18 @@ lambda_slash_no_default[GeneratedArgSeq]:
 # CPython: lambda_slash_with_default[SlashWithDefault*]: ...
 # C#: Lambda positional-only parameters with defaults
 lambda_slash_with_default[GeneratedSlashWithDefault]:
-    | a=lambda_param_no_default* b=lambda_param_with_default+ '/' ',' { PyParserHelpers.SlashWithDefault(a?.Cast<GeneratedArgSeq>(), b?.Cast<GeneratedNameDefaultPairSeq>()) }
-    | a=lambda_param_no_default* b=lambda_param_with_default+ '/' &':' { PyParserHelpers.SlashWithDefault(a?.Cast<GeneratedArgSeq>(), b?.Cast<GeneratedNameDefaultPairSeq>()) }
+    | a=lambda_param_no_default* b=lambda_param_with_default+ '/' ',' { PyParserRuntime.SlashWithDefault(a?.Cast<GeneratedArgSeq>(), b?.Cast<GeneratedNameDefaultPairSeq>()) }
+    | a=lambda_param_no_default* b=lambda_param_with_default+ '/' &':' { PyParserRuntime.SlashWithDefault(a?.Cast<GeneratedArgSeq>(), b?.Cast<GeneratedNameDefaultPairSeq>()) }
 
 # CPython: lambda_star_etc[StarEtc*]: ...
 # C#: Lambda *args and **kwargs
 lambda_star_etc[GeneratedStarEtc]:
     | invalid_lambda_star_etc
     | '*' a=lambda_param_no_default b=lambda_param_maybe_default* c=[lambda_kwds] {
-        PyParserHelpers.StarEtc((GeneratedArg)a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
+        PyParserRuntime.StarEtc((GeneratedArg)a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
     | '*' ',' b=lambda_param_maybe_default+ c=[lambda_kwds] {
-        PyParserHelpers.StarEtc(null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
-    | a=lambda_kwds { PyParserHelpers.StarEtc(null, null, (GeneratedArg)a) }
+        PyParserRuntime.StarEtc(null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
+    | a=lambda_kwds { PyParserRuntime.StarEtc(null, null, (GeneratedArg)a) }
 
 # CPython: lambda_kwds[arg_ty]: ...
 # C#: Lambda **kwargs
@@ -1234,14 +1234,14 @@ lambda_param_no_default[GeneratedArg]:
 # CPython: lambda_param_with_default[NameDefaultPair*]: ...
 # C#: Lambda parameter with default
 lambda_param_with_default[GeneratedNameDefaultPair]:
-    | a=lambda_param c=default ',' { PyParserHelpers.NameDefaultPair((GeneratedArg)a, (GeneratedExpr)c, null) }
-    | a=lambda_param c=default &':' { PyParserHelpers.NameDefaultPair((GeneratedArg)a, (GeneratedExpr)c, null) }
+    | a=lambda_param c=default ',' { PyParserRuntime.NameDefaultPair((GeneratedArg)a, (GeneratedExpr)c, null) }
+    | a=lambda_param c=default &':' { PyParserRuntime.NameDefaultPair((GeneratedArg)a, (GeneratedExpr)c, null) }
 
 # CPython: lambda_param_maybe_default[NameDefaultPair*]: ...
 # C#: Lambda parameter with optional default
 lambda_param_maybe_default[GeneratedNameDefaultPair]:
-    | a=lambda_param c=default? ',' { PyParserHelpers.NameDefaultPair((GeneratedArg)a, (GeneratedExpr?)c, null) }
-    | a=lambda_param c=default? &':' { PyParserHelpers.NameDefaultPair((GeneratedArg)a, (GeneratedExpr?)c, null) }
+    | a=lambda_param c=default? ',' { PyParserRuntime.NameDefaultPair((GeneratedArg)a, (GeneratedExpr?)c, null) }
+    | a=lambda_param c=default? &':' { PyParserRuntime.NameDefaultPair((GeneratedArg)a, (GeneratedExpr?)c, null) }
 
 # CPython: lambda_param[arg_ty]: a=NAME { _PyAST_arg(a.GetNameValue(), null, null, EXTRA) }
 # C#: Lambda parameter (no annotation)
@@ -1304,7 +1304,7 @@ list[GeneratedExpr]:
 # CPython: tuple[expr_ty]: '(' a=[...] ')' { _PyAST_Tuple(a, Load, EXTRA) }
 # C#: Tuple literal (1, 2, 3)
 tuple[GeneratedExpr]:
-    | '(' a=[y=star_named_expression ',' z=[star_named_expressions] { PyParserHelpers.SeqInsertInFront(y, z).Cast<GeneratedExprSeq>() } ] ')' {
+    | '(' a=[y=star_named_expression ',' z=[star_named_expressions] { PyParserRuntime.SeqInsertInFront(y, z).Cast<GeneratedExprSeq>() } ] ')' {
         PyAst.Tuple((GeneratedExprSeq?)a, Load, EXTRA) }
 
 # CPython: set[expr_ty]: '{' a=star_named_expressions '}' { _PyAST_Set(a, EXTRA) }
@@ -1319,8 +1319,8 @@ set[GeneratedExpr]: '{' a=star_named_expressions '}' { PyAst.Set(a, EXTRA) }
 dict[GeneratedExpr]:
     | '{' a=[double_starred_kvpairs] '}' {
         PyAst.Dict(
-            Check<GeneratedExprSeq>(PyParserHelpers.GetKeys(a)),
-            Check<GeneratedExprSeq>(PyParserHelpers.GetValues(a)),
+            Check<GeneratedExprSeq>(PyParserRuntime.GetKeys(a)),
+            Check<GeneratedExprSeq>(PyParserRuntime.GetValues(a)),
             EXTRA) }
     | '{' invalid_double_starred_kvpairs '}'
 
@@ -1331,12 +1331,12 @@ double_starred_kvpairs[GeneratedSeq]: a=','.double_starred_kvpair+ [','] { a }
 # CPython: double_starred_kvpair[KeyValuePair*]: ...
 # C#: Dict item or **unpacking
 double_starred_kvpair[GeneratedKeyValuePair]:
-    | '**' a=bitwise_or { PyParserHelpers.KeyValuePair(null, a) }
+    | '**' a=bitwise_or { PyParserRuntime.KeyValuePair(null, a) }
     | kvpair
 
 # CPython: kvpair[KeyValuePair*]: a=expression ':' b=expression { _PyPegen_key_value_pair(a, b) }
 # C#: Dict key:value pair
-kvpair[GeneratedKeyValuePair]: a=expression ':' b=expression { PyParserHelpers.KeyValuePair(a, b) }
+kvpair[GeneratedKeyValuePair]: a=expression ':' b=expression { PyParserRuntime.KeyValuePair(a, b) }
 
 # Comprehensions & Generators
 # ---------------------------
@@ -1394,16 +1394,16 @@ arguments[GeneratedExpr] (memo):
 # C#: Positional and keyword arguments
 args[GeneratedExpr]:
     | a[GeneratedExprSeq]=','.(starred_expression | ( assignment_expression | expression !':=') !'=')+ b=[',' k=kwargs {k}] {
-        PyParserHelpers.CollectCallSeqs(a, (GeneratedSeq?)b, EXTRA) }
-    | a=kwargs { PyAst.Call(PyParserHelpers.DummyName(),
-                          CheckNullAllowed<GeneratedExprSeq>(PyParserHelpers.SeqExtractStarredExprs(a)),
-                          CheckNullAllowed<GeneratedKeywordSeq>(PyParserHelpers.SeqDeleteStarredExprs(a)),
+        PyParserRuntime.CollectCallSeqs(a, (GeneratedSeq?)b, EXTRA) }
+    | a=kwargs { PyAst.Call(PyParserRuntime.DummyName(),
+                          CheckNullAllowed<GeneratedExprSeq>(PyParserRuntime.SeqExtractStarredExprs(a)),
+                          CheckNullAllowed<GeneratedKeywordSeq>(PyParserRuntime.SeqDeleteStarredExprs(a)),
                           EXTRA) }
 
 # CPython: kwargs[asdl_seq*]: ...
 # C#: Keyword arguments (name=value or **dict)
 kwargs[GeneratedSeq]:
-    | a=','.kwarg_or_starred+ ',' b=','.kwarg_or_double_starred+ { PyParserHelpers.JoinSequences(a, b) }
+    | a=','.kwarg_or_starred+ ',' b=','.kwarg_or_double_starred+ { PyParserRuntime.JoinSequences(a, b) }
     | ','.kwarg_or_starred+
     | ','.kwarg_or_double_starred+
 
@@ -1419,16 +1419,16 @@ starred_expression[GeneratedExpr]:
 kwarg_or_starred[GeneratedKeywordOrStarred]:
     | invalid_kwarg
     | a=NAME '=' b=expression {
-        PyParserHelpers.KeywordOrStarred(Check<GeneratedKeyword>(PyAst.keyword(a.GetNameValue(), b, EXTRA)), is_keyword: 1) }
-    | a=starred_expression { PyParserHelpers.KeywordOrStarred(a, is_keyword: 0) }
+        PyParserRuntime.KeywordOrStarred(Check<GeneratedKeyword>(PyAst.keyword(a.GetNameValue(), b, EXTRA)), is_keyword: 1) }
+    | a=starred_expression { PyParserRuntime.KeywordOrStarred(a, is_keyword: 0) }
 
 # CPython: kwarg_or_double_starred[KeywordOrStarred*]: ...
 # C#: Keyword argument or **dict (for function calls)
 kwarg_or_double_starred[GeneratedKeywordOrStarred]:
     | invalid_kwarg
     | a=NAME '=' b=expression {
-        PyParserHelpers.KeywordOrStarred(Check<GeneratedKeyword>(PyAst.keyword(a.GetNameValue(), b, EXTRA)), is_keyword: 1) }
-    | '**' a=expression { PyParserHelpers.KeywordOrStarred(Check<GeneratedKeyword>(PyAst.keyword(null, a, EXTRA)), is_keyword: 1) }
+        PyParserRuntime.KeywordOrStarred(Check<GeneratedKeyword>(PyAst.keyword(a.GetNameValue(), b, EXTRA)), is_keyword: 1) }
+    | '**' a=expression { PyParserRuntime.KeywordOrStarred(Check<GeneratedKeyword>(PyAst.keyword(null, a, EXTRA)), is_keyword: 1) }
 
 # ASSIGNMENT TARGETS
 # ==================
@@ -1443,7 +1443,7 @@ kwarg_or_double_starred[GeneratedKeywordOrStarred]:
 star_targets[GeneratedExpr]:
     | a=star_target !',' { a }
     | a=star_target b=(',' c=star_target { c })* [','] {
-        PyAst.Tuple((GeneratedExprSeq?)Check<GeneratedExprSeq>(PyParserHelpers.SeqInsertInFront(a, b).Cast<GeneratedExprSeq>()), Store, EXTRA) }
+        PyAst.Tuple((GeneratedExprSeq?)Check<GeneratedExprSeq>(PyParserRuntime.SeqInsertInFront(a, b).Cast<GeneratedExprSeq>()), Store, EXTRA) }
 
 # CPython: star_targets_list_seq[asdl_expr_seq*]: a[asdl_expr_seq*]=','.star_target+ [','] { a }
 # C#: Star targets as list sequence [a, b, *rest] = ...
@@ -1452,14 +1452,14 @@ star_targets_list_seq[GeneratedExprSeq]: a[GeneratedExprSeq]=','.star_target+ ['
 # CPython: star_targets_tuple_seq[asdl_expr_seq*]: ...
 # C#: Star targets as tuple sequence (a, b, *rest) = ...
 star_targets_tuple_seq[GeneratedExprSeq]:
-    | a=star_target b=(',' c=star_target { c })+ [','] {  PyParserHelpers.SeqInsertInFront(a, b).Cast<GeneratedExprSeq>() }
-    | a=star_target ',' {  PyParserHelpers.SingletonSeq(a).Cast<GeneratedExprSeq>() }
+    | a=star_target b=(',' c=star_target { c })+ [','] {  PyParserRuntime.SeqInsertInFront(a, b).Cast<GeneratedExprSeq>() }
+    | a=star_target ',' {  PyParserRuntime.SingletonSeq(a).Cast<GeneratedExprSeq>() }
 
 # CPython: star_target[expr_ty] (memo): ...
 # C#: Single star target (*a or regular target)
 star_target[GeneratedExpr] (memo):
     | '*' a=(!'*' star_target) {
-        PyAst.Starred((GeneratedExpr)Check<GeneratedExpr>((GeneratedExpr)PyParserHelpers.SetExprContext((GeneratedExpr)a, Store)), Store, EXTRA) }
+        PyAst.Starred((GeneratedExpr)Check<GeneratedExpr>((GeneratedExpr)PyParserRuntime.SetExprContext((GeneratedExpr)a, Store)), Store, EXTRA) }
     | target_with_star_atom
 
 # CPython: target_with_star_atom[expr_ty] (memo): ...
@@ -1472,8 +1472,8 @@ target_with_star_atom[GeneratedExpr] (memo):
 # CPython: star_atom[expr_ty]: ...
 # C#: Atomic star target (name, tuple, list)
 star_atom[GeneratedExpr]:
-    | a=NAME { PyParserHelpers.SetExprContext(NameToken(a), Store) }
-    | '(' a=target_with_star_atom ')' { PyParserHelpers.SetExprContext(a, Store) }
+    | a=NAME { PyParserRuntime.SetExprContext(NameToken(a), Store) }
+    | '(' a=target_with_star_atom ')' { PyParserRuntime.SetExprContext(a, Store) }
     | '(' a=[star_targets_tuple_seq] ')' { PyAst.Tuple(a, Store, EXTRA) }
     | '[' a=[star_targets_list_seq] ']' { PyAst.List(a, Store, EXTRA) }
 
@@ -1481,7 +1481,7 @@ star_atom[GeneratedExpr]:
 # C#: Single assignment target (no star)
 single_target[GeneratedExpr]:
     | single_subscript_attribute_target
-    | a=NAME { PyParserHelpers.SetExprContext(NameToken(a), Store) }
+    | a=NAME { PyParserRuntime.SetExprContext(NameToken(a), Store) }
     | '(' a=single_target ')' { a }
 
 # CPython: single_subscript_attribute_target[expr_ty]: ...
@@ -1496,7 +1496,7 @@ t_primary[GeneratedExpr]:
     | a=t_primary '.' b=NAME &t_lookahead { PyAst.Attribute(a, b.GetNameValue(), Load, EXTRA) }
     | a=t_primary '[' b=slices ']' &t_lookahead { PyAst.Subscript(a, b, Load, EXTRA) }
     | a=t_primary b=genexp &t_lookahead {
-        PyAst.Call(a, Check<GeneratedExprSeq>(PyParserHelpers.SingletonSeq(b).Cast<GeneratedExprSeq>()), null, EXTRA) }
+        PyAst.Call(a, Check<GeneratedExprSeq>(PyParserRuntime.SingletonSeq(b).Cast<GeneratedExprSeq>()), null, EXTRA) }
     | a=t_primary '(' b=[arguments] ')' &t_lookahead {
         PyAst.Call(a,
                  (b != null) ? ((GeneratedCall)b).Args : null!,
@@ -1525,8 +1525,8 @@ del_target[GeneratedExpr] (memo):
 # CPython: del_t_atom[expr_ty]: ...
 # C#: Atomic deletion target
 del_t_atom[GeneratedExpr]:
-    | a=NAME { PyParserHelpers.SetExprContext(NameToken(a), Del) }
-    | '(' a=del_target ')' { PyParserHelpers.SetExprContext(a, Del) }
+    | a=NAME { PyParserRuntime.SetExprContext(NameToken(a), Del) }
+    | '(' a=del_target ')' { PyParserRuntime.SetExprContext(a, Del) }
     | '(' a=[del_targets] ')' { PyAst.Tuple(a, Del, EXTRA) }
     | '[' a=[del_targets] ']' { PyAst.List(a, Del, EXTRA) }
 
@@ -1539,17 +1539,17 @@ del_t_atom[GeneratedExpr]:
 # C#: Type expressions for func_type (allows *, **)
 type_expressions[GeneratedExprSeq]:
     | a=','.expression+ ',' '*' b=expression ',' '**' c=expression {
-        PyParserHelpers.SeqAppendToEnd(
-            (Check<GeneratedSeq>(PyParserHelpers.SeqAppendToEnd(a, b)).Cast<GeneratedExprSeq>()),
+        PyParserRuntime.SeqAppendToEnd(
+            (Check<GeneratedSeq>(PyParserRuntime.SeqAppendToEnd(a, b)).Cast<GeneratedExprSeq>()),
             c).Cast<GeneratedExprSeq>() }
-    | a=','.expression+ ',' '*' b=expression { PyParserHelpers.SeqAppendToEnd(a, b).Cast<GeneratedExprSeq>() }
-    | a=','.expression+ ',' '**' b=expression { PyParserHelpers.SeqAppendToEnd(a, b).Cast<GeneratedExprSeq>() }
+    | a=','.expression+ ',' '*' b=expression { PyParserRuntime.SeqAppendToEnd(a, b).Cast<GeneratedExprSeq>() }
+    | a=','.expression+ ',' '**' b=expression { PyParserRuntime.SeqAppendToEnd(a, b).Cast<GeneratedExprSeq>() }
     | '*' a=expression ',' '**' b=expression {
-        PyParserHelpers.SeqAppendToEnd(
-            (Check<GeneratedSeq>(PyParserHelpers.SingletonSeq(a)).Cast<GeneratedExprSeq>()),
+        PyParserRuntime.SeqAppendToEnd(
+            (Check<GeneratedSeq>(PyParserRuntime.SingletonSeq(a)).Cast<GeneratedExprSeq>()),
             b).Cast<GeneratedExprSeq>() }
-    | '*' a=expression { PyParserHelpers.SingletonSeq(a).Cast<GeneratedExprSeq>() }
-    | '**' a=expression { PyParserHelpers.SingletonSeq(a).Cast<GeneratedExprSeq>() }
+    | '*' a=expression { PyParserRuntime.SingletonSeq(a).Cast<GeneratedExprSeq>() }
+    | '**' a=expression { PyParserRuntime.SingletonSeq(a).Cast<GeneratedExprSeq>() }
     | a[GeneratedExprSeq]=','.expression+ {a}
 
 # CPython: func_type_comment[Token*]: ...

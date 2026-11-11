@@ -82,7 +82,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return ( GeneratedMod ) PyParserHelpers . MakeModule (( GeneratedStmtSeq ?) a );
+                    return ( GeneratedMod ) PyParserRuntime . MakeModule (( GeneratedStmtSeq ?) a );
                 }
             }
 
@@ -230,7 +230,7 @@ namespace SharpPy.Generated
                 if ((a = ParseOneOrMore(() => Parse_Statement())) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . FlattenStatementSequence ( a ). Cast < GeneratedStmtSeq >();
+                    return PyParserRuntime . SeqFlatten ( a ). Cast < GeneratedStmtSeq >();
                 }
             }
 
@@ -263,7 +263,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_CompoundStmt()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SingletonSequence (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
+                    return PyParserRuntime . SingletonSeq (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
                 }
             }
 
@@ -316,7 +316,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SingletonSequence (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
+                    return PyParserRuntime . SingletonSeq (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
                 }
             }
 
@@ -350,7 +350,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.NEWLINE)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SingletonSequence ( Check < GeneratedStmt >( PyAst . Pass ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ))). Cast < GeneratedStmtSeq >();
+                    return PyParserRuntime . SingletonSeq ( Check < GeneratedStmt >( PyAst . Pass ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ))). Cast < GeneratedStmtSeq >();
                 }
             }
 
@@ -367,7 +367,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.ENDMARKER)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . InteractiveExit ();
+                    return PyParserRuntime . InteractiveExit ();
                 }
             }
 
@@ -407,7 +407,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SingletonSequence (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
+                    return PyParserRuntime . SingletonSeq (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
                 }
             }
 
@@ -938,7 +938,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return CheckVersion ( 6 , "Variable annotation syntax is" , PyAst . AnnAssign ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance )),( GeneratedExpr ) b ,( GeneratedExpr ?) c , 1 , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                    return CheckVersion ( 6 , "Variable annotation syntax is" , PyAst . AnnAssign ( Check < GeneratedExpr >( PyParserRuntime . SetExprContext ( NameToken ( a ), GeneratedStore.Instance )),( GeneratedExpr ) b ,( GeneratedExpr ?) c , 1 , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
                 }
             }
 
@@ -1109,7 +1109,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.PLUSEQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AugOperator ( GeneratedAdd.Instance );
+                    return GeneratedAdd.Instance;
                 }
             }
 
@@ -1126,7 +1126,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.MINEQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AugOperator ( GeneratedSub.Instance );
+                    return GeneratedSub.Instance;
                 }
             }
 
@@ -1143,7 +1143,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.STAREQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AugOperator ( GeneratedMult.Instance );
+                    return GeneratedMult.Instance;
                 }
             }
 
@@ -1160,7 +1160,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.ATEQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return CheckVersion ( 5 , "The '@' operator is" , PyParserHelpers . AugOperator ( GeneratedMatMult.Instance ));
+                    return CheckVersion ( 5 , "The '@' operator is" , GeneratedMatMult.Instance );
                 }
             }
 
@@ -1177,7 +1177,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.SLASHEQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AugOperator ( GeneratedDiv.Instance );
+                    return GeneratedDiv.Instance;
                 }
             }
 
@@ -1194,7 +1194,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.PERCENTEQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AugOperator ( GeneratedMod_.Instance );
+                    return GeneratedMod_.Instance;
                 }
             }
 
@@ -1211,7 +1211,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.AMPEREQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AugOperator ( GeneratedBitAnd.Instance );
+                    return GeneratedBitAnd.Instance;
                 }
             }
 
@@ -1228,7 +1228,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.VBAREQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AugOperator ( GeneratedBitOr.Instance );
+                    return GeneratedBitOr.Instance;
                 }
             }
 
@@ -1245,7 +1245,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.CIRCUMFLEXEQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AugOperator ( GeneratedBitXor.Instance );
+                    return GeneratedBitXor.Instance;
                 }
             }
 
@@ -1262,7 +1262,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.LEFTSHIFTEQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AugOperator ( GeneratedLShift.Instance );
+                    return GeneratedLShift.Instance;
                 }
             }
 
@@ -1279,7 +1279,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.RIGHTSHIFTEQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AugOperator ( GeneratedRShift.Instance );
+                    return GeneratedRShift.Instance;
                 }
             }
 
@@ -1296,7 +1296,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.DOUBLESTAREQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AugOperator ( GeneratedPow.Instance );
+                    return GeneratedPow.Instance;
                 }
             }
 
@@ -1313,7 +1313,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.DOUBLESLASHEQUAL)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AugOperator ( GeneratedFloorDiv.Instance );
+                    return GeneratedFloorDiv.Instance;
                 }
             }
 
@@ -1440,7 +1440,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Global ( Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds (( GeneratedExprSeq ) a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Global ( Check < GeneratedIdentifierSeq >( PyParserRuntime . MapNamesToIds (( GeneratedExprSeq ) a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -1476,7 +1476,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Nonlocal ( Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds (( GeneratedExprSeq ) a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Nonlocal ( Check < GeneratedIdentifierSeq >( PyParserRuntime . MapNamesToIds (( GeneratedExprSeq ) a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -1745,7 +1745,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return CheckedFutureImport ( b . GetIdentifier (),( GeneratedAliasSeq ) c , PyParserHelpers . SeqCountDots ( a . ToRawList ()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return CheckedFutureImport ( b . GetIdentifier (),( GeneratedAliasSeq ) c , PyParserRuntime . SeqCountDots ( a ), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -1768,7 +1768,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . ImportFrom ( null ,( GeneratedAliasSeq ) b , PyParserHelpers . SeqCountDots ( a . ToRawList ()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . ImportFrom ( null ,( GeneratedAliasSeq ) b , PyParserRuntime . SeqCountDots ( a ), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -1843,7 +1843,7 @@ namespace SharpPy.Generated
                 if ((_item0 = ExpectToken(PyToken.Type.STAR)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SingletonSequence ( Check < GeneratedAlias >( PyParserHelpers . AliasForStar ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ))). Cast < GeneratedAliasSeq >();
+                    return PyParserRuntime . SingletonSeq ( Check < GeneratedAlias >( PyParserRuntime . AliasForStar ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ))). Cast < GeneratedAliasSeq >();
                 }
             }
 
@@ -2048,7 +2048,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . JoinNamesWithDot ( a , NameToken ( b ));
+                    return PyParserRuntime . JoinNamesWithDot ( a , NameToken ( b ));
                 }
             }
 
@@ -2226,7 +2226,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . ClassDefDecorators ( a , b );
+                    return PyParserRuntime . ClassDefDecorators ( a , b );
                 }
             }
 
@@ -2358,7 +2358,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . FunctionDefDecorators ( d , f );
+                    return PyParserRuntime . FunctionDefDecorators ( d , f );
                 }
             }
 
@@ -2459,7 +2459,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . FunctionDef ( n . GetNameValue (),( params_ != null )? params_ :( GeneratedArguments ) Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , null ,( GeneratedExpr ?) a , tc . GetCommentValue (), t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . FunctionDef ( n . GetNameValue (),( params_ != null )? params_ :( GeneratedArguments ) Check < GeneratedArguments >( PyParserRuntime . EmptyArguments ()), b , null ,( GeneratedExpr ?) a , tc . GetCommentValue (), t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -2511,7 +2511,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return CheckVersion ( 5 , "Async functions are" , PyAst . AsyncFunctionDef ( n . GetNameValue (),( params_ != null )? params_ :( GeneratedArguments ) Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , null ,( GeneratedExpr ?) a , tc . GetCommentValue (), t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                    return CheckVersion ( 5 , "Async functions are" , PyAst . AsyncFunctionDef ( n . GetNameValue (),( params_ != null )? params_ :( GeneratedArguments ) Check < GeneratedArguments >( PyParserRuntime . EmptyArguments ()), b , null ,( GeneratedExpr ?) a , tc . GetCommentValue (), t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
                 }
             }
 
@@ -2614,7 +2614,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments (( GeneratedArgSeq ) a , null , b , c ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) d ));
+                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserRuntime . MakeArguments (( GeneratedArgSeq ) a , null , b , c ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) d ));
                 }
             }
 
@@ -2646,7 +2646,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) c ));
+                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserRuntime . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) c ));
                 }
             }
 
@@ -2678,7 +2678,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . MakeArguments ( null , null , a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) c );
+                    return PyParserRuntime . MakeArguments ( null , null , a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) c );
                 }
             }
 
@@ -2705,7 +2705,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . MakeArguments ( null , null , null , a ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) b );
+                    return PyParserRuntime . MakeArguments ( null , null , null , a ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) b );
                 }
             }
 
@@ -2725,7 +2725,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_StarEtc()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . MakeArguments ( null , null , null , null ,( GeneratedStarEtc ) a );
+                    return PyParserRuntime . MakeArguments ( null , null , null , null ,( GeneratedStarEtc ) a );
                 }
             }
 
@@ -2822,7 +2822,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SlashWithDefault ( a ?. Cast < GeneratedArgSeq >(), b ?. Cast < GeneratedNameDefaultPairSeq >());
+                    return PyParserRuntime . SlashWithDefault ( a ?. Cast < GeneratedArgSeq >(), b ?. Cast < GeneratedNameDefaultPairSeq >());
                 }
             }
 
@@ -2845,7 +2845,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SlashWithDefault ( a ?. Cast < GeneratedArgSeq >(), b ?. Cast < GeneratedNameDefaultPairSeq >());
+                    return PyParserRuntime . SlashWithDefault ( a ?. Cast < GeneratedArgSeq >(), b ?. Cast < GeneratedNameDefaultPairSeq >());
                 }
             }
 
@@ -2902,7 +2902,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . StarEtc (( GeneratedArg ) a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
+                    return PyParserRuntime . StarEtc (( GeneratedArg ) a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
                 }
             }
 
@@ -2926,7 +2926,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . StarEtc (( GeneratedArg ) a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
+                    return PyParserRuntime . StarEtc (( GeneratedArg ) a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
                 }
             }
 
@@ -2949,7 +2949,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . StarEtc ( null , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
+                    return PyParserRuntime . StarEtc ( null , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
                 }
             }
 
@@ -2966,7 +2966,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_Kwds()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . StarEtc ( null , null ,( GeneratedArg ) a );
+                    return PyParserRuntime . StarEtc ( null , null ,( GeneratedArg ) a );
                 }
             }
 
@@ -3057,7 +3057,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AddTypeCommentToArg ( a , tc );
+                    return PyParserRuntime . AddTypeCommentToArg ( a , tc );
                 }
             }
 
@@ -3079,7 +3079,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AddTypeCommentToArg ( a , tc );
+                    return PyParserRuntime . AddTypeCommentToArg ( a , tc );
                 }
             }
 
@@ -3117,7 +3117,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AddTypeCommentToArg ( a , tc );
+                    return PyParserRuntime . AddTypeCommentToArg ( a , tc );
                 }
             }
 
@@ -3139,7 +3139,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . AddTypeCommentToArg ( a , tc );
+                    return PyParserRuntime . AddTypeCommentToArg ( a , tc );
                 }
             }
 
@@ -3179,7 +3179,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
+                    return PyParserRuntime . NameDefaultPair ( a , c , tc );
                 }
             }
 
@@ -3203,7 +3203,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
+                    return PyParserRuntime . NameDefaultPair ( a , c , tc );
                 }
             }
 
@@ -3243,7 +3243,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
+                    return PyParserRuntime . NameDefaultPair ( a , c , tc );
                 }
             }
 
@@ -3267,7 +3267,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
+                    return PyParserRuntime . NameDefaultPair ( a , c , tc );
                 }
             }
 
@@ -3530,7 +3530,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b , Check < GeneratedStmtSeq >( PyParserHelpers . SingletonSequence (( GeneratedStmt ) c ). Cast < GeneratedStmtSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b , Check < GeneratedStmtSeq >( PyParserRuntime . SingletonSeq (( GeneratedStmt ) c ). Cast < GeneratedStmtSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -3613,7 +3613,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b , Check < GeneratedStmtSeq >( PyParserHelpers . SingletonSequence (( GeneratedStmt ) c ). Cast < GeneratedStmtSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b , Check < GeneratedStmtSeq >( PyParserRuntime . SingletonSeq (( GeneratedStmt ) c ). Cast < GeneratedStmtSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -4521,7 +4521,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) value ,( GeneratedExprSeq ?) values ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserRuntime . SeqInsertInFront (( GeneratedExpr ) value ,( GeneratedExprSeq ?) values ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -5526,7 +5526,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SetExprContext ( NameToken ( name ), GeneratedStore.Instance );
+                    return PyParserRuntime . SetExprContext ( NameToken ( name ), GeneratedStore.Instance );
                 }
             }
 
@@ -5827,7 +5827,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SeqInsertInFront (( GeneratedPattern ) pattern ,( GeneratedSeq ?) patterns ). Cast < GeneratedPatternSeq >();
+                    return PyParserRuntime . SeqInsertInFront (( GeneratedPattern ) pattern ,( GeneratedSeq ?) patterns ). Cast < GeneratedPatternSeq >();
                 }
             }
 
@@ -6064,7 +6064,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . MatchMapping ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys ( items )), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns ( items )), rest . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . MatchMapping ( Check < GeneratedExprSeq >( PyParserRuntime . GetPatternKeys ( items )), Check < GeneratedPatternSeq >( PyParserRuntime . GetPatterns ( items )), rest . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -6086,7 +6086,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . MatchMapping ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys ( items )), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns ( items )), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . MatchMapping ( Check < GeneratedExprSeq >( PyParserRuntime . GetPatternKeys ( items )), Check < GeneratedPatternSeq >( PyParserRuntime . GetPatterns ( items )), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -6157,7 +6157,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . KeyPatternPair (( GeneratedExpr ) key ,( GeneratedPattern ) pattern );
+                    return PyParserRuntime . KeyPatternPair (( GeneratedExpr ) key ,( GeneratedPattern ) pattern );
                 }
             }
 
@@ -6278,7 +6278,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . MatchClass (( GeneratedExpr ) cls , null , Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys (( GeneratedSeq ) keywords )))), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns (( GeneratedSeq ) keywords )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . MatchClass (( GeneratedExpr ) cls , null , Check < GeneratedIdentifierSeq >( PyParserRuntime . MapNamesToIds ( Check < GeneratedExprSeq >( PyParserRuntime . GetPatternKeys (( GeneratedSeq ) keywords )))), Check < GeneratedPatternSeq >( PyParserRuntime . GetPatterns (( GeneratedSeq ) keywords )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -6305,7 +6305,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . MatchClass (( GeneratedExpr ) cls ,( GeneratedPatternSeq ) patterns , Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys (( GeneratedSeq ) keywords )))), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns (( GeneratedSeq ) keywords )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . MatchClass (( GeneratedExpr ) cls ,( GeneratedPatternSeq ) patterns , Check < GeneratedIdentifierSeq >( PyParserRuntime . MapNamesToIds ( Check < GeneratedExprSeq >( PyParserRuntime . GetPatternKeys (( GeneratedSeq ) keywords )))), Check < GeneratedPatternSeq >( PyParserRuntime . GetPatterns (( GeneratedSeq ) keywords )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -6426,7 +6426,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . KeyPatternPair ( NameToken ( arg ),( GeneratedPattern ) value );
+                    return PyParserRuntime . KeyPatternPair ( NameToken ( arg ),( GeneratedPattern ) value );
                 }
             }
 
@@ -6467,7 +6467,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return CheckVersion ( 12 , "Type statement is" , PyAst . TypeAlias ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( NameToken ( n ), GeneratedStore.Instance )),( GeneratedTypeParamSeq ?) t ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                    return CheckVersion ( 12 , "Type statement is" , PyAst . TypeAlias ( Check < GeneratedExpr >( PyParserRuntime . SetExprContext ( NameToken ( n ), GeneratedStore.Instance )),( GeneratedTypeParamSeq ?) t ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
                 }
             }
 
@@ -6782,7 +6782,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserRuntime . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -6802,7 +6802,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence (( GeneratedExpr ) a ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserRuntime . SingletonSeq (( GeneratedExpr ) a ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -7048,7 +7048,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserRuntime . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -7071,7 +7071,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence (( GeneratedExpr ) a ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserRuntime . SingletonSeq (( GeneratedExpr ) a ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -7281,7 +7281,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return CheckVersion ( 8 , "Assignment expressions are" , PyAst . NamedExpr ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance )),( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                    return CheckVersion ( 8 , "Assignment expressions are" , PyAst . NamedExpr ( Check < GeneratedExpr >( PyParserRuntime . SetExprContext ( NameToken ( a ), GeneratedStore.Instance )),( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
                 }
             }
 
@@ -7404,7 +7404,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . BoolOp ( GeneratedOr.Instance , Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . BoolOp ( GeneratedOr.Instance , Check < GeneratedExprSeq >( PyParserRuntime . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -7474,7 +7474,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . BoolOp ( GeneratedAnd.Instance , Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . BoolOp ( GeneratedAnd.Instance , Check < GeneratedExprSeq >( PyParserRuntime . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -7591,7 +7591,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Compare (( GeneratedExpr ) a , Check < GeneratedCmpopSeq >( PyParserHelpers . GetCmpops (( GeneratedSeq ) b ). Cast < GeneratedCmpopSeq >()), Check < GeneratedExprSeq >( PyParserHelpers . GetExprs (( GeneratedSeq ) b )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Compare (( GeneratedExpr ) a , Check < GeneratedCmpopSeq >( PyParserRuntime . GetCmpops (( GeneratedSeq ) b ). Cast < GeneratedCmpopSeq >()), Check < GeneratedExprSeq >( PyParserRuntime . GetExprs (( GeneratedSeq ) b )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -7830,7 +7830,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . CmpopExprPair ( GeneratedEq.Instance ,( GeneratedExpr ) a );
+                    return PyParserRuntime . CmpopExprPair ( GeneratedEq.Instance ,( GeneratedExpr ) a );
                 }
             }
 
@@ -7866,7 +7866,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . CmpopExprPair ( GeneratedNotEq.Instance ,( GeneratedExpr ) a );
+                    return PyParserRuntime . CmpopExprPair ( GeneratedNotEq.Instance ,( GeneratedExpr ) a );
                 }
             }
 
@@ -7902,7 +7902,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . CmpopExprPair ( GeneratedLtE.Instance ,( GeneratedExpr ) a );
+                    return PyParserRuntime . CmpopExprPair ( GeneratedLtE.Instance ,( GeneratedExpr ) a );
                 }
             }
 
@@ -7938,7 +7938,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . CmpopExprPair ( GeneratedLt.Instance ,( GeneratedExpr ) a );
+                    return PyParserRuntime . CmpopExprPair ( GeneratedLt.Instance ,( GeneratedExpr ) a );
                 }
             }
 
@@ -7974,7 +7974,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . CmpopExprPair ( GeneratedGtE.Instance ,( GeneratedExpr ) a );
+                    return PyParserRuntime . CmpopExprPair ( GeneratedGtE.Instance ,( GeneratedExpr ) a );
                 }
             }
 
@@ -8010,7 +8010,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . CmpopExprPair ( GeneratedGt.Instance ,( GeneratedExpr ) a );
+                    return PyParserRuntime . CmpopExprPair ( GeneratedGt.Instance ,( GeneratedExpr ) a );
                 }
             }
 
@@ -8047,7 +8047,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . CmpopExprPair ( GeneratedNotIn.Instance ,( GeneratedExpr ) a );
+                    return PyParserRuntime . CmpopExprPair ( GeneratedNotIn.Instance ,( GeneratedExpr ) a );
                 }
             }
 
@@ -8083,7 +8083,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . CmpopExprPair ( GeneratedIn.Instance ,( GeneratedExpr ) a );
+                    return PyParserRuntime . CmpopExprPair ( GeneratedIn.Instance ,( GeneratedExpr ) a );
                 }
             }
 
@@ -8120,7 +8120,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . CmpopExprPair ( GeneratedIsNot.Instance ,( GeneratedExpr ) a );
+                    return PyParserRuntime . CmpopExprPair ( GeneratedIsNot.Instance ,( GeneratedExpr ) a );
                 }
             }
 
@@ -8156,7 +8156,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . CmpopExprPair ( GeneratedIs.Instance ,( GeneratedExpr ) a );
+                    return PyParserRuntime . CmpopExprPair ( GeneratedIs.Instance ,( GeneratedExpr ) a );
                 }
             }
 
@@ -9067,7 +9067,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Call (( GeneratedExpr ) a , Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence (( GeneratedExpr ) b ). Cast < GeneratedExprSeq >()), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Call (( GeneratedExpr ) a , Check < GeneratedExprSeq >( PyParserRuntime . SingletonSeq (( GeneratedExpr ) b ). Cast < GeneratedExprSeq >()), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -9552,7 +9552,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Lambda (( a != null )? a :( GeneratedArguments ) Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Lambda (( a != null )? a :( GeneratedArguments ) Check < GeneratedArguments >( PyParserRuntime . EmptyArguments ()), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -9643,7 +9643,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments (( GeneratedArgSeq ) a , null , b , c ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) d ));
+                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserRuntime . MakeArguments (( GeneratedArgSeq ) a , null , b , c ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) d ));
                 }
             }
 
@@ -9666,7 +9666,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) c ));
+                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserRuntime . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) c ));
                 }
             }
 
@@ -9689,7 +9689,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . MakeArguments ( null , null , a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) c );
+                    return PyParserRuntime . MakeArguments ( null , null , a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) c );
                 }
             }
 
@@ -9710,7 +9710,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . MakeArguments ( null , null , null , a ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) b );
+                    return PyParserRuntime . MakeArguments ( null , null , null , a ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) b );
                 }
             }
 
@@ -9727,7 +9727,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_LambdaStarEtc()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . MakeArguments ( null , null , null , null ,( GeneratedStarEtc ) a );
+                    return PyParserRuntime . MakeArguments ( null , null , null , null ,( GeneratedStarEtc ) a );
                 }
             }
 
@@ -9824,7 +9824,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SlashWithDefault ( a ?. Cast < GeneratedArgSeq >(), b ?. Cast < GeneratedNameDefaultPairSeq >());
+                    return PyParserRuntime . SlashWithDefault ( a ?. Cast < GeneratedArgSeq >(), b ?. Cast < GeneratedNameDefaultPairSeq >());
                 }
             }
 
@@ -9847,7 +9847,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SlashWithDefault ( a ?. Cast < GeneratedArgSeq >(), b ?. Cast < GeneratedNameDefaultPairSeq >());
+                    return PyParserRuntime . SlashWithDefault ( a ?. Cast < GeneratedArgSeq >(), b ?. Cast < GeneratedNameDefaultPairSeq >());
                 }
             }
 
@@ -9904,7 +9904,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . StarEtc (( GeneratedArg ) a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
+                    return PyParserRuntime . StarEtc (( GeneratedArg ) a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
                 }
             }
 
@@ -9927,7 +9927,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . StarEtc ( null , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
+                    return PyParserRuntime . StarEtc ( null , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
                 }
             }
 
@@ -9944,7 +9944,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_LambdaKwds()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . StarEtc ( null , null ,( GeneratedArg ) a );
+                    return PyParserRuntime . StarEtc ( null , null ,( GeneratedArg ) a );
                 }
             }
 
@@ -10091,7 +10091,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ) c , null );
+                    return PyParserRuntime . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ) c , null );
                 }
             }
 
@@ -10113,7 +10113,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ) c , null );
+                    return PyParserRuntime . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ) c , null );
                 }
             }
 
@@ -10151,7 +10151,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ?) c , null );
+                    return PyParserRuntime . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ?) c , null );
                 }
             }
 
@@ -10173,7 +10173,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ?) c , null );
+                    return PyParserRuntime . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ?) c , null );
                 }
             }
 
@@ -10704,7 +10704,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Dict ( Check < GeneratedExprSeq >( PyParserHelpers . GetKeys ( a )), Check < GeneratedExprSeq >( PyParserHelpers . GetValues ( a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Dict ( Check < GeneratedExprSeq >( PyParserRuntime . GetKeys ( a )), Check < GeneratedExprSeq >( PyParserRuntime . GetValues ( a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -10799,7 +10799,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . KeyValuePair ( null , a );
+                    return PyParserRuntime . KeyValuePair ( null , a );
                 }
             }
 
@@ -10854,7 +10854,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . KeyValuePair ( a , b );
+                    return PyParserRuntime . KeyValuePair ( a , b );
                 }
             }
 
@@ -11296,7 +11296,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . CollectCallSeqs ( a ,( GeneratedSeq ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyParserRuntime . CollectCallSeqs ( a ,( GeneratedSeq ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -11313,7 +11313,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_Kwargs()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Call ( PyParserHelpers . DummyName (), CheckNullAllowed < GeneratedExprSeq >( PyParserHelpers . SeqExtractStarredExprs ( a )), CheckNullAllowed < GeneratedKeywordSeq >( PyParserHelpers . SeqDeleteStarredExprs ( a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Call ( PyParserRuntime . DummyName (), CheckNullAllowed < GeneratedExprSeq >( PyParserRuntime . SeqExtractStarredExprs ( a )), CheckNullAllowed < GeneratedKeywordSeq >( PyParserRuntime . SeqDeleteStarredExprs ( a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -11351,7 +11351,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . JoinSequences ( a , b );
+                    return PyParserRuntime . JoinSequences ( a , b );
                 }
             }
 
@@ -11510,7 +11510,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . keyword ( a . GetNameValue (), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
+                    return PyParserRuntime . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . keyword ( a . GetNameValue (), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
                 }
             }
 
@@ -11527,7 +11527,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_StarredExpression()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . KeywordOrStarred ( a , is_keyword : 0 );
+                    return PyParserRuntime . KeywordOrStarred ( a , is_keyword : 0 );
                 }
             }
 
@@ -11582,7 +11582,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . keyword ( a . GetNameValue (), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
+                    return PyParserRuntime . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . keyword ( a . GetNameValue (), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
                 }
             }
 
@@ -11602,7 +11602,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . keyword ( null , a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
+                    return PyParserRuntime . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . keyword ( null , a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
                 }
             }
 
@@ -11660,7 +11660,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Tuple (( GeneratedExprSeq ?) Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront ( a , b ). Cast < GeneratedExprSeq >()), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Tuple (( GeneratedExprSeq ?) Check < GeneratedExprSeq >( PyParserRuntime . SeqInsertInFront ( a , b ). Cast < GeneratedExprSeq >()), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -11734,7 +11734,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SeqInsertInFront ( a , b ). Cast < GeneratedExprSeq >();
+                    return PyParserRuntime . SeqInsertInFront ( a , b ). Cast < GeneratedExprSeq >();
                 }
             }
 
@@ -11754,7 +11754,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
+                    return PyParserRuntime . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
                 }
             }
 
@@ -11800,7 +11800,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Starred (( GeneratedExpr ) Check < GeneratedExpr >(( GeneratedExpr ) PyParserHelpers . SetExprContext (( GeneratedExpr ) a , GeneratedStore.Instance )), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Starred (( GeneratedExpr ) Check < GeneratedExpr >(( GeneratedExpr ) PyParserRuntime . SetExprContext (( GeneratedExpr ) a , GeneratedStore.Instance )), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -11940,7 +11940,7 @@ namespace SharpPy.Generated
                 if ((a = ExpectName()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance );
+                    return PyParserRuntime . SetExprContext ( NameToken ( a ), GeneratedStore.Instance );
                 }
             }
 
@@ -11961,7 +11961,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SetExprContext ( a , GeneratedStore.Instance );
+                    return PyParserRuntime . SetExprContext ( a , GeneratedStore.Instance );
                 }
             }
 
@@ -12053,7 +12053,7 @@ namespace SharpPy.Generated
                 if ((a = ExpectName()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance );
+                    return PyParserRuntime . SetExprContext ( NameToken ( a ), GeneratedStore.Instance );
                 }
             }
 
@@ -12232,7 +12232,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyAst . Call ( a , Check < GeneratedExprSeq >( PyParserHelpers . SingletonSeq ( b ). Cast < GeneratedExprSeq >()), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return PyAst . Call ( a , Check < GeneratedExprSeq >( PyParserRuntime . SingletonSeq ( b ). Cast < GeneratedExprSeq >()), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 
@@ -12501,7 +12501,7 @@ namespace SharpPy.Generated
                 if ((a = ExpectName()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedDel.Instance );
+                    return PyParserRuntime . SetExprContext ( NameToken ( a ), GeneratedDel.Instance );
                 }
             }
 
@@ -12522,7 +12522,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SetExprContext ( a , GeneratedDel.Instance );
+                    return PyParserRuntime . SetExprContext ( a , GeneratedDel.Instance );
                 }
             }
 
@@ -12607,7 +12607,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SeqAppendToEnd (( Check < GeneratedSeq >( PyParserHelpers . SeqAppendToEnd ( a , b )). Cast < GeneratedExprSeq >()), c ). Cast < GeneratedExprSeq >();
+                    return PyParserRuntime . SeqAppendToEnd (( Check < GeneratedSeq >( PyParserRuntime . SeqAppendToEnd ( a , b )). Cast < GeneratedExprSeq >()), c ). Cast < GeneratedExprSeq >();
                 }
             }
 
@@ -12630,7 +12630,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SeqAppendToEnd ( a , b ). Cast < GeneratedExprSeq >();
+                    return PyParserRuntime . SeqAppendToEnd ( a , b ). Cast < GeneratedExprSeq >();
                 }
             }
 
@@ -12653,7 +12653,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SeqAppendToEnd ( a , b ). Cast < GeneratedExprSeq >();
+                    return PyParserRuntime . SeqAppendToEnd ( a , b ). Cast < GeneratedExprSeq >();
                 }
             }
 
@@ -12677,7 +12677,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SeqAppendToEnd (( Check < GeneratedSeq >( PyParserHelpers . SingletonSeq ( a )). Cast < GeneratedExprSeq >()), b ). Cast < GeneratedExprSeq >();
+                    return PyParserRuntime . SeqAppendToEnd (( Check < GeneratedSeq >( PyParserRuntime . SingletonSeq ( a )). Cast < GeneratedExprSeq >()), b ). Cast < GeneratedExprSeq >();
                 }
             }
 
@@ -12697,7 +12697,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
+                    return PyParserRuntime . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
                 }
             }
 
@@ -12717,7 +12717,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
+                    return PyParserRuntime . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
                 }
             }
 
@@ -18612,7 +18612,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . SeqInsertInFront ( y , z ). Cast < GeneratedExprSeq >();
+                    return PyParserRuntime . SeqInsertInFront ( y , z ). Cast < GeneratedExprSeq >();
                 }
             }
 

@@ -454,11 +454,11 @@ namespace SharpPy.Generated
                 // In SharpPy, we check if item is a token info
                 if (item is GeneratedTokenInfo token)
                 {
-                    if (token.Type == PyToken.Type.ELLIPSIS || token.Value == "...")
+                    if (token.Type == PyToken.Type.ELLIPSIS)
                     {
                         number_of_dots += 3;
                     }
-                    else if (token.Type == PyToken.Type.DOT || token.Value == ".")
+                    else if (token.Type == PyToken.Type.DOT)
                     {
                         number_of_dots += 1;
                     }

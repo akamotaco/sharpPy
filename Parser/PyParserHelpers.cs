@@ -1425,8 +1425,9 @@ namespace SharpPy.Generated
         // CPython: SeqFlatten
         // Flatten list of sequences into single sequence
         // CPython 3.12: Returns NULL if total size is 0 (assert fails in CPython)
-        public static GeneratedStmtSeq SeqFlatten(System.Collections.Generic.List<GeneratedStmtSeq> sequences)
+        public static GeneratedStmtSeq SeqFlatten(GeneratedSeq seqs)
         {
+            var sequences = seqs.ToCastList<GeneratedStmtSeq>();
             // CPython: Calculate flattened size
             int totalSize = 0;
             foreach (var seq in sequences)
@@ -1447,6 +1448,199 @@ namespace SharpPy.Generated
                 result.AddRange(seq);
             }
             return result;
+        }
+
+        // CPython: _PyPegen_concatenate_strings (Parser/action_helpers.c)
+        // CPython: _PyPegen_concatenate_strings - Concatenate string expressions
+        // CPython 3.12: Parser/action_helpers.c:1413-1603
+        public static GeneratedExpr ConcatenateStrings(GeneratedExprSeq strings,
+                                                       int lineno, int col_offset, int end_lineno, int end_col_offset)
+        {
+            if (strings == null || strings.Count == 0)
+                return PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
+
+            int len = strings.Count;
+
+            // CPython: Check for f-strings, unicode strings, and bytes
+            bool fStringFound = false;
+            bool unicodeStringFound = false;
+            bool bytesFound = false;
+            int nFlattenedElements = 0;
+
+            for (int i = 0; i < len; i++)
+            {
+                var elem = strings[i] as GeneratedExpr;
+                if (elem == null) continue;
+
+                if (elem is GeneratedConstant constant)
+                {
+                    if (constant.Value is GeneratedPyConstantBytes)
+                    {
+                        bytesFound = true;
+                    }
+                    else
+                    {
+                        unicodeStringFound = true;
+                    }
+                    nFlattenedElements++;
+                }
+                else if (elem is GeneratedJoinedStr joinedStr)
+                {
+                    nFlattenedElements += joinedStr.Values?.Count ?? 0;
+                    fStringFound = true;
+                }
+                else
+                {
+                    nFlattenedElements++;
+                    fStringFound = true;
+                }
+            }
+
+            // CPython: Handle bytes concatenation
+            if (bytesFound)
+            {
+                var bytesList = new System.Collections.Generic.List<byte>();
+                string? kind = null;
+
+                for (int i = 0; i < len; i++)
+                {
+                    var elem = strings[i] as GeneratedConstant;
+                    if (elem?.Value is GeneratedPyConstantBytes bytesVal)
+                    {
+                        if (i == 0) kind = elem.Kind;
+                        bytesList.AddRange(bytesVal.Value);
+                    }
+                }
+
+                return PyAst.Constant(new GeneratedPyConstantBytes(bytesList.ToArray()), kind, lineno, col_offset, end_lineno, end_col_offset);
+            }
+
+            // CPython: If no f-string and only one element, return it directly
+            if (!fStringFound && len == 1)
+            {
+                return strings[0] as GeneratedExpr ?? PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
+            }
+
+            // CPython: Build flattened list (flatten JoinedStr nodes)
+            var flattened = new System.Collections.Generic.List<GeneratedExpr>(nFlattenedElements);
+            for (int i = 0; i < len; i++)
+            {
+                var elem = strings[i] as GeneratedExpr;
+                if (elem == null) continue;
+
+                if (elem is GeneratedJoinedStr joinedStr && joinedStr.Values != null)
+                {
+                    foreach (var subvalue in joinedStr.Values)
+                    {
+                        if (subvalue is GeneratedExpr subExpr)
+                            flattened.Add(subExpr);
+                    }
+                }
+                else
+                {
+                    flattened.Add(elem);
+                }
+            }
+
+            // CPython: Calculate folded element count (consecutive Constants merge into one)
+            int nElements = 0;
+            bool prevIsConstant = false;
+            for (int i = 0; i < flattened.Count; i++)
+            {
+                var elem = flattened[i];
+
+                // Skip empty constants in f-string context
+                if (fStringFound && elem is GeneratedConstant emptyConst &&
+                    emptyConst.Value is GeneratedPyConstantString emptyStr &&
+                    string.IsNullOrEmpty(emptyStr.Value))
+                {
+                    continue;
+                }
+
+                if (!prevIsConstant || !(elem is GeneratedConstant))
+                {
+                    nElements++;
+                }
+                prevIsConstant = elem is GeneratedConstant;
+            }
+
+            // CPython: Build folded list (concatenate consecutive Constants)
+            var values = new GeneratedExprSeq(nElements);
+            var sb = new System.Text.StringBuilder();
+
+            for (int i = 0; i < flattened.Count; i++)
+            {
+                var elem = flattened[i];
+
+                // CPython: if the current elem and the following are constants, fold them
+                if (elem is GeneratedConstant constant && constant.Value is GeneratedPyConstantString strVal)
+                {
+                    // Check if next element is also a constant string
+                    if (i + 1 < flattened.Count && flattened[i + 1] is GeneratedConstant nextConst &&
+                        nextConst.Value is GeneratedPyConstantString)
+                    {
+                        var firstElem = constant;
+                        string? kind = constant.Kind;
+                        sb.Clear();
+
+                        GeneratedConstant lastElem = constant;
+                        int j = i;
+                        for (; j < flattened.Count; j++)
+                        {
+                            if (flattened[j] is GeneratedConstant currentConst &&
+                                currentConst.Value is GeneratedPyConstantString currentStr)
+                            {
+                                sb.Append(currentStr.Value);
+                                lastElem = currentConst;
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                        i = j - 1;
+
+                        var concatenatedStr = sb.ToString();
+                        elem = PyAst.Constant(new GeneratedPyConstantString(concatenatedStr), kind,
+                                              firstElem.LineNo, firstElem.ColOffset,
+                                              lastElem.EndLineNo, lastElem.EndColOffset) as GeneratedExpr;
+                    }
+
+                    // Skip empty constant strings in f-string context
+                    if (fStringFound && elem is GeneratedConstant emptyCheck &&
+                        emptyCheck.Value is GeneratedPyConstantString emptyVal &&
+                        string.IsNullOrEmpty(emptyVal.Value))
+                    {
+                        continue;
+                    }
+                }
+
+                values.Add(elem!);
+            }
+
+            // CPython: If no f-string, return the single concatenated constant
+            if (!fStringFound)
+            {
+                if (values.Count == 1)
+                {
+                    return values[0] as GeneratedExpr ?? PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
+                }
+                // Fallback: concatenate all string values
+                sb.Clear();
+                string? finalKind = null;
+                foreach (var v in values)
+                {
+                    if (v is GeneratedConstant c && c.Value is GeneratedPyConstantString s)
+                    {
+                        sb.Append(s.Value);
+                        if (finalKind == null) finalKind = c.Kind;
+                    }
+                }
+                return PyAst.Constant(new GeneratedPyConstantString(sb.ToString()), finalKind, lineno, col_offset, end_lineno, end_col_offset);
+            }
+
+            // CPython: Return JoinedStr for f-strings
+            return PyAst.JoinedStr(values, lineno, col_offset, end_lineno, end_col_offset);
         }
 
         // CPython: SingletonSeq
@@ -1479,63 +1673,8 @@ namespace SharpPy.Generated
             return seq;
         }
 
-        // CPython 3.12: SlashWithDefault
-        // Creates a SlashWithDefault structure for positional-only parameters
-        // plain_names: arguments without defaults (e.g., "self" in "self, other=()")
-        // names_with_defaults: arguments with defaults (e.g., "other=()" -> arg + default value)
-        public static GeneratedSlashWithDefault? SlashWithDefault(
-            IEnumerable<GeneratedArg>? plain_names,
-            GeneratedSeq? names_with_defaults)
-        {
-            var slash_with_default = new GeneratedSlashWithDefault();
 
-            // CPython: plain_names are args without defaults
-            if (plain_names != null)
-            {
-                foreach (var arg in plain_names)
-                {
-                    slash_with_default.Args.Add(arg);
-                }
-            }
 
-            // CPython: names_with_defaults is a seq of NameDefaultPair
-            // Extract both args and defaults from NameDefaultPair
-            if (names_with_defaults != null)
-            {
-                foreach (var item in names_with_defaults)
-                {
-                    if (item is GeneratedNameDefaultPair pair)
-                    {
-                        slash_with_default.Args.Add(pair.Arg);
-                        slash_with_default.Defaults.Add(pair.Default);
-                    }
-                }
-            }
-
-            return slash_with_default;
-        }
-
-        // CPython: SeqCountDots
-        public static int SeqCountDots(GeneratedIdentifierSeq seq)
-        {
-            return seq?.Count ?? 0;
-        }
-
-        // CPython: SeqCountDots (token list overload)
-        public static int SeqCountDots(System.Collections.Generic.List<GeneratedTokenInfo>? tokens)
-        {
-            if (tokens == null) return 0;
-            int count = 0;
-            foreach (var token in tokens)
-            {
-                // '.' counts as 1, '...' (ELLIPSIS) counts as 3
-                if (token.Value == "...")
-                    count += 3;
-                else
-                    count += 1;
-            }
-            return count;
-        }
 
         // CPython: MakeModule
         public static GeneratedModule MakeModule(GeneratedStmtSeq body)
@@ -1546,12 +1685,16 @@ namespace SharpPy.Generated
             return module;
         }
 
-        // CPython: SeqAppendToEnd
-        public static GeneratedExprSeq SeqAppendToEnd(GeneratedExprSeq seq, GeneratedExpr item)
+        // CPython: _PyPegen_seq_append_to_end (Parser/action_helpers.c): a new sequence of the items
+        // and a, a singleton when seq is NULL; seq itself is left as it was.
+        public static GeneratedSeq SeqAppendToEnd(GeneratedSeq? seq, GeneratedPtr a)
         {
-            var newSeq = new GeneratedExprSeq(seq.Count + 1);
-            newSeq.AddRange(seq);
-            newSeq.Add(item);
+            if (seq == null)
+                return SingletonSeq(a);
+            var newSeq = new GeneratedSeq(seq.Count + 1);
+            foreach (var item in seq)
+                newSeq.Add(item);
+            newSeq.Add(a);
             return newSeq;
         }
 
@@ -1562,16 +1705,6 @@ namespace SharpPy.Generated
         public static GeneratedPyConstant Py_False => GeneratedPyConstant.False;
         public static GeneratedPyConstant Py_Ellipsis => GeneratedPyConstant.Ellipsis;
 
-        // CPython: KeywordOrStarred
-        // Construct a KeywordOrStarred
-        public static GeneratedKeywordOrStarred KeywordOrStarred(object element, int is_keyword)
-        {
-            return new GeneratedKeywordOrStarred
-            {
-                Keyword = is_keyword != 0 ? element as GeneratedKeyword : null,
-                Starred = is_keyword == 0 ? element as GeneratedExpr : null
-            };
-        }
 
         // CPython: CollectCallSeqs
         // Collect arguments and keywords from call sequences
@@ -1638,7 +1771,8 @@ namespace SharpPy.Generated
         // Create a key-value pair for dictionary literals
         public static GeneratedKeyValuePair KeyValuePair(GeneratedExpr key, GeneratedExpr value)
         {
-            return new GeneratedKeyValuePair { Key = key ?? value, Value = value };
+            // _PyPegen_key_value_pair: a '**' entry has no key (NULL), as dict displays expect.
+            return new GeneratedKeyValuePair { Key = key, Value = value };
         }
 
         // CPython: GetKeys
@@ -1689,7 +1823,8 @@ namespace SharpPy.Generated
                     exprs.Add(item.Starred);
                 }
             }
-            return exprs;
+            // _PyPegen_seq_extract_starred_exprs: NULL when there is none.
+            return exprs.Count == 0 ? null : exprs;
         }
 
         // CPython: SeqDeleteStarredExprs
@@ -1704,7 +1839,8 @@ namespace SharpPy.Generated
                     keywords.Add(item.Keyword);
                 }
             }
-            return keywords;
+            // _PyPegen_seq_delete_starred_exprs: NULL when nothing is left.
+            return keywords.Count == 0 ? null : keywords;
         }
 
         // Overload for MixedSeq
@@ -2092,668 +2228,6 @@ namespace SharpPy.Generated
     // ============================================================
     /// Usage in python_cs.gram: PyParserHelpers.MakeModule(a) instead of MakeModule(a)
     /// </summary>
-    public static class PyParserHelpers
-    {
-        /// <summary>
-        /// CPython: MakeModule
-        /// Creates a Module with optional statements
-        /// </summary>
-        public static GeneratedMod MakeModule(GeneratedStmtSeq? statements)
-        {
-            var body = statements ?? new GeneratedStmtSeq();
-            var typeIgnores = new GeneratedTypeIgnoreSeq();
-            return PyAst.Module(body, typeIgnores);
-        }
-
-        /// <summary>
-        /// CPython: SeqFlatten
-        /// Flattens nested statement sequences
-        /// </summary>
-        public static GeneratedStmtSeq FlattenStatementSequence(GeneratedSeq sequences)
-        {
-            return PyParserRuntime.SeqFlatten(
-                sequences.ToCastList<GeneratedStmtSeq>()
-            );
-        }
-
-        /// <summary>
-        /// CPython: SingletonSeq
-        /// Creates a sequence with a single item
-        /// </summary>
-        public static GeneratedStmtSeq SingletonSequence(GeneratedStmt item)
-        {
-            return PyParserRuntime.SingletonSeq(item);
-        }
-
-        /// <summary>
-        /// CPython: SeqInsertInFront
-        /// Inserts item at the front of sequence
-        /// </summary>
-        public static GeneratedExprSeq InsertInFront(GeneratedExpr item, GeneratedExprSeq? seq)
-        {
-            return (GeneratedExprSeq)PyParserRuntime.SeqInsertInFront(item, seq);
-        }
-
-        /// <summary>
-        /// CPython: SetExprContext
-        /// Sets the context of an expression (Load, Store, Del)
-        /// </summary>
-        public static GeneratedExpr SetExprContext(GeneratedExpr expr, GeneratedExprContext ctx)
-        {
-            return PyParserRuntime.SetExprContext(expr, ctx);
-        }
-
-        /// <summary>
-        /// CPython: InteractiveExit
-        /// Returns empty statement sequence for interactive mode exit (ENDMARKER)
-        /// Used in statement_newline rule when encountering ENDMARKER
-        /// </summary>
-        public static GeneratedStmtSeq InteractiveExit()
-        {
-            // CPython: Returns empty sequence to signal end of interactive input
-            return PyParserRuntime.InteractiveExit();
-        }
-
-        /// <summary>
-        /// CPython: Maps augmented assignment operator token to GeneratedOperator
-        /// Used in augassign rule: augassign[GeneratedOperator]: '+=' { AugOperator(Add) }
-        /// </summary>
-        public static GeneratedOperator AugOperator(GeneratedOperator op)
-        {
-            return op;
-        }
-
-        /// <summary>
-        /// CPython: MakeArguments
-        /// Creates function arguments from parsed parameter components
-        /// </summary>
-        public static GeneratedArguments MakeArguments(
-            GeneratedArgSeq? posonly,
-            GeneratedSlashWithDefault? posonly_with_default,
-            GeneratedArgSeq? args,
-            GeneratedNameDefaultPairSeq? args_with_default,
-            GeneratedStarEtc? star_etc)
-        {
-            return PyParserRuntime.MakeArguments(
-                posonly, posonly_with_default, args, args_with_default, star_etc);
-        }
-
-        /// <summary>
-        /// CPython: EmptyArguments
-        /// Creates empty arguments for function with no parameters
-        /// </summary>
-        public static GeneratedArguments EmptyArguments()
-        {
-            return PyParserRuntime.EmptyArguments();
-        }
-
-        /// <summary>
-        /// CPython: SlashWithDefault helper structure
-        /// Represents positional-only parameters with defaults
-        /// </summary>
-        public static GeneratedSlashWithDefault SlashWithDefault(
-            GeneratedArgSeq? plain_names,
-            GeneratedNameDefaultPairSeq names_with_defaults)
-        {
-            return PyParserRuntime.SlashWithDefault(plain_names, names_with_defaults);
-        }
-
-        /// <summary>
-        /// CPython: StarEtc helper structure
-        /// Represents *args and **kwargs parameters
-        /// </summary>
-        public static GeneratedStarEtc StarEtc(
-            GeneratedArg? vararg,
-            GeneratedNameDefaultPairSeq? kwonly_args,
-            GeneratedArg? kwarg)
-        {
-            return PyParserRuntime.StarEtc(vararg, kwonly_args, kwarg);
-        }
-
-        /// <summary>
-        /// CPython: SeqCountDots
-        /// Counts dots in import from statement (for relative imports)
-        /// </summary>
-        public static int SeqCountDots(List<GeneratedPtr> seq)
-        {
-            // Convert List<GeneratedPtr> to GeneratedSeq
-            GeneratedSeq seq_wrapper = null;
-            if (seq != null && seq.Count > 0)
-            {
-                seq_wrapper = new GeneratedSeq(seq.Count);
-                foreach (var item in seq)
-                {
-                    seq_wrapper.Add(item);
-                }
-            }
-
-            return PyParserRuntime.SeqCountDots(seq_wrapper);
-        }
-
-        /// <summary>
-        /// CPython: AliasForStar
-        /// Creates alias for 'from module import *'
-        /// </summary>
-        public static GeneratedAlias AliasForStar(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return PyParserRuntime.AliasForStar(lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        /// <summary>
-        /// CPython: CheckFutureImport
-        /// Validates and creates __future__ import
-        /// </summary>
-        public static GeneratedStmt CheckedFutureImport(
-            GeneratedIdentifier module_name,
-            GeneratedAliasSeq names,
-            int level,
-            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return PyParserRuntime.CheckedFutureImport(
-                module_name, names, level, lineno, col_offset, end_lineno ?? lineno, end_col_offset ?? col_offset);
-        }
-
-        /// <summary>
-        /// CPython: JoinNamesWithDot
-        /// Joins dotted name components (for import statements)
-        /// </summary>
-        public static GeneratedExpr JoinNamesWithDot(GeneratedExpr a, GeneratedExpr b)
-        {
-            return PyParserRuntime.JoinNamesWithDot(a, b);
-        }
-
-        /// <summary>
-        /// CPython: SeqExtractStarredExprs
-        /// Extracts NAME nodes from expression sequence and converts to identifier sequence
-        /// </summary>
-        public static GeneratedIdentifierSeq MapNamesToIds(GeneratedExprSeq exprs)
-        {
-            return PyParserRuntime.MapNamesToIds(exprs);
-        }
-
-        /// <summary>
-        /// CPython: ClassDefDecorators
-        /// Applies decorators to class definition
-        /// </summary>
-        public static GeneratedStmt ClassDefDecorators(GeneratedExprSeq decorators, GeneratedStmt class_def)
-        {
-            return PyParserRuntime.ClassDefDecorators(decorators, class_def);
-        }
-
-        /// <summary>
-        /// CPython: FunctionDefDecorators
-        /// Applies decorators to function definition
-        /// </summary>
-        public static GeneratedStmt FunctionDefDecorators(GeneratedExprSeq decorators, GeneratedStmt function_def)
-        {
-            return PyParserRuntime.FunctionDefDecorators(decorators, function_def);
-        }
-
-        /// <summary>
-        /// CPython: NameDefaultPair helper structure
-        /// Represents parameter with optional default value
-        /// </summary>
-        public static GeneratedNameDefaultPair NameDefaultPair(
-            GeneratedArg arg,
-            GeneratedExpr? default_value,
-            string? type_comment)
-        {
-            GeneratedTokenInfo? type_comment_token = null;
-            if (type_comment != null)
-            {
-                type_comment_token = new GeneratedTokenInfo(PyToken.Type.TYPE_COMMENT, type_comment, 0, 0, 0, 0);
-            }
-            return PyParserRuntime.NameDefaultPair(arg, default_value, type_comment_token);
-        }
-
-        /// <summary>
-        /// CPython: arg_ty AddTypeCommentToArg(Parser *p, arg_ty arg, Token *tc)
-        /// Adds type comment to argument
-        /// </summary>
-        public static GeneratedArg AddTypeCommentToArg(GeneratedArg arg, GeneratedTokenInfo? type_comment)
-        {
-            return PyParserRuntime.AddTypeCommentToArg(arg, type_comment);
-        }
-
-        /// <summary>
-        /// CPython: CmpopExprPair
-        /// Creates comparison operator-expression pair for Compare node
-        /// </summary>
-        public static GeneratedCmpopExprPair CmpopExprPair(GeneratedCmpop cmpop, GeneratedExpr expr)
-        {
-            return PyParserRuntime.CmpopExprPair(cmpop, expr);
-        }
-
-        /// <summary>
-        /// CPython: GetCmpops / GetExprs
-        /// Extracts operators and expressions from CmpopExprPair list
-        /// </summary>
-        public static GeneratedCmpopSeq GetCmpops(GeneratedSeq pairs)
-        {
-            return PyParserRuntime.GetCmpops(pairs);
-        }
-
-        public static GeneratedExprSeq GetExprs(GeneratedSeq pairs)
-        {
-            return PyParserRuntime.GetExprs(pairs);
-        }
-
-        /// <summary>
-        /// CPython: KeyPatternPair for match statement patterns
-        /// </summary>
-        public static GeneratedKeyPatternPair KeyPatternPair(GeneratedExpr key, GeneratedPattern pattern)
-        {
-            return PyParserRuntime.KeyPatternPair(key, pattern);
-        }
-
-        public static GeneratedExprSeq GetPatternKeys(GeneratedSeq pairs)
-        {
-            return PyParserRuntime.GetPatternKeys(pairs);
-        }
-
-        public static GeneratedPatternSeq GetPatterns(GeneratedSeq pairs)
-        {
-            return PyParserRuntime.GetPatterns(pairs);
-        }
-
-        /// <summary>
-        /// CPython: Generic SeqInsertInFront for various sequence types
-        /// </summary>
-        public static GeneratedSeq SeqInsertInFront(GeneratedPtr item, GeneratedSeq? seq)
-        {
-            return PyParserRuntime.SeqInsertInFront(item, seq);
-        }
-
-        public static GeneratedSeq SeqInsertInFront(GeneratedExpr item, GeneratedSeq? seq)
-        {
-            return PyParserRuntime.SeqInsertInFront(item, seq);
-        }
-
-        public static GeneratedSeq SeqInsertInFront(GeneratedPattern item, GeneratedSeq? seq)
-        {
-            return PyParserRuntime.SeqInsertInFront(item, seq);
-        }
-
-        /// <summary>
-        /// CPython: Generic SingletonSequence for various types
-        /// </summary>
-        public static GeneratedSeq SingletonSequence(GeneratedPtr item)
-        {
-            return PyParserRuntime.SingletonSeq(item);
-        }
-
-        public static GeneratedSeq SingletonSequence(GeneratedExpr item)
-        {
-            return PyParserRuntime.SingletonSeq(item);
-        }
-
-        /// <summary>
-        /// CPython: DummyName for temporary/placeholder names
-        /// </summary>
-        public static GeneratedName DummyName()
-        {
-            return PyParserRuntime.DummyName();
-        }
-
-        /// <summary>
-        /// CPython: EnsureReal / EnsureImaginary
-        /// Validates number token types for complex number literals
-        /// </summary>
-
-        /// <summary>
-        /// CPython: SingletonSeq - Generic singleton sequence wrapper
-        /// Grammar uses: PyParserHelpers.SingletonSeq(...)
-        /// </summary>
-        public static GeneratedSeq SingletonSeq(GeneratedPtr item)
-        {
-            return PyParserRuntime.SingletonSeq(item);
-        }
-
-        /// <summary>
-        /// CPython: SeqInsertInFront - Append to end wrapper
-        /// Grammar uses: PyParserHelpers.SeqAppendToEnd(seq, item)
-        /// Implementation: Insert at end by iterating and adding
-        /// </summary>
-        public static GeneratedSeq SeqAppendToEnd(GeneratedSeq seq, GeneratedPtr item)
-        {
-            if (seq == null) return PyParserRuntime.SingletonSeq(item);
-            seq.Add(item);
-            return seq;
-        }
-
-        /// <summary>
-        /// CPython: KeywordOrStarred
-        /// Grammar uses: PyParserHelpers.KeywordOrStarred(element, is_keyword)
-        /// </summary>
-        public static GeneratedKeywordOrStarred KeywordOrStarred(GeneratedPtr element, int is_keyword)
-        {
-            return PyParserRuntime.KeywordOrStarred(element, is_keyword);
-        }
-
-        // ==================== Dictionary Helper Methods ====================
-        // CPython: GetKeys - Extracts all keys from KeyValuePair sequence
-        // CPython: asdl_seq_LEN(S) returns 0 if S is NULL
-        public static GeneratedExprSeq GetKeys(GeneratedSeq seq)
-        {
-            // CPython pattern: asdl_seq_LEN(S) → ((S) == NULL ? 0 : (S)->size)
-            if (seq == null)
-            {
-                return GeneratedSeq.FromList(new List<GeneratedPtr>()).Cast<GeneratedExprSeq>();
-            }
-
-            var keys = new List<GeneratedPtr>();
-            foreach (var item in seq)
-            {
-                var pair = (GeneratedKeyValuePair)item;
-                keys.Add(pair.Key);
-            }
-            return GeneratedSeq.FromList(keys).Cast<GeneratedExprSeq>();
-        }
-
-        // CPython: GetValues - Extracts all values from KeyValuePair sequence
-        // CPython: asdl_seq_LEN(S) returns 0 if S is NULL
-        public static GeneratedExprSeq GetValues(GeneratedSeq seq)
-        {
-            // CPython pattern: asdl_seq_LEN(S) → ((S) == NULL ? 0 : (S)->size)
-            if (seq == null)
-            {
-                return GeneratedSeq.FromList(new List<GeneratedPtr>()).Cast<GeneratedExprSeq>();
-            }
-
-            var values = new List<GeneratedPtr>();
-            foreach (var item in seq)
-            {
-                var pair = (GeneratedKeyValuePair)item;
-                values.Add(pair.Value);
-            }
-            return GeneratedSeq.FromList(values).Cast<GeneratedExprSeq>();
-        }
-
-        // CPython: KeyValuePair - Creates a KeyValuePair
-        public static GeneratedKeyValuePair KeyValuePair(GeneratedExpr key, GeneratedExpr value)
-        {
-            return new GeneratedKeyValuePair { Key = key, Value = value };
-        }
-
-        // ==================== Sequence Helper Methods ====================
-        // CPython: JoinSequences - Joins two sequences
-        public static GeneratedSeq JoinSequences(GeneratedSeq a, GeneratedSeq b)
-        {
-            var result = new List<GeneratedPtr>(a);
-            result.AddRange(b);
-            return new GeneratedSeq(result);
-        }
-
-        // CPython: SeqExtractStarredExprs - Extract starred expressions
-        public static GeneratedExprSeq? SeqExtractStarredExprs(GeneratedSeq seq)
-        {
-            var starred = new List<GeneratedPtr>();
-            foreach (var item in seq)
-            {
-                var kws = (GeneratedKeywordOrStarred)item;
-                if (kws.Starred != null) // Starred property is set for starred expressions
-                {
-                    starred.Add(kws.Starred);
-                }
-            }
-            return starred.Count > 0 ? GeneratedSeq.FromList(starred).Cast<GeneratedExprSeq>() : null;
-        }
-
-        // CPython: SeqDeleteStarredExprs - Delete starred expressions, keep keywords
-        public static GeneratedKeywordSeq? SeqDeleteStarredExprs(GeneratedSeq seq)
-        {
-            var keywords = new List<GeneratedPtr>();
-            foreach (var item in seq)
-            {
-                var kws = (GeneratedKeywordOrStarred)item;
-                if (kws.Keyword != null) // Keyword property is set for keyword arguments
-                {
-                    keywords.Add(kws.Keyword);
-                }
-            }
-            return keywords.Count > 0 ? GeneratedSeq.FromList(keywords).Cast<GeneratedKeywordSeq>() : null;
-        }
-
-        // CPython: expr_ty CollectCallSeqs(Parser *p, asdl_expr_seq *a, asdl_seq *b, ...)
-        // Returns a Call expression with combined args and keywords
-        public static GeneratedExpr CollectCallSeqs(GeneratedExprSeq? a, GeneratedSeq? b,
-                                                     int lineno, int col_offset, int end_lineno, int end_col_offset)
-        {
-            // CPython: If b is NULL, return Call with just 'a' as args
-            if (b == null)
-            {
-                return PyAst.Call(DummyName(), a, null, lineno, col_offset, end_lineno, end_col_offset);
-            }
-
-            // CPython: Extract starred expressions and keywords from b
-            var starreds = SeqExtractStarredExprs(b);
-            var keywords = SeqDeleteStarredExprs(b);
-
-            // CPython: Combine 'a' and 'starreds' into new args sequence
-            var args_len = a?.Count ?? 0;
-            var total_len = args_len + (starreds?.Count ?? 0);
-
-            var combined_args = new GeneratedExprSeq(total_len);
-
-            // Copy args from 'a'
-            if (a != null)
-            {
-                foreach (var arg in a)
-                {
-                    combined_args.Add((GeneratedExpr)arg);
-                }
-            }
-
-            // Append starred expressions
-            if (starreds != null)
-            {
-                foreach (var starred in starreds)
-                {
-                    combined_args.Add((GeneratedExpr)starred);
-                }
-            }
-
-            // CPython: Return Call with combined args and keywords
-            return PyAst.Call(DummyName(), combined_args, keywords, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        // CPython: _PyPegen_concatenate_strings - Concatenate string expressions
-        // CPython 3.12: Parser/action_helpers.c:1413-1603
-        public static GeneratedExpr ConcatenateStrings(GeneratedExprSeq strings,
-                                                       int lineno, int col_offset, int end_lineno, int end_col_offset)
-        {
-            if (strings == null || strings.Count == 0)
-                return PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
-
-            int len = strings.Count;
-
-            // CPython: Check for f-strings, unicode strings, and bytes
-            bool fStringFound = false;
-            bool unicodeStringFound = false;
-            bool bytesFound = false;
-            int nFlattenedElements = 0;
-
-            for (int i = 0; i < len; i++)
-            {
-                var elem = strings[i] as GeneratedExpr;
-                if (elem == null) continue;
-
-                if (elem is GeneratedConstant constant)
-                {
-                    if (constant.Value is GeneratedPyConstantBytes)
-                    {
-                        bytesFound = true;
-                    }
-                    else
-                    {
-                        unicodeStringFound = true;
-                    }
-                    nFlattenedElements++;
-                }
-                else if (elem is GeneratedJoinedStr joinedStr)
-                {
-                    nFlattenedElements += joinedStr.Values?.Count ?? 0;
-                    fStringFound = true;
-                }
-                else
-                {
-                    nFlattenedElements++;
-                    fStringFound = true;
-                }
-            }
-
-            // CPython: Handle bytes concatenation
-            if (bytesFound)
-            {
-                var bytesList = new System.Collections.Generic.List<byte>();
-                string? kind = null;
-
-                for (int i = 0; i < len; i++)
-                {
-                    var elem = strings[i] as GeneratedConstant;
-                    if (elem?.Value is GeneratedPyConstantBytes bytesVal)
-                    {
-                        if (i == 0) kind = elem.Kind;
-                        bytesList.AddRange(bytesVal.Value);
-                    }
-                }
-
-                return PyAst.Constant(new GeneratedPyConstantBytes(bytesList.ToArray()), kind, lineno, col_offset, end_lineno, end_col_offset);
-            }
-
-            // CPython: If no f-string and only one element, return it directly
-            if (!fStringFound && len == 1)
-            {
-                return strings[0] as GeneratedExpr ?? PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
-            }
-
-            // CPython: Build flattened list (flatten JoinedStr nodes)
-            var flattened = new System.Collections.Generic.List<GeneratedExpr>(nFlattenedElements);
-            for (int i = 0; i < len; i++)
-            {
-                var elem = strings[i] as GeneratedExpr;
-                if (elem == null) continue;
-
-                if (elem is GeneratedJoinedStr joinedStr && joinedStr.Values != null)
-                {
-                    foreach (var subvalue in joinedStr.Values)
-                    {
-                        if (subvalue is GeneratedExpr subExpr)
-                            flattened.Add(subExpr);
-                    }
-                }
-                else
-                {
-                    flattened.Add(elem);
-                }
-            }
-
-            // CPython: Calculate folded element count (consecutive Constants merge into one)
-            int nElements = 0;
-            bool prevIsConstant = false;
-            for (int i = 0; i < flattened.Count; i++)
-            {
-                var elem = flattened[i];
-
-                // Skip empty constants in f-string context
-                if (fStringFound && elem is GeneratedConstant emptyConst &&
-                    emptyConst.Value is GeneratedPyConstantString emptyStr &&
-                    string.IsNullOrEmpty(emptyStr.Value))
-                {
-                    continue;
-                }
-
-                if (!prevIsConstant || !(elem is GeneratedConstant))
-                {
-                    nElements++;
-                }
-                prevIsConstant = elem is GeneratedConstant;
-            }
-
-            // CPython: Build folded list (concatenate consecutive Constants)
-            var values = new GeneratedExprSeq(nElements);
-            var sb = new System.Text.StringBuilder();
-
-            for (int i = 0; i < flattened.Count; i++)
-            {
-                var elem = flattened[i];
-
-                // CPython: if the current elem and the following are constants, fold them
-                if (elem is GeneratedConstant constant && constant.Value is GeneratedPyConstantString strVal)
-                {
-                    // Check if next element is also a constant string
-                    if (i + 1 < flattened.Count && flattened[i + 1] is GeneratedConstant nextConst &&
-                        nextConst.Value is GeneratedPyConstantString)
-                    {
-                        var firstElem = constant;
-                        string? kind = constant.Kind;
-                        sb.Clear();
-
-                        GeneratedConstant lastElem = constant;
-                        int j = i;
-                        for (; j < flattened.Count; j++)
-                        {
-                            if (flattened[j] is GeneratedConstant currentConst &&
-                                currentConst.Value is GeneratedPyConstantString currentStr)
-                            {
-                                sb.Append(currentStr.Value);
-                                lastElem = currentConst;
-                            }
-                            else
-                            {
-                                break;
-                            }
-                        }
-                        i = j - 1;
-
-                        var concatenatedStr = sb.ToString();
-                        elem = PyAst.Constant(new GeneratedPyConstantString(concatenatedStr), kind,
-                                              firstElem.LineNo, firstElem.ColOffset,
-                                              lastElem.EndLineNo, lastElem.EndColOffset) as GeneratedExpr;
-                    }
-
-                    // Skip empty constant strings in f-string context
-                    if (fStringFound && elem is GeneratedConstant emptyCheck &&
-                        emptyCheck.Value is GeneratedPyConstantString emptyVal &&
-                        string.IsNullOrEmpty(emptyVal.Value))
-                    {
-                        continue;
-                    }
-                }
-
-                values.Add(elem!);
-            }
-
-            // CPython: If no f-string, return the single concatenated constant
-            if (!fStringFound)
-            {
-                if (values.Count == 1)
-                {
-                    return values[0] as GeneratedExpr ?? PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
-                }
-                // Fallback: concatenate all string values
-                sb.Clear();
-                string? finalKind = null;
-                foreach (var v in values)
-                {
-                    if (v is GeneratedConstant c && c.Value is GeneratedPyConstantString s)
-                    {
-                        sb.Append(s.Value);
-                        if (finalKind == null) finalKind = c.Kind;
-                    }
-                }
-                return PyAst.Constant(new GeneratedPyConstantString(sb.ToString()), finalKind, lineno, col_offset, end_lineno, end_col_offset);
-            }
-
-            // CPython: Return JoinedStr for f-strings
-            return PyAst.JoinedStr(values, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        // CPython: SetupFullFormatSpec - Moved to PyParserRuntime_ActionHelpers.cs
-        // (No duplicate needed here)
-
-        // TODO: Add more helper methods as needed during grammar rewriting
-    }
 
     // ============================================================
     // Extension Methods for GeneratedTokenInfo

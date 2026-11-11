@@ -202,7 +202,7 @@ namespace SharpPy.Generated
                 foreach (var item in names)
                     if (item is GeneratedAlias alias && alias.Name.Value == "barry_as_FLUFL")
                         _flags |= CO_FUTURE_BARRY_AS_BDFL;
-            return PyParserHelpers.CheckedFutureImport(module, names, level, lineno, colOffset, endLineno, endColOffset);
+            return PyParserRuntime.CheckedFutureImport(module, names, level, lineno, colOffset, endLineno, endColOffset);
         }
 
         // _PyPegen_parse_string
@@ -345,7 +345,7 @@ namespace SharpPy.Generated
             if (n == 0 || (n == 1 && spec[0] is GeneratedConstant))
                 res = new GeneratedJoinedStr { Values = spec, LineNo = lineno, ColOffset = colOffset, EndLineNo = endLineno, EndColOffset = endColOffset };
             else
-                res = PyParserHelpers.ConcatenateStrings(spec, lineno, colOffset, endLineno, endColOffset);
+                res = PyParserRuntime.ConcatenateStrings(spec, lineno, colOffset, endLineno, endColOffset);
             return new GeneratedResultTokenWithMetadata { Result = res, Metadata = colon.Metadata };
         }
 
@@ -429,7 +429,7 @@ namespace SharpPy.Generated
             }
             if (bytesFound && otherFound)
                 RaiseSyntaxError("cannot mix bytes and nonbytes literals");
-            return PyParserHelpers.ConcatenateStrings(strings, lineno, colOffset, endLineno, endColOffset);
+            return PyParserRuntime.ConcatenateStrings(strings, lineno, colOffset, endLineno, endColOffset);
         }
     }
 
