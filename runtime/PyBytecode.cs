@@ -263,59 +263,11 @@ namespace SharpPy
         POP_BLOCK = 259,         // Pop exception handler from stack
         JUMP = 260,              // Unconditional jump (direction determined by assembler)
         JUMP_NO_INTERRUPT = 261, // Unconditional jump without interrupt check
-
-        // =============================================================================
-        // CPython 3.12 Adaptive Specialization - Specialized Instructions
-        // Range: 300-399 (SharpPy specific range for specialized operations)
-        // =============================================================================
-        
-        // Binary Operation Specializations (300-309)
-        BINARY_ADD_INT = 300,
-        BINARY_ADD_FLOAT = 301,
-        BINARY_ADD_UNICODE = 302,
-        BINARY_MULTIPLY_INT = 303,
-        BINARY_MULTIPLY_FLOAT = 304,
-        BINARY_SUBTRACT_INT = 305,
-        BINARY_SUBTRACT_FLOAT = 306,
-        BINARY_TRUE_DIVIDE_FLOAT = 307,
-        BINARY_FLOOR_DIVIDE_INT = 308,
-        BINARY_MODULO_INT = 309,
-        
-        // Method Call Specializations (310-319)
-        CALL_LIST_APPEND = 310,
-        CALL_DICT_GET = 311,
-        CALL_STR_UPPER = 312,
-        CALL_STR_LOWER = 313,
-        CALL_STR_STRIP = 314,
-        CALL_LEN_LIST = 315,
-        CALL_LEN_STR = 316,
-        CALL_TYPE_1 = 317,
-        CALL_ISINSTANCE = 318,
-        CALL_BUILTIN_FAST = 319,
-        
-        // Global/Attribute Access Specializations (320-329)
-        LOAD_GLOBAL_BUILTIN = 320,
-        LOAD_GLOBAL_MODULE = 321,
-        STORE_ATTR_INSTANCE_VALUE = 322,
-        LOAD_ATTR_INSTANCE_VALUE = 323,
-        STORE_SUBSCR_LIST_INT = 324,
-        LOAD_SUBSCR_LIST_INT = 325,
-        STORE_SUBSCR_DICT_STR = 326,
-        LOAD_SUBSCR_DICT_STR = 327,
-        FOR_ITER_LIST = 328,
-        FOR_ITER_TUPLE = 329
-        
-        // =============================================================================  
-        // 이 enum은 CPython 3.12.0과 100% 호환됩니다 (기본 범위)
-        // 특수화된 명령어는 SharpPy 확장 (300+)
-        // =============================================================================
     }
 
-    // SharpPy BINARY_OP operands differ from CPython for ordinary operations.
+    // The oparg of BINARY_OP: CPython 3.12's NB_* numbering (Include/opcode.h).
     public enum BinaryOpType : byte
     {
-        // Compiler and VM share this ordering; this is not a CPython import format.
-        // NB_* of Include/internal/pycore_opcode... the oparg of BINARY_OP.
         ADD = 0,
         AND = 1,
         FLOOR_DIVIDE = 2,

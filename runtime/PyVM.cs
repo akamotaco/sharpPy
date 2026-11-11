@@ -2401,29 +2401,6 @@ namespace SharpPy
                     frame.ValueStack.Push(globalValue);
                     break;
 
-                case ByteCodeOp.LOAD_GLOBAL_BUILTIN:
-                    var globalBuiltinName = frame.Code.Names[argument];
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 LOAD_GLOBAL_BUILTIN({globalBuiltinName}): Direct builtin lookup");
-                    #endif
-
-                    // LOAD_GLOBAL_BUILTIN은 최적화된 버전으로 builtin을 직접 조회
-                    var builtinValue = frame.Builtin(globalBuiltinName);
-                    if (builtinValue == null)
-                    {
-                        // builtin에 없으면 global에서 찾기
-                        builtinValue = frame.ScopeChain.GlobalScope?.GetVariable(globalBuiltinName);
-                    }
-
-                    if (builtinValue == null)
-                        throw CreateNameErrorWithSuggestion(globalBuiltinName, frame);
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 LOAD_GLOBAL_BUILTIN({globalBuiltinName}): loaded {builtinValue?.GetType().Name ?? "null"} value = {builtinValue}");
-                    #endif
-                    frame.ValueStack.Push(builtinValue);
-                    break;
-
                 case ByteCodeOp.LOAD_ASSERTION_ERROR:
                     // CPython 3.12: Load AssertionError class for assert statements
                     var assertionError = frame.ScopeChain.BuiltinModule.GetBuiltin("AssertionError");
@@ -2474,7 +2451,6 @@ namespace SharpPy
                     }
                     break;
 
-                // Duplicate LOAD_GLOBAL case removed (was LOAD_GLOBAL_BUILTIN)
 
                 case ByteCodeOp.SETUP_ANNOTATIONS:
                     // CPython 3.12 Python/ceval.c SETUP_ANNOTATIONS:
@@ -2505,36 +2481,6 @@ namespace SharpPy
 
                 // CPython 3.12: Python/bytecodes.c:400-450 - Specialized Binary Operations
                 // Specialized Binary Operations - CPython 3.12 Adaptive Specialization
-                case ByteCodeOp.BINARY_ADD_INT:
-                    var rightInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    var leftInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(PyInt.From((long)(leftInt + rightInt)));
-                    break;
-
-                case ByteCodeOp.BINARY_ADD_FLOAT:
-                    var rightFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
-                    var leftFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(new PyFloat(leftFloat + rightFloat));
-                    break;
-
-                case ByteCodeOp.BINARY_ADD_UNICODE:
-                    var rightStr = ((PyString)frame.ValueStack.Pop()).Value;
-                    var leftStr = ((PyString)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(PyString.From(leftStr + rightStr));
-                    break;
-
-                case ByteCodeOp.BINARY_MULTIPLY_INT:
-                    var rightMulInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    var leftMulInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(PyInt.From((long)(leftMulInt * rightMulInt)));
-                    break;
-
-                case ByteCodeOp.BINARY_MULTIPLY_FLOAT:
-                    var rightMulFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
-                    var leftMulFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(new PyFloat(leftMulFloat * rightMulFloat));
-                    break;
-
                 // ===============================================
                 // CPython 3.12: 모든 Binary Operations는 BINARY_OP로 통합됨
                 // Legacy individual binary opcodes는 더 이상 지원하지 않음
@@ -2554,35 +2500,6 @@ namespace SharpPy
                     break;
 
                 // Specialized Method Calls - CPython 3.12 Adaptive Specialization
-                case ByteCodeOp.CALL_LIST_APPEND:
-                    var appendArg = frame.ValueStack.Pop();
-                    var appendList = (PyList)frame.ValueStack.Pop();
-                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
-                    appendList.Append(appendArg);
-                    frame.ValueStack.Push(PyNone.Instance);
-                    break;
-
-                case ByteCodeOp.CALL_DICT_GET:
-                    var getDefault = frame.ValueStack.Pop();  // default value
-                    var getKey = frame.ValueStack.Pop();      // key
-                    var getDict = (PyDict)frame.ValueStack.Pop();  // dict
-                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
-                    var getValue = getDict.Get(getKey, getDefault);
-                    frame.ValueStack.Push(getValue);
-                    break;
-
-                case ByteCodeOp.CALL_LEN_LIST:
-                    var lenList = (PyList)frame.ValueStack.Pop();
-                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
-                    frame.ValueStack.Push(PyInt.From(lenList.Length()));
-                    break;
-
-                case ByteCodeOp.CALL_LEN_STR:
-                    var lenStr = (PyString)frame.ValueStack.Pop();
-                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
-                    frame.ValueStack.Push(PyInt.From(lenStr.Value.Length));
-                    break;
-
                 case ByteCodeOp.CALL_FUNCTION_EX:
                     // CPython 3.12: Extended function call with *args and **kwargs
                     var hasKwargs = (argument & 1) != 0;
@@ -3508,67 +3425,6 @@ namespace SharpPy
                     break;
 
                 // Specialized Loop Operations - CPython 3.12 Adaptive Specialization
-                case ByteCodeOp.FOR_ITER_LIST:
-                    // 리스트 전용 최적화된 iteration
-                    var listIter = frame.ValueStack.Peek();
-                    if (listIter is PyListIterator listIterator)
-                    {
-                        try
-                        {
-                            var nextListItem = listIterator.Next();
-                            frame.ValueStack.Push(nextListItem);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🚀 FOR_ITER_LIST: got next item {nextListItem} (optimized)");
-                            #endif
-                        }
-                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔚 FOR_ITER_LIST: StopIteration - loop finished (optimized)");
-                            #endif
-                            frame.ValueStack.Pop(); // Remove exhausted iterator
-
-                            // the jump of FOR_ITER, which this specialization keeps
-                            frame.InstructionPointer += argument + 1;
-                        }
-                    }
-                    else
-                    {
-                        // Fallback to regular FOR_ITER
-                        goto case ByteCodeOp.FOR_ITER;
-                    }
-                    break;
-
-                case ByteCodeOp.FOR_ITER_TUPLE:
-                    // 튜플 전용 최적화된 iteration
-                    var tupleIter = frame.ValueStack.Peek();
-                    if (tupleIter is PyTupleIterator tupleIterator)
-                    {
-                        try
-                        {
-                            var nextTupleItem = tupleIterator.Next();
-                            frame.ValueStack.Push(nextTupleItem);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🚀 FOR_ITER_TUPLE: got next item {nextTupleItem} (optimized)");
-                            #endif
-                        }
-                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔚 FOR_ITER_TUPLE: StopIteration - loop finished (optimized)");
-                            #endif
-                            frame.ValueStack.Pop();
-
-                            // the jump of FOR_ITER, which this specialization keeps
-                            frame.InstructionPointer += argument + 1;
-                        }
-                    }
-                    else
-                    {
-                        goto case ByteCodeOp.FOR_ITER;
-                    }
-                    break;
-
                 case ByteCodeOp.END_FOR:
                     // CPython 3.12: END_FOR는 단순한 루프 종료 마커
                     // FOR_ITER의 StopIteration에서 이미 모든 정리 작업 완료됨
