@@ -4038,75 +4038,19 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.RERAISE:
-                    // CPython 3.12: RERAISE stack layout: (values[oparg], exc -- values[oparg])
-                    // - exc: exception to reraise (top of stack)
-                    // - values[oparg]: oparg values below exc (e.g., lasti for cleanup)
-                    // - After reraise: exc is popped and raised, values are left on stack if oparg > 0
-                    var reraiseArg = argument;
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 RERAISE: arg={reraiseArg}, stack size={frame.ValueStack.Count}");
-                    #endif
-
-                    // CPython 3.12: For RERAISE 0 in finally handlers, only reraise if there's an active exception
-                    // If exception was handled normally, don't reraise
-                    if (reraiseArg == 0 && frame.CurrentException == null && frame.LastException == null)
+                {
+                    // bytecodes.c RERAISE (values[oparg], exc -- values[oparg]): with oparg, values[0]
+                    // is the lasti of the instruction that raised; then exception_unwind.
+                    var exceptionToReraise = (PyBaseException)frame.ValueStack.Pop();
+                    if (argument > 0)
                     {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 RERAISE: No active exception to reraise, continuing normally");
-                        #endif
-
-                        // Still need to clean up the stack if there's an ExceptionInfo
-                        if (frame.ValueStack.Count > 0 && frame.ValueStack.Peek() is PyExceptionInfo)
-                        {
-                            frame.ValueStack.Pop(); // Remove the ExceptionInfo
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 RERAISE: Cleaned up ExceptionInfo from stack");
-                            #endif
-                        }
-                        break; // Continue normally without raising
+                        if (frame.ValueStack.PeekBelow(argument - 1) is PyInt restoredLasti)
+                            frame.LastInstruction = (int)restoredLasti.Value;
+                        else
+                            throw new PythonException(new PySystemError("lasti is not an int"));
                     }
-
-                    // CPython 3.12: Pop exception from top of stack (this is what we reraise)
-                    PyBaseException exceptionToReraise = null;
-                    if (frame.ValueStack.Count > 0)
-                    {
-                        var exceptionOnStack = frame.ValueStack.Pop();
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 RERAISE: Popped exception from stack (TOS): {exceptionOnStack}");
-                        #endif
-
-                        // If it's a PyExceptionInfo, extract the actual exception
-                        if (exceptionOnStack is PyExceptionInfo reraiseExcInfo)
-                        {
-                            exceptionToReraise = reraiseExcInfo.ExcValue as PyBaseException;
-                        }
-                        else if (exceptionOnStack is PyBaseException directException)
-                        {
-                            exceptionToReraise = directException;
-                        }
-                    }
-
-                    // bytecodes.c RERAISE (values[oparg], exc -- values[oparg]): the values stay.
-                    // With oparg, values[0] is the lasti of the instruction that raised.
-                    if (reraiseArg > 0 && frame.ValueStack.PeekBelow(reraiseArg - 1) is PyInt restoredLasti)
-                    {
-                        frame.LastInstruction = (int)restoredLasti.Value;
-                    }
-                    // Reraise the exception
-                    if (exceptionToReraise != null)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 RERAISE: Reraising exception: {exceptionToReraise}");
-                        #endif
-                        // CPython 3.12: RERAISE preserves existing traceback, don't add new frames
-                        throw new PythonException(exceptionToReraise, fromReraise: true);
-                    }
-
-                    // Fallback: use LastException if no exception on stack
-                    if (frame.LastException != null)
-                        throw new PythonException(frame.LastException, fromReraise: true);
-                    break;
+                    throw new PythonException(exceptionToReraise, fromReraise: true);
+                }
 
                 // F-String Support (PEP 701)
                 case ByteCodeOp.FORMAT_VALUE:
@@ -5830,7 +5774,7 @@ namespace SharpPy
         /// </summary>
         private static PyObject PrepReraiseStar(PyObject orig, PyObject excs)
         {
-            PyObject original = orig is PyExceptionInfo origInfo ? origInfo.ExcValue : orig;
+            PyObject original = orig;
 
             PyObject[] entries = excs is PyList list
                 ? list.Items
@@ -5875,8 +5819,6 @@ namespace SharpPy
         private static void ExceptionGroupMatch(PyObject excValue, PyObject matchType,
                                                 out PyObject match, out PyObject rest)
         {
-            if (excValue is PyExceptionInfo info) excValue = info.ExcValue;
-            excValue = excValue;
 
             // check_except_star_type_valid: match_type is a class or a tuple of classes that
             // inherit BaseException, otherwise "catching classes that do not inherit from
@@ -6121,9 +6063,6 @@ namespace SharpPy
         // what made two distinct classes with the same name catch each other.
         internal static bool ExceptionMatchesHandler(PyObject raised, PyObject handler)
         {
-            if (raised is PyExceptionInfo info)
-                raised = info.ExcValue;
-
             if (handler is PyTuple tuple)
             {
                 // check_except_type_valid: every item is a class, before any of them matches.

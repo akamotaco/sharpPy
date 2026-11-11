@@ -2090,35 +2090,5 @@ namespace SharpPy
         }
     }
 
-    /// <summary>
-    /// CPython 3.12 compatible exception info composite object
-    /// Used by PUSH_EXC_INFO and POP_EXCEPT for stack management
-    /// Stack effect: PUSH_EXC_INFO (+1), POP_EXCEPT (-1)
-    /// </summary>
-    public class PyExceptionInfo : PyObject
-    {
-        public PyObject ExcType { get; set; }
-        public PyObject ExcValue { get; set; }
-        public PyObject ExcTraceback { get; set; }
-        public PyObject Lasti { get; set; }
-
-        public PyExceptionInfo(PyObject excType, PyObject excValue, PyObject excTraceback, PyObject lasti)
-        {
-            ExcType = excType;
-            ExcValue = excValue;
-            ExcTraceback = excTraceback;
-            Lasti = lasti;
-        }
-
-        public override PyType GetPyType() => _customType ?? PyType.ObjectType;
-
-        protected internal override PyString Str()
-        {
-            return PyString.From($"ExceptionInfo(type={ExcType}, value={ExcValue}, traceback={ExcTraceback}, lasti={Lasti})");
-        }
-
-        protected internal override PyString Repr() => AsString();
-    }
-
     #endregion
 }
