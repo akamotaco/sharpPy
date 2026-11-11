@@ -729,9 +729,6 @@ namespace SharpPy
             BaseTypes = baseTypes ?? new PyType[0];
             Module = module;
             _kind = kind;  // readonly 필드는 생성자에서만 설정 가능
-            // CPython 3.12: typeobject.c check_duplicates() runs before best_base()/MRO
-            // computation and raises a catchable TypeError for a repeated base.
-            CheckDuplicateBases();
             // CPython: Objects/typeobject.c:2789, after check_duplicates and before best_base.
             // type_new's check: a static builtin is wired to its base by its spec, never refused.
             if (MadeByTypeNew)
@@ -790,7 +787,8 @@ namespace SharpPy
                 if (parent.MroPending)
                     throw PyTypeError.Create($"Cannot extend an incomplete type '{parent.Name}'");
 
-            // mro_implementation: C3Merge raises its own TypeError; a host fault is the VM's to convert.
+            // mro_implementation: check_duplicates, then C3Merge, which raises its own TypeError.
+            CheckDuplicateBases();
             return C3Linearize(this);
         }
 
