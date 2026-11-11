@@ -78,6 +78,7 @@
 - 3-7. 내장 이터레이터를 상속한 클래스, `set` 하위 클래스의 `repr` 경로, `__bases__` 대입 검사 (P0-83).
 - 3-8. `type_setattro`는 `PyType.TypeSetAttribute` 하나다(불변 검사, 메타타입 데이터 디스크립터, `tp_dict`, `PyType_Modified`). `PyStructSequence_NewType`으로 만드는 타입(`time.struct_time`, `os.stat_result`, `os.terminal_size`, `nt.times_result`)은 힙 타입이다. 남은 것: `os.stat_result`에 `st_birthtime`, `st_birthtime_ns`가 없다(n_fields 18, CPython 20).
 - 3-9. `collections.OrderedDict`가 순수 Python 구현(`Lib/collections/__init__.py`)이다. CPython은 C 구현(`_collections.OrderedDict`, `odict_init`)이라 `OrderedDict(**{1: 2})`를 받아들이지만, SharpPy는 Python `__init__`의 함수 호출이 "keywords must be strings"를 낸다. 경로: `_collections`에 `OrderedDict`(odictobject.c)를 둔다.
+- 3-10. `_io`의 `BufferedReader`·`BufferedWriter`·`BufferedRandom`·`BufferedRWPair`·`TextIOWrapper`·`IncrementalNewlineDecoder`는 dict에 `__new__`가 있다. CPython 3.12는 spec에 `Py_tp_new`가 없어 `type_ready_set_new`가 base의 `tp_new`(`PyType_GenericNew`)를 물려주므로 dict에 `__new__`가 없다. SharpPy는 인스턴스의 CLR 클래스(`PyBuffered` 등)를 만들려고 타입마다 `__new__`를 둔다. 경로: 상속받은 `tp_new`가 하위 타입의 CLR 인스턴스를 만들도록 할당(`tp_alloc`)을 타입별로 두고 `__new__`를 지운다. Godot의 `res://`·`user://` 경로 처리(`PyFileDescriptors`, `NtModule`의 `GODOT` 분기)는 그대로 둔다.
 
 ## 1a. 예외 출력
 
