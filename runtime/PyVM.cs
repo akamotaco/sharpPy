@@ -1292,11 +1292,12 @@ namespace SharpPy
                         // any except clause sees it, and the frames unwind as for any other.
                         var pyEx = thrown as PythonException ?? new PythonException(ConvertToPythonException(thrown));
 
-                        // CPython 3.12: Add current frame to traceback BEFORE unwinding
-                        // Corresponds to PyTraceBack_Here() in CPython ceval.c:941
+                        // The error label (Python/ceval.c): PyTraceBack_Here and the raise event; a
+                        // re-raise (RERAISE, bare raise, CLEANUP_THROW) went to exception_unwind instead.
+                        bool reraised = pyEx.FromReraise;
                         PyTraceBack_Here(frame, pyEx);
 
-                        if (frame.Trace != null && !_tracing && !pyEx.FromReraise)
+                        if (frame.Trace != null && !_tracing && !reraised)
                             TraceRaised(frame, pyEx);
 
                         // Handle Python exceptions with proper exception handler routing
@@ -1738,13 +1739,6 @@ namespace SharpPy
                         newCallResult = actualCallable.Call(finalArgs, null);
                     }
                 }
-            }
-            catch (PythonException pyEx)
-            {
-                // CPython 3.12: Add caller frame to traceback when exception propagates
-                // This matches CPython's PyTraceBack_Here() behavior in ceval.c
-                PyTraceBack_Here(frame, pyEx);
-                throw;
             }
             finally
             {
@@ -6062,46 +6056,17 @@ namespace SharpPy
         /// </summary>
         private void PyTraceBack_Here(PyFrame frame, PythonException pyEx)
         {
-            // 1. Get existing traceback from exception (may be null)
-            var existingTraceback = pyEx.PyException.__traceback__;
-
-            // CPython 3.12: RERAISE preserves existing traceback for the same frame only
-            // When exception propagates to a different frame (caller), we should add the caller frame
-            // CPython traceback.c:266 - PyTraceBack_Here adds frames as exception unwinds
+            // A re-raise reaches exception_unwind without the error label: no entry in the frame
+            // that re-raised. Leaving it, the exception is an error of the caller like any other.
             if (pyEx.FromReraise)
             {
-                // Check if exception's top traceback frame is the same as current frame
-                // If so, skip (this is the same frame that did RERAISE)
-                // If not, this is a caller frame and we should add it
-                if (existingTraceback != null && existingTraceback.Frame == frame)
-                {
-#if DEBUG_LOG
-                    Console.WriteLine($"🔍 PyTraceBack_Here: Skipping RERAISE in same frame '{frame.Code.Name}'");
-#endif
-                    return;
-                }
-                // Different frame - clear FromReraise flag since we're in a new frame
                 pyEx.FromReraise = false;
+                return;
             }
 
-            // 2. Calculate lasti - CPython uses "next_instr-1" (ceval.c:941)
+            var existingTraceback = pyEx.PyException.__traceback__;
+            // CPython: next_instr-1 (ceval.c), one entry for each error in a frame.
             var lasti = frame.LastInstruction;
-
-            // CPython 3.12: Check if this frame is already in the traceback chain
-            // This prevents duplicate entries when exception propagates through same frame multiple times
-            // (e.g., in with statement cleanup code)
-            var tb = existingTraceback;
-            while (tb != null)
-            {
-                if (tb.Frame == frame)
-                {
-#if DEBUG_LOG
-                    Console.WriteLine($"🔍 PyTraceBack_Here: Skipping duplicate - traceback already contains '{frame.Code.Name}' (existing lasti={tb.LastI}, current lasti={lasti})");
-#endif
-                    return;
-                }
-                tb = tb.Next;
-            }
 
             // 3. _PyTraceBack_FromFrame: tb_lineno is PyFrame_GetLineNumber(frame), the line of lasti.
             int lineNo = PyFrame.LineAt(frame.Code, lasti);
@@ -6260,9 +6225,8 @@ namespace SharpPy
 
             ChainContext(raised, handled);
             frame.LastException = raised;
-            var thrown = new PythonException(raised);
-            PyTraceBack_Here(frame, thrown);
-            throw thrown;
+            // The error label adds this frame to the traceback, as for any other error.
+            throw new PythonException(raised);
         }
 
         /// <summary>
