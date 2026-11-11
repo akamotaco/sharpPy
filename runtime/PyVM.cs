@@ -1546,34 +1546,53 @@ namespace SharpPy
 
         // Keep mapping protocol exception handling outside the opcode dispatcher.
         /// <summary>
-        /// import_from's error (Python/ceval.c): ImportError naming the module (its __name__, or
-        /// "<unknown module name>") and its file (PyModule_GetFilenameObject, "unknown location"
-        /// without one), "partially initialized" while its spec is still initializing, with name,
-        /// path and name_from set as _PyErr_SetImportErrorWithNameFrom sets them.
+        /// import_from (Python/ceval.c): the attribute; else, for a circular relative import, the
+        /// submodule package.name already in sys.modules (PyImport_GetModule, no import); else
+        /// ImportError naming the module (its str __name__, or "<unknown module name>" when that
+        /// is missing, not a str or raises) and its file (PyModule_GetFilenameObject; "unknown
+        /// location" without one), "partially initialized" while its spec is initializing, with
+        /// name, path and name_from as _PyErr_SetImportErrorWithNameFrom sets them.
         /// </summary>
-        private static PythonException ImportFromError(PyObject module, string itemName)
+        private static PyObject ImportFrom(PyObject v, PyString name)
         {
-            var packageName = module.LookupAttribute("__name__") as PyString;
-            string shown = packageName != null ? packageName.ToRepr().Value : "'<unknown module name>'";
-            PyString path = module is PyModule fileModule && fileModule.ModuleDict.TryGetValue("__file__", out var file)
+            var x = v.LookupAttribute(name);
+            if (x != null)
+                return x;
+            PyString pkgname;
+            try { pkgname = v.GetAttribute("__name__") as PyString; }
+            catch (PythonException) { pkgname = null; } // goto error, where the error is replaced
+            if (pkgname != null && PyImportSystem.TryGetModule(pkgname.Value + "." + name.Value, out var submodule))
+                return submodule;
+
+            PyString pkgpath = v is PyModule fileModule && fileModule.ModuleDict.TryGetValue("__file__", out var file)
                 ? file as PyString : null;
+            string shown = pkgname != null ? pkgname.ToRepr().Value : "'<unknown module name>'";
             string message;
-            if (path == null)
-                message = $"cannot import name {PyString.From(itemName).ToRepr().Value} from {shown} (unknown location)";
+            if (pkgpath == null)
+                message = $"cannot import name {name.ToRepr().Value} from {shown} (unknown location)";
             else
             {
-                var spec = module.LookupAttribute("__spec__");
-                bool initializing = spec != null && spec is not PyNone && spec.LookupAttribute("_initializing") is { } flag && flag.IsTrue();
-                message = initializing
-                    ? $"cannot import name {PyString.From(itemName).ToRepr().Value} from partially initialized module {shown} (most likely due to a circular import) ({path.Value})"
-                    : $"cannot import name {PyString.From(itemName).ToRepr().Value} from {shown} ({path.Value})";
+                message = SpecIsInitializing(v)
+                    ? $"cannot import name {name.ToRepr().Value} from partially initialized module {shown} (most likely due to a circular import) ({pkgpath.Value})"
+                    : $"cannot import name {name.ToRepr().Value} from {shown} ({pkgpath.Value})";
             }
             var kwargs = new PyDict();
-            kwargs.SetItem(PyString.From("name"), (PyObject)packageName ?? PyNone.Instance);
-            kwargs.SetItem(PyString.From("path"), (PyObject)path ?? PyNone.Instance);
+            kwargs.SetItem(PyString.From("name"), (PyObject)pkgname ?? PyNone.Instance);
+            kwargs.SetItem(PyString.From("path"), (PyObject)pkgpath ?? PyNone.Instance);
             var error = (PyBaseException)PyType.ImportErrorType.Call(new PyObject[] { PyString.From(message) }, kwargs);
-            error.SetAttribute("name_from", PyString.From(itemName));
-            return new PythonException(error);
+            error.SetAttribute("name_from", name);
+            throw new PythonException(error);
+        }
+
+        // _PyModuleSpec_IsInitializing: spec._initializing is true; any error answers false.
+        private static bool SpecIsInitializing(PyObject module)
+        {
+            try
+            {
+                var spec = module.LookupAttribute("__spec__");
+                return spec != null && spec is not PyNone && spec.LookupAttribute("_initializing") is { } flag && flag.IsTrue();
+            }
+            catch (PythonException) { return false; }
         }
 
         // GLOBALS() then BUILTINS(), the tail of LOAD_NAME and all of LOAD_GLOBAL; NameError past both.
@@ -4334,63 +4353,8 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.IMPORT_FROM:
-                    var itemName = frame.Code.Names[argument];
-                    if (frame.ValueStack.Count == 0)
-                    {
-                        throw new Exception($"IMPORT_FROM: Stack empty when trying to import '{itemName}'. This may be caused by incorrect bytecode generation.");
-                    }
-                    var module = frame.ValueStack.Peek(); // Don't pop yet, needed for multiple imports
-
-                    // Normal case: import specific name
-                    // CPython 3.12: Python/ceval.c:2530-2560 (import_from)
-                    PyObject importedItem = null;
-
-                    // Step 1: Try to get attribute from module object
-                    // CPython 3.12: Python/ceval.c:2535-2537 (_PyObject_LookupAttr)
-                    importedItem = module.LookupAttribute(itemName);
-
-                    if (importedItem == null)
-                    {
-                        // Step 2: Fallback for circular imports / submodule import
-                        // CPython 3.12: Python/ceval.c:2538-2560
-                        // Try to read submodule directly from sys.modules, or import it
-                        try
-                        {
-                            // Get package name from module.__name__
-                            // CPython 3.12: Python/ceval.c:2541
-                            var pkgName = module.GetAttribute("__name__");
-                            if (pkgName is PyString pkgNameStr)
-                            {
-                                // Construct full module name: package.name
-                                // CPython 3.12: Python/ceval.c:2549
-                                string fullModuleName = $"{pkgNameStr.Value}.{itemName}";
-
-                                // Try to get from sys.modules ONLY
-                                // CPython 3.12: Python/ceval.c:2554 (PyImport_GetModule)
-                                // IMPORTANT: Do NOT import if not found - this is intentional!
-                                // The submodule should have been imported by IMPORT_NAME's fromlist handling.
-                                // If it's not in sys.modules, this is a circular import or the module doesn't exist.
-                                if (PyImportSystem.TryGetModule(fullModuleName, out var subModule))
-                                {
-                                    importedItem = subModule;
-                                }
-                                // If not found in sys.modules, importedItem remains null
-                                // and we'll raise an error below
-                            }
-                        }
-                        catch
-                        {
-                            // Fallback also failed
-                        }
-                    }
-
-                    if (importedItem == null)
-                    {
-                        throw ImportFromError(module, itemName);
-                    }
-
-                    frame.ValueStack.Push(importedItem);
-                
+                    // IMPORT_FROM (from -- from, res): import_from(tstate, from, name).
+                    frame.ValueStack.Push(ImportFrom(frame.ValueStack.Peek(), frame.Code.NameObjects[argument]));
                     break;
 
                 // PEP 709 Comprehension Optimization - VM 구현
