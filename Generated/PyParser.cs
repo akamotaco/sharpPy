@@ -10365,7 +10365,7 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: fstring_full_format_spec
         /// Alternatives: 1
-        /// Return Type: GeneratedExpr
+        /// Return Type: GeneratedResultTokenWithMetadata
         /// </summary>
         private GeneratedResultTokenWithMetadata? Parse_FstringFullFormatSpec()
         {
@@ -12932,7 +12932,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return ASTHelpers . NonparenGenexpInCall ( this , a , ( GeneratedComprehensionSeq ) b );
+                    return ASTHelpers . NonparenGenexpInCall ( this , a ,( GeneratedComprehensionSeq ) b );
                 }
             }
 
@@ -13096,8 +13096,6 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedExpr? Parse_ExpressionWithoutInvalid()
         {
-            // c_generator.py visit_Rule: a rule named *without_invalid runs with call_invalid_rules
-            // cleared and restores it on every way out.
             bool _prevCallInvalid = _callInvalidRules;
             _callInvalidRules = false;
             try
@@ -13202,7 +13200,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return CheckLegacyStmt ( NameToken ( a ))? RaiseSyntaxErrorKnownRange ( NameToken ( a ), b , "Missing parentheses in call to '%s'. Did you mean %s(...)?", a . GetNameValue (), a . GetNameValue () ): null;
+                    return CheckLegacyStmt ( NameToken ( a ))? RaiseSyntaxErrorKnownRange ( NameToken ( a ), b , "Missing parentheses in call to '%s'. Did you mean %s(...)?" , a . GetNameValue (), a . GetNameValue ()): null;
                 }
             }
 
@@ -13311,7 +13309,6 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidNamedExpression_Raw()
         {
-            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -13540,6 +13537,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedExpr? Parse_InvalidAnnAssignTarget()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14174,6 +14172,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedArguments? Parse_InvalidParametersHelper()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14192,7 +14191,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_SlashWithDefault()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return new GeneratedArguments();
+                    return new GeneratedArguments ();
                 }
             }
 
@@ -14209,7 +14208,7 @@ namespace SharpPy.Generated
                 if ((a = ParseOneOrMore(() => Parse_ParamWithDefault())) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return new GeneratedArguments();
+                    return new GeneratedArguments ();
                 }
             }
 
@@ -15562,6 +15561,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPatternSeq? Parse_InvalidClassArgumentPattern()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -17415,7 +17415,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return z ?? new GeneratedCall();
+                    return z ?? new GeneratedCall ();
                 }
             }
 

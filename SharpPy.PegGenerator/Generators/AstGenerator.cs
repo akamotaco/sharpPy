@@ -137,8 +137,10 @@ public class AstGenerator
             _indentLevel++;
             // A statement has a location of its own: no shared instance.
             if (typeName != "stmt")
+            {
                 WriteLine($"public static readonly {className} Instance = new();");
-            WriteLine($"private {className}() {{ }}");
+                WriteLine($"private {className}() {{ }}");
+            }
             _indentLevel--;
             WriteLine("}");
             WriteLine();

@@ -283,30 +283,6 @@ namespace SharpPy.Generated
             return arg;
         }
 
-        /// <summary>
-        /// CPython: expr_ty NonparenGenexpInCall(Parser *p, expr_ty args, comprehension_ty *comp)
-        /// </summary>
-        public static GeneratedExpr NonparenGenexpInCall(GeneratedExpr args, GeneratedSeq comprehensions)
-        {
-            // Create generator expression without parentheses
-            var compSeq = new GeneratedComprehensionSeq();
-            if (comprehensions != null)
-            {
-                foreach (var item in comprehensions)
-                {
-                    if (item is GeneratedComprehension comp)
-                    {
-                        compSeq.Add(comp);
-                    }
-                }
-            }
-
-            return new GeneratedGeneratorExp
-            {
-                Elt = args,
-                Generators = compSeq
-            };
-        }
 
         /// <summary>
         /// CPython: KeywordOrStarred *KeywordOrStarred(Parser *p, void *element, int is_keyword)
@@ -331,14 +307,6 @@ namespace SharpPy.Generated
             }
         }
 
-        /// <summary>
-        /// CPython: void *ArgumentsParsingError(Parser *p, expr_ty e)
-        /// </summary>
-        public static GeneratedPtr? ArgumentsParsingError(GeneratedExpr e)
-        {
-            // CPython: Raise syntax error
-            throw new SyntaxErrorException($"invalid syntax in arguments: {e}");
-        }
 
         /// <summary>
         /// CPython: asdl_expr_seq *GetPatternKeys(Parser *p, asdl_seq *seq)

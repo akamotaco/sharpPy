@@ -61,7 +61,7 @@
 - 2-1. `type_comments`와 `compile(..., "func_type")`: 토크나이저와 파서가 `TYPE_COMMENT`, `TYPE_IGNORE`를 내지 않는다.
 - 2-2. 원본이 UTF-8이 아닌 바이트 소스의 끝 열: 깨진 바이트를 U+DC80~DCFF로 들고 있어 폭이 1바이트 어긋난다.
 - 2-3. test_string_literals는 `os.open`이 없어 먼저 막힌다.
-- 2-4. 생성된 파서가 생성기보다 앞서 있다. `SharpPy.PegGenerator`로 `Grammar/python_cs.gram`을 다시 생성하면 `Generated/PyParser.cs`와 `AstTypes.cs`가 체크인된 것과 달라진다(`invalid_arguments`의 도우미 호출, `GeneratedPass` 등의 private 생성자). 다시 생성한 파서는 SyntaxError 위치를 잃는다(2026-11-11 측정). 그래서 지금은 생성된 파일을 직접 고친다(`expression_without_invalid`의 `call_invalid_rules`는 생성기와 생성된 파일 둘 다 고쳤다). 경로: 손으로 고친 차이를 생성기·문법으로 옮겨 생성기 하나가 원본이 되게 한다. 빌드의 생성 단계(`dotnet run`)는 이 환경의 SDK에서 AppHost 오류로 실패해 생성기 DLL을 직접 실행해야 한다.
+- 2-4. 파서 생성: 일반 빌드가 `SharpPy.Tokens`와 `SharpPy.PegGenerator`를 빌드해 그 DLL을 MSBuild의 dotnet(`DOTNET_HOST_PATH`)으로 돌려 `Generated/`를 만든다. 생성기 하나가 원본이다(`PyTokens.cs`·`AstTypes.cs`는 생성 결과와 같고, 진입점은 `RunParser`=`_PyPegen_run_parser` 하나). 남은 차이: `invalid_*` 규칙의 `call_invalid_rules` 검사를 SharpPy는 규칙 안에서, CPython `c_generator.py`는 그 규칙 하나만 있는 대안(호출하는 쪽)에서 한다. 결과는 같다.
 
 ## 3. 타입과 디스크립터
 

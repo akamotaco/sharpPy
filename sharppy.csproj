@@ -60,7 +60,11 @@
   <!-- Opt-in use of checked-in generated sources when grammar/tools are unchanged. -->
   <Target Name="GenerateTokenizer" BeforeTargets="GenerateParser" Condition="'$(SkipCodeGeneration)' != 'true'">
     <Message Text="Generating tokenizer from Grammar/Tokens..." Importance="high" />
-    <Exec Command="dotnet run --project SharpPy.Tokens --tokens Grammar/Tokens --output Generated/PyTokens.cs"
+    <!-- Build the tool, then run its DLL with the host running this build (no apphost, no PATH dotnet). -->
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; build -c Release -p:UseAppHost=false -nologo -v:q SharpPy.Tokens/SharpPy.Tokens.csproj"
+          ContinueOnError="false"
+          WorkingDirectory="$(ProjectDir)" />
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; SharpPy.Tokens/bin/Release/net8.0/SharpPy.Tokens.dll --tokens Grammar/Tokens --output Generated/PyTokens.cs"
           ContinueOnError="false"
           WorkingDirectory="$(ProjectDir)" />
   </Target>
@@ -68,7 +72,10 @@
   <!-- ASDL + PEG Parser Generation (Phase 2) -->
   <Target Name="GenerateParser" BeforeTargets="BeforeBuild" Condition="'$(SkipCodeGeneration)' != 'true'">
     <Message Text="Generating AST types and PEG parser from ASDL + Grammar..." Importance="high" />
-    <Exec Command="dotnet run --project SharpPy.PegGenerator --grammar Grammar/python_cs.gram --asdl Grammar/Python.asdl --output-ast Generated/AstTypes.cs --output-parser Generated/PyParser.cs"
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; build -c Release -p:UseAppHost=false -nologo -v:q SharpPy.PegGenerator/SharpPy.PegGenerator.csproj"
+          ContinueOnError="false"
+          WorkingDirectory="$(ProjectDir)" />
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; SharpPy.PegGenerator/bin/Release/net8.0/SharpPy.PegGenerator.dll --grammar Grammar/python_cs.gram --asdl Grammar/Python.asdl --output-ast Generated/AstTypes.cs --output-parser Generated/PyParser.cs"
           ContinueOnError="false"
           WorkingDirectory="$(ProjectDir)" />
   </Target>
