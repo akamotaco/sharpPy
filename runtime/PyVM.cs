@@ -96,15 +96,9 @@ namespace SharpPy
         // When executing class body, STORE_NAME writes to this dict instead of scope
         public PyObject? ClassLocalsDict { get; set; }
 
-        // CPython-style exception handling support
-        private Stack<int> _exceptionHandlers;
-        // Python 3.12 exception tables are the normal path. Allocate the legacy
-        // stack only when a legacy handler or an external caller requests it.
-        public Stack<int> ExceptionHandlers => _exceptionHandlers ??= new Stack<int>();
         public PyBaseException? LastException { get; set; }
         public PyBaseException? CurrentException { get; set; } // Current exception for PUSH_EXC_INFO
 
-        public int ExceptionHandlerCallCount { get; set; } = 0; // Prevent infinite loops
 
         // CPython 3.12: Generator throw() support - injected exception to raise on next frame execution
         // CPython reference: Objects/genobject.c:531-556 (gen_send_ex with exc_state handling)
@@ -252,7 +246,6 @@ namespace SharpPy
                     Console.WriteLine($"  runtimeDefaults[{i}]: {runtimeDefaults.Items[i]}");
                 }
             }
-            Console.WriteLine($"  code.DefaultValues.Count: {code.DefaultValues.Count}");
             #endif
 
             // CPython 3.12: Check for keyword arguments from parent frame
@@ -297,9 +290,6 @@ namespace SharpPy
 #if DEBUG_LOG
                 Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
 #endif
-#if DEBUG_LOG
-                Console.WriteLine($"  DefaultValues.Count: {code.DefaultValues.Count}");
-#endif
 #endif
             }
 
@@ -311,9 +301,8 @@ namespace SharpPy
             int regularArgCount = code.ArgCount - code.KwonlyArgCount;
             int posArgIndex = 0;
             var missingPositional = new List<string>();
-            int defaultCountForError = runtimeDefaults != null
-                ? runtimeDefaults.Items.Length
-                : code.DefaultValues.Count;
+            // The defaults are the function's (func_defaults); a code object has none.
+            int defaultCountForError = runtimeDefaults?.Items.Length ?? 0;
             for (int paramIndex = 0; paramIndex < regularArgCount; paramIndex++)
             {
                 var paramName = code.VarNames[paramIndex];
@@ -369,16 +358,8 @@ namespace SharpPy
                 }
                 else
                 {
-                    // CPython 3.12: Check for default value from runtime defaults (captured from MAKE_FUNCTION)
-                    // Priority: runtimeDefaults (from func.__defaults__) > code.DefaultValues (compile-time, legacy)
-                    // Performance: Eliminated LINQ - check List directly
+                    // func_defaults (__defaults__), as MAKE_FUNCTION set it.
                     PyTuple effectiveDefaults = runtimeDefaults;
-                    if (effectiveDefaults == null && code.DefaultValues.Count > 0)
-                    {
-                        var defaultsArray = new PyObject[code.DefaultValues.Count];
-                        code.DefaultValues.CopyTo(defaultsArray, 0);
-                        effectiveDefaults = PyTuple.From(defaultsArray);
-                    }
                     int numRequiredParams = regularArgCount - (effectiveDefaults?.Items.Length ?? 0);
 
                     if (effectiveDefaults != null && paramIndex >= numRequiredParams && paramIndex - numRequiredParams < effectiveDefaults.Items.Length)
@@ -467,30 +448,10 @@ namespace SharpPy
                 }
                 else
                 {
-                    // CPython 3.12: Check runtime kwdefaults (from func.__kwdefaults__) first, then compile-time
-                    // Priority: kwdefaults (runtime) > code.KwDefaults (compile-time)
-                    // Note: CPython uses PyDict_GetItemWithError(func->func_kwdefaults, varname)
+                    // initialize_locals: PyDict_GetItemWithError(func->func_kwdefaults, varname).
                     PyObject defaultValue = null;
-                    bool hasDefault = false;
-
-                    // First check runtime kwdefaults dict (CPython 3.12 Python/ceval.c)
-                    if (kwdefaults != null)
-                    {
-                        // CPython: PyDict_GetItemWithError(func->func_kwdefaults, varname)
-                        // We iterate because PyString instances may not match in Dictionary lookup
-                        foreach (var kv in kwdefaults.InternalDict)
-                        {
-                            if (kv.Key is PyString keyStr && keyStr.Value == paramName)
-                            {
-                                defaultValue = kv.Value;
-                                hasDefault = true;
-#if DEBUG_LOG
-                                Console.WriteLine($"  → {paramName} = {defaultValue} (runtime __kwdefaults__)");
-#endif
-                                break;
-                            }
-                        }
-                    }
+                    bool hasDefault = kwdefaults != null &&
+                        kwdefaults.TryGetStoredValue(PyString.From(paramName), out defaultValue);
 
                     if (hasDefault)
                     {
@@ -571,74 +532,6 @@ namespace SharpPy
         }
 
 
-        /// <summary>
-        /// CPython-style exception handler management
-        /// </summary>
-        public void PushExceptionHandler(int handlerOffset)
-        {
-            ExceptionHandlers.Push(handlerOffset);
-        }
-
-        public void PopExceptionHandler()
-        {
-            if (_exceptionHandlers != null && _exceptionHandlers.Count > 0)
-                _exceptionHandlers.Pop();
-        }
-
-        public int? GetExceptionHandler()
-        {
-            // Prevent infinite loop in exception handling
-            ExceptionHandlerCallCount++;
-            if (ExceptionHandlerCallCount > 100)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"❌ GetExceptionHandler: Infinite loop detected, stopping at call #{ExceptionHandlerCallCount}");
-                #endif
-                return null; // Break the cycle
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 GetExceptionHandler called #{ExceptionHandlerCallCount} - IP: {InstructionPointer}");
-            Console.WriteLine($"   Frame: {ToString()}");
-            Console.WriteLine($"   Code Name: {Code.Name}");
-            Console.WriteLine($"   Exception Table entries: {Code.ExceptionTable.Count}");
-            #endif
-            if (Code.ExceptionTable.Count > 0)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   Exception Table details:");
-                #endif
-                for (int i = 0; i < Code.ExceptionTable.Count; i++)
-                {
-                    var entry = Code.ExceptionTable[i];
-                    #if DEBUG_LOG
-                    Console.WriteLine($"     [{i}] Start: {entry.StartOffset}, End: {entry.EndOffset}, Handler: {entry.HandlerOffset}");
-                    #endif
-                }
-            }
-            #if DEBUG_LOG
-            Console.WriteLine($"   Legacy handlers: {_exceptionHandlers?.Count ?? 0}");
-            #endif
-
-            // CPython 3.12: Use Exception Table instead of SETUP_EXCEPT stack
-            if (Code.ExceptionTable.Count > 0)
-            {
-                var result = GetExceptionHandlerFromTable();
-                #if DEBUG_LOG
-                Console.WriteLine($"   Exception Table result: {result}");
-                #endif
-                return result;
-            }
-
-            // Fallback to legacy SETUP_EXCEPT stack for compatibility
-            var legacyResult = _exceptionHandlers != null && _exceptionHandlers.Count > 0
-                ? (int?)_exceptionHandlers.Peek() : null;
-            #if DEBUG_LOG
-            Console.WriteLine($"   Legacy handler result: {legacyResult}");
-            #endif
-            return legacyResult;
-        }
-
         // CPython 3.12 Exception Table lookup
         public (int? handlerOffset, ExceptionTableEntry? entry) GetExceptionHandlerFromTableWithEntry()
         {
@@ -690,11 +583,6 @@ namespace SharpPy
             return (null, null);
         }
 
-        private int? GetExceptionHandlerFromTable()
-        {
-            var (handlerOffset, _) = GetExceptionHandlerFromTableWithEntry();
-            return handlerOffset;
-        }
 
         public override string ToString() => $"<frame for {Code.Name}>";
 

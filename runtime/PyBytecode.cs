@@ -477,11 +477,7 @@ namespace SharpPy
         public const int CO_NEWLOCALS = 0x0002;         // 새로운 지역 변수 네임스페이스
         public const int CO_NESTED = 0x0010;            // 중첩된 함수
         public const int CO_ITERABLE_COROUTINE = 0x0100; // 반복 가능한 코루틴
-        
-        // CPython 호환 매개변수 기본값 지원 (Phase 3)
-        public List<PyObject> DefaultValues { get; set; } = new List<PyObject>(); // 매개변수 기본값들 (NULL이면 기본값 없음)
-        public List<PyObject> KwDefaults { get; set; } = new List<PyObject>(); // 키워드 전용 매개변수 기본값들
-        
+                
         // CPython 3.12 Exception Table 지원
         public List<ExceptionTableEntry> ExceptionTable { get; set; } = new List<ExceptionTableEntry>();
         
@@ -492,7 +488,6 @@ namespace SharpPy
                         List<string> varNames, int argCount = 0, int posonlyArgCount = 0,
                         int kwonlyArgCount = 0,
                         List<string> freeVars = null, List<string> cellVars = null,
-                        List<PyObject> defaultValues = null, List<PyObject> kwDefaults = null,
                         int flags = 0, string fileName = null,
                         List<string> sourceLines = null, bool isOptimized = false,
                         Dictionary<int, int> lineNumberTable = null,
@@ -511,8 +506,6 @@ namespace SharpPy
             SourceLines = sourceLines;
             FreeVars = freeVars ?? new List<string>();
             CellVars = cellVars ?? new List<string>();
-            DefaultValues = defaultValues ?? new List<PyObject>();
-            KwDefaults = kwDefaults ?? new List<PyObject>();
             ExceptionTable = exceptionTable ?? new List<ExceptionTableEntry>(); // 전달된 exception table 보존
 
             // CPython 3.12: Build cached index maps for O(1) lookup at runtime
@@ -624,7 +617,7 @@ namespace SharpPy
             if (code.Length % 2 != 0)
                 throw PyValueError.Create("code: co_code is malformed");
             var result = new PyCodeObject(name, LocationTable.ReadInstructions(code, lineTable, firstLineNo), constants, names,
-                varNames, argCount + kwonlyArgCount, posonlyArgCount, kwonlyArgCount, freeVars, cellVars, null, null, flags,
+                varNames, argCount + kwonlyArgCount, posonlyArgCount, kwonlyArgCount, freeVars, cellVars, flags,
                 fileName, sourceLines, false, null, LocationTable.ReadExceptionTable(exceptionTable))
             {
                 QualName = qualName,

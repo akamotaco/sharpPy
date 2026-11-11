@@ -131,7 +131,7 @@ namespace SharpPy
             var assembled = PyAssemble.Assemble(cfg, _filename);
 
             var code = new PyCodeObject(u.Name, assembled.Instructions, u.Consts, InOrder(u.Names), varnames,
-                u.ArgCount + u.PosonlyArgCount + u.KwonlyArgCount, u.PosonlyArgCount, u.KwonlyArgCount, freevars, cellvars, null, null,
+                u.ArgCount + u.PosonlyArgCount + u.KwonlyArgCount, u.PosonlyArgCount, u.KwonlyArgCount, freevars, cellvars,
                 codeFlags, _filename, _sourceLines);
             code.QualName = u.QualName;
             code.MarkHidden(u.Fasthidden.Keys);
