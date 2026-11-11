@@ -353,7 +353,7 @@ namespace SharpPy
         /// _PyErr_PrintEx (Python/pythonrun.c): sys.last_* are set and sys.excepthook reports; a hook
         /// that fails is reported in its turn, then the original exception, both by PyErr_Display.
         /// </summary>
-        private void PrintPythonStyleTraceback(Exception e)
+        internal void PrintPythonStyleTraceback(Exception e)
         {
             // The parser's own host fault says SyntaxError; any other host fault is the VM's conversion.
             PyBaseException exception = e is PySyntaxErrorException syntax

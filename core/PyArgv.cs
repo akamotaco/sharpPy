@@ -60,6 +60,16 @@ internal static class PyArgv
         return values;
     }
 
+    /// <summary>Module mode: argv[0] is "-m" (runpy replaces it), and the operands follow.</summary>
+    internal static string[] ForModule(string[] trailing)
+    {
+        var values = new string[1 + (trailing?.Length ?? 0)];
+        values[0] = "-m";
+        if (trailing != null)
+            Array.Copy(trailing, 0, values, 1, trailing.Length);
+        return values;
+    }
+
     /// <summary>
     /// Command mode: argv[0] is forced to "-c", and the operands after the code string follow.
     /// </summary>

@@ -83,11 +83,12 @@ namespace SharpPy
                 {
                     new HelpDisplay().ShowHelp();
                 }
-                // else if (parsedArgs.ContainsKey("-m"))
-                // {
-                //     SharpPyConfig.ShowBytecode = parsedArgs["-m"] == "dis";
-                //     new ModuleRunner().RunModule(args);
-                // }
+                else if (parsedArgs.ContainsKey("-m"))
+                {
+                    // config_update_argv: sys.argv[0] is "-m" until runpy names the module's file.
+                    PyArgv.Set(PyArgv.ForModule(line.CodeArgs));
+                    new FileExecutor().ExecuteModule(parsedArgs["-m"]);
+                }
                 // else if (parsedArgs.ContainsKey("command"))
                 // {
                 //     HandleSpecialCommands(parsedArgs["command"]);

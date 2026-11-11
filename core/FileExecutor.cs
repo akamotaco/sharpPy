@@ -181,6 +181,39 @@ namespace SharpPy.Core
         }
 
         /// <summary>
+        /// pymain_run_module (Modules/main.c): sys.path[0] is the current directory, then
+        /// runpy._run_module_as_main(name, True), which finds the module's spec, sets
+        /// sys.argv[0] to its file and runs its code as __main__.
+        /// </summary>
+        public void ExecuteModule(string moduleName)
+        {
+            // pymain_init: __main__ (add_main_module) and the streams exist before runpy runs.
+            var interpreter = new IntegratedPythonInterpreter();
+            try
+            {
+                var sys = PyImportSystem.Import("sys");
+                if (sys.ModuleDict["path"] is PyList searchPath)
+                {
+                    var directory = PyString.From(IOHelper.GetFullPath("."));
+                    if (searchPath.Length() == 0) searchPath.Append(directory);
+                    else searchPath.Insert(0, directory);
+                }
+                var runpy = PyImportSystem.Import("runpy");
+                runpy.GetAttribute("_run_module_as_main").Call(new PyObject[] { PyString.From(moduleName), PyBool.True }, null);
+                PyFinalizer.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                // pymain_run_module: an exception other than SystemExit is printed (PyErr_Print).
+                if (!(ex is PythonException python && PySystemExit.Matches(python.PyException)))
+                    interpreter.PrintPythonStyleTraceback(ex);
+                int exitStatus = ReportExitState(ex);
+                PyFinalizer.Shutdown();
+                Environment.Exit(exitStatus);
+            }
+        }
+
+        /// <summary>
         /// _Py_HandleSystemExit (Python/pythonrun.c:708) as one path: dig the code out (:732), decide
         /// the status, write what has to be written to the sys.stderr of this moment, and leave one
         /// failure pending for one report. It runs before PyFinalizer.Shutdown() because
