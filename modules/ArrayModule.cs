@@ -381,8 +381,9 @@ namespace SharpPy.Modules
 
             protected internal override PyString Repr()
             {
+                // array_repr: _PyType_Name(Py_TYPE(a)), so a subclass shows its own name.
                 var sb = new StringBuilder();
-                sb.Append("array('");
+                sb.Append(GetPyType().Name).Append("('");
                 sb.Append(_typecode);
                 sb.Append('\'');
                 if (_count > 0)
