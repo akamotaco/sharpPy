@@ -4132,17 +4132,13 @@ namespace SharpPy
                     {
                         PyObject sendResult;
 
-                        // None uses the iterator protocol, including Python-defined
-                        // iterators. A non-None value requires send; its errors propagate.
-                        if (receiver is SharpPy.Core.PyCoroutine awaited)
-                            sendResult = awaited.Send(sendValue);
-                        else if (sendValue is PyNone)
+                        // bytecodes.c SEND: a generator or coroutine is resumed directly
+                        // (gen_send_ex); None to an iterator is its tp_iternext; anything else is
+                        // PyObject_CallMethodOneArg(receiver, "send", v).
+                        if (PyGenerator.NativeCore(receiver) is { } native)
+                            sendResult = native.Send(sendValue);
+                        else if (sendValue is PyNone && receiver.IsIterator)
                             sendResult = receiver.Next();
-                        else if (receiver is PyGenerator gen)
-                            sendResult = gen.Send(sendValue);
-                        else if (receiver is SharpPy.Core.PyCoroutineAwaiter wrapper &&
-                                 receiver.GetType() == typeof(SharpPy.Core.PyCoroutineAwaiter))
-                            sendResult = wrapper.Send(sendValue);
                         else
                             sendResult = receiver.GetAttribute("send").Call(new PyObject[] { sendValue }, null);
 
