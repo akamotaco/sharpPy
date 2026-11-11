@@ -28,7 +28,6 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     // Closure support (CPython 호환)
     public PyCell[] Closure { get; set; } = new PyCell[0];  // 클로저 셀 배열
     public PyCodeObject? CodeObject { get; set; }           // 함수의 코드 객체
-    public PyScopeChain? ParentScope { get; set; }         // 부모 스코프 (클로저용)
 
     // func_globals; setting it is PyFunction_New's moment, which also fixes func_builtins.
     private IDictionary<string, PyObject>? _globals;
@@ -407,7 +406,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     /// </summary>
     internal PyFrame NewFrame(PyObject[] args, PyDict kwargs, PyTuple kwNames = null, PyFrame parent = null)
     {
-        var scope = GlobalsDict != null ? new PyScopeChain(GlobalsDict, CodeObject.Name) : ParentScope ?? new PyScopeChain();
+        var scope = GlobalsDict != null ? new PyScopeChain(GlobalsDict, CodeObject.Name) : new PyScopeChain();
         PyFrame.CallingQualName = _qualName;
         try
         {
@@ -450,7 +449,6 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         Console.WriteLine($"   Owner: {owner?.Name}");
         Console.WriteLine($"   Has CodeObject: {CodeObject != null}");
         Console.WriteLine($"   GlobalsDict: {(GlobalsDict == null ? "null" : $"{GlobalsDict.Count} items")}");
-        Console.WriteLine($"   ParentScope: {(ParentScope == null ? "null" : ParentScope.GlobalScope?.Name ?? "no global")}");
         #endif
         if (CodeObject != null)
         {
