@@ -934,13 +934,14 @@ namespace SharpPy
 
         // type_setattro is the slot of every type; a metaclass's __setattr__/__delattr__ is its
         // own slot in PyObject_SetAttr.
-        protected internal override void TpSetattro(string name, PyObject value) => TypeSetAttribute(name, value);
+        // type_setattro copies a str subclass to an exact str before it touches tp_dict.
+        protected internal override void TpSetattro(PyString name, PyObject value) => TypeSetAttribute(name.Value, value);
 
-        protected internal override void TpDelattro(string name) => TypeSetAttribute(name, null);
+        protected internal override void TpDelattro(PyString name) => TypeSetAttribute(name.Value, null);
 
-        protected override void PySetAttribute(string name, PyObject value) => TypeSetAttribute(name, value);
+        protected override void PySetAttribute(PyString name, PyObject value) => TypeSetAttribute(name.Value, value);
 
-        protected override void PyDelAttribute(string name) => TypeSetAttribute(name, null);
+        protected override void PyDelAttribute(PyString name) => TypeSetAttribute(name.Value, null);
 
         internal void TypeDeleteAttribute(string name) => TypeSetAttribute(name, null);
 
@@ -1829,7 +1830,7 @@ namespace SharpPy
                     // CPython 3.12: object.__setattr__ uses _PyObject_GenericSetAttrWithDict
                     // which is the "default" behavior without __setattr__ lookup
                     // A heap instance's tp_setattro may be slot_tp_setattro; this is the generic set.
-                    self.GenericSetAttr(nameStr.Value, args[1]);
+                    self.GenericSetAttr(nameStr, args[1]);
                     return PyNone.Instance;
                 },
                 minArgs: 2,
@@ -1852,7 +1853,7 @@ namespace SharpPy
                     var nameStr = (PyString)args[0];
 
                     // CPython 3.12: object.__delattr__ uses _PyObject_GenericSetAttrWithDict with value=NULL
-                    self.GenericDelAttr(nameStr.Value);
+                    self.GenericDelAttr(nameStr);
                     return PyNone.Instance;
                 },
                 minArgs: 1,

@@ -804,20 +804,17 @@ namespace SharpPy
         private static PyObject CallSetAttr(PyObject[] args, PyDict kwargs = null)
         {
 
-            var obj = args[0];
-            var name = AttributeNameOf(args[1]);
-
-            obj.SetAttribute(name, args[2]);
+            // builtin_setattr_impl: PyObject_SetAttr(obj, name, value), the name object itself.
+            AttributeNameOf(args[1]);
+            args[0].SetAttribute((PyString)args[1], args[2]);
             return PyNone.Instance;
         }
 
         private static PyObject CallDelAttr(PyObject[] args, PyDict kwargs = null)
         {
 
-            var obj = args[0];
-            var name = AttributeNameOf(args[1]);
-
-            obj.DelAttribute(name);
+            AttributeNameOf(args[1]);
+            args[0].DelAttribute((PyString)args[1]);
             return PyNone.Instance;
         }
 

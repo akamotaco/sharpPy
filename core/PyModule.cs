@@ -125,10 +125,11 @@ public class PyModule : PyObject
     }
     
     // module_setattro; a module subclass's __setattr__ is its type's slot.
-    protected internal override void TpSetattro(string name, PyObject value) => ModuleSetAttro(name, value);
+    protected internal override void TpSetattro(PyString name, PyObject value) => ModuleSetAttro(name, value);
 
-    internal void ModuleSetAttro(string name, PyObject value)
+    internal void ModuleSetAttro(PyString nameObject, PyObject value)
     {
+        string name = nameObject.Value;
         // _PyObject_GenericSetAttrWithDict: a data descriptor of the type (the READONLY __dict__,
         // the __annotations__ getset, a subclass's own) first, then md_dict.
         if (PyClassInstance.FindDataDescriptorInMro(GetPyType(), name) is { } descriptor)
@@ -136,7 +137,7 @@ public class PyModule : PyObject
             PyClassInstance.CallDescriptorSet(descriptor, this, value);
             return;
         }
-        SetVariable(name, value);
+        PyGlobalsDict.Store(ModuleDict, nameObject, value);
     }
     
     // Variable 접근 (LEGB의 G 스코프)
@@ -152,7 +153,7 @@ public class PyModule : PyObject
 
     
     // module_setattro with NULL: the name goes from the module's dict.
-    protected internal override void TpDelattro(string name) => ModuleDelAttro(name);
+    protected internal override void TpDelattro(PyString name) => ModuleDelAttro(name.Value);
 
     internal void ModuleDelAttro(string name)
     {

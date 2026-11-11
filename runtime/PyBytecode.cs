@@ -427,6 +427,11 @@ namespace SharpPy
         public List<ByteCodeInstruction> Instructions { get; }
         public List<PyObject> Constants { get; }      // co_consts
         public List<string> Names { get; }            // co_names (변수명들)
+
+        // co_names as the str objects CPython's tuple holds: STORE_ATTR and DELETE_ATTR hand the
+        // name object to tp_setattro.
+        private PyString[] _nameObjects;
+        internal PyString[] NameObjects => _nameObjects ??= Names.Select(PyString.From).ToArray();
         public List<string> VarNames { get; }         // co_varnames (지역변수명들)
         public int ArgCount { get; }                  // 매개변수 개수
         public int PosonlyArgCount { get; }           // co_posonlyargcount (positional-only 매개변수 개수)

@@ -625,20 +625,23 @@ namespace SharpPy
 
         internal bool RemoveSlot(string name) => _slots != null && _slots.Remove(name);
 
-        public void SetInstanceAttribute(string name, PyObject value)
+        public void SetInstanceAttribute(PyString name, PyObject value)
         {
             if (_materialized != null)
-                _materialized.SetItem(PyString.From(name), value);
+                _materialized.SetItem(name, value);
+            // The string table holds exact str keys; a str subclass is a new key only the dict keeps
+            // (an equal key already there stays, as insertdict replaces the value alone).
+            else if (name.IsExactly(PyType.StrType) || _attrs.ContainsKey(name.Value))
+                _attrs[name.Value] = value;
             else
-                _attrs[name] = value;
+                Materialize().SetItem(name, value);
         }
 
-        public bool RemoveInstanceAttribute(string name)
+        public bool RemoveInstanceAttribute(PyString key)
         {
             // Dictionary reuses a freed slot, which would reorder __dict__; the dict keeps insertion order.
-            if (_materialized == null && !_attrs.ContainsKey(name)) return false;
+            if (_materialized == null && !_attrs.ContainsKey(key.Value)) return false;
             var dict = Materialize();
-            var key = PyString.From(name);
             if (!dict.ContainsKey(key)) return false;
             dict.DelItem(key);
             return true;
@@ -993,15 +996,15 @@ namespace SharpPy
         }
 
         // PyObject_GenericSetAttr: __class__ is object's data descriptor, object_set_class.
-        internal override void GenericSetAttr(string name, PyObject value) => SetAttributeDefault(name, value);
+        internal override void GenericSetAttr(PyString name, PyObject value) => SetAttributeDefault(name, value);
 
         // _PyObject_GenericSetAttrWithDict over the instance's own store; also object.__delattr__.
-        public void SetAttributeDefault(string name, PyObject value) =>
+        public void SetAttributeDefault(PyString name, PyObject value) =>
             SubclassInstanceSupport.GenericSetAttrWithDict(this, InstanceType, name, value, null, this);
 
-        internal override void GenericDelAttr(string name) => DelAttributeDefault(name);
+        internal override void GenericDelAttr(PyString name) => DelAttributeDefault(name);
 
-        public void DelAttributeDefault(string name) =>
+        public void DelAttributeDefault(PyString name) =>
             SubclassInstanceSupport.GenericSetAttrWithDict(this, InstanceType, name, null, null, this);
 
         /// <summary>

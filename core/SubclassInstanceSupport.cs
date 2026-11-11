@@ -102,13 +102,13 @@ namespace SharpPy
         /// body is the slot of the type, which calls the one the operation names (value null to
         /// delete). False when the class wrote neither, so the generic set or delete applies.
         /// </summary>
-        internal static bool SetattroHook(PyObject self, PyClass type, string name, PyObject value)
+        internal static bool SetattroHook(PyObject self, PyClass type, PyString name, PyObject value)
         {
             var method = type.FindNameInMro(value == null ? "__delattr__" : "__setattr__", out bool written);
             if (!written)
                 return false;
             var bound = self.BindSpecialMethod(method);
-            bound.Call(value == null ? new PyObject[] { PyString.From(name) } : new[] { PyString.From(name), value }, null);
+            bound.Call(value == null ? new PyObject[] { name } : new[] { name, value }, null);
             return true;
         }
 
@@ -119,9 +119,10 @@ namespace SharpPy
         /// store given - which an object without __dict__ lacks. object's __class__ getset
         /// (object_set_class) refuses deletion.
         /// </summary>
-        internal static void GenericSetAttrWithDict(PyObject self, PyType type, string name, PyObject value,
+        internal static void GenericSetAttrWithDict(PyObject self, PyType type, PyString nameObject, PyObject value,
             Dictionary<string, PyObject> dict, IInstanceDictStore store)
         {
+            string name = nameObject.Value;
             if (name == "__class__" && value == null)
                 throw PyTypeError.Create("can't delete __class__ attribute");
             var descriptor = PyClassInstance.FindDataDescriptorInMro(type, name);
@@ -134,14 +135,14 @@ namespace SharpPy
             bool hasDict = type is PyClass heap ? heap.InstancesHaveDict() : dict != null || store != null;
             if (value == null)
             {
-                if (dict != null ? PyGlobalsDict.Delete(dict, name) : store != null && store.RemoveInstanceAttribute(name))
+                if (dict != null ? PyGlobalsDict.Delete(dict, name) : store != null && store.RemoveInstanceAttribute(nameObject))
                     return;
                 throw NoAttribute(self, type, name, hasDict);
             }
             if (!hasDict && !(type is PyClass slotted && slotted.IsSlottedAttributeName(name)))
                 throw NoAttribute(self, type, name, hasDict);
-            if (dict != null) PyGlobalsDict.Store(dict, name, value);
-            else store.SetInstanceAttribute(name, value);
+            if (dict != null) PyGlobalsDict.Store(dict, nameObject, value);
+            else store.SetInstanceAttribute(nameObject, value);
         }
 
         // _PyObject_GenericSetAttrWithDict's refusals, named by tp_name; unlike a failed lookup they
@@ -154,7 +155,7 @@ namespace SharpPy
 
         /// <summary>The generic set over the dict kept beside a builtin's value; value null to delete.</summary>
         internal static void GenericSetAttribute(PyObject self, PyClass instanceType,
-            Dictionary<string, PyObject> instanceDict, string name, PyObject value)
+            Dictionary<string, PyObject> instanceDict, PyString name, PyObject value)
         {
             GenericSetAttrWithDict(self, instanceType, name, value, instanceDict, null);
         }

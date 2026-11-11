@@ -2922,7 +2922,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.STORE_ATTR:
-                    var setAttrName = frame.Code.Names[argument];
+                    var setAttrName = frame.Code.NameObjects[argument];
                     var setObj = frame.ValueStack.Pop();
                     var setAttrValue = frame.ValueStack.Pop();
                     // 기존 Attribute 시스템 사용!
@@ -2931,7 +2931,7 @@ namespace SharpPy
 
                 case ByteCodeOp.DELETE_ATTR:
                     // CPython 3.12: Delete attribute from object
-                    var delAttrName = frame.Code.Names[argument];
+                    var delAttrName = frame.Code.NameObjects[argument];
                     var delObj = frame.ValueStack.Pop();
                     // 기존 Attribute 시스템 사용!
                     delObj.DelAttribute(delAttrName);

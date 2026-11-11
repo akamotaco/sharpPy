@@ -551,7 +551,13 @@ namespace SharpPy
         /// its __setattr__, else PyObject_GenericSetAttr (GenericSetAttr); a class object's is
         /// type_setattro, its own TpSetattro.
         /// </summary>
-        public void SetAttribute(string name, PyObject value)
+        public void SetAttribute(string name, PyObject value) => SetAttribute(PyString.From(name), value);
+
+        /// <summary>
+        /// PyObject_SetAttr with the name object, which tp_setattro carries to the instance dict:
+        /// a str subclass given to setattr is the key stored (_PyObjectDict_SetItem).
+        /// </summary>
+        public void SetAttribute(PyString name, PyObject value)
         {
             if (HeapType() is { } heap)
             {
@@ -563,7 +569,10 @@ namespace SharpPy
         }
 
         /// <summary>PyObject_SetAttr with no value: tp_setattro asked to delete.</summary>
-        public void DelAttribute(string name)
+        public void DelAttribute(string name) => DelAttribute(PyString.From(name));
+
+        /// <summary>PyObject_SetAttr with no value, by the name object.</summary>
+        public void DelAttribute(PyString name)
         {
             if (HeapType() is { } heap)
             {
@@ -578,19 +587,13 @@ namespace SharpPy
         /// PyObject_GenericSetAttr, object.__setattr__: for a Python class over a builtin, the
         /// generic set over the instance dict kept beside the value; else the CLR type's own.
         /// </summary>
-        internal virtual void GenericSetAttr(string name, PyObject value)
+        internal virtual void GenericSetAttr(PyString name, PyObject value)
         {
             TpSetattro(name, value);
         }
 
         /// <summary>PyObject_GenericSetAttr with no value, object.__delattr__.</summary>
-        internal virtual void GenericDelAttr(string name)
-        {
-            if (this is not PyType && GetPyType() is PyClass heap)
-            {
-            }
-            TpDelattro(name);
-        }
+        internal virtual void GenericDelAttr(PyString name) => TpDelattro(name);
 
         /// <summary>The instance dict of a Python class over a builtin with no store of its own.</summary>
         internal Dictionary<string, PyObject> HeapDict => HeapAttributes.GetOrCreateValue(this);
@@ -606,7 +609,7 @@ namespace SharpPy
         internal Dictionary<string, PyObject> SlotStore => SlotValues.GetOrCreateValue(this);
 
         /// <summary>tp_setattro of the CLR type: PyObject_GenericSetAttr by default.</summary>
-        protected internal virtual void TpSetattro(string name, PyObject value)
+        protected internal virtual void TpSetattro(PyString name, PyObject value)
         {
             if (_customType is PyClass heap && !HasOwnDict)
                 SubclassInstanceSupport.GenericSetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, value);
@@ -617,10 +620,10 @@ namespace SharpPy
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PyObject, Dictionary<string, PyObject>> HeapAttributes = new();
 
         /// <summary>tp_setattro of the CLR type asked to delete.</summary>
-        protected internal virtual void TpDelattro(string name)
+        protected internal virtual void TpDelattro(PyString name)
         {
             if (!HasOwnDict && _customType is SharpPy.PyClass &&
-                HeapAttributes.TryGetValue(this, out var attributes) && PyGlobalsDict.Delete(attributes, name)) return;
+                HeapAttributes.TryGetValue(this, out var attributes) && PyGlobalsDict.Delete(attributes, name.Value)) return;
             PyDelAttribute(name);
         }
 
@@ -791,14 +794,14 @@ namespace SharpPy
         protected virtual System.Exception AttributeNotFound(string name)
             => PyAttributeError.CreateFor(this, name, $"'{GetTypeName()}' object has no attribute '{name}'");
 
-        protected virtual void PySetAttribute(string name, PyObject value) => GenericSetOrDelete(name, value);
+        protected virtual void PySetAttribute(PyString name, PyObject value) => GenericSetOrDelete(name, value);
 
         /// <summary>PyObject_GenericSetAttr with value=NULL.</summary>
-        protected virtual void PyDelAttribute(string name) => GenericSetOrDelete(name, null);
+        protected virtual void PyDelAttribute(PyString name) => GenericSetOrDelete(name, null);
 
         // _PyObject_GenericSetAttrWithDict over the instance dict the CLR type keeps, if any (a type
         // has its own slot, PyType.TypeSetAttribute).
-        private void GenericSetOrDelete(string name, PyObject value)
+        private void GenericSetOrDelete(PyString name, PyObject value)
         {
             SubclassInstanceSupport.GenericSetAttrWithDict(this, GetPyType(), name, value, null, this as IInstanceDictStore);
         }

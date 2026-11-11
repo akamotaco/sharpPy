@@ -232,12 +232,12 @@ namespace SharpPy
                 case "__setattr__":
                     PyType.Hackcheck(value, "__setattr__");
                     PyObject.AttributeName(args[0]);
-                    value.TpSetattro(((PyString)args[0]).Value, args[1]);
+                    value.TpSetattro((PyString)args[0], args[1]);
                     return PyNone.Instance;
                 case "__delattr__":
                     PyType.Hackcheck(value, "__delattr__");
                     PyObject.AttributeName(args[0]);
-                    value.TpDelattro(((PyString)args[0]).Value);
+                    value.TpDelattro((PyString)args[0]);
                     return PyNone.Instance;
                 default: return value.Divide(args[0]);
             }

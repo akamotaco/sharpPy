@@ -1191,6 +1191,16 @@ namespace SharpPy
             if (Views.TryGetValue(variables, out var view)) view.SetItem(PyString.From(name), value);
             else variables[name] = value;
         }
+        /// <summary>
+        /// The store by the name object: an exact str is the string key; a str subclass is a key the
+        /// dict over the store keeps (an equal key already there stays, as insertdict).
+        /// </summary>
+        internal static void Store(IDictionary<string, PyObject> variables, PyString name, PyObject value)
+        {
+            if (name.IsExactly(PyType.StrType) || variables.ContainsKey(name.Value)) Store(variables, name.Value, value);
+            else For(variables).SetItem(name, value);
+        }
+
         /// <summary>Empties a store and the __dict__ view made over it, as Store and Delete keep both.</summary>
         internal static void Clear(IDictionary<string, PyObject> variables)
         {

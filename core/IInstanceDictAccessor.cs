@@ -20,8 +20,9 @@ namespace SharpPy
     /// <summary>An instance whose own store is its __dict__, written through as well as read.</summary>
     internal interface IInstanceDictStore : IInstanceDictAccessor
     {
-        void SetInstanceAttribute(string name, PyObject value);
-        bool RemoveInstanceAttribute(string name);
+        /// <summary>_PyObjectDict_SetItem: the name object is the key a new entry keeps.</summary>
+        void SetInstanceAttribute(PyString name, PyObject value);
+        bool RemoveInstanceAttribute(PyString name);
     }
 
     /// <summary>
@@ -51,11 +52,10 @@ namespace SharpPy
             }
         }
 
-        void IInstanceDictStore.SetInstanceAttribute(string name, PyObject value) => ObjectDict(true).SetItem(PyString.From(name), value);
+        void IInstanceDictStore.SetInstanceAttribute(PyString name, PyObject value) => ObjectDict(true).SetItem(name, value);
 
-        bool IInstanceDictStore.RemoveInstanceAttribute(string name)
+        bool IInstanceDictStore.RemoveInstanceAttribute(PyString key)
         {
-            var key = PyString.From(name);
             if (ObjectDict(false) is not { } dict || !dict.ContainsKey(key)) return false;
             dict.DelItem(key);
             return true;

@@ -98,7 +98,7 @@ namespace SharpPy.Tools
             var nameSetter = new PyFunction("set_name", args =>
             {
                 var self = (PyClassInstance)args[0];
-                self.SetInstanceAttribute("_name", args[1]);
+                self.SetInstanceAttribute(PyString.From("_name"), args[1]);
                 Console.WriteLine($"  Name set to: {args[1]}");
                 return PyNone.Instance;
             });
