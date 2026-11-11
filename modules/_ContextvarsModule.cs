@@ -69,6 +69,9 @@ namespace SharpPy.Modules
             // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")}
             ContextVarType.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(ContextVarType);
             TokenType.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(TokenType);
+            // token_tp_new
+            TokenType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", TokenType,
+                (cls, args, kwargs) => throw PyRuntimeError.Create("Tokens can only be created by ContextVars"));
             TokenType.TypeDict["var"] = new PyGetSetDescriptor("var", TokenType, self => ((PyContextToken)self).Variable);
             TokenType.TypeDict["old_value"] = new PyGetSetDescriptor("old_value", TokenType, self => ((PyContextToken)self).Old ?? Missing);
             TokenType.TypeDict["MISSING"] = Missing;

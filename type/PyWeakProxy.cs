@@ -111,7 +111,6 @@ namespace SharpPy
         {
             "__index__", "__bytes__", "__reversed__", "__abs__", "__len__", "__getitem__", "__setitem__", "__delitem__",
             "__iter__", "__next__", "__contains__", "__bool__", "__int__", "__float__", "__neg__", "__pos__", "__invert__",
-            "__divmod__",
         };
 
         private static PyObject Binary(PyObject left, PyObject right, BinaryOpType operation) =>
@@ -128,6 +127,11 @@ namespace SharpPy
                 type.TypeDict[$"__i{name}__"] = new PyWrapperDescriptor($"__i{name}__", type,
                     (self, args, kwargs) => Binary(self, args[0], inplace), 1, 2);
             }
+            // proxy_divmod: WRAP_BINARY over PyNumber_Divmod, the slot behind __divmod__ and __rdivmod__.
+            type.TypeDict["__divmod__"] = new PyWrapperDescriptor("__divmod__", type,
+                (self, args, kwargs) => PyVM.NumberDivmod(Unwrap(self), Unwrap(args[0])), 1, 2);
+            type.TypeDict["__rdivmod__"] = new PyWrapperDescriptor("__rdivmod__", type,
+                (self, args, kwargs) => PyVM.NumberDivmod(Unwrap(args[0]), Unwrap(self)), 1, 2);
             foreach (var name in Forwarded)
             {
                 var slot = name;
