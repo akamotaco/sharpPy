@@ -99,8 +99,25 @@ namespace SharpPy
         internal bool Finished => _finished;
         internal bool IsIterableCoroutine => (_frame.Code.Flags & PyCodeObject.CO_ITERABLE_COROUTINE) != 0;
 
-        public PyGenerator(PyFrame frame, PyVM vm, string name = "<generator>")
+        /// <summary>
+        /// Which object the frame belongs to: PyGen_CheckExact or PyCoro_CheckExact in
+        /// genobject.c, deciding the words of its errors and what a finished one answers.
+        /// </summary>
+        internal enum GenKind { Generator, Coroutine }
+        internal readonly GenKind Kind;
+        private string KindWord => Kind == GenKind.Coroutine ? "coroutine" : "generator";
+        internal bool Started => _started;
+
+        // gen_send_ex2 on a finished frame: a coroutine cannot be reused, a generator is exhausted.
+        private Exception Exhausted() => Kind == GenKind.Coroutine
+            ? PyRuntimeError.Create("cannot reuse already awaited coroutine")
+            : PyStopIteration.Create();
+
+        public PyGenerator(PyFrame frame, PyVM vm, string name = "<generator>") : this(frame, vm, name, GenKind.Generator) { }
+
+        internal PyGenerator(PyFrame frame, PyVM vm, string name, GenKind kind)
         {
+            Kind = kind;
             _frame = frame ?? throw new ArgumentNullException(nameof(frame));
             _vm = vm ?? throw new ArgumentNullException(nameof(vm));
             _finished = false;
@@ -110,6 +127,18 @@ namespace SharpPy
             
             // 제너레이터 플래그 설정
             _frame.IsGenerator = true;
+            // A coroutine is watched from birth: one never awaited warns when it dies.
+            if (kind == GenKind.Coroutine)
+                _guard = PyFinalizer.Attach(this);
+        }
+
+        /// <summary>A frame that never ran is finished without running (a coroutine never awaited).</summary>
+        internal void MarkFinished()
+        {
+            _finished = true;
+            _frame.State = PyFrame.FrameState.Completed;
+            PyFinalizer.Detach(_guard);
+            _guard = null;
         }
 
         public override PyType GetPyType() => PyType.GeneratorType;
@@ -130,9 +159,9 @@ namespace SharpPy
             Console.WriteLine($"🔄 PyGenerator.Next() called, _finished: {_finished}, _started: {_started}");
             #endif
             if (_frame.State == PyFrame.FrameState.Executing)
-                throw PyValueError.Create("generator already executing");
+                throw PyValueError.Create($"{KindWord} already executing");
             if (_finished)
-                throw PyStopIteration.Create();
+                throw Exhausted();
 
             // CPython 3.12: 제너레이터에 던져진 예외가 있으면 프레임의 PendingException으로 설정
             // 예외는 VM ExecuteFrame에서 exception table을 통해 처리됨
@@ -321,11 +350,11 @@ namespace SharpPy
         public PyObject Send(PyObject value)
         {
             if (_finished)
-                throw PyStopIteration.Create();
+                throw Exhausted();
 
             // 첫 번째 호출에서 None이 아닌 값을 보내면 TypeError
-            if (!_started && value != PyNone.Instance)
-                throw PyTypeError.Create("can't send non-None value to a just-started generator");
+            if (!_started && value != null && value != PyNone.Instance)
+                throw PyTypeError.Create($"can't send non-None value to a just-started {KindWord}");
 
             _sentValue = value ?? PyNone.Instance;
             return Next();
@@ -348,14 +377,16 @@ namespace SharpPy
                 }
                 else
                 {
-                    bool nativeGenerator = receiver.GetType() == typeof(PyGenerator);
+                    // _gen_throw: a generator or coroutine (or a coroutine's own wrapper) is thrown into
+                    // directly, anything else through its throw method.
+                    var native = NativeCore(receiver);
                     PyObject method = null;
-                    if (!nativeGenerator)
+                    if (native == null)
                     {
                         try { method = receiver.GetAttribute("throw"); }
                         catch (PythonException error) when (error.PyException is PyAttributeError) { }
                     }
-                    if (nativeGenerator || method != null)
+                    if (native != null || method != null)
                     {
                         var savedState = _frame.State;
                         _frame.State = PyFrame.FrameState.Executing;
@@ -364,10 +395,10 @@ namespace SharpPy
                         _frame.ParentFrame = _resumedBy ?? PyVM.CurrentFrame;
                         try
                         {
-                            if (nativeGenerator)
+                            if (native != null)
                             {
-                                ((PyGenerator)receiver)._resumedBy = _frame;
-                                return ((PyGenerator)receiver).Throw(excType, value, traceback);
+                                native._resumedBy = _frame;
+                                return native.Throw(excType, value, traceback);
                             }
                             var args = traceback != null ? new[] { excType, value ?? PyNone.Instance, traceback } :
                                 value != null ? new[] { excType, value } : new[] { excType };
@@ -398,8 +429,8 @@ namespace SharpPy
         private PyObject ResumeException(PythonException thrownException)
         {
             if (_frame.State == PyFrame.FrameState.Executing)
-                throw PyValueError.Create("generator already executing");
-            if (_finished) throw thrownException;
+                throw PyValueError.Create($"{KindWord} already executing");
+            if (_finished) throw Kind == GenKind.Coroutine ? Exhausted() : thrownException;
             thrownException.PyException.ImplicitContextDone = false;
             _thrownException = thrownException;
             return Next();
@@ -408,6 +439,16 @@ namespace SharpPy
         private PyFrame _resumedBy;
 
         internal PyFrame ResumedBy { set => _resumedBy = value; }
+
+        // The core of a receiver the VM drives directly: a generator, a coroutine, or the
+        // coroutine_wrapper of one's __await__.
+        internal static PyGenerator NativeCore(PyObject receiver) => receiver switch
+        {
+            PyGenerator generator when receiver.GetType() == typeof(PyGenerator) => generator,
+            SharpPy.Core.PyCoroutine coroutine => coroutine.Core,
+            SharpPy.Core.PyCoroutineAwaiter wrapper when receiver.GetType() == typeof(SharpPy.Core.PyCoroutineAwaiter) => wrapper.Coroutine.Core,
+            _ => null,
+        };
 
         internal PyObject GetYieldFromReceiver() => YieldFromReceiver(_frame, _started, _finished);
 
@@ -430,7 +471,9 @@ namespace SharpPy
                 _frame.State = PyFrame.FrameState.Executing;
                 try
                 {
-                    if (receiver is PyGenerator generator)
+                    // gen_close_iter: a generator or coroutine closes directly, anything else
+                    // through its close method.
+                    if ((receiver as PyGenerator ?? NativeCore(receiver)) is { } generator)
                         generator.Close();
                     else
                     {
@@ -462,11 +505,10 @@ namespace SharpPy
         public PyNone Close()
         {
             if (_frame.State == PyFrame.FrameState.Executing)
-                throw PyValueError.Create("generator already executing");
+                throw PyValueError.Create($"{KindWord} already executing");
             if (_finished || !_started)
             {
-                _finished = true;
-                _frame.State = PyFrame.FrameState.Completed;
+                MarkFinished();
                 return PyNone.Instance;
             }
 
@@ -486,7 +528,7 @@ namespace SharpPy
 
             // A yielded value means the generator ignored the exit request.
             // It remains suspended and may still be resumed or closed again.
-            throw PyRuntimeError.Create("generator ignored GeneratorExit");
+            throw PyRuntimeError.Create($"{KindWord} ignored GeneratorExit");
         }
 
         #endregion

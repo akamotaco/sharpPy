@@ -91,62 +91,30 @@ namespace SharpPy.Core
                 throw PyTypeError.Create($"throw expected at most 3 arguments, got {args.Length}");
         }
 
-        private readonly PyFrame _frame;
-        private readonly PyVM _vm;
-        private bool _started = false;
-        private bool _finished = false;
-        private PyGuard _guard;
+        // The frame runs in the one generator core (gen_send_ex2, _gen_throw, gen_close), as a
+        // coroutine: its errors say "coroutine" and a finished one cannot be reused.
+        internal readonly PyGenerator Core;
 
-        // gi_name / cr_name: the object it was given, the same one at every read.
-        private PyObject _name;
-        public string Name
-        {
-            get => ((PyString)NameObject).Value;
-            set => _name = PyString.From(value);
-        }
-        internal PyObject NameObject
-        {
-            get => _name ??= PyString.Empty;
-            set => _name = value;
-        }
-        public PyObject Qualname { get; set; }
-        public CoroutineState State { get; private set; } = CoroutineState.Created;
-        public bool IsFinished => _finished;
-        internal PyFrame Frame => _frame;
-        
-        /// <summary>
-        /// CPython 3.12 스타일 Coroutine 상태
-        /// </summary>
-        public enum CoroutineState
-        {
-            Created,     // CR_CREATED
-            Running,     // CR_RUNNING  
-            Suspended,   // CR_SUSPENDED
-            Closed       // CR_CLOSED
-        }
-        
+        public string Name { get => Core.Name; set => Core.Name = value; }
+        internal PyObject NameObject { get => Core.NameObject; set => Core.NameObject = value; }
+        public PyObject Qualname { get => Core.Qualname; set => Core.Qualname = value; }
+        public bool IsFinished => Core.IsFinished;
+        internal PyFrame Frame => Core.Frame;
+
         public PyCoroutine(PyFrame frame, PyVM vm, string name, string qualname = null)
         {
-            Qualname = PyString.From(qualname ?? frame?.Code.QualName ?? name);
-            _frame = frame ?? throw new ArgumentNullException(nameof(frame));
-            _vm = vm ?? throw new ArgumentNullException(nameof(vm));
-            Name = name;
-            _frame.OwnerGenerator = this;
-
-            // Coroutine frame은 특별한 플래그를 가짐
-            _frame.IsGenerator = true; // 내부적으로는 generator 메커니즘 사용
-            _frame.IsCoroutine = true; // 하지만 coroutine으로 마킹
-
+            Core = new PyGenerator(frame ?? throw new ArgumentNullException(nameof(frame)), vm, name, PyGenerator.GenKind.Coroutine);
+            Core.Qualname = PyString.From(qualname ?? frame.Code.QualName ?? name);
+            frame.OwnerGenerator = this;
+            frame.IsCoroutine = true;
             if (OriginDepth > 0)
                 Origin = ComputeOrigin();
-            _guard = PyFinalizer.Attach(this);
         }
 
         /// <summary>_PyGen_yf: what this coroutine is awaiting.</summary>
-        internal PyObject YieldFrom => PyGenerator.YieldFromReceiver(_frame, _started, _finished);
+        internal PyObject YieldFrom => Core.GetYieldFromReceiver();
 
         internal PyObject Origin { get; } = PyNone.Instance;
-
         internal static int OriginDepth;
 
         // compute_cr_origin
@@ -168,259 +136,36 @@ namespace SharpPy.Core
         // _PyGen_Finalize: a coroutine that never ran says so, one that did is closed.
         internal void Finalize()
         {
-            if (_finished)
+            if (Core.IsFinished)
                 return;
-            if (!_started)
+            if (!Core.Started)
             {
-                _finished = true;
+                Core.MarkFinished();
                 var warnings = PyImportSystem.Import("warnings");
                 warnings.GetAttribute("_warn_unawaited_coroutine").Call(new PyObject[] { this }, null);
                 return;
             }
-            Close();
+            Core.Close();
         }
 
-        /// <summary>
-        /// PEP 492: Native coroutine은 __await__ 메서드만 구현
-        /// __iter__, __next__ 메서드는 구현하지 않음
-        /// </summary>
-        public PyIterator GetAwaiter()
-        {
-            return new PyCoroutineAwaiter(this);
-        }
-        
-        /// <summary>
-        /// CPython send() 메서드 구현
-        /// </summary>
-        public PyObject Send(PyObject? value = null)
-        {
-            if (State == CoroutineState.Running)
-                throw PyValueError.Create("coroutine already executing");
-            if (_finished)
-                throw PyRuntimeError.Create("cannot reuse already awaited coroutine");
-            if (!_started && value != null && value != PyNone.Instance)
-                throw PyTypeError.Create("can't send non-None value to a just-started coroutine");
+        /// <summary>coro_await: the coroutine_wrapper over this coroutine.</summary>
+        public PyIterator GetAwaiter() => new PyCoroutineAwaiter(this);
 
-            // gen_send_ex2 supplies a value on both initial entry and resume.
-            // YIELD_VALUE leaves SharpPy's instruction pointer at the yield.
-            if (!_started)
-                _frame.InstructionPointer = 0;
-            else if (_frame.PendingException == null)
-                _frame.InstructionPointer++;
-            _frame.ValueStack.Push(value ?? PyNone.Instance);
-            _started = true;
-            _frame.State = PyFrame.FrameState.Executing;
-            State = CoroutineState.Running;
-            PyObject result;
-            try
-            {
-                _frame.ParentFrame = _resumedBy ?? SharpPy.PyVM.CurrentFrame;
-                _resumedBy = null;
-                result = _vm.ExecuteFrame(_frame) ?? PyNone.Instance;
-            }
-            catch (PyYieldException yieldEx)
-            {
-                _frame.ParentFrame = null;
-                _frame.State = PyFrame.FrameState.Suspended;
-                State = CoroutineState.Suspended;
-                return yieldEx.Value ?? PyNone.Instance;
-            }
-            catch (PythonException)
-            {
-                Complete();
-                throw;
-            }
+        public PyObject Send(PyObject? value = null) => Core.Send(value ?? PyNone.Instance);
 
-            Complete();
-            throw PyStopIteration.Create(result);
-        }
-        
-        /// <summary>
-        /// CPython close() 메서드 구현
-        /// </summary>
-        public void Close()
-        {
-            if (_finished) return;
-            if (!_started)
-            {
-                Complete();
-                return;
-            }
+        public void Close() => Core.Close();
 
-            var closeError = CloseReceiver(GetAwaitReceiver());
+        internal PyFrame ResumedBy { set => Core.ResumedBy = value; }
 
-            // Keep the yield instruction as the exception-table lookup site.
-            if (State == CoroutineState.Running)
-                throw PyValueError.Create("coroutine already executing");
-            _frame.PendingException = closeError ?? PyVM.SetObject(new PyGeneratorExit());
-            try
-            {
-                Send(PyNone.Instance);
-            }
-            catch (PythonException error) when (error.PyException is PyGeneratorExit or PyStopIteration)
-            {
-                return;
-            }
-            // A coroutine which yields during close remains suspended.
-            throw PyRuntimeError.Create("coroutine ignored GeneratorExit");
-        }
-
-        private PyObject GetAwaitReceiver()
-        {
-            if (!_started || _finished) return null;
-            int resumeIndex = _frame.InstructionPointer + 1;
-            return resumeIndex < _frame.Code.Instructions.Count &&
-                _frame.Code.Instructions[resumeIndex].OpCode == ByteCodeOp.RESUME &&
-                _frame.Code.Instructions[resumeIndex].Argument >= 2
-                ? _frame.ValueStack.Peek() : null;
-        }
-
-        private PythonException CloseReceiver(PyObject receiver)
-        {
-            if (receiver != null)
-            {
-                var savedState = State;
-                var savedFrameState = _frame.State;
-                State = CoroutineState.Running;
-                _frame.State = PyFrame.FrameState.Executing;
-                try
-                {
-                    if (receiver is PyGenerator generator)
-                        generator.Close();
-                    else if (receiver is PyCoroutineAwaiter wrapper &&
-                             receiver.GetType() == typeof(PyCoroutineAwaiter))
-                        wrapper.Close();
-                    else
-                    {
-                        PyObject close = null;
-                        try { close = receiver.GetAttribute("close"); }
-                        catch (PythonException error) when (error.PyException is PyAttributeError) { }
-                        catch (PythonException error) { PyUnraisable.Report(error, receiver); }
-                        close?.Call(Array.Empty<PyObject>(), null);
-                    }
-                }
-                catch (PythonException error)
-                {
-                    return error;
-                }
-                finally
-                {
-                    State = savedState;
-                    _frame.State = savedFrameState;
-                }
-            }
-
-            return null;
-        }
-
-        private PyFrame _resumedBy;
-
-        internal PyFrame ResumedBy { set => _resumedBy = value; }
-
-        internal PyObject Throw(PyObject[] args)
-        {
-            var receiver = GetAwaitReceiver();
-            if (receiver != null)
-            {
-                var type = args[0] as PyType ?? args[0].GetPyType();
-                if (type.IsSubclassOf(PyType.GeneratorExitType))
-                {
-                    var closeError = CloseReceiver(receiver);
-                    if (closeError != null) return ResumeException(closeError);
-                }
-                else
-                {
-                    // Lookup failures leave the outer coroutine suspended; only errors
-                    // from calling the delegate are injected at its await instruction.
-                    bool nativeGenerator = receiver.GetType() == typeof(PyGenerator);
-                    bool nativeWrapper = receiver.GetType() == typeof(PyCoroutineAwaiter);
-                    PyObject method = null;
-                    if (!nativeGenerator && !nativeWrapper)
-                    {
-                        try { method = receiver.GetAttribute("throw"); }
-                        catch (PythonException error) when (error.PyException is PyAttributeError) { }
-                    }
-                    if (nativeGenerator || nativeWrapper || method != null)
-                    {
-                        var savedState = State;
-                        var savedFrameState = _frame.State;
-                        State = CoroutineState.Running;
-                        _frame.State = PyFrame.FrameState.Executing;
-                        PythonException delegateError;
-                        try
-                        {
-                            // _gen_throw: this frame stands on the stack while the delegate runs.
-                            _frame.ParentFrame = _resumedBy ?? SharpPy.PyVM.CurrentFrame;
-                            if (nativeGenerator)
-                            {
-                                ((PyGenerator)receiver).ResumedBy = _frame;
-                                return ((PyGenerator)receiver).Throw(args[0],
-                                    args.Length > 1 ? args[1] : null, args.Length > 2 ? args[2] : null);
-                            }
-                            if (nativeWrapper)
-                            {
-                                ((PyCoroutineAwaiter)receiver).ResumedBy = _frame;
-                                return ((PyCoroutineAwaiter)receiver).Throw(args);
-                            }
-                            if (receiver is PyCoroutine inner)
-                                inner.ResumedBy = _frame;
-                            return method.Call(args, null);
-                        }
-                        catch (PythonException error) { delegateError = error; }
-                        finally
-                        {
-                            State = savedState;
-                            _frame.State = savedFrameState;
-                        }
-                        return ResumeException(delegateError);
-                    }
-                }
-            }
-            return ResumeException(PySuspensionException.Normalize(args[0],
-                args.Length > 1 ? args[1] : null, args.Length > 2 ? args[2] : null));
-        }
-
-        private PyObject ResumeException(PythonException error)
-        {
-            if (State == CoroutineState.Running)
-                throw PyValueError.Create("coroutine already executing");
-            if (_finished)
-                throw PyRuntimeError.Create("cannot reuse already awaited coroutine");
-            error.PyException.ImplicitContextDone = false;
-            _frame.PendingException = error;
-            return Send(PyNone.Instance);
-        }
-
-        private void Complete()
-        {
-            State = CoroutineState.Closed;
-            _finished = true;
-            _frame.State = PyFrame.FrameState.Completed;
-            PyFinalizer.Detach(_guard);
-            _guard = null;
-        }
-
-        // Note: GetAttribute is inherited from PyObject, which uses GenericGetAttribute
-        // All coroutine methods (send, throw, close, __await__) are registered as descriptors in PyType.CoroutineType
+        internal PyObject Throw(PyObject[] args) =>
+            Core.Throw(args[0], args.Length > 1 ? args[1] : null, args.Length > 2 ? args[2] : null);
 
         protected internal override PyString Repr() =>
             PyString.From($"<coroutine object {Qualname.ToClrString()} at {PyObjectId.Pointer(this)}>");
 
-        public override string ToString()
-        {
-            var stateStr = State switch
-            {
-                CoroutineState.Created => "created",
-                CoroutineState.Running => "running",
-                CoroutineState.Suspended => "suspended",
-                CoroutineState.Closed => "closed",
-                _ => "unknown"
-            };
-
-            return $"<coroutine object {Name} at {PyObjectId.Pointer(this)} [{stateStr}]>";
-        }
+        public override string ToString() => $"<coroutine object {Name} at {PyObjectId.Pointer(this)}>";
     }
-    
+
     /// <summary>
     /// Coroutine의 __await__ 메서드가 반환하는 Awaiter
     /// </summary>
@@ -464,6 +209,7 @@ namespace SharpPy.Core
 
 
         private readonly PyCoroutine _coroutine;
+        internal PyCoroutine Coroutine => _coroutine;
 
         public override PyType GetPyType() => WrapperType;
         public override bool IsCallable() => false;

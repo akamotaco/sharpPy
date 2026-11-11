@@ -514,6 +514,9 @@ namespace SharpPy
         internal static void FinalizeGenerator(PyObject target)
         {
             var saved = PyVM.SnapshotExceptionStates();
+            // The object the error names is the one that owns the frame (a coroutine or async
+            // generator around a generator core), as _PyGen_Finalize names the gen object itself.
+            var named = (target as PyGenerator)?.Frame?.OwnerGenerator ?? target;
             try
             {
                 if (target is SharpPy.Core.PyCoroutine coroutine) coroutine.Finalize();
@@ -521,15 +524,16 @@ namespace SharpPy
                 // The frame of an async generator runs in a generator; the decision is the async
                 // generator's.
                 else if (((PyGenerator)target).Frame?.OwnerGenerator is SharpPy.Core.PyAsyncGenerator owner) owner.Finalize();
+                else if (((PyGenerator)target).Frame?.OwnerGenerator is SharpPy.Core.PyCoroutine coroutineOwner) coroutineOwner.Finalize();
                 else ((PyGenerator)target).Close();
             }
             catch (PythonException ex)
             {
-                PyUnraisable.Report(ex, target);
+                PyUnraisable.Report(ex, named);
             }
             catch (Exception ex)
             {
-                PyUnraisable.Report(new PythonException(PyVM.ConvertToPythonException(ex)), target);
+                PyUnraisable.Report(new PythonException(PyVM.ConvertToPythonException(ex)), named);
             }
             finally
             {
