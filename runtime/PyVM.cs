@@ -906,61 +906,17 @@ namespace SharpPy
             _globalScope = new PyScopeChain(); // 기존 LEGB 시스템 사용!
         }
 
-        // 메인 모듈 실행
-        public PyObject ExecuteModule(PyCodeObject codeObject)
+        /// <summary>
+        /// PyEval_EvalCode / PyEval_EvalCodeEx: code run in the globals of scope with their builtins
+        /// (_PyEval_BuiltinsFromGlobals, when the frame is made), locals a mapping of its own when
+        /// given (else the globals), and the closure when given.
+        /// </summary>
+        public PyObject EvalCode(PyCodeObject code, PyScopeChain scope, PyObject locals = null, PyCell[] closure = null)
         {
-            #if DEBUG_LOG
-            Console.WriteLine($"🚀 ExecuteModule: Starting execution of {codeObject.Name}");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"   Exception Table entries: {codeObject.ExceptionTable.Count}");
-            #endif
-            if (codeObject.ExceptionTable.Count > 0)
-            {
-                for (int i = 0; i < codeObject.ExceptionTable.Count; i++)
-                {
-                    var entry = codeObject.ExceptionTable[i];
-                    #if DEBUG_LOG
-                    Console.WriteLine($"     [{i}] Start: {entry.StartOffset}, End: {entry.EndOffset}, Handler: {entry.HandlerOffset}");
-                    #endif
-                }
-            }
-
-            var frame = new PyFrame(codeObject, new PyObject[0], _globalScope);
-            return ExecuteFrame(frame);
-        }
-
-        // 메인 모듈 실행 (특정 스코프 체인 사용)
-        public PyObject ExecuteModule(PyCodeObject codeObject, PyScopeChain scopeChain)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🚀 ExecuteModule (with scopeChain): Starting execution of {codeObject.Name}");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"   Exception Table entries: {codeObject.ExceptionTable.Count}");
-            #endif
-
-#if DEBUG_LOG
-            Console.WriteLine("📋 실제 바이트코드 출력 완료\n");
-#endif
-            if (codeObject.ExceptionTable.Count > 0)
-            {
-                for (int i = 0; i < codeObject.ExceptionTable.Count; i++)
-                {
-                    var entry = codeObject.ExceptionTable[i];
-                    #if DEBUG_LOG
-                    Console.WriteLine($"     [{i}] Start: {entry.StartOffset}, End: {entry.EndOffset}, Handler: {entry.HandlerOffset}");
-                    #endif
-                }
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 PyFrame 생성 직전 codeObject.ExceptionTable.Count: {codeObject.ExceptionTable.Count}");
-            #endif
-            var frame = new PyFrame(codeObject, new PyObject[0], scopeChain);
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 PyFrame 생성 후 frame.Code.ExceptionTable.Count: {frame.Code.ExceptionTable.Count}");
-            #endif
+            var frame = new PyFrame(code, Array.Empty<PyObject>(), scope, closure);
+            frame.UseBuiltins(PyFrame.BuiltinsFromGlobals(scope?.GlobalScope?.Variables));
+            if (locals != null)
+                frame.ClassLocalsDict = locals;
             return ExecuteFrame(frame);
         }
 
@@ -972,27 +928,14 @@ namespace SharpPy
             return new PyScopeChain(variables, name, null);
         }
 
-        /// <summary>exec with a mapping for locals: names go to the mapping, as in a class body.</summary>
-        internal PyObject ExecuteWithClosure(PyCodeObject code, PyScopeChain scopeChain, PyCell[] closure) =>
-            ExecuteFrame(new PyFrame(code, new PyObject[0], scopeChain, closure));
-
-        internal PyObject ExecuteWithNamespace(PyCodeObject code, PyScopeChain scopeChain, PyObject ns)
+        /// <summary>
+        /// The class body of __build_class__: _PyEval_Vector of the body function with the
+        /// namespace as its locals - the function's globals, builtins and closure. Returns what the
+        /// body returned, the __class__ cell if there is one.
+        /// </summary>
+        public PyObject ExecuteClassBody(PyFunction body, PyObject ns)
         {
-            var frame = new PyFrame(code, new PyObject[0], scopeChain);
-            frame.ClassLocalsDict = ns;
-            return ExecuteFrame(frame);
-        }
-
-        // 프레임 실행 (바이트코드 해석)
-        // CPython 3.12: Execute class body and return namespace
-        /// <summary>_PyEval_Vector with the namespace as locals: returns what the body returned, the
-        /// __class__ cell if there is one.</summary>
-        public PyObject ExecuteClassBody(PyCodeObject classBody, PyCell[]? closure, PyObject ns)
-        {
-            var parentScope = _frameStack.Count > 0 ? _frameStack.Peek().ScopeChain : null;
-            var frame = closure != null
-                ? new PyFrame(classBody, new PyObject[0], parentScope, closure)
-                : new PyFrame(classBody, new PyObject[0], parentScope);
+            var frame = body.NewFrame(Array.Empty<PyObject>(), null);
             frame.ClassLocalsDict = ns;
             return ExecuteFrame(frame);
         }

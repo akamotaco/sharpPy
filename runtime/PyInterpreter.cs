@@ -224,7 +224,7 @@ namespace SharpPy
                 Console.WriteLine($"🔍 VM 실행 직전 Exception Table entries: {codeObject.ExceptionTable.Count}");
 #endif
 
-                var result = _vm.ExecuteModule(codeObject, _globalScope);
+                var result = _vm.EvalCode(codeObject, _globalScope);
                 
 #if DEBUG_LOG
                 Console.WriteLine("\n" + new string('=', 60));

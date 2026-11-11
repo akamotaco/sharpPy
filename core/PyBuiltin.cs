@@ -1016,9 +1016,7 @@ namespace SharpPy
             // locals mapping, a dict or any mapping, read and written in place.
             var vm = PyVM.Instance;
             var namespaceLocals = localsMapping ?? (ReferenceEquals(locals, globals) ? null : locals);
-            if (namespaceLocals != null)
-                return vm.ExecuteWithNamespace(codeObject, PyVM.ScopeOver(globals), namespaceLocals);
-            return vm.ExecuteModule(codeObject, PyVM.ScopeOver(globals));
+            return vm.EvalCode(codeObject, PyVM.ScopeOver(globals), namespaceLocals);
         }
 
         /// <summary>
@@ -1246,21 +1244,17 @@ namespace SharpPy
             // 4. Execute with provided globals/locals (exec returns None)
             // CPython pattern: PyEval_EvalCode(source, globals, locals)
             // Create a scope chain from the provided globals/locals
-            var scopeChain = PyVM.ScopeOver(globals);
+            PyCell[] cellArray = null;
             if (closure != null)
             {
                 var given = ((PyTuple)closure).Items;
-                var cellArray = new PyCell[given.Length];
+                cellArray = new PyCell[given.Length];
                 for (int i = 0; i < given.Length; i++)
                     cellArray[i] = given[i] as PyCell ?? throw PyTypeError.Create($"arg 5 (closure) expected cell, found {given[i].GetTypeName()}");
-                PyVM.Instance.ExecuteWithClosure(codeObject, scopeChain, cellArray);
-                return PyNone.Instance;
             }
+            // builtin_exec_impl: PyEval_EvalCodeEx(source, globals, locals, ..., closure) or PyEval_EvalCode.
             var namespaceLocals = localsMapping ?? (ReferenceEquals(locals, globals) ? null : locals);
-            if (namespaceLocals != null)
-                PyVM.Instance.ExecuteWithNamespace(codeObject, scopeChain, namespaceLocals);
-            else
-                PyVM.Instance.ExecuteModule(codeObject, scopeChain);
+            PyVM.Instance.EvalCode(codeObject, PyVM.ScopeOver(globals), namespaceLocals, cellArray);
             return PyNone.Instance;
         }
 
@@ -1519,7 +1513,7 @@ namespace SharpPy
                 throw PyTypeError.Create(
                     $"{(metaclass is PyType named ? named.Name : "<metaclass>")}.__prepare__() must return a mapping, not {ns.GetTypeName()}");
 
-            var cell = PyVM.Instance.ExecuteClassBody(body.CodeObject, body.Closure, ns);
+            var cell = PyVM.Instance.ExecuteClassBody(body, ns);
             if (originalBases != null) ns.SetItem(PyString.From("__orig_bases__"), originalBases);
             var created = metaclass.Call(new[] { name, bases, ns }, classKeywords);
             if (created is PyType && cell is PyCell classCell && !ReferenceEquals(classCell.Value, created))

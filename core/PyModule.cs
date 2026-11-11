@@ -173,7 +173,7 @@ public class PyModule : PyObject
     /// <summary>Run code that is already compiled: a module out of a bundle.</summary>
     internal void ExecuteCode(PyCodeObject code)
     {
-        PyVM.Instance.ExecuteModule(code, CreateModuleGlobalScope());
+        PyVM.Instance.EvalCode(code, CreateModuleGlobalScope());
         IsInitialized = true;
     }
 
@@ -191,7 +191,7 @@ public class PyModule : PyObject
 
         // 4단계: VM 실행 (모듈 네임스페이스에서 실행)
         // What the module raises reaches the importer unchanged (_load_unlocked).
-        PyVM.Instance.ExecuteModule(codeObject, moduleGlobalScope);
+        PyVM.Instance.EvalCode(codeObject, moduleGlobalScope);
 
         IsInitialized = true;
     }
@@ -208,7 +208,7 @@ public class PyModule : PyObject
     {
         var codeObject = Compiler.CompileSource(sourceCode, FileName);
         var moduleGlobalScope = CreateModuleGlobalScope();
-        PyVM.Instance.ExecuteModule(codeObject, moduleGlobalScope);
+        PyVM.Instance.EvalCode(codeObject, moduleGlobalScope);
         IsInitialized = true;
     }
 
