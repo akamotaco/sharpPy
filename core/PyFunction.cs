@@ -30,15 +30,25 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     public PyCodeObject? CodeObject { get; set; }           // 함수의 코드 객체
     public PyScopeChain? ParentScope { get; set; }         // 부모 스코프 (클로저용)
 
-    // CPython 3.12: __globals__ attribute - function's global namespace
-    public IDictionary<string, PyObject>? GlobalsDict { get; set; }  // func.__globals__
+    // func_globals; setting it is PyFunction_New's moment, which also fixes func_builtins.
+    private IDictionary<string, PyObject>? _globals;
+    public IDictionary<string, PyObject>? GlobalsDict
+    {
+        get => _globals;
+        set { _globals = value; Builtins = PyFrame.BuiltinsFromGlobals(value); }
+    }
+
+    /// <summary>
+    /// func_builtins: _PyEval_BuiltinsFromGlobals of the globals when the function was made; every
+    /// frame of a call uses it, whatever __builtins__ says later. null is the builtins module.
+    /// </summary>
+    internal PyObject? Builtins { get; private set; }
 
     // func_dict: the function's one __dict__, made when it is first needed (PyObject_GenericGetDict).
     private PyDict? _dict;
     public PyDict ObjectDict(bool create) => create ? _dict ??= new PyDict() : _dict;
     public void SetObjectDict(PyDict dict) => _dict = dict;
     private PyDict? _globalsCache = null;
-    private PyObject? _inheritedBuiltins;
     private PyObject? _module;
     private PyTuple? _closureTuple;
     private PyCell[]? _closureSource;
@@ -117,10 +127,6 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         var function = new PyFunction(name is PyString text ? text.Value : code.Name, null, null, null, closureCells, code);
         function.GlobalsDict = PyVM.ScopeOver(globals).GlobalScope.Variables;
         function._globalsCache = globals;
-        // _PyFunction_FromConstructor: no __builtins__ in globals, so the caller's.
-        PyObject current = null;
-        PyVM.CurrentFrame?.Globals.TryGetValue("__builtins__", out current);
-        function._inheritedBuiltins = current;
         if (defaults is not PyNone)
             function.SetAttribute("__defaults__", defaults);
         return function;
@@ -287,13 +293,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         funcType.TypeDict["__builtins__"] = new PyMemberDescriptor(
             "__builtins__",
             funcType,
-            getter: self => {
-                var func = (PyFunction)self;
-                PyObject builtins = null;
-                func.GlobalsDict?.TryGetValue("__builtins__", out builtins);
-                builtins ??= func._inheritedBuiltins ?? PyImportSystem.Import("builtins");
-                return builtins is PyModule ? builtins.GetAttribute("__dict__") : builtins;
-            }
+            getter: self => PyFrame.BuiltinsDict(((PyFunction)self).Builtins)
         );
 
         // func_get_defaults and func_set_defaults
@@ -375,100 +375,52 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             foreach (var pair in kwargs.InternalDict)
                 if (pair.Key is not PyString)
                     throw PyTypeError.Create("keywords must be strings");
-        // async generator 함수인지 먼저 확인
-        if (CodeObject?.IsAsyncGenerator() == true)
+        if (CodeObject == null)
+            return Implementation(args);
+
+        // _PyEval_Vector: the frame, then a generator, coroutine or async generator of it
+        // (make_gen, for those code flags), or the frame run.
+        var frame = NewFrame(args, kwargs);
+        if (CodeObject.IsAsyncGenerator())
         {
-            // async generator 객체 생성 (kwargs는 생성 시 사용하지 않음)
-            return CreateAsyncGenerator(args, kwargs);
+            frame.IsGenerator = true;
+            return new SharpPy.Core.PyAsyncGenerator(frame, PyVM.Instance, Name, QualName);
         }
-        // 코루틴 함수인지 확인 (async def, but not async generator)
-        else if (CodeObject?.IsCoroutine() == true)
+        if (CodeObject.IsCoroutine())
         {
-            // 코루틴 객체 생성 (kwargs는 생성 시 사용하지 않음)
-            return CreateCoroutine(args, kwargs);
+            frame.IsCoroutine = true;
+            return new SharpPy.Core.PyCoroutine(frame, PyVM.Instance, Name, QualName);
         }
-        // 일반 generator 함수인지 확인
-        else if (CodeObject?.IsGenerator() == true)
+        if (CodeObject.IsGenerator())
         {
-            // 제너레이터 객체 생성 (kwargs 지원 - CPython 3.12 호환)
-            return CreateGenerator(args, kwargs);
+            frame.IsGenerator = true;
+            return new PyGenerator(frame, PyVM.Instance, Name) { Qualname = PyString.From(QualName) };
         }
+        return PyVM.Instance.ExecuteFrame(frame);
+    }
 
-        // CPython 3.12: CodeObject가 있으면 VM을 통해 실행
-        if (CodeObject != null)
+    /// <summary>
+    /// _PyEvalFramePushAndInit: the frame of a call of this function - func_globals and
+    /// func_builtins, the closure, the arguments bound with func_defaults and func_kwdefaults
+    /// (keyword values in kwargs, or kwNames naming the trailing args). parent is f_back for a
+    /// frame the VM runs in place (an inlined call); ExecuteFrame sets it for the others.
+    /// </summary>
+    internal PyFrame NewFrame(PyObject[] args, PyDict kwargs, PyTuple kwNames = null, PyFrame parent = null)
+    {
+        var scope = GlobalsDict != null ? new PyScopeChain(GlobalsDict, CodeObject.Name) : ParentScope ?? new PyScopeChain();
+        PyFrame.CallingQualName = _qualName;
+        try
         {
-            // CPython 3.12: Use captured globals (func.__globals__)
-            // Functions must use the globals from the module where they were defined,
-            // not the caller's globals. This is essential for closures and nested functions.
-            PyScopeChain functionScopeChain;
-            if (GlobalsDict != null)
-            {
-                // Use the globals captured at function definition time (CPython equivalent: frame->f_globals)
-                functionScopeChain = new PyScopeChain(GlobalsDict, CodeObject.Name);
-
-                #if DEBUG_LOG
-                // Log for enum-related functions
-                if (Name == "__new__" || Name.Contains("Enum"))
-                {
-                    Console.WriteLine($"\n[PyFunction.Call] Using GlobalsDict for function '{Name}'");
-                    Console.WriteLine($"  GlobalsDict: {GlobalsDict.Count} items");
-                    Console.WriteLine($"  Has ReprEnum: {GlobalsDict.ContainsKey("ReprEnum")}");
-                    Console.WriteLine($"  Created scope: {functionScopeChain.GlobalScope?.Name}");
-                }
-                #endif
-            }
-            else
-            {
-                // Fallback to ParentScope for backwards compatibility (e.g., built-in functions)
-                functionScopeChain = ParentScope ?? new PyScopeChain();
-
-                #if DEBUG_LOG
-                // Log for enum-related functions
-                if (Name == "__new__" || Name.Contains("Enum"))
-                {
-                    Console.WriteLine($"\n[PyFunction.Call] GlobalsDict is NULL for function '{Name}' - using ParentScope");
-                    Console.WriteLine($"  ParentScope: {(ParentScope == null ? "null" : ParentScope.GlobalScope?.Name ?? "no global")}");
-                }
-                #endif
-            }
-
-            // CPython 3.12: Pass defaults from func.__defaults__ to PyFrame
-            var defaults = GetDefaults();
-            #if DEBUG_VM_LOG
-            Console.WriteLine($"[PyFunction.Call] Getting defaults for {Name}:");
-            Console.WriteLine($"  defaults is null: {defaults == null}");
-            if (defaults != null)
-            {
-                Console.WriteLine($"  defaults.Items.Length: {defaults.Items.Length}");
-                for (int i = 0; i < defaults.Items.Length; i++)
-                {
-                    Console.WriteLine($"  defaults[{i}]: {defaults.Items[i]}");
-                }
-            }
-            #endif
-
-            // CPython 3.12: Create frame with kwargs if present
-            // CPython reference: Python/ceval.c:1621-1658 (_PyEvalFramePushAndInit_Ex)
-            PyFrame frame;
-            PyFrame.CallingQualName = _qualName;
-
-            if (kwargs != null && kwargs.InternalDict.Count > 0)
-            {
-                // Use PyFrame constructor that accepts kwargs dict
-                // This will internally convert it to CPython's (args + kwnames) format
-                frame = PyFrame.CreateWithKwargs(CodeObject, args, kwargs, functionScopeChain, Closure, defaults, GetKeywordDefaults());
-            }
-            else
-            {
-                frame = new PyFrame(CodeObject, args, functionScopeChain, Closure, null, defaults, GetKeywordDefaults());
-            }
-
-            var vm = PyVM.Instance;
-            return vm.ExecuteFrame(frame);
+            var frame = kwargs != null && kwargs.InternalDict.Count > 0
+                ? PyFrame.CreateWithKwargs(CodeObject, args, kwargs, scope, Closure, GetDefaults(), GetKeywordDefaults(), parent)
+                : new PyFrame(CodeObject, args, scope, Closure, parent, GetDefaults(), GetKeywordDefaults(), kwNames);
+            frame.UseBuiltins(Builtins);
+            return frame;
         }
-
-        // TODO: kwargs 처리 로직 추가 필요 (현재는 무시)
-        return Implementation(args);
+        finally
+        {
+            PyFrame.CallingQualName = null;
+        }
     }
     
     /// <summary>
@@ -482,131 +434,8 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal PyDict GetKeywordDefaults() => CodeObject?.KwonlyArgCount > 0 ? _kwdefaults as PyDict : null;
 
-    /// <summary>
-    /// async generator 객체 생성 - PEP 525 호환
-    /// </summary>
-    private SharpPy.Core.PyAsyncGenerator CreateAsyncGenerator(PyObject[] args, PyDict kwargs = null)
-    {
-        // async generator 방식: Frame과 VM을 사용한 실제 async generator
-        if (CodeObject == null)
-        {
-            throw new InvalidOperationException("Cannot create async generator without code object");
-        }
 
-        // async generator용 VM 인스턴스 사용
-        var vm = PyVM.Instance;
 
-        // CPython 3.12: Pass defaults from func.__defaults__
-        var defaults = GetDefaults();
-
-        // async generator 실행용 Frame 생성
-        var scope = GlobalsDict != null ? new PyScopeChain(GlobalsDict, CodeObject.Name) : ParentScope;
-        var frame = kwargs != null && kwargs.Length() != 0
-            ? PyFrame.CreateWithKwargs(CodeObject, args, kwargs, scope, Closure, defaults, GetKeywordDefaults())
-            : new PyFrame(CodeObject, args, scope, Closure, null, defaults, GetKeywordDefaults());
-        frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
-
-        // async generator enumerator 생성
-        return new SharpPy.Core.PyAsyncGenerator(frame, vm, Name, QualName);
-    }
-
-    /// <summary>
-    /// 코루틴 객체 생성 - PEP 492 호환
-    /// </summary>
-    private SharpPy.Core.PyCoroutine CreateCoroutine(PyObject[] args, PyDict kwargs = null)
-    {
-        // CPython 3.12 방식: Frame과 VM을 사용한 실제 코루틴
-        if (CodeObject == null)
-        {
-            throw new InvalidOperationException("Cannot create coroutine without code object");
-        }
-
-        // 코루틴용 VM 인스턴스 사용
-        var vm = PyVM.Instance;
-
-        // CPython 3.12: Pass defaults from func.__defaults__
-        var defaults = GetDefaults();
-
-        // 코루틴 실행용 Frame 생성
-        var scope = GlobalsDict != null
-            ? new PyScopeChain(GlobalsDict, CodeObject.Name)
-            : ParentScope ?? new PyScopeChain();
-        var frame = kwargs != null && kwargs.Length() != 0
-            ? PyFrame.CreateWithKwargs(CodeObject, args, kwargs, scope, Closure, defaults, GetKeywordDefaults())
-            : new PyFrame(CodeObject, args, scope, Closure, null, defaults, GetKeywordDefaults());
-        frame.IsCoroutine = true;  // CPython 3.12: coroutine frame 표시
-
-        return new SharpPy.Core.PyCoroutine(frame, vm, Name, QualName);
-    }
-
-    /// <summary>
-    /// 제너레이터 객체 생성 - CPython 3.12 완전 호환
-    /// </summary>
-    private PyGenerator CreateGenerator(PyObject[] args, PyDict kwargs = null)
-    {
-        // CPython 3.12 방식: Frame과 VM을 사용한 실제 제너레이터
-        if (CodeObject == null)
-        {
-            throw new InvalidOperationException("Cannot create generator without code object");
-        }
-
-        // 제너레이터용 VM 인스턴스 사용
-        var vm = PyVM.Instance;
-
-        // 제너레이터 실행용 Frame 생성 (한 번만 생성하여 재사용)
-        // Generator는 정의된 모듈의 GlobalScope를 유지해야 함
-        // CPython 3.12: Use captured globals (func.__globals__) - same as regular function calls
-#if DEBUG_DEBUG_LOG
-        Console.WriteLine($"[CreateGenerator] Function: {Name}");
-        Console.WriteLine($"  GlobalsDict: {(GlobalsDict == null ? "NULL" : $"{GlobalsDict.Count} items")}");
-        if (GlobalsDict != null && GlobalsDict.Count > 0)
-        {
-            Console.WriteLine($"  GlobalsDict keys: {string.Join(", ", GlobalsDict.Keys.Take(10))}");
-            Console.WriteLine($"  Has 'print': {GlobalsDict.ContainsKey("print")}");
-        }
-        Console.WriteLine($"  ParentScope: {(ParentScope == null ? "NULL" : ParentScope.GlobalScope?.Name ?? "no global")}");
-        if (ParentScope?.GlobalScope?.Variables != null)
-        {
-            Console.WriteLine($"  ParentScope.GlobalScope.Variables: {ParentScope.GlobalScope.Variables.Count} items");
-            Console.WriteLine($"  ParentScope has 'print': {ParentScope.GlobalScope.Variables.ContainsKey("print")}");
-        }
-#endif
-        PyScopeChain generatorScopeChain;
-        if (GlobalsDict != null)
-        {
-                // Use the globals captured at function definition time
-                generatorScopeChain = new PyScopeChain(GlobalsDict, CodeObject.Name);
-            #if DEBUG_DEBUG_LOG
-            Console.WriteLine($"  → Using GlobalsDict");
-            #endif
-        }
-        else
-        {
-                // Fallback to ParentScope for backwards compatibility
-                generatorScopeChain = ParentScope ?? new PyScopeChain();
-            #if DEBUG_DEBUG_LOG
-            Console.WriteLine($"  → Using ParentScope (fallback)");
-            #endif
-        }
-
-        // CPython 3.12: Pass defaults from func.__defaults__
-        var defaults = GetDefaults();
-
-        // CPython 3.12: Create frame with kwargs if present (same as regular function calls)
-        PyFrame frame;
-        if (kwargs != null && kwargs.InternalDict.Count > 0)
-        {
-            frame = PyFrame.CreateWithKwargs(CodeObject, args, kwargs, generatorScopeChain, Closure, defaults, GetKeywordDefaults());
-        }
-        else
-        {
-            frame = new PyFrame(CodeObject, args, generatorScopeChain, Closure, null, defaults, GetKeywordDefaults());
-        }
-        frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
-
-        // CPython 3.12 완전 호환 PyGenerator 사용
-        return new PyGenerator(frame, vm, Name) { Qualname = PyString.From(QualName) };
-    }
     
     // Function은 항상 호출 가능
     public override bool IsCallable() => true;

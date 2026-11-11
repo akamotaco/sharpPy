@@ -34,16 +34,46 @@ namespace SharpPy
         private bool _builtinsResolved;
         private PyObject _ownBuiltins;
 
-        // _PyEval_BuiltinsFromGlobals, once per frame: null is the builtins module itself.
+        // f_builtins of a frame no function made (a module, exec, eval): its globals' builtins.
         private void ResolveBuiltins()
         {
             _builtinsResolved = true;
-            if (!Globals.TryGetValue("__builtins__", out var found) || ReferenceEquals(found, PyBuiltinsModule.Instance))
-                return;
-            if (found is PyGlobalsDict live && ReferenceEquals(live.Variables, PyBuiltinsModule.Instance.ModuleDict))
-                return;
-            _ownBuiltins = found;
+            _ownBuiltins = BuiltinsFromGlobals(Globals);
         }
+
+        /// <summary>f_builtins of a function's frame: func_builtins.</summary>
+        internal void UseBuiltins(PyObject builtins)
+        {
+            _ownBuiltins = builtins;
+            _builtinsResolved = true;
+        }
+
+        /// <summary>This frame's builtins in the form BuiltinsFromGlobals gives: null is the builtins module.</summary>
+        internal PyObject OwnBuiltins => HasOwnBuiltins ? _ownBuiltins : null;
+
+        /// <summary>
+        /// _PyEval_BuiltinsFromGlobals (Objects/frameobject.c): globals['__builtins__'] (a module
+        /// stands for its dict), else the current frame's (_PyEval_GetBuiltins). null is the
+        /// builtins module itself, kept apart so its lookups stay the module's own.
+        /// </summary>
+        internal static PyObject BuiltinsFromGlobals(IDictionary<string, PyObject> globals)
+        {
+            if (globals == null || !globals.TryGetValue("__builtins__", out var found))
+                return PyVM.CurrentFrame?.OwnBuiltins;
+            if (ReferenceEquals(found, PyBuiltinsModule.Instance))
+                return null;
+            if (found is PyGlobalsDict live && ReferenceEquals(live.Variables, PyBuiltinsModule.Instance.ModuleDict))
+                return null;
+            return found;
+        }
+
+        /// <summary>The dict of builtins as PyEval_GetBuiltins and func.__builtins__ give it.</summary>
+        internal static PyObject BuiltinsDict(PyObject builtins) => builtins switch
+        {
+            null => PyBuiltinsModule.Instance.DictObject,
+            PyModule module => module.DictObject,
+            _ => builtins,
+        };
 
         internal bool HasOwnBuiltins
         {
@@ -249,7 +279,7 @@ namespace SharpPy
             #endif
 
             // CPython 3.12: Check for keyword arguments from parent frame
-            PyTuple kwNames = keywordNames ?? parentFrame?.KeywordNamesForNextCall;
+            PyTuple kwNames = keywordNames;
             Dictionary<string, PyObject> keywordArgs = null;
             PyObject[] positionalArgs = args;
 
@@ -281,7 +311,6 @@ namespace SharpPy
 #endif
 
                 // Clear keyword names to prevent reuse
-                if (keywordNames == null) parentFrame.KeywordNamesForNextCall = null;
             }
             else
             {
@@ -1070,10 +1099,7 @@ namespace SharpPy
             if (!CanInline(function)) return false;
             var code = function.CodeObject;
             CheckRecursionLimit();
-            PyFrame.CallingQualName = function.AssignedQualName;
-            _inlineCall = new PyFrame(code, args, new PyScopeChain(function.GlobalsDict, "<function>"),
-                function.Closure, CurrentFrame, function.GetDefaults(), function.GetKeywordDefaults());
-            PyFrame.CallingQualName = null;
+            _inlineCall = function.NewFrame(args, null, null, CurrentFrame);
             SkipCallCaches(CurrentFrame);
             return true;
         }
@@ -1098,15 +1124,7 @@ namespace SharpPy
         {
             if (!CanInline(function)) return false;
             CheckRecursionLimit();
-            int positional = args.Length - kwNames.Items.Length;
-            var kwargs = new PyDict();
-            for (int i = 0; i < kwNames.Items.Length; i++)
-                kwargs.SetItem(kwNames.Items[i], args[positional + i]);
-            PyFrame.CallingQualName = function.AssignedQualName;
-            _inlineCall = PyFrame.CreateWithKwargs(function.CodeObject, args[..positional], kwargs,
-                new PyScopeChain(function.GlobalsDict, "<function>"), function.Closure,
-                function.GetDefaults(), function.GetKeywordDefaults(), CurrentFrame);
-            PyFrame.CallingQualName = null;
+            _inlineCall = function.NewFrame(args, null, kwNames, CurrentFrame);
             SkipCallCaches(CurrentFrame);
             return true;
         }
@@ -1595,7 +1613,30 @@ namespace SharpPy
             catch (PythonException) { return false; }
         }
 
-        // GLOBALS() then BUILTINS(), the tail of LOAD_NAME and all of LOAD_GLOBAL; NameError past both.
+        /// <summary>
+        /// LOAD_GLOBAL (Python/bytecodes.c): with globals and builtins exact dicts,
+        /// _PyDict_LoadGlobal; otherwise PyObject_GetItem of GLOBALS() then of BUILTINS(), so a dict
+        /// subclass's __missing__ answers, a KeyError of both being the NameError.
+        /// </summary>
+        private static PyObject LoadGlobal(PyFrame frame, string name)
+        {
+            var globals = frame.ScopeChain.GlobalScope?.Variables;
+            var builtins = frame.OwnBuiltins;
+            bool exact = !(globals is PyDictVariables given && !given.Dict.IsExactly(PyType.DictType))
+                && (builtins == null || builtins is PyModule || builtins.IsExactly(PyType.DictType));
+            if (exact)
+                return GlobalOrBuiltin(frame, name);
+            var key = PyString.From(name);
+            try { return PyAbstract.GetItem(PyGlobalsDict.DictOf(globals), key); }
+            catch (PythonException error) when (error.PyException is PyKeyError) { }
+            try { return PyAbstract.GetItem(PyFrame.BuiltinsDict(builtins), key); }
+            catch (PythonException error) when (error.PyException is PyKeyError)
+            {
+                throw CreateNameErrorWithSuggestion(name, frame);
+            }
+        }
+
+        // GLOBALS() then BUILTINS(): the tail of LOAD_NAME, and LOAD_GLOBAL over exact dicts; NameError past both.
         private static PyObject GlobalOrBuiltin(PyFrame frame, string name) =>
             frame.ScopeChain.GlobalScope?.GetVariable(name) ?? frame.Builtin(name)
             ?? throw CreateNameErrorWithSuggestion(name, frame);
@@ -1732,396 +1773,43 @@ namespace SharpPy
             frame.ValueStack.Push(newCallResult);
         }
 
-        // Keep captured function-creation state out of the instruction dispatcher.
-        // Otherwise the C# compiler allocates a display class for every opcode.
-        private void ExecuteMakeFunction(PyFrame frame, int argument)
+        /// <summary>
+        /// MAKE_FUNCTION (Python/bytecodes.c): codeobj on top, under it the closure, annotations,
+        /// kwdefaults and defaults its flags name; PyFunction_New(codeobj, GLOBALS()) gets them.
+        /// </summary>
+        private void ExecuteMakeFunction(PyFrame frame, int flags)
         {
-            // CPython 3.12 compatible function creation with full flags support
-            var flags = argument;
-
+            var code = frame.ValueStack.Pop() as PyCodeObject
+                ?? throw new InvalidOperationException("MAKE_FUNCTION expected a code object");
             PyCell[] closure = null;
-            PyTuple defaults = null;
-            PyTuple kwDefaults = null;
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 MAKE_FUNCTION with flags: {flags:X} (binary: {Convert.ToString(flags, 2)})");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 MAKE_FUNCTION stack size before processing: {frame.ValueStack.Count}");
-            if (frame.ValueStack.Count > 0)
-            {
-                var debugStackItems = frame.ValueStack.ToArray();
-                for (int i = 0; i < Math.Min(debugStackItems.Length, 5); i++)
-                {
-                    Console.WriteLine($"   Stack[{i}]: {debugStackItems[i]?.GetType().Name} = {debugStackItems[i]}");
-                }
-            }
-            #endif
-
-            // CPython 3.12 MAKE_FUNCTION flags processing order (bit order matters!):
-            // 0x01 - HAS_DEFAULTS: function has positional default parameters
-            // 0x02 - HAS_KW_DEFAULTS: function has keyword-only default parameters
-            // 0x04 - HAS_ANNOTATIONS: function has annotations
-            // 0x08 - HAS_CLOSURE: function uses closure variables
-            // 0x10 - HAS_QUALNAME: function has qualified name (not used in basic implementation)
-
-            // Process in correct stack order: code object first (TOS), then others as needed
-
-            // First, pop the code object (always at TOS)
-            var codeObject = frame.ValueStack.Pop();
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 Popped code object: {codeObject?.GetType().Name} = {codeObject}");
-            #endif
-
-            // Check for closure flag (8 = HAS_CLOSURE) - processed next if present
             if ((flags & 8) != 0)
             {
-                var closureTuple = frame.ValueStack.Pop();
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 Processing closure: {closureTuple?.GetType().Name} = {closureTuple}");
-                #endif
-                if (closureTuple is PyTuple closureTupleObj)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   Closure tuple has {closureTupleObj.Items.Length} items:");
-                    #endif
-                    for (int i = 0; i < closureTupleObj.Items.Length; i++)
-                    {
-                        var item = closureTupleObj.Items[i];
-                        #if DEBUG_LOG
-                        Console.WriteLine($"     Item[{i}]: {item?.GetType().Name} = {item}");
-                        #endif
-                    }
-                    try
-                    {
-                        // Performance: Eliminated LINQ - manual cast to PyCell array
-                        closure = new PyCell[closureTupleObj.Items.Length];
-                        for (int i = 0; i < closureTupleObj.Items.Length; i++)
-                        {
-                            closure[i] = (PyCell)closureTupleObj.Items[i];
-                        }
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  → Function has closure: {closure.Length} cells");
-                        #endif
-                    }
-                    catch (InvalidCastException e)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  ❌ Closure casting error: {e.Message}");
-                        #endif
-                        #if DEBUG_LOG
-                        Console.WriteLine($"     Failed to cast items to PyCell");
-                        #endif
-                        throw;
-                    }
-                }
-                else
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  ⚠️ Warning: Expected tuple for closure, got {closureTuple?.GetType()}");
-                    #endif
-                    closure = new PyCell[0];
-                }
+                var cells = (frame.ValueStack.Pop() as PyTuple)?.Items ?? Array.Empty<PyObject>();
+                closure = new PyCell[cells.Length];
+                for (int i = 0; i < cells.Length; i++)
+                    closure[i] = (PyCell)cells[i];
             }
-
-            // Check for annotations flag (4 = HAS_ANNOTATIONS)
-            PyDict annotationsDict = null;
+            PyDict annotations = null;
             if ((flags & 4) != 0)
             {
-                var annotationsTuple = frame.ValueStack.Pop();
-                if (annotationsTuple is PyTuple annTuple)
-                {
-                    // CPython 3.12: Convert annotations tuple to dict
-                    // Tuple format: ('key1', type1, 'key2', type2, ...)
-                    // Dict format: {'key1': type1, 'key2': type2, ...}
-                    annotationsDict = new PyDict();
-                    for (int i = 0; i < annTuple.Items.Length; i += 2)
-                    {
-                        if (i + 1 < annTuple.Items.Length)
-                        {
-                            var annKey = annTuple.Items[i];
-                            var annValue = annTuple.Items[i + 1];
-                            annotationsDict.SetItem(annKey, annValue);
-                        }
-                    }
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  → Function has annotations: {annTuple.Items.Length / 2} items");
-                    foreach (var kvp in annotationsDict.InternalDict)
-                    {
-                        Console.WriteLine($"     {kvp.Key}: {kvp.Value}");
-                    }
-                    #endif
-                }
-                else
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  ⚠️ Warning: Expected tuple for annotations, got {annotationsTuple?.GetType()}");
-                    #endif
-                    annotationsDict = new PyDict();
-                }
+                // The (name, value, ...) tuple of the compiler, as func_get_annotations makes it a dict.
+                annotations = new PyDict();
+                if (frame.ValueStack.Pop() is PyTuple pairs)
+                    for (int i = 0; i + 1 < pairs.Items.Length; i += 2)
+                        annotations.SetItem(pairs.Items[i], pairs.Items[i + 1]);
             }
+            PyDict kwdefaults = (flags & 2) != 0 ? frame.ValueStack.Pop() as PyDict ?? new PyDict() : null;
+            PyTuple defaults = (flags & 1) != 0 ? frame.ValueStack.Pop() as PyTuple ?? PyTuple.From(Array.Empty<PyObject>()) : null;
 
-            // Check for keyword-only defaults flag (2 = HAS_KW_DEFAULTS)
-            // CPython 3.12: kwdefaults is a dict (not a tuple)
-            PyDict kwDefaultsDict = null;
-            if ((flags & 2) != 0)
-            {
-                var kwDefaultsObj = frame.ValueStack.Pop();
-                if (kwDefaultsObj is PyDict kwDefDict)
-                {
-                    kwDefaultsDict = kwDefDict;
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  → Function has keyword-only defaults: {kwDefDict.InternalDict.Count} items");
-                    foreach (var kvp in kwDefDict.InternalDict)
-                    {
-                        Console.WriteLine($"     {kvp.Key}: {kvp.Value}");
-                    }
-                    #endif
-                }
-                else
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  ⚠️ Warning: Expected dict for kw-defaults, got {kwDefaultsObj?.GetType()}");
-                    #endif
-                    kwDefaultsDict = new PyDict();
-                }
-            }
-
-            // Check for positional defaults flag (1 = HAS_DEFAULTS)
-            if ((flags & 1) != 0)
-            {
-                var defaultsTuple = frame.ValueStack.Pop();
-                if (defaultsTuple is PyTuple defTuple)
-                {
-                    defaults = defTuple;
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  → Function has positional defaults: {defTuple.Items.Length} parameters");
-                    #endif
-                }
-                else
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  ⚠️ Warning: Expected tuple for defaults, got {defaultsTuple?.GetType()}");
-                    #endif
-                    defaults = PyTuple.From(new PyObject[0]);
-                }
-            }
-
-            if (codeObject is PyCodeObject pyCode)
-            {
-                // CPython 3.12: async def로 정의된 함수인지 확인
-                if (pyCode.IsAsyncGenerator())
-                {
-                    // A function keeps its code, cells, defaults and globals and nothing of the frame
-                    // that made it (func_new, Objects/funcobject.c). A lambda that names `frame` would
-                    // keep every local of the enclosing call alive for the life of the function.
-                    var asyncGenGlobals = frame.ScopeChain.GlobalScope?.Variables;
-
-                    // Async generator: 호출 시 PyAsyncGenerator 객체 반환
-                    var asyncGenImpl = new Func<PyObject[], PyObject>(args =>
-                    {
-                        var asyncGenChain = new PyScopeChain(asyncGenGlobals, "<async generator>");
-                        var asyncGenFrame = closure != null && closure.Length > 0
-                            ? new PyFrame(pyCode, args, asyncGenChain, closure, CurrentFrame)
-                            : new PyFrame(pyCode, args, asyncGenChain, null, CurrentFrame);
-
-                        // Async generator 생성
-                        return new SharpPy.Core.PyAsyncGenerator(asyncGenFrame, this, pyCode.Name);
-                    });
-
-                    var asyncGenFunction = new PyFunction(pyCode.Name, asyncGenImpl, null, null, closure, pyCode);
-                    asyncGenFunction.GlobalsDict = asyncGenGlobals;
-
-                    // Set CPython 3.12 compatible function attributes
-                    if (defaults != null)
-                    {
-                        asyncGenFunction.SetAttribute("__defaults__", defaults);
-                    }
-                    if (kwDefaultsDict != null)
-                    {
-                        asyncGenFunction.SetAttribute("__kwdefaults__", kwDefaultsDict);
-                    }
-                    if (annotationsDict != null)
-                    {
-                        asyncGenFunction.SetAttribute("__annotations__", annotationsDict);
-                    }
-
-                    frame.ValueStack.Push(asyncGenFunction);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"✅ Created async generator function: {pyCode.Name}");
-                    #endif
-                }
-                else if (pyCode.IsCoroutine())
-                {
-                    // CPython 3.12: Capture globals from current frame's GlobalScope
-                    var globalsDict = frame.ScopeChain.GlobalScope?.Variables;
-
-                    // Async function: 호출 시 PyCoroutine 객체 반환
-                    var asyncImpl = new Func<PyObject[], PyObject>(args =>
-                    {
-                        var functionScopeChain = new PyScopeChain(globalsDict, "<async function>");
-                        var asyncFrame = closure != null && closure.Length > 0
-                            ? new PyFrame(pyCode, args, functionScopeChain, closure, CurrentFrame)
-                            : new PyFrame(pyCode, args, functionScopeChain, null, CurrentFrame);
-
-                        // Native coroutine 생성
-                        return new SharpPy.Core.PyCoroutine(asyncFrame, this, pyCode.Name);
-                    });
-
-                    var asyncFunction = new PyFunction(pyCode.Name, asyncImpl, null, null, closure, pyCode);
-                    asyncFunction.GlobalsDict = globalsDict;
-
-                    // Set CPython 3.12 compatible function attributes
-                    if (defaults != null)
-                    {
-                        asyncFunction.SetAttribute("__defaults__", defaults);
-                    }
-                    if (kwDefaultsDict != null)
-                    {
-                        asyncFunction.SetAttribute("__kwdefaults__", kwDefaultsDict);
-                    }
-                    if (annotationsDict != null)
-                    {
-                        asyncFunction.SetAttribute("__annotations__", annotationsDict);
-                    }
-
-                    frame.ValueStack.Push(asyncFunction);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"✅ Created async function: {pyCode.Name}");
-                    #endif
-                }
-                else
-                {
-                    // Regular function
-                    PyFunction functionObject;
-
-                    // CPython 3.12: Capture globals from current frame's GlobalScope
-                    // This is equivalent to CPython's GLOBALS() macro: frame->f_globals
-                    var globalsDict = frame.ScopeChain.GlobalScope?.Variables;
-
-                    #if DEBUG_VM_LOG
-                    Console.WriteLine($"[GLOBALS CAPTURE] MAKE_FUNCTION for {pyCode.Name}:");
-                    Console.WriteLine($"  frame.ScopeChain.GlobalScope.Name: {frame.ScopeChain.GlobalScope?.Name}");
-                    Console.WriteLine($"  globalsDict count: {globalsDict?.Count ?? 0}");
-                    #endif
-                    if (globalsDict != null)
-                    {
-                        #if DEBUG_VM_LOG
-                        // Performance: Eliminated LINQ - manual key preview
-                        var keyCount = Math.Min(10, globalsDict.Keys.Count);
-                        var keys = new string[keyCount];
-                        int keyIdx = 0;
-                        foreach (var key in globalsDict.Keys)
-                        {
-                            if (keyIdx >= keyCount) break;
-                            keys[keyIdx++] = key;
-                        }
-                        Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
-                        Console.WriteLine($"  globalsDict reference hash: {globalsDict.GetHashCode()}");
-                        #endif
-                    }
-
-                    // Create function implementation with proper parameter binding
-                    // CPython 3.12: Capture defaults at function definition time
-                    var capturedDefaults = defaults; // Capture for closure
-                    #if DEBUG_VM_LOG
-                    Console.WriteLine($"[DEFAULTS CAPTURE] Capturing defaults for {pyCode.Name}:");
-                    Console.WriteLine($"  defaults is null: {defaults == null}");
-                    if (defaults != null)
-                    {
-                        Console.WriteLine($"  defaults.Items.Length: {defaults.Items.Length}");
-                        for (int i = 0; i < defaults.Items.Length; i++)
-                        {
-                            Console.WriteLine($"  defaults[{i}]: {defaults.Items[i]}");
-                        }
-                    }
-                    #endif
-                    Func<PyObject[], PyObject> implementation = args =>
-                    {
-                    // CPython 3.12: Create new ScopeChain with captured globals
-                    // The function's globals are fixed at function definition time
-                    #if DEBUG_VM_LOG
-                    Console.WriteLine($"[FUNCTION CALL] Function {pyCode.Name} called:");
-                    Console.WriteLine($"  globalsDict count at call time: {globalsDict?.Count ?? 0}");
-                    Console.WriteLine($"  capturedDefaults is null: {capturedDefaults == null}");
-                    if (capturedDefaults != null)
-                    {
-                        Console.WriteLine($"  capturedDefaults.Items.Length: {capturedDefaults.Items.Length}");
-                        for (int i = 0; i < capturedDefaults.Items.Length; i++)
-                        {
-                            Console.WriteLine($"  capturedDefaults[{i}]: {capturedDefaults.Items[i]}");
-                        }
-                    }
-                    #endif
-                    if (globalsDict != null)
-                    {
-                        #if DEBUG_VM_LOG
-                        // Performance: Eliminated LINQ - manual key preview
-                        var keyCount = Math.Min(10, globalsDict.Keys.Count);
-                        var keys = new string[keyCount];
-                        int keyIdx = 0;
-                        foreach (var key in globalsDict.Keys)
-                        {
-                            if (keyIdx >= keyCount) break;
-                            keys[keyIdx++] = key;
-                        }
-                        Console.WriteLine($"  globalsDict keys at call time: {string.Join(", ", keys)}");
-                        Console.WriteLine($"  globalsDict reference hash at call time: {globalsDict.GetHashCode()}");
-                        #endif
-                    }
-
-                    if (globalsDict == null)
-                    {
-                        throw new InvalidOperationException($"Function {pyCode.Name} has null globals!");
-                    }
-
-                    var functionScopeChain = new PyScopeChain(globalsDict, "<function>");
-
-                    #if DEBUG_VM_LOG
-                    Console.WriteLine($"  New ScopeChain GlobalScope count: {functionScopeChain.GlobalScope?.Variables.Count ?? 0}");
-                    Console.WriteLine($"  New ScopeChain GlobalScope hash: {functionScopeChain.GlobalScope?.Variables.GetHashCode()}");
-                    #endif
-
-                    var functionFrame = closure != null && closure.Length > 0
-                        ? new PyFrame(pyCode, args, functionScopeChain, closure, CurrentFrame, capturedDefaults)
-                        : new PyFrame(pyCode, args, functionScopeChain, null, CurrentFrame, capturedDefaults);
-                    return ExecuteFrame(functionFrame);
-                };
-
-                if (closure != null && closure.Length > 0)
-                {
-                    // Create function with closure
-                    functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
-                    functionObject.GlobalsDict = globalsDict;  // CPython 3.12: func.__globals__
-                }
-                else
-                {
-                    // Create regular function without closure
-                    functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
-                    functionObject.GlobalsDict = globalsDict;  // CPython 3.12: func.__globals__
-                }
-
-                    // Set CPython 3.12 compatible function attributes
-                    if (defaults != null)
-                    {
-                        functionObject.SetAttribute("__defaults__", defaults);
-                    }
-                    if (kwDefaultsDict != null)
-                    {
-                        functionObject.SetAttribute("__kwdefaults__", kwDefaultsDict);
-                    }
-                    if (annotationsDict != null)
-                    {
-                        functionObject.SetAttribute("__annotations__", annotationsDict);
-                    }
-
-                    frame.ValueStack.Push(functionObject);
-                }
-            }
-            else
-            {
-                throw new InvalidOperationException($"MAKE_FUNCTION expected code object, got {codeObject?.GetType()}");
-            }
+            var function = new PyFunction(code.Name, null, null, null, closure, code);
+            function.GlobalsDict = frame.ScopeChain.GlobalScope?.Variables;
+            if (defaults != null)
+                function.SetAttribute("__defaults__", defaults);
+            if (kwdefaults != null)
+                function.SetAttribute("__kwdefaults__", kwdefaults);
+            if (annotations != null)
+                function.SetAttribute("__annotations__", annotations);
+            frame.ValueStack.Push(function);
         }
 
         private PyObject ExecuteInstruction(PyFrame frame, ByteCodeOp opcode, int argument)
@@ -2393,7 +2081,7 @@ namespace SharpPy
                     // CPython 3.12: Push NULL first if flag is set
                     if (pushNull)
                         frame.ValueStack.Push(PyNull.Instance);
-                    var globalValue = GlobalOrBuiltin(frame, globalName);
+                    var globalValue = LoadGlobal(frame, globalName);
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 LOAD_GLOBAL({globalName}): loaded {globalValue?.GetType().Name ?? "null"} value = {globalValue}");

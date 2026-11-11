@@ -1022,20 +1022,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// PyEval_GetBuiltins: the calling frame's f_builtins - its globals' __builtins__, the dict
-        /// of a module there - else the builtins module's dict.
+        /// PyEval_GetBuiltins: the calling frame's f_builtins (a function's func_builtins), as a dict.
         /// </summary>
-        internal static PyObject CurrentBuiltinsDict()
-        {
-            PyObject found = null;
-            PyVM.CurrentFrame?.Globals.TryGetValue("__builtins__", out found);
-            return found switch
-            {
-                PyDict dict => dict,
-                PyModule module => module.DictObject,
-                _ => PyBuiltinsModule.Instance.DictObject,
-            };
-        }
+        internal static PyObject CurrentBuiltinsDict() => PyFrame.BuiltinsDict(PyVM.CurrentFrame?.OwnBuiltins);
 
         private static PyObject CallCompile(PyObject[] args, PyDict kwargs = null)
         {
