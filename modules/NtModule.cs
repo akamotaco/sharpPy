@@ -131,6 +131,7 @@ namespace SharpPy.Modules
             module.ModuleDict["unsetenv"] = new PyBuiltinFunction("unsetenv", Unsetenv);
             module.ModuleDict["getpid"] = new PyBuiltinFunction("getpid", Getpid);
             module.ModuleDict["fspath"] = new PyBuiltinFunction("fspath", Fspath);
+            module.ModuleDict["_path_splitroot"] = PyArgs.MethO("nt", "_path_splitroot", args => PathSplitRoot(args[0]));
             module.ModuleDict["urandom"] = PyArgs.MethO("nt", "urandom", Urandom);
 
             // CPython 3.12: environ is a mapping
@@ -816,6 +817,40 @@ namespace SharpPy.Modules
         internal static PyObject FsPathObject(PyObject path) => Fspath(new[] { path });
 
         // fspath(path) -> str
+        /// <summary>
+        /// os__path_splitroot_impl (Windows): PathCchSkipRoot over the path with / as \, the root and
+        /// the rest cut from the path as given; a path with no root is ("", path).
+        /// </summary>
+        private static PyObject PathSplitRoot(PyObject value)
+        {
+            string path = PathOf(value, "_path_splitroot");
+            string buffer = path.Replace('/', '\\');
+            int end = SkipRoot(buffer);
+            if (end < 0)
+                return PyTuple.From(PyString.From(""), value);
+            if (end == 0)
+                return PyTuple.From(value, PyString.From(""));
+            return PyTuple.From(PyString.From(path.Substring(0, end)), PyString.From(path.Substring(end)));
+        }
+
+        // PathCchSkipRoot: past a drive and its separator, a drive, a root separator, or a UNC server and share; -1 without a root.
+        private static int SkipRoot(string path)
+        {
+            if (path.StartsWith("\\\\", StringComparison.Ordinal))
+            {
+                int server = path.IndexOf('\\', 2);
+                if (server < 0)
+                    return -1;
+                int share = path.IndexOf('\\', server + 1);
+                return share < 0 ? path.Length : share + 1;
+            }
+            if (path.Length >= 2 && path[1] == ':' && char.IsAsciiLetter(path[0]))
+                return path.Length >= 3 && path[2] == '\\' ? 3 : 2;
+            if (path.StartsWith('\\'))
+                return 1;
+            return -1;
+        }
+
         // CPython: posixmodule.c os_fspath_impl
         private static PyObject Fspath(PyObject[] args)
         {

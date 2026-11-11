@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -167,7 +168,8 @@ namespace SharpPy.Modules
             // PyThread_GetInfo
             module.ModuleDict["thread_info"] = new PyStructSequence(new PyStructSequenceType("sys", "thread_info", new[] { "name", "lock", "version" }),
                 new PyObject[] { PyString.From(windows ? "nt" : "pthread"), PyNone.Instance, PyNone.Instance });
-            module.ModuleDict["meta_path"] = new PyList(new PyObject[] { PyImportSystem.BuiltinFinder, PyImportSystem.PathFinder });
+            // init_importlib fills it: BuiltinImporter, FrozenImporter and PathFinder.
+            module.ModuleDict["meta_path"] = new PyList();
             module.ModuleDict["path_hooks"] = new PyList();
             module.ModuleDict["path_importer_cache"] = new PyDict();
             module.ModuleDict["hexversion"] = PyInt.From(HexVersion);
@@ -311,26 +313,10 @@ namespace SharpPy.Modules
             return module;
         }
 
-        private static PyTuple CreateBuiltinModuleNames()
-        {
-            // CPython 3.12: Names of C modules compiled into this interpreter
-            // SharpPy: Names of C# modules in _builtinModules
-            var names = new List<PyObject>
-            {
-                PyString.From("sys"),
-                PyString.From("builtins"),
-                PyString.From("math"),
-                PyString.From("time"),
-                PyString.From("itertools"),
-                PyString.From("_collections"),
-                PyString.From("_functools"),
-                PyString.From("_random"),
-                PyString.From("_heapq"),
-                PyString.From("_bisect"),
-                PyString.From(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "nt" : "posix"),
-            };
-            return PyTuple.From(names.ToArray());
-        }
+        // The modules the interpreter makes (PyImportSystem's table), sorted as Python/config.c's
+        // list is: what BuiltinImporter takes. nt or posix, the one of this platform.
+        private static PyTuple CreateBuiltinModuleNames() =>
+            PyTuple.From(PyImportSystem.BuiltinModuleNames().Select(name => (PyObject)PyString.From(name)).ToArray());
 
         private static PyObject CreateImplementation()
         {

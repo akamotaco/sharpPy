@@ -1,6 +1,17 @@
-"""What Lib/importlib/util.py offers on the native import system."""
+"""Utility code for constructing importers, etc. (Lib/importlib/util.py over SharpPy's machinery)."""
+from ._bootstrap import module_from_spec
+from ._bootstrap import _resolve_name
+from ._bootstrap import spec_from_loader
+from ._bootstrap import _find_spec
+from ._bootstrap_external import MAGIC_NUMBER
+from ._bootstrap_external import _RAW_MAGIC_NUMBER
+from ._bootstrap_external import cache_from_source
+from ._bootstrap_external import decode_source
+from ._bootstrap_external import source_from_cache
+from ._bootstrap_external import spec_from_file_location
+
+import _imp
 import sys
-from .machinery import ModuleSpec
 
 
 def resolve_name(name, package):
@@ -15,23 +26,52 @@ def resolve_name(name, package):
         if character != '.':
             break
         level += 1
-    bits = package.rsplit('.', level - 1)
-    if len(bits) < level:
-        raise ImportError('attempted relative import beyond top-level package')
-    base = bits[0]
-    return f'{base}.{name[level:]}' if name[level:] else base
+    return _resolve_name(name[level:], package, level)
 
 
-def cache_from_source(path, debug_override=None, *, optimization=None):
-    return path + 'c'
-
-
-def source_from_cache(path):
-    return path[:-1]
+def _find_spec_from_path(name, path=None):
+    """Return the spec for the specified module (Lib/importlib/util.py)."""
+    if name not in sys.modules:
+        return _find_spec(name, path)
+    else:
+        module = sys.modules[name]
+        if module is None:
+            return None
+        try:
+            spec = module.__spec__
+        except AttributeError:
+            raise ValueError(f'{name}.__spec__ is not set') from None
+        else:
+            if spec is None:
+                raise ValueError(f'{name}.__spec__ is None')
+            return spec
 
 
 def find_spec(name, package=None):
+    """Return the spec for the specified module (Lib/importlib/util.py)."""
     fullname = resolve_name(name, package) if name.startswith('.') else name
-    if fullname in sys.modules:
-        return getattr(sys.modules[fullname], '__spec__', None)
-    return None
+    if fullname not in sys.modules:
+        parent_name = fullname.rpartition('.')[0]
+        if parent_name:
+            parent = __import__(parent_name, fromlist=['__path__'])
+            try:
+                parent_path = parent.__path__
+            except AttributeError as e:
+                raise ModuleNotFoundError(
+                    f"__path__ attribute not found on {parent_name!r} "
+                    f"while trying to find {fullname!r}", name=fullname) from e
+        else:
+            parent_path = None
+        return _find_spec(fullname, parent_path)
+    else:
+        module = sys.modules[fullname]
+        if module is None:
+            return None
+        try:
+            spec = module.__spec__
+        except AttributeError:
+            raise ValueError(f'{name}.__spec__ is not set') from None
+        else:
+            if spec is None:
+                raise ValueError(f'{name}.__spec__ is None')
+            return spec

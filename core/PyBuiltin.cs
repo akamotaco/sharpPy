@@ -977,14 +977,11 @@ namespace SharpPy
                 locals = globals;
             }
 
-            // CPython 3.12: Add __builtins__ to globals if not present
+            // builtin_exec_impl / builtin_eval_impl: a globals without __builtins__ gets
+            // PyEval_GetBuiltins(), the builtins dict of the calling frame.
             var builtinsKey = PyString.From("__builtins__");
             if (!globals.Contains(builtinsKey).Value)
-            {
-                // Get builtins module
-                var builtinsModule = PyBuiltinsModule.Instance;
-                globals.SetItem(builtinsKey, builtinsModule);  // Use SetItem to update _keys
-            }
+                globals.SetItem(builtinsKey, CurrentBuiltinsDict());
 
             PyCodeObject codeObject;
 
@@ -1022,6 +1019,22 @@ namespace SharpPy
             if (namespaceLocals != null)
                 return vm.ExecuteWithNamespace(codeObject, PyVM.ScopeOver(globals), namespaceLocals);
             return vm.ExecuteModule(codeObject, PyVM.ScopeOver(globals));
+        }
+
+        /// <summary>
+        /// PyEval_GetBuiltins: the calling frame's f_builtins - its globals' __builtins__, the dict
+        /// of a module there - else the builtins module's dict.
+        /// </summary>
+        internal static PyObject CurrentBuiltinsDict()
+        {
+            PyObject found = null;
+            PyVM.CurrentFrame?.Globals.TryGetValue("__builtins__", out found);
+            return found switch
+            {
+                PyDict dict => dict,
+                PyModule module => module.DictObject,
+                _ => PyBuiltinsModule.Instance.DictObject,
+            };
         }
 
         private static PyObject CallCompile(PyObject[] args, PyDict kwargs = null)
@@ -1203,14 +1216,11 @@ namespace SharpPy
                 locals = globals;
             }
 
-            // CPython 3.12: Add __builtins__ to globals if not present
+            // builtin_exec_impl / builtin_eval_impl: a globals without __builtins__ gets
+            // PyEval_GetBuiltins(), the builtins dict of the calling frame.
             var builtinsKey = PyString.From("__builtins__");
             if (!globals.Contains(builtinsKey).Value)
-            {
-                // Get builtins module
-                var builtinsModule = PyBuiltinsModule.Instance;
-                globals.SetItem(builtinsKey, builtinsModule);  // Use SetItem to update _keys
-            }
+                globals.SetItem(builtinsKey, CurrentBuiltinsDict());
 
             PyCodeObject codeObject;
 

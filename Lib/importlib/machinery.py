@@ -1,9 +1,12 @@
-"""What Lib/importlib/machinery.py names, for the native import system."""
-SOURCE_SUFFIXES = ['.py']
-DEBUG_BYTECODE_SUFFIXES = ['.pyc']
-OPTIMIZED_BYTECODE_SUFFIXES = ['.pyc']
-BYTECODE_SUFFIXES = ['.pyc']
-EXTENSION_SUFFIXES = []
+"""The implementations of the import machinery: _frozen_importlib's, and the C# path finder and loaders."""
+from ._bootstrap import ModuleSpec
+from ._bootstrap import BuiltinImporter
+from ._bootstrap import FrozenImporter
+from ._bootstrap_external import (SOURCE_SUFFIXES, BYTECODE_SUFFIXES, EXTENSION_SUFFIXES,
+                                  PathFinder, SourceFileLoader, NamespaceLoader)
+
+DEBUG_BYTECODE_SUFFIXES = BYTECODE_SUFFIXES
+OPTIMIZED_BYTECODE_SUFFIXES = BYTECODE_SUFFIXES
 
 
 def all_suffixes():
@@ -11,32 +14,7 @@ def all_suffixes():
     return SOURCE_SUFFIXES + BYTECODE_SUFFIXES + EXTENSION_SUFFIXES
 
 
-class ModuleSpec:
-    def __init__(self, name, loader, *, origin=None, loader_state=None, is_package=None):
-        self.name = name
-        self.loader = loader
-        self.origin = origin
-        self.loader_state = loader_state
-        self.submodule_search_locations = [] if is_package else None
-
-
-class BuiltinImporter:
-    pass
-
-
-class FrozenImporter:
-    pass
-
-
-class PathFinder:
-    pass
-
-
 class FileFinder:
-    pass
-
-
-class SourceFileLoader:
     pass
 
 

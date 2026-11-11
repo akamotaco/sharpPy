@@ -10,87 +10,6 @@ namespace SharpPy
 {
     #region Module and Import System
 
-// PEP 420 네임스페이스 패키지 (PyModule을 상속받아 확장)
-public class PyNamespaceModule : PyModule
-{
-    public List<string> NamespaceDirs { get; }
-    
-    public PyNamespaceModule(string name, List<string> namespaceDirs) : base(name)
-    {
-        NamespaceDirs = new List<string>(namespaceDirs);
-
-        // __path__ 속성 설정 (PEP 420 요구사항)
-        // Performance: Eliminated LINQ - manual conversion instead of Select + ToArray
-        var pathList = new PyObject[namespaceDirs.Count];
-        for (int i = 0; i < namespaceDirs.Count; i++)
-        {
-            pathList[i] = PyString.From(namespaceDirs[i]);
-        }
-        ModuleDict["__path__"] = new PyList(pathList);
-
-        // 네임스페이스 패키지 표시
-        ModuleDict["__doc__"] = PyString.From($"Namespace package {Name}");
-    }
-    
-    /// <summary>
-    /// 네임스페이스 패키지 내에서 서브모듈 검색
-    /// </summary>
-    public PyModule FindSubmodule(string submoduleName)
-    {
-        foreach (var namespaceDir in NamespaceDirs)
-        {
-            // 서브모듈 파일 검색
-            var submoduleFile = IOHelper.CombinePath(namespaceDir, submoduleName + ".py");
-            if (IOHelper.FileExists(submoduleFile))
-            {
-                var fullName = $"{Name}.{submoduleName}";
-                return PyImportSystem.LoadModuleFromFile(fullName, submoduleFile);
-            }
-
-            // 서브패키지 검색
-            var subpackageDir = IOHelper.CombinePath(namespaceDir, submoduleName);
-            if (IOHelper.DirExists(subpackageDir))
-            {
-                var initFile = IOHelper.CombinePath(subpackageDir, "__init__.py");
-                var fullName = $"{Name}.{submoduleName}";
-
-                if (IOHelper.FileExists(initFile))
-                {
-                    // 일반 패키지
-                    return PyImportSystem.LoadModuleFromFile(fullName, initFile);
-                }
-                else
-                {
-                    // 중첩된 네임스페이스 패키지
-                    var nestedNamespaceDirs = new List<string> { subpackageDir };
-
-                    // 다른 네임스페이스 디렉토리에서도 동일한 서브패키지 검색
-                    // Performance: Eliminated LINQ - manual filtering instead of Where
-                    for (int i = 0; i < NamespaceDirs.Count; i++)
-                    {
-                        var otherDir = NamespaceDirs[i];
-                        if (otherDir == namespaceDir)
-                            continue;
-
-                        var otherSubpackageDir = IOHelper.CombinePath(otherDir, submoduleName);
-                        if (IOHelper.DirExists(otherSubpackageDir) &&
-                            !IOHelper.FileExists(IOHelper.CombinePath(otherSubpackageDir, "__init__.py")))
-                        {
-                            nestedNamespaceDirs.Add(otherSubpackageDir);
-                        }
-                    }
-
-                    return PyImportSystem.CreateNamespacePackage(fullName, nestedNamespaceDirs);
-                }
-            }
-        }
-        
-        return null;
-    }
-    
-    public override string ToString() => $"<module '{Name}' (namespace)>";
-}
-
 // Python 모듈 객체
 public class PyModule : PyObject
 {
@@ -317,7 +236,7 @@ public class PyModule : PyObject
 }
 
     // Python import 시스템
-    public class PyImportSystem
+    public partial class PyImportSystem
     {
         // CPython 3.12: Python/import.c:185 - PyDict_New()
         // sys.modules 캐시 - CPython과 동일하게 PyDict 사용
@@ -411,6 +330,7 @@ public class PyModule : PyObject
             ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
             ["_tokenize"] = () => SharpPy.Modules._TokenizeModule.Create(),
             ["_importlib_native"] = () => SharpPy.Modules.ImportlibModule.CreateImportlibModule(),
+            ["_imp"] = SharpPy.Modules.ImpModule.Create,
             // The C functions Lib/_typing.py stands in front of (Objects/typevarobject.c, unionobject.c).
             ["_typing_native"] = () =>
             {
@@ -445,6 +365,20 @@ public class PyModule : PyObject
         /// Implements: __import__(name, globals, locals, fromlist, level)
         /// </summary>
         public static PyModule Import(string moduleName, int level = 0, string[] fromlist = null, IDictionary<string, PyObject> globals = null)
+        {
+            // PyImport_ImportModuleLevelObject: a failed import loses importlib's frames.
+            try
+            {
+                return ImportLevel(moduleName, level, fromlist, globals);
+            }
+            catch (PythonException error) when (error.PyException is PyBaseException exception)
+            {
+                RemoveImportlibFrames(exception);
+                throw;
+            }
+        }
+
+        private static PyModule ImportLevel(string moduleName, int level, string[] fromlist, IDictionary<string, PyObject> globals)
         {
             // CPython 3.12: level parameter for relative imports
             // level=0: absolute import (default)
@@ -490,6 +424,9 @@ public class PyModule : PyObject
             return module;
         }
 
+        // _ERR_MSG of Lib/importlib/_bootstrap.py: the name by its repr.
+        private static string Repr(string name) => PyString.From(name).ToRepr().Value;
+
         public static PyModule Import(string moduleName)
         {
             // CPython 3.12: Python/import.c:1673 - Check sys.modules cache first
@@ -507,93 +444,8 @@ public class PyModule : PyObject
                 return ImportDottedModule(moduleName);
             }
 
-            return FindAndLoad(moduleName, () => LoadBuiltin(moduleName), () => SearchModuleInPath(moduleName), PyNone.Instance)
-                ?? throw PyModuleNotFoundError.Create($"No module named '{moduleName}'", moduleName);
-        }
-
-        private static PyModule LoadBuiltin(string moduleName)
-        {
-            if (!_builtinModules.TryGetValue(moduleName, out Func<PyModule> moduleFactory))
-                return null;
-            var module = moduleFactory();
-            PyDocs.SetTypeDocs();
-            foreach (var value in module.ModuleDict.Values)
-                if (value is PyBuiltinFunction function)
-                    function.OwnerModule = moduleName;
-            SetModule(moduleName, module);
-            return module;
-        }
-
-        /// <summary>The finders CPython has on sys.meta_path. The two searches are the C# ones here.</summary>
-        internal sealed class NativeFinder : PyObject
-        {
-            private readonly PyType _type;
-
-            internal NativeFinder(string name)
-            {
-                _type = new PyType(name, new[] { PyType.ObjectType }, "_frozen_importlib");
-                _type.TypeDict["find_spec"] = new PyMethodDescriptor("find_spec", _type, (self, args, kwargs) => PyNone.Instance, acceptsKwargs: true);
-            }
-
-            public override PyType GetPyType() => _type;
-        }
-
-        internal static readonly NativeFinder BuiltinFinder = new("BuiltinImporter");
-        internal static readonly NativeFinder PathFinder = new("PathFinder");
-
-        // _find_spec and _load_unlocked (Lib/importlib/_bootstrap.py): each finder of sys.meta_path in turn.
-        private static PyModule FindAndLoad(string name, Func<PyModule> builtin, Func<PyModule> path, PyObject searchPath)
-        {
-            PyObject[] finders = { BuiltinFinder, PathFinder };
-            if (TryGetModule("sys", out var sys) && sys.ModuleDict.TryGetValue("meta_path", out var list) && list is PyList paths)
-                finders = paths.AsTuple().Items;
-            foreach (var finder in finders)
-            {
-                var found = ReferenceEquals(finder, BuiltinFinder) ? builtin()
-                    : ReferenceEquals(finder, PathFinder) ? path()
-                    : LoadThrough(finder, name, searchPath);
-                if (found != null)
-                    return found;
-            }
-            return null;
-        }
-
-        private static PyModule LoadThrough(PyObject finder, string name, PyObject searchPath)
-        {
-            var findSpec = finder.LookupAttribute("find_spec");
-            if (findSpec == null)
-                return null;
-            var spec = findSpec.Call(new[] { PyString.From(name), searchPath, PyNone.Instance }, null);
-            if (spec is PyNone)
-                return null;
-            // module_from_spec
-            var loader = spec.GetAttribute("loader");
-            var created = loader.LookupAttribute("create_module")?.Call(new[] { spec }, null);
-            var module = created == null || created is PyNone ? new PyModule(name) : (PyModule)created;
-            module.ModuleDict["__spec__"] = spec;
-            module.ModuleDict["__loader__"] = loader;
-            int dot = name.LastIndexOf('.');
-            module.ModuleDict["__package__"] = PyString.From(dot < 0 ? "" : name.Substring(0, dot));
-            var locations = spec.LookupAttribute("submodule_search_locations");
-            if (locations != null && locations is not PyNone)
-            {
-                module.ModuleDict["__path__"] = locations;
-                module.ModuleDict["__package__"] = PyString.From(name);
-            }
-            var origin = spec.LookupAttribute("origin");
-            if (origin != null && origin is not PyNone && spec.LookupAttribute("has_location")?.IsTrue() == true)
-                module.ModuleDict["__file__"] = origin;
-            SetModule(name, module);
-            try
-            {
-                loader.GetAttribute("exec_module").Call(new PyObject[] { module }, null);
-            }
-            catch
-            {
-                RemoveModule(name);
-                throw;
-            }
-            return TryGetModule(name, out var loaded) ? loaded : module;
+            return FindAndLoad(moduleName, PyNone.Instance, null)
+                ?? throw PyModuleNotFoundError.Create($"No module named {Repr(moduleName)}", moduleName);
         }
 
         /// <summary>
@@ -620,22 +472,19 @@ public class PyModule : PyObject
                 // 서브모듈 검색
                 PyModule subModule;
                 if (i == 0)
-                {
-                    // 최상위 패키지
-                    string top = part;
-                    subModule = FindAndLoad(top, () => LoadBuiltin(top), () => SearchModuleInPath(top), PyNone.Instance);
-                }
+                    subModule = FindAndLoad(part, PyNone.Instance, null);
                 else
                 {
-                    // 서브모듈 - 부모 패키지 내에서 검색
-                    var (parent, name, full) = (currentModule, part, currentPath);
-                    subModule = FindAndLoad(full, () => null, () => SearchSubmodule(parent, name, full),
-                        parent.ModuleDict.TryGetValue("__path__", out var searchPath) ? searchPath : PyNone.Instance);
+                    // _find_and_load_unlocked: the parent's __path__, which a plain module lacks.
+                    if (!currentModule.ModuleDict.TryGetValue("__path__", out var searchPath))
+                        throw PyModuleNotFoundError.Create(
+                            $"No module named {Repr(currentPath)}; {Repr(currentPath.Substring(0, currentPath.LastIndexOf('.')))} is not a package", currentPath);
+                    subModule = FindAndLoad(currentPath, searchPath, currentModule);
                 }
                 
                 if (subModule == null)
                 {
-                    throw PyModuleNotFoundError.Create($"No module named '{currentPath}'", currentPath);
+                    throw PyModuleNotFoundError.Create($"No module named {Repr(currentPath)}", currentPath);
                 }
                 
                 // CPython 3.12: Register in sys.modules
@@ -653,109 +502,6 @@ public class PyModule : PyObject
             return currentModule;
         }
         
-        /// <summary>
-        /// 부모 패키지 내에서 서브모듈 검색
-        /// </summary>
-        private static PyModule SearchSubmodule(PyModule parentModule, string submoduleName, string fullName)
-        {
-            if (parentModule == null) return null;
-
-            if (parentModule.Bundle != null)
-                return parentModule.Bundle.Contains(fullName) ? LoadModuleFromBundle(parentModule.Bundle, fullName) : null;
-
-            // 네임스페이스 패키지인 경우 특별 처리
-            if (parentModule is PyNamespaceModule namespacePackage)
-            {
-                return namespacePackage.FindSubmodule(submoduleName);
-            }
-            
-            // 일반 패키지의 경우 기존 로직
-            var parentDir = IOHelper.GetDirectoryName(parentModule.FileName);
-            if (string.IsNullOrEmpty(parentDir)) return null;
-
-            // 서브모듈 파일 검색
-            var submoduleFile = IOHelper.CombinePath(parentDir, submoduleName + ".py");
-            if (IOHelper.FileExists(submoduleFile))
-            {
-                return LoadModuleFromFile(fullName, submoduleFile);
-            }
-
-            // 서브패키지 검색
-            var subpackageDir = IOHelper.CombinePath(parentDir, submoduleName);
-            var subpackageInit = IOHelper.CombinePath(subpackageDir, "__init__.py");
-            if (IOHelper.DirExists(subpackageDir) && IOHelper.FileExists(subpackageInit))
-            {
-                // CPython 3.12: Pass package directory to LoadModuleFromFile
-                // __path__ will be set BEFORE executing the module code
-                var module = LoadModuleFromFile(fullName, subpackageInit, subpackageDir);
-                return module;
-            }
-
-            // PEP 420: 네임스페이스 서브패키지 검색 (__init__.py 없는 디렉토리)
-            if (IOHelper.DirExists(subpackageDir) && !IOHelper.FileExists(subpackageInit))
-            {
-                var namespaceDirs = new List<string> { subpackageDir };
-                return CreateNamespacePackage(fullName, namespaceDirs);
-            }
-            
-            return null;
-        }
-
-        // sys.path에서 모듈 검색
-        private static PyModule SearchModuleInPath(string moduleName)
-        {
-            var sysPath = GetSysPath();
-            if (sysPath == null) return null;
-
-            List<string> namespaceDirs = new List<string>(); // PEP 420 네임스페이스 패키지용
-
-            foreach (var pathObj in sysPath.Items)
-            {
-                if (!(pathObj is PyString pathStr)) continue;
-                var searchPath = pathStr.Value;
-
-                if (PyBundle.IsBundlePath(searchPath))
-                {
-                    var bundle = PyBundle.Open(searchPath);
-                    if (bundle != null && bundle.Contains(moduleName))
-                        return LoadModuleFromBundle(bundle, moduleName);
-                    continue;
-                }
-
-                // .py 파일 검색
-                var pyFile = IOHelper.CombinePath(searchPath, moduleName + ".py");
-                if (IOHelper.FileExists(pyFile))
-                {
-                    return LoadModuleFromFile(moduleName, pyFile);
-                }
-
-                // 패키지 디렉토리 검색 (moduleName/__init__.py)
-                var packageDir = IOHelper.CombinePath(searchPath, moduleName);
-                var initFile = IOHelper.CombinePath(packageDir, "__init__.py");
-                if (IOHelper.DirExists(packageDir) && IOHelper.FileExists(initFile))
-                {
-                    // CPython 3.12: Pass package directory to LoadModuleFromFile
-                    // __path__ will be set BEFORE executing the module code
-                    var module = LoadModuleFromFile(moduleName, initFile, packageDir);
-                    return module;
-                }
-
-                // PEP 420: 네임스페이스 패키지 검색 (__init__.py 없는 디렉토리)
-                if (IOHelper.DirExists(packageDir) && !IOHelper.FileExists(initFile))
-                {
-                    namespaceDirs.Add(packageDir);
-                }
-            }
-
-            // PEP 420 네임스페이스 패키지 생성
-            if (namespaceDirs.Count > 0)
-            {
-                return CreateNamespacePackage(moduleName, namespaceDirs);
-            }
-
-            return null;
-        }
-
         // sys.path 가져오기
         private static PyList GetSysPath()
         {
@@ -775,92 +521,6 @@ public class PyModule : PyObject
         // 기본 sys.path 생성 (CPython 호환 구조)
         private static PyList CreateDefaultSysPath() =>
             SharpPy.Modules.SysModule.CreateSysPath();
-
-        // 파일에서 모듈 로드
-        // zipimporter.load_module: the paths lie inside the archive.
-        private static PyModule LoadModuleFromBundle(PyBundle bundle, string moduleName)
-        {
-            string relative = moduleName.Replace('.', '/');
-            bool isPackage = bundle.IsPackage(moduleName);
-            var module = new PyModule(moduleName, $"{bundle.Path}/{relative}{(isPackage ? "/__init__.py" : ".py")}");
-            module.HasSourceFile = true;
-            module.Bundle = bundle;
-            if (isPackage)
-                module.ModuleDict["__path__"] = new PyList(new[] { PyString.From($"{bundle.Path}/{relative}") });
-            SetModule(moduleName, module);
-            try
-            {
-                module.ExecuteCode(bundle.Code(moduleName));
-                return module;
-            }
-            catch (System.Exception)
-            {
-                RemoveModule(moduleName);
-                throw;
-            }
-        }
-
-        public static PyModule LoadModuleFromFile(string moduleName, string filePath, string packageDir = null)
-        {
-            try
-            {
-                var cached = PyBytecodeCache.TryLoad(filePath);
-                var sourceCode = cached == null ? Generated.Tokenizer.DecodeFile(IOHelper.ReadAllBytes(filePath), filePath) : null;
-                var module = new PyModule(moduleName, filePath);
-                module.HasSourceFile = true;
-
-                // CPython 3.12: Set __path__ BEFORE executing module code (if it's a package)
-                // importlib/_bootstrap.py:782-788 - Sets module.__path__ in _init_module_attrs
-                // This must happen before exec_module() so that the module code can see __path__
-                if (packageDir != null)
-                {
-                    module.ModuleDict["__path__"] = new PyList(new[] { PyString.From(packageDir) });
-                }
-
-                // CPython 3.12: Register in sys.modules (prevents circular import)
-                SetModule(moduleName, module);
-
-                // SourceLoader.get_code: the cache, or the source compiled and then cached.
-                var code = cached ?? Compiler.CompileSource(sourceCode, filePath);
-                if (cached == null)
-                    PyBytecodeCache.Store(filePath, code);
-                module.ExecuteCode(code);
-
-#if DEBUG_MODULE_LOG
-                Console.WriteLine($"📦 모듈 '{moduleName}' 파일에서 로드됨: {filePath}");
-#endif
-                return module;
-            }
-            catch (PySyntaxErrorException syntax)
-            {
-                // An import is Python code calling: its SyntaxError can be caught there.
-                RemoveModule(moduleName);
-                throw PySyntaxError.Create(syntax.Message.Replace("SyntaxError: ", ""), filePath, Math.Max(syntax.LineNumber, 0));
-            }
-            catch (System.Exception)
-            {
-                // _load_unlocked: gone from sys.modules, and the exception stays what it was.
-                RemoveModule(moduleName);
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// PEP 420 네임스페이스 패키지 생성
-        /// </summary>
-        public static PyModule CreateNamespacePackage(string moduleName, List<string> namespaceDirs)
-        {
-            var namespaceModule = new PyNamespaceModule(moduleName, namespaceDirs);
-
-            // CPython 3.12: Register namespace package in sys.modules
-            SetModule(moduleName, namespaceModule);
-
-#if DEBUG_MODULE_LOG
-            Console.WriteLine($"📂 네임스페이스 패키지 '{moduleName}' 생성됨: [{string.Join(", ", namespaceDirs)}]");
-#endif
-            return namespaceModule;
-        }
-
 
         /// <summary>
         /// <summary>

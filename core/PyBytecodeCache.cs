@@ -25,6 +25,9 @@ namespace SharpPy
             return Path.Combine(directory, "__pycache__", $"{name}.{Tag}.pyc");
         }
 
+        /// <summary>cache_from_source for ModuleSpec.cached: none for a Godot asset path.</summary>
+        internal static string CachePathFor(string source) => Godot_IO_Path(source) ? null : PathFor(source);
+
         private static bool Applies(string source) =>
             !Godot_IO_Path(source) && source.EndsWith(".py", StringComparison.Ordinal) && File.Exists(source);
 
