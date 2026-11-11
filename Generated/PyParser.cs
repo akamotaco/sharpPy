@@ -13096,72 +13096,80 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedExpr? Parse_ExpressionWithoutInvalid()
         {
-            int _mark = Mark();
-
-            #if DEBUG_PARSE_LOG
-            Console.WriteLine($"[RULE] expression_without_invalid at pos={_position}");
-            #endif
-
-            Reset(_mark);
+            // c_generator.py visit_Rule: a rule named *without_invalid runs with call_invalid_rules
+            // cleared and restores it on every way out.
+            bool _prevCallInvalid = _callInvalidRules;
+            _callInvalidRules = false;
+            try
             {
-                CaptureStart();
+                int _mark = Mark();
+
                 #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[EXPRESSION_WITHOUT_INVALID] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                Console.WriteLine($"[RULE] expression_without_invalid at pos={_position}");
                 #endif
 
-                GeneratedExpr? a = null;
-                GeneratedExpr? b = null;
-                GeneratedExpr? c = null;
-
-                if (
-                    (a = Parse_Disjunction()) != null &&
-                    ExpectToken((PyToken.Type)513) != null &&
-                    (b = Parse_Disjunction()) != null &&
-                    ExpectToken((PyToken.Type)521) != null &&
-                    (c = Parse_Expression()) != null
-                )
+                Reset(_mark);
                 {
-                    CaptureAction(_mark); // Action code from grammar
-                    return PyAst . IfExp ( b , a , c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    CaptureStart();
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[EXPRESSION_WITHOUT_INVALID] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                    #endif
+
+                    GeneratedExpr? a = null;
+                    GeneratedExpr? b = null;
+                    GeneratedExpr? c = null;
+
+                    if (
+                        (a = Parse_Disjunction()) != null &&
+                        ExpectToken((PyToken.Type)513) != null &&
+                        (b = Parse_Disjunction()) != null &&
+                        ExpectToken((PyToken.Type)521) != null &&
+                        (c = Parse_Expression()) != null
+                    )
+                    {
+                        CaptureAction(_mark); // Action code from grammar
+                        return PyAst . IfExp ( b , a , c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    }
                 }
-            }
 
-            // Alternative 2
-            Reset(_mark);
-            {
-                CaptureStart();
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[EXPRESSION_WITHOUT_INVALID] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
-                #endif
-
-                GeneratedExpr? _alt_var = null;
-
-                if ((_alt_var = Parse_Disjunction()) != null)
+                // Alternative 2
+                Reset(_mark);
                 {
-                    // Default action: return single unnamed item
-                    return _alt_var;
+                    CaptureStart();
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[EXPRESSION_WITHOUT_INVALID] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                    #endif
+
+                    GeneratedExpr? _alt_var = null;
+
+                    if ((_alt_var = Parse_Disjunction()) != null)
+                    {
+                        // Default action: return single unnamed item
+                        return _alt_var;
+                    }
                 }
-            }
 
-            // Alternative 3
-            Reset(_mark);
-            {
-                CaptureStart();
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[EXPRESSION_WITHOUT_INVALID] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
-                #endif
-
-                GeneratedExpr? _alt_var = null;
-
-                if ((_alt_var = Parse_Lambdef()) != null)
+                // Alternative 3
+                Reset(_mark);
                 {
-                    // Default action: return single unnamed item
-                    return _alt_var;
-                }
-            }
+                    CaptureStart();
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[EXPRESSION_WITHOUT_INVALID] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                    #endif
 
-            Reset(_mark);
-            return null;
+                    GeneratedExpr? _alt_var = null;
+
+                    if ((_alt_var = Parse_Lambdef()) != null)
+                    {
+                        // Default action: return single unnamed item
+                        return _alt_var;
+                    }
+                }
+
+                Reset(_mark);
+                return null;
+            }
+            finally { _callInvalidRules = _prevCallInvalid; }
         }
 
         /// <summary>

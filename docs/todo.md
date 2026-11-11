@@ -61,6 +61,7 @@
 - 2-1. `type_comments`와 `compile(..., "func_type")`: 토크나이저와 파서가 `TYPE_COMMENT`, `TYPE_IGNORE`를 내지 않는다.
 - 2-2. 원본이 UTF-8이 아닌 바이트 소스의 끝 열: 깨진 바이트를 U+DC80~DCFF로 들고 있어 폭이 1바이트 어긋난다.
 - 2-3. test_string_literals는 `os.open`이 없어 먼저 막힌다.
+- 2-4. 생성된 파서가 생성기보다 앞서 있다. `SharpPy.PegGenerator`로 `Grammar/python_cs.gram`을 다시 생성하면 `Generated/PyParser.cs`와 `AstTypes.cs`가 체크인된 것과 달라진다(`invalid_arguments`의 도우미 호출, `GeneratedPass` 등의 private 생성자). 다시 생성한 파서는 SyntaxError 위치를 잃는다(2026-11-11 측정). 그래서 지금은 생성된 파일을 직접 고친다(`expression_without_invalid`의 `call_invalid_rules`는 생성기와 생성된 파일 둘 다 고쳤다). 경로: 손으로 고친 차이를 생성기·문법으로 옮겨 생성기 하나가 원본이 되게 한다. 빌드의 생성 단계(`dotnet run`)는 이 환경의 SDK에서 AppHost 오류로 실패해 생성기 DLL을 직접 실행해야 한다.
 
 ## 3. 타입과 디스크립터
 
@@ -82,8 +83,7 @@
 
 ## 4. 이터레이터와 제너레이터
 
-- 4-1. 이터레이터의 `__reduce__`, `__setstate__`, `__length_hint__`는 끝났다. `list()`, `tuple()`이 길이 힌트를 호출하는지는 대조가 남았다.
-- 4-3. 제너레이터와 코루틴: test_generators 22/39, test_coroutines 70/89. `cr_frame` 등.
+- 4-3. 제너레이터와 코루틴: test_generators 37/41, test_coroutines 91/92(CPython과 같은 드라이버, 2026-11-11). 남은 차이는 참조 계수의 즉시 종결(`del g` 순간의 `__del__`·unraisable·"never awaited" 경고, 5-6b)과 `_testcapi`뿐이다.
 
 ## 5. 모듈 표면
 

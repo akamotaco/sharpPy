@@ -308,6 +308,18 @@ public class ParserGenerator
         if (rule.Name.StartsWith("invalid_"))
             WriteLine("if (!_callInvalidRules) return null;");
 
+        // c_generator.py visit_Rule: a rule named *without_invalid runs with call_invalid_rules
+        // cleared and restores it on every way out.
+        bool withoutInvalid = rule.Name.EndsWith("without_invalid");
+        if (withoutInvalid)
+        {
+            WriteLine("bool _prevCallInvalid = _callInvalidRules;");
+            WriteLine("_callInvalidRules = false;");
+            WriteLine("try");
+            WriteLine("{");
+            _indentLevel++;
+        }
+
         if (isLeftRecursive && isLeader)
         {
             // Only leaders get the TryLeftRecursive wrapper with growth loop
@@ -354,6 +366,13 @@ public class ParserGenerator
             WriteLine();
             WriteLine("Reset(_mark);");
             WriteLine("return null;");
+        }
+
+        if (withoutInvalid)
+        {
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("finally { _callInvalidRules = _prevCallInvalid; }");
         }
 
         _indentLevel--;
