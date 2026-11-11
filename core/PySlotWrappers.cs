@@ -91,6 +91,21 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// add_operators for a static type of a C module, when type_ready (PyDocs.SetTypeDocs)
+        /// readies it: the wrappers core/SlotTable.g.cs lists for "<module>.<name>", and None for
+        /// a slot CPython sets to PyObject_HashNotImplemented.
+        /// </summary>
+        internal static void AddModuleType(PyType type)
+        {
+            if (type.Module is not { Length: > 0 } module || module == "builtins" || !ModuleSlots.TryGetValue(module + "." + type.Name, out var names))
+                return;
+            Add(type, names);
+            foreach (var entry in names.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                if (entry.StartsWith('-') && !type.TypeDict.ContainsKey(entry[1..]))
+                    type.TypeDict[entry[1..]] = PyNone.Instance;
+        }
+
         private static void Add(PyType type, string names)
         {
             var listed = names.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -119,6 +134,7 @@ namespace SharpPy
             "__bool__", "__neg__", "__pos__", "__invert__", "__abs__",
             "__add__", "__sub__", "__mul__", "__mod__", "__divmod__", "__pow__", "__lshift__", "__rshift__",
             "__and__", "__xor__", "__or__", "__floordiv__", "__truediv__",
+            "__getattribute__", "__setattr__", "__delattr__",
         };
 
         private static PyObject.CompareOp Comparison(string name) => name switch
@@ -209,6 +225,20 @@ namespace SharpPy
                 case "__xor__": return value.BitwiseXor(args[0]);
                 case "__or__": return value.BitwiseOr(args[0]);
                 case "__floordiv__": return value.FloorDivide(args[0]);
+                // wrap_binaryfunc over tp_getattro, wrap_setattr and wrap_delattr (hackcheck first).
+                case "__getattribute__":
+                    PyObject.AttributeName(args[0]);
+                    return value.TpGetattro(((PyString)args[0]).Value);
+                case "__setattr__":
+                    PyType.Hackcheck(value, "__setattr__");
+                    PyObject.AttributeName(args[0]);
+                    value.TpSetattro(((PyString)args[0]).Value, args[1]);
+                    return PyNone.Instance;
+                case "__delattr__":
+                    PyType.Hackcheck(value, "__delattr__");
+                    PyObject.AttributeName(args[0]);
+                    value.TpDelattro(((PyString)args[0]).Value);
+                    return PyNone.Instance;
                 default: return value.Divide(args[0]);
             }
         }

@@ -1666,7 +1666,7 @@ namespace SharpPy
         }
 
         // hackcheck: object's slot may not jump over type_setattro.
-        private static void Hackcheck(PyObject self, string what)
+        internal static void Hackcheck(PyObject self, string what)
         {
             if (self is PyType)
                 throw PyTypeError.Create($"can't apply this {what} to {self.GetPyType().Name} object");

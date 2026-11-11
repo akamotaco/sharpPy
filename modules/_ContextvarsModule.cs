@@ -190,6 +190,10 @@ namespace SharpPy.Modules
             public override PyType GetPyType() => ContextVarType;
             public override string ToString() => $"<ContextVar name='{_name.Value}'>";
 
+            // contextvar_tp_repr
+            protected internal override PyString Repr() => PyString.From("<ContextVar name=" + _name.ToRepr().Value
+                + (Default != null ? " default=" + Default.ToRepr().Value : "") + " at " + PyObjectId.Pointer(this) + ">");
+
             internal PyString Name => _name;
         }
 
@@ -208,6 +212,10 @@ namespace SharpPy.Modules
             }
 
             public override PyType GetPyType() => TokenType;
+
+            // token_tp_repr
+            protected internal override PyString Repr() => PyString.From("<Token" + (Used ? " used" : "") + " var="
+                + Variable.ToRepr().Value + " at " + PyObjectId.Pointer(this) + ">");
 
         }
     }

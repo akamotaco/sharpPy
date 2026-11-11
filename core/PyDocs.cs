@@ -138,6 +138,7 @@ namespace SharpPy
                 {
                     if (!_readied.Add(type))
                         goto next;
+                    PySlotWrappers.AddModuleType(type);
                     if (TypeKey(type) is { } key && Lookup(key) is { } doc
                         && (!type.TypeDict.TryGetValue("__doc__", out var stored) || stored is PyNone))
                         type.TypeDict["__doc__"] = DocFromInternal(type.Name, doc);
