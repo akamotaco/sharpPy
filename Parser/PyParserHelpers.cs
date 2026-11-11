@@ -2009,55 +2009,10 @@ namespace SharpPy.Generated
     /// </summary>
     public static class ASTHelpers
     {
-        public static string ExtractStringValue(GeneratedExpr expr)
-        {
-            if (expr is GeneratedName name)
-            {
-                return name.Id;
-            }
-            throw new InvalidOperationException("Expected Name expression");
-        }
 
-        public static GeneratedOperator ExtractOpKind(GeneratedAstNode op)
-        {
-            // Extract operator kind from AST node
-            if (op is GeneratedOperator opNode) return opNode;
-            // TODO: Implement more comprehensive operator extraction
-            return GeneratedAdd.Instance;
-        }
 
-        public static GeneratedExprSeq ExtractCallArgs(GeneratedExpr call)
-        {
-            if (call is GeneratedCall callExpr)
-            {
-                return callExpr.Args;
-            }
-            return GeneratedExprSeq.Empty;
-        }
 
-        public static GeneratedKeywordSeq ExtractCallKeywords(GeneratedExpr call)
-        {
-            if (call is GeneratedCall callExpr)
-            {
-                return callExpr.Keywords;
-            }
-            return GeneratedKeywordSeq.Empty;
-        }
 
-        // CPython: AddTypeCommentToArg
-        // action_helpers.c: Add type comment to argument (Python 2 legacy)
-        public static GeneratedArg AddTypeCommentToArg(GeneratedArg arg, GeneratedTokenInfo tc)
-        {
-            // If no type comment, return arg as-is
-            if (tc == null)
-            {
-                return arg;
-            }
-            // Type comments are Python 2 legacy feature
-            // CPython 3.12 parses them but mostly ignores them
-            // For now, we return the arg unchanged
-            return arg;
-        }
 
         // ============================================================
         // Sequence Helper Functions
@@ -2220,43 +2175,4 @@ namespace SharpPy.Generated
         }
 
     }
-
-    // ============================================================
-    // PyAst - C# Style AST Factory Functions
-    // ============================================================
-    // Duplicate PyAst wrapper class removed - now using partial class PyAst directly
-    // ============================================================
-    /// Usage in python_cs.gram: PyParserHelpers.MakeModule(a) instead of MakeModule(a)
-    /// </summary>
-
-    // ============================================================
-    // Extension Methods for GeneratedTokenInfo
-    // ============================================================
-
-    /// <summary>
-    /// Extension methods for GeneratedTokenInfo (CPython pattern)
-    /// Used in grammar action code for null-safe access
-    /// </summary>
-    public static class GeneratedTokenInfoExtensions
-    {
-        /// <summary>
-        /// Get token value (name) - null-safe
-        /// CPython: token->value or NULL
-        /// </summary>
-        public static string? GetNameValue(this GeneratedTokenInfo? token)
-        {
-            return token?.Value;
-        }
-
-        /// <summary>
-        /// Get type comment value - null-safe
-        /// CPython: token != NULL ? token->value : NULL
-        /// Used for TYPE_COMMENT optional tokens
-        /// </summary>
-        public static string? GetCommentValue(this GeneratedTokenInfo? token)
-        {
-            return token?.Value;
-        }
-    }
-
 }
