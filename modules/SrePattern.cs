@@ -379,7 +379,7 @@ namespace SharpPy.Modules
                     return new PyMappingProxy(names);
                 }
             }
-            return base.TpGetattro(name);
+            return base.TpGetattro(PyString.From(name));
         }
 
         // pattern_repr.
@@ -535,7 +535,7 @@ namespace SharpPy.Modules
                     return PyTuple.From(spans);
                 }
             }
-            return base.TpGetattro(name);
+            return base.TpGetattro(PyString.From(name));
         }
 
         // match_repr: at most fifty characters of repr.

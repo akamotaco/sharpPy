@@ -775,7 +775,8 @@ namespace SharpPy
         {
 
             var obj = args[0];
-            var name = AttributeNameOf(args[1]);
+            AttributeNameOf(args[1]);
+            var name = (PyString)args[1];
 
             // CPython's builtin_hasattr is _PyObject_LookupAttr plus "if the error was AttributeError,
             // clear it and answer False". LookupAttribute is that primitive: a user __getattr__ that
@@ -787,8 +788,10 @@ namespace SharpPy
         {
             // Measured: getattr's arity texts use "at least" / "at most", unlike hasattr's plain form.
 
+            // builtin_getattr: PyObject_GetAttr / _PyObject_LookupAttr with the name object itself.
             var obj = args[0];
-            var name = AttributeNameOf(args[1]);
+            AttributeNameOf(args[1]);
+            var name = (PyString)args[1];
             var defaultValue = args.Length > 2 ? args[2] : null;
 
             if (defaultValue == null)
@@ -2226,11 +2229,11 @@ namespace SharpPy
         // super_getattro (Objects/typeobject.c): __class__ is the super object's own; every other
         // name goes through do_super_lookup.
         internal override bool TpGetattroIsGeneric => false;
-        protected internal override PyObject TpGetattro(string name)
+        protected internal override PyObject TpGetattro(PyString name)
         {
-            if (name == "__class__")
+            if (name.Value == "__class__")
                 return base.TpGetattro(name);
-            return DoSuperLookup(name);
+            return DoSuperLookup(name.Value);
         }
 
         // super_members
@@ -2262,7 +2265,7 @@ namespace SharpPy
                     return descriptor.Get(ReferenceEquals(Object, ObjectType) ? null : Object, ObjectType);
                 }
             }
-            return base.TpGetattro(name);
+            return base.TpGetattro(PyString.From(name));
         }
 
         // _super_lookup_descr: each base's own dict, starting after __thisclass__ in obj_type's MRO.

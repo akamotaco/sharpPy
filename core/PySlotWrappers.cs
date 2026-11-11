@@ -228,7 +228,13 @@ namespace SharpPy
                 // wrap_binaryfunc over tp_getattro, wrap_setattr and wrap_delattr (hackcheck first).
                 case "__getattribute__":
                     PyObject.AttributeName(args[0]);
-                    return value.TpGetattro(((PyString)args[0]).Value);
+                    // tp_getattro by the name object; PyObject_GenericGetAttr names its AttributeError.
+                    try { return value.TpGetattro((PyString)args[0]); }
+                    catch (PythonException error) when (value.TpGetattroIsGeneric && error.PyException is PyAttributeError missing)
+                    {
+                        missing.SetContextIfUnset((PyString)args[0], value);
+                        throw;
+                    }
                 case "__setattr__":
                     PyType.Hackcheck(value, "__setattr__");
                     PyObject.AttributeName(args[0]);

@@ -222,8 +222,8 @@ public interface IDescriptor
         // tp_descr_set exists whether or not a setter was given.
         public bool IsDataDescriptor() => true;
 
-        public override PyObject LookupAttribute(string name) =>
-            name == "__set_name__" ? GetAttribute(name) : base.LookupAttribute(name);
+        public override PyObject LookupAttribute(PyString name) =>
+            name.Value == "__set_name__" ? GetAttribute(name) : base.LookupAttribute(name);
 
 
         public override PyType GetPyType() => _customType ?? PyType.PropertyType;

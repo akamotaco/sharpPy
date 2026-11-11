@@ -97,10 +97,11 @@ public class PyModule : PyObject
 
     // module_getattro; a module subclass's __getattribute__ and __getattr__ are its type's slot.
     internal override bool TpGetattroIsGeneric => false;
-    protected internal override PyObject TpGetattro(string name) => ModuleGetAttro(name);
+    protected internal override PyObject TpGetattro(PyString name) => ModuleGetAttro(name);
 
-    internal PyObject ModuleGetAttro(string name)
+    internal PyObject ModuleGetAttro(PyString nameObject)
     {
+        string name = nameObject.Value;
         // CPython 3.12: Objects/moduleobject.c:783 - _Py_module_getattro_impl. __dict__ and
         // __annotations__ are the module type's member and getset, found below like any other.
         // PyObject_GenericGetAttr over the module's type: a data descriptor (object's __class__)
@@ -117,7 +118,7 @@ public class PyModule : PyObject
         if (declared != null)
             return BindSpecialMethod(declared);
         if (ModuleDict.TryGetValue("__getattr__", out var hook))
-            return hook.Call(new PyObject[] { PyString.From(name) }, null);
+            return hook.Call(new PyObject[] { nameObject }, null);
 
         throw PyAttributeError.Create(ModuleDict.ContainsKey("__name__")
             ? $"module '{Name}' has no attribute '{name}'"

@@ -42,7 +42,7 @@ namespace SharpPy
 
 
         internal override bool TpGetattroIsGeneric => false;
-        protected internal override PyObject TpGetattro(string name) => Target.GetAttribute(name);
+        protected internal override PyObject TpGetattro(PyString name) => Target.GetAttribute(name);
 
         protected internal override void TpSetattro(PyString name, PyObject value) => Target.SetAttribute(name, value);
 

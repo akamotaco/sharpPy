@@ -477,14 +477,30 @@ namespace SharpPy
         /// __getattr__), a metaclass for its classes as any class for its instances; type's is
         /// type_getattro, the class object's own TpGetattro.
         /// </summary>
-        public PyObject GetAttribute(string name) =>
-            HeapType() is { } heap ? heap.GetattroSlot(this, name) : TpGetattro(name);
+        public PyObject GetAttribute(string name) => GetAttribute(PyString.From(name));
+
+        /// <summary>
+        /// PyObject_GetAttr by the name object: tp_getattro, then set_attribute_error_context - an
+        /// AttributeError no one gave a name and obj gets this name object and this object.
+        /// </summary>
+        public PyObject GetAttribute(PyString name)
+        {
+            try
+            {
+                return HeapType() is { } heap ? heap.GetattroSlot(this, name) : TpGetattro(name);
+            }
+            catch (PythonException error) when (error.PyException is PyAttributeError missing)
+            {
+                missing.SetContextIfUnset(name, this);
+                throw;
+            }
+        }
 
         // Py_TYPE(o) when it is a heap type, a class written in Python; type itself is static.
         private SharpPy.PyClass HeapType() => GetPyType() is SharpPy.PyClass heap && heap.IsHeapType ? heap : null;
 
         /// <summary>tp_getattro of the CLR type: the builtin's own, PyObject_GenericGetAttr by default.</summary>
-        protected internal virtual PyObject TpGetattro(string name) => GenericGetattro(name, false, out _);
+        protected internal virtual PyObject TpGetattro(PyString name) => GenericGetattro(name.Value, false, out _);
 
         /// <summary>
         /// Whether tp_getattro is PyObject_GenericGetAttr: false for a CLR type that overrides
@@ -519,12 +535,21 @@ namespace SharpPy
         /// found on the type and not shadowed comes back unbound (unbound set), for CALL to pass
         /// the object as its first argument; anything else is PyObject_GetAttr's answer.
         /// </summary>
-        internal PyObject GetMethod(string name, out bool unbound)
+        internal PyObject GetMethod(PyString name, out bool unbound)
         {
             unbound = false;
-            if (HeapType() is { } heap)
-                return heap.GetattroIsInherited() && TpGetattroIsGeneric ? GenericGetMethod(name, out unbound) : heap.GetattroSlot(this, name);
-            return TpGetattroIsGeneric ? GenericGetMethod(name, out unbound) : TpGetattro(name);
+            try
+            {
+                if (HeapType() is { } heap)
+                    return heap.GetattroIsInherited() && TpGetattroIsGeneric ? GenericGetMethod(name.Value, out unbound) : heap.GetattroSlot(this, name);
+                return TpGetattroIsGeneric ? GenericGetMethod(name.Value, out unbound) : TpGetattro(name);
+            }
+            catch (PythonException error) when (error.PyException is PyAttributeError missing)
+            {
+                // _PyObject_GetMethod's set_attribute_error_context.
+                missing.SetContextIfUnset(name, this);
+                throw;
+            }
         }
 
         // The generic lookup of GetMethod: the CLR type's PyObject_GenericGetAttr.
@@ -543,7 +568,7 @@ namespace SharpPy
 
         internal virtual PyObject GenericGetAttr(string name)
         {
-            return TpGetattro(name);
+            return TpGetattro(PyString.From(name));
         }
 
         /// <summary>
@@ -650,7 +675,9 @@ namespace SharpPy
         /// Used in isinstance/issubclass to avoid infinite recursion when
         /// checking __bases__ or __class__ attributes.
         /// </summary>
-        public virtual PyObject LookupAttribute(string name)
+        public PyObject LookupAttribute(string name) => LookupAttribute(PyString.From(name));
+
+        public virtual PyObject LookupAttribute(PyString name)
         {
             // CPython's _PyObject_LookupAttr runs the object's NORMAL tp_getattro and suppresses only
             // AttributeError. It must not be narrowed to GenericGetAttribute: in this runtime several
@@ -792,7 +819,8 @@ namespace SharpPy
         // (type_getattro: "type object 'X' has no attribute 'Y'") from those on
         // an instance ("'X' object has no attribute 'Y'"). PyType overrides this.
         protected virtual System.Exception AttributeNotFound(string name)
-            => PyAttributeError.CreateFor(this, name, $"'{GetTypeName()}' object has no attribute '{name}'");
+            // name and obj are set_attribute_error_context's, by the caller holding the name object.
+            => PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
 
         protected virtual void PySetAttribute(PyString name, PyObject value) => GenericSetOrDelete(name, value);
 

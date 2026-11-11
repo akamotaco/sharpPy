@@ -256,10 +256,12 @@ namespace SharpPy
             return new PythonException(error);
         }
 
-        internal void SetContextIfUnset(string name, PyObject target)
+        internal void SetContextIfUnset(string name, PyObject target) => SetContextIfUnset(PyString.From(name), target);
+
+        internal void SetContextIfUnset(PyString name, PyObject target)
         {
             if (_name != null || _obj != null) return;
-            _name = PyString.From(name);
+            _name = name;
             _obj = target;
         }
 
@@ -2083,7 +2085,7 @@ namespace SharpPy
                 "tb_next" => (PyObject?)Next ?? PyNone.Instance,
                 "tb_lasti" => PyInt.From(LastI),
                 "tb_lineno" => LineNo < 0 ? PyNone.Instance : PyInt.From(LineNo),
-                _ => base.TpGetattro(name)
+                _ => base.TpGetattro(PyString.From(name))
             };
         }
     }

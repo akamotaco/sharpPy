@@ -221,7 +221,7 @@ namespace SharpPy
                 {
                     PyObject.AttributeName(args[0]);
                     var name = (PyString)args[0];
-                    return self.TpGetattro(name.Value);
+                    return self.TpGetattro(name);
                 });
             // method_reduce: (getattr, (im_self, im_func.__name__))
             Method(PyType.MethodType, "__reduce__", (self, args) =>

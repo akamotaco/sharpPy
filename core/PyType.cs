@@ -1805,8 +1805,14 @@ namespace SharpPy
                     PyObject.AttributeName(args[0]);
                     var nameStr = (PyString)args[0];
 
-                    // PyObject_GenericGetAttr, without the hook of the instance's Python class.
-                    return self.GenericGetAttr(nameStr.Value);
+                    // PyObject_GenericGetAttr, without the hook of the instance's Python class; its
+                    // AttributeError carries the name object (set_attribute_error_context).
+                    try { return self.GenericGetAttr(nameStr.Value); }
+                    catch (PythonException error) when (error.PyException is PyAttributeError missing)
+                    {
+                        missing.SetContextIfUnset(nameStr, self);
+                        throw;
+                    }
                 },
                 minArgs: 1,
                 maxArgs: 1
@@ -2920,7 +2926,7 @@ namespace SharpPy
             => PyAttributeError.Create($"type object '{Name}' has no attribute '{name}'");
 
         internal override bool TpGetattroIsGeneric => false;
-        protected internal override PyObject TpGetattro(string name) => TypeGetattro(name);
+        protected internal override PyObject TpGetattro(PyString name) => TypeGetattro(name.Value);
 
         /// <summary>
         /// _Py_type_getattro_impl (Objects/typeobject.c): a data descriptor of the metatype; then

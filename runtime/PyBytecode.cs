@@ -874,7 +874,7 @@ namespace SharpPy
                 "co_linetable" => PyBytes.From(Tables.LineTable),
                 "co_exceptiontable" => PyBytes.From(Tables.ExceptionTable),
                 "co_lnotab" => LineNumberNotes(),
-                _ => base.TpGetattro(name)
+                _ => base.TpGetattro(PyString.From(name))
             };
         }
 

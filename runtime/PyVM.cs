@@ -2871,7 +2871,7 @@ namespace SharpPy
                         bool pushNullForMethod = (attrOparg & 1) == 1;
                         int attrNameIndex = attrOparg >> 1;
 
-                        var attrName = frame.Code.Names[attrNameIndex];
+                        var attrName = frame.Code.NameObjects[attrNameIndex];
                         var obj = frame.ValueStack.Pop();
 
                         #if DEBUG_LOG
@@ -2885,16 +2885,8 @@ namespace SharpPy
                         // LOAD_ATTR: PyObject_GetAttr, or with the method bit _PyObject_GetMethod.
                         PyObject attr;
                         bool unboundMethod = false;
-                        try
-                        {
-                            attr = pushNullForMethod ? obj.GetMethod(attrName, out unboundMethod) : obj.GetAttribute(attrName);
-                        }
-                        catch (PythonException error) when (error.PyException is PyAttributeError missing)
-                        {
-                            // set_attribute_error_context (Objects/object.c)
-                            missing.SetContextIfUnset(attrName, obj);
-                            throw;
-                        }
+                        // Both name the AttributeError (set_attribute_error_context).
+                        attr = pushNullForMethod ? obj.GetMethod(attrName, out unboundMethod) : obj.GetAttribute(attrName);
 
                         if (pushNullForMethod)
                         {

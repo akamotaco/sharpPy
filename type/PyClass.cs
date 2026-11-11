@@ -65,16 +65,16 @@ namespace SharpPy
         /// (PyObject_GenericGetAttr when it is object's), and __getattr__ when that raises
         /// AttributeError (Objects/typeobject.c).
         /// </summary>
-        internal PyObject GetattroSlot(PyObject self, string name)
+        internal PyObject GetattroSlot(PyObject self, PyString name)
         {
             UpdateGetattro();
             var hook = _getattr;
             var method = _getattribute;
             if (hook == null)
-                return method == null ? self.InheritedGetattro(name) : CallGetattrMethod(self, method, name);
+                return method == null ? self.InheritedGetattro(name.Value) : CallGetattrMethod(self, method, name);
             try
             {
-                return method == null ? self.InheritedGetattro(name) : CallGetattrMethod(self, method, name);
+                return method == null ? self.InheritedGetattro(name.Value) : CallGetattrMethod(self, method, name);
             }
             catch (PythonException error) when (error.PyException is PyAttributeError)
             {
@@ -82,10 +82,10 @@ namespace SharpPy
             }
         }
 
-        private static PyObject CallGetattrMethod(PyObject self, PyObject method, string name) =>
+        private static PyObject CallGetattrMethod(PyObject self, PyObject method, PyString name) =>
             method.GetType() == typeof(PyFunction)
-                ? method.Call(new PyObject[] { self, PyString.From(name) }, null)
-                : self.BindSpecialMethod(method).Call(new PyObject[] { PyString.From(name) }, null);
+                ? method.Call(new PyObject[] { self, name }, null)
+                : self.BindSpecialMethod(method).Call(new PyObject[] { name }, null);
 
         // Version 0 is never a tag, so every slot starts undecided.
         private Slot _tpIter, _tpIterNext, _tpRepr, _tpStr, _sqLength, _nbBool, _sqContains, _tpHash, _mpSubscript,
@@ -992,7 +992,7 @@ namespace SharpPy
 
             // _PyObject_GenericGetAttrWithDict over the instance's own store; what a builtin base
             // holds, and the AttributeError, are object's generic lookup.
-            return SubclassInstanceSupport.GenericGetAttrWithDict(this, InstanceType, name, null, this, method, out unbound) ?? base.TpGetattro(name);
+            return SubclassInstanceSupport.GenericGetAttrWithDict(this, InstanceType, name, null, this, method, out unbound) ?? base.TpGetattro(PyString.From(name));
         }
 
         // PyObject_GenericSetAttr: __class__ is object's data descriptor, object_set_class.

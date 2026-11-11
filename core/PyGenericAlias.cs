@@ -81,13 +81,13 @@ namespace SharpPy
 
         // attr_exceptions and ga_getattro: what is not the alias's own goes to the origin.
         // A subclass inherits ga_getattro, which forwards to __origin__.
-        internal override PyObject InheritedGetattro(string name) => TpGetattro(name);
+        internal override PyObject InheritedGetattro(string name) => TpGetattro(PyString.From(name));
 
         // ga_getattro: the names of attr_exceptions are the alias's own (PyObject_GenericGetAttr),
         // any other is the origin's.
         internal override bool TpGetattroIsGeneric => false;
-        protected internal override PyObject TpGetattro(string name) =>
-            Array.IndexOf(AttrExceptions, name) >= 0 ? base.TpGetattro(name) : Origin.GetAttribute(name);
+        protected internal override PyObject TpGetattro(PyString name) =>
+            Array.IndexOf(AttrExceptions, name.Value) >= 0 ? base.TpGetattro(name) : Origin.GetAttribute(name);
 
         // ga_members: {"__unpacked__", T_BOOL, starred}
         internal bool Starred => _starred;
