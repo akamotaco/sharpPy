@@ -344,7 +344,6 @@ namespace SharpPy
                         throw PyTypeError.Create($"{CallName(code)}() got multiple values for argument '{paramName}'");
                     // Bind positional argument
                     LocalsPlus[paramIndex] = positionalArgs[posArgIndex];
-                    RecordParameterInScope(paramName, positionalArgs[posArgIndex]);
                     posArgIndex++;
 
 #if DEBUG_LOG
@@ -378,7 +377,6 @@ namespace SharpPy
                     // Bind keyword argument to parameter
                     var keywordValue = keywordArgs[paramName];
                     LocalsPlus[paramIndex] = keywordValue;
-                    RecordParameterInScope(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
 #if DEBUG_LOG
@@ -395,7 +393,6 @@ namespace SharpPy
                     {
                         var defaultValue = effectiveDefaults.Items[paramIndex - numRequiredParams];
                         LocalsPlus[paramIndex] = defaultValue;
-                        RecordParameterInScope(paramName, defaultValue);
 
 #if DEBUG_LOG
                         Console.WriteLine($"  → {paramName} = {defaultValue} (기본값, index {paramIndex - numRequiredParams})");
@@ -468,7 +465,6 @@ namespace SharpPy
                 {
                     var keywordValue = keywordArgs[paramName];
                     LocalsPlus[paramIndex] = keywordValue;
-                    RecordParameterInScope(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
 #if DEBUG_LOG
@@ -485,7 +481,6 @@ namespace SharpPy
                     if (hasDefault)
                     {
                         LocalsPlus[paramIndex] = defaultValue;
-                        RecordParameterInScope(paramName, defaultValue);
                     }
                     else
                     {
@@ -512,7 +507,6 @@ namespace SharpPy
                 var argsTuple = PyTuple.From(extraArgs);
 
                 LocalsPlus[varargsIndex] = argsTuple;
-                RecordParameterInScope(varargsName, argsTuple);
 
 #if DEBUG_LOG
                 Console.WriteLine($"  → {varargsName} = {argsTuple} (*args with {extraArgs.Length} items)");
@@ -536,7 +530,6 @@ namespace SharpPy
                 }
 
                 LocalsPlus[varkwargsIndex] = kwargsDict;
-                RecordParameterInScope(varkwargsName, kwargsDict);
 
 #if DEBUG_LOG
                 var itemCount = keywordArgs?.Count ?? 0;
@@ -752,11 +745,6 @@ namespace SharpPy
             return true;
         }
 
-        internal void RecordParameterInScope(string name, PyObject value)
-        {
-            if ((Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0)
-                ScopeChain.AssignVariable(name, value);
-        }
 
 
         // _PyFrame_GetLocals (Objects/frameobject.c): one retained dict, refreshed from the
