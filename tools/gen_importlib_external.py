@@ -1,11 +1,16 @@
 """Generate Lib/importlib/_external_functions.py from CPython 3.12's Lib/importlib/_bootstrap_external.py.
 
-SharpPy's path finder and loaders are C# (core/PyImportSpecs.cs, the _frozen_importlib_external
-module); the module-level functions of _bootstrap_external (path helpers, cache_from_source,
-source_from_cache, _get_sourcefile, _get_cached, decode_source, spec_from_file_location, the pyc
-helpers) and _LoaderBasics are CPython's code, taken here up to the first class ("# Loaders") and
-that class, and _set_bootstrap_module. The import bootstrap (core/PyImportSpecs.cs) runs them in _frozen_importlib_external. The one change: winreg, which only WindowsRegistryFinder
-uses, is not imported.
+SharpPy's file finder and source loader are C# (core/PyImportSpecs.cs, the _frozen_importlib_external
+module), since finding and reading files must go through Godot's library for res:// and user://.
+What reads no file is CPython's code, taken here: the module-level functions up to the first class
+("# Loaders": path helpers, cache_from_source, source_from_cache, _get_sourcefile, _get_cached,
+decode_source, spec_from_file_location, the pyc helpers), _LoaderBasics, and _NamespacePath,
+NamespaceLoader and PathFinder, which walk sys.path through sys.path_hooks and
+sys.path_importer_cache; and _set_bootstrap_module. The import bootstrap runs them in
+_frozen_importlib_external. The changes, each marked in the output:
+- winreg, which only WindowsRegistryFinder uses, is not imported.
+- PathFinder.invalidate_caches clears MetadataPathFinder's caches only once importlib.metadata
+  has been imported: SharpPy cannot import it (email needs _socket), so it holds no caches.
 
 usage: python tools/gen_importlib_external.py <cpython Lib/importlib/_bootstrap_external.py>
 """
@@ -13,15 +18,34 @@ import os
 import sys
 
 source = open(sys.argv[1], encoding="utf-8").read()
+
+
+def between(start, end):
+    first = source.index(start)
+    return source[first:source.index(end, first)]
+
+
 head = source[:source.index("# Loaders #####")]
 # _LoaderBasics: the base zipimport.zipimporter and the loaders of Lib/importlib/abc.py share.
-start = source.index("class _LoaderBasics:")
-head += source[start:source.index("class SourceLoader(_LoaderBasics):")]
+head += between("class _LoaderBasics:", "class SourceLoader(_LoaderBasics):")
+# _NamespacePath, NamespaceLoader and PathFinder: PEP 420 and the sys.path walk.
+head += between("class _NamespacePath:", "class FileFinder:")
 # _set_bootstrap_module: importlib/__init__.py hands a fresh _bootstrap over with it.
 start = source.index("def _set_bootstrap_module(_bootstrap_module):")
 head += source[start:source.index("\n\n", start) + 2]
+
 assert head.count("    import winreg\n") == 1
-head = head.replace("    import winreg\n", "    # winreg: WindowsRegistryFinder only, which SharpPy does not have.\n")
+head = head.replace("    import winreg\n", "    # SharpPy: winreg is WindowsRegistryFinder's only, which SharpPy does not have.\n")
+metadata = ("        from importlib.metadata import MetadataPathFinder\n"
+            "        MetadataPathFinder.invalidate_caches()\n")
+assert head.count(metadata) == 1
+head = head.replace(metadata,
+                    "        # SharpPy: importlib.metadata cannot be imported here (email needs _socket),\n"
+                    "        # so there are metadata caches only if it was.\n"
+                    "        if 'importlib.metadata' in sys.modules:\n"
+                    "            from importlib.metadata import MetadataPathFinder\n"
+                    "            MetadataPathFinder.invalidate_caches()\n")
+
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 target = os.path.join(root, "Lib", "importlib", "_external_functions.py")
 with open(target, "w", encoding="utf-8", newline="\n") as stream:
