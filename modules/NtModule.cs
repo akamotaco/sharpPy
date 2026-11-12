@@ -71,11 +71,11 @@ namespace SharpPy.Modules
                 });
             });
             module.ModuleDict["DirEntry"] = PyDirEntry.Type;
-            module.ModuleDict["lstat"] = new PyBuiltinFunction("lstat", args => Stat(args, "lstat"));
-            module.ModuleDict["scandir"] = new PyBuiltinFunction("scandir", Scandir);
-            module.ModuleDict["replace"] = new PyBuiltinFunction("replace", Replace);
-            module.ModuleDict["chmod"] = new PyBuiltinFunction("chmod", Chmod);
-            module.ModuleDict["utime"] = new PyBuiltinFunction("utime", Utime);
+            module.ModuleDict["lstat"] = Clinic("lstat", new[] { "path" }, 1, 1, new[] { "dir_fd" }, (a, k) => Stat(new[] { a[0] }, "lstat"));
+            module.ModuleDict["scandir"] = Clinic("scandir", new[] { "path" }, 0, 1, null, (a, k) => Scandir(a[0] == null ? Array.Empty<PyObject>() : new[] { a[0] }));
+            module.ModuleDict["replace"] = Clinic("replace", new[] { "src", "dst" }, 2, 2, new[] { "src_dir_fd", "dst_dir_fd" }, (a, k) => Replace(new[] { a[0], a[1] }));
+            module.ModuleDict["chmod"] = Clinic("chmod", new[] { "path", "mode" }, 2, 2, new[] { "dir_fd", "follow_symlinks" }, (a, k) => Chmod(new[] { a[0], a[1] }));
+            module.ModuleDict["utime"] = Clinic("utime", new[] { "path", "times" }, 1, 2, new[] { "ns", "dir_fd", "follow_symlinks" }, UtimeClinic);
             module.ModuleDict["strerror"] = new PyBuiltinFunction("strerror", Strerror);
             module.ModuleDict["cpu_count"] = new PyBuiltinFunction("cpu_count", args => PyInt.From(Environment.ProcessorCount));
             module.ModuleDict["_exit"] = new PyBuiltinFunction("_exit", args =>
@@ -89,7 +89,7 @@ namespace SharpPy.Modules
                 throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyInt.From(10), PyString.From("No child processes") }, null)));
             module.ModuleDict["system"] = new PyBuiltinFunction("system", ShellCommand);
             module.ModuleDict["pipe"] = new PyBuiltinFunction("pipe", Pipe);
-            module.ModuleDict["open"] = new PyBuiltinFunction("open", Open);
+            module.ModuleDict["open"] = Clinic("open", new[] { "path", "flags", "mode" }, 2, 3, new[] { "dir_fd" }, (a, k) => Open(new[] { a[0], a[1] }, null));
             module.ModuleDict["close"] = new PyBuiltinFunction("close", Close);
             module.ModuleDict["read"] = new PyBuiltinFunction("read", Read);
             module.ModuleDict["write"] = new PyBuiltinFunction("write", Write);
@@ -117,15 +117,16 @@ namespace SharpPy.Modules
             module.ModuleDict["device_encoding"] = new PyBuiltinFunction("device_encoding", args =>
                 PyFileDescriptors.Get(Descriptor(args[0])) is PyConsoleStream { IsTerminal: true } ? PyString.From("utf-8") : PyNone.Instance);
             module.ModuleDict["getcwd"] = new PyBuiltinFunction("getcwd", Getcwd);
-            module.ModuleDict["chdir"] = new PyBuiltinFunction("chdir", Chdir);
-            module.ModuleDict["listdir"] = new PyBuiltinFunction("listdir", Listdir);
-            module.ModuleDict["mkdir"] = new PyBuiltinFunction("mkdir", Mkdir);
-            module.ModuleDict["rmdir"] = new PyBuiltinFunction("rmdir", Rmdir);
-            module.ModuleDict["remove"] = new PyBuiltinFunction("remove", Remove);
-            module.ModuleDict["unlink"] = new PyBuiltinFunction("unlink", args => Remove(args, "unlink"));  // alias
-            module.ModuleDict["rename"] = new PyBuiltinFunction("rename", Rename);
-            module.ModuleDict["stat"] = new PyBuiltinFunction("stat", Stat);
-            module.ModuleDict["access"] = new PyBuiltinFunction("access", Access);
+            module.ModuleDict["chdir"] = Clinic("chdir", new[] { "path" }, 1, 1, null, (a, k) => Chdir(new[] { a[0] }));
+            module.ModuleDict["listdir"] = Clinic("listdir", new[] { "path" }, 0, 1, null, (a, k) => Listdir(a[0] == null ? Array.Empty<PyObject>() : new[] { a[0] }));
+            module.ModuleDict["mkdir"] = Clinic("mkdir", new[] { "path", "mode" }, 1, 2, new[] { "dir_fd" }, (a, k) => Mkdir(a[1] == null ? new[] { a[0] } : new[] { a[0], a[1] }));
+            module.ModuleDict["rmdir"] = Clinic("rmdir", new[] { "path" }, 1, 1, new[] { "dir_fd" }, (a, k) => Rmdir(new[] { a[0] }));
+            module.ModuleDict["remove"] = Clinic("remove", new[] { "path" }, 1, 1, new[] { "dir_fd" }, (a, k) => Remove(new[] { a[0] }, "remove"));
+            module.ModuleDict["unlink"] = Clinic("unlink", new[] { "path" }, 1, 1, new[] { "dir_fd" }, (a, k) => Remove(new[] { a[0] }, "unlink"));
+            module.ModuleDict["rename"] = Clinic("rename", new[] { "src", "dst" }, 2, 2, new[] { "src_dir_fd", "dst_dir_fd" }, (a, k) => Rename(new[] { a[0], a[1] }));
+            module.ModuleDict["stat"] = Clinic("stat", new[] { "path" }, 1, 1, new[] { "dir_fd", "follow_symlinks" },
+                (a, k) => k["follow_symlinks"] ? Stat(new[] { a[0] }) : Stat(new[] { a[0] }, "lstat"));
+            module.ModuleDict["access"] = Clinic("access", new[] { "path", "mode" }, 2, 2, new[] { "dir_fd", "effective_ids", "follow_symlinks" }, (a, k) => Access(new[] { a[0], a[1] }));
             module.ModuleDict["getenv"] = new PyBuiltinFunction("getenv", Getenv);
             module.ModuleDict["putenv"] = PyArgs.FastCall("nt", "putenv", 2, 2, Putenv);
             module.ModuleDict["unsetenv"] = new PyBuiltinFunction("unsetenv", Unsetenv);
@@ -444,6 +445,81 @@ namespace SharpPy.Modules
             File.SetAttributes(path, writable ? attributes & ~FileAttributes.ReadOnly : attributes | FileAttributes.ReadOnly);
             return PyNone.Instance;
         }
+
+        /// <summary>
+        /// The Argument Clinic of posixmodule.c for a path function on Windows: its positional-or-
+        /// keyword parameters, then keyword-only ones. dir_fd (and src_dir_fd/dst_dir_fd) is
+        /// unavailable unless None; follow_symlinks and effective_ids are bool, and a function
+        /// without them refuses the value that would need them; the body gets the positional values.
+        /// </summary>
+        private static PyBuiltinFunction Clinic(string name, string[] positional, int minpos, int maxpos, string[] keywordOnly,
+            Func<PyObject[], Dictionary<string, bool>, PyObject> body)
+        {
+            keywordOnly ??= Array.Empty<string>();
+            var names = new string[positional.Length + keywordOnly.Length];
+            positional.CopyTo(names, 0);
+            keywordOnly.CopyTo(names, positional.Length);
+            return new PyBuiltinFunction(name, (args, kwargs) =>
+            {
+                var parsed = PyArgs.Unpack(name, args, kwargs, names, 0, minpos, maxpos);
+                var flags = new Dictionary<string, bool> { ["follow_symlinks"] = true, ["effective_ids"] = false };
+                var values = new PyObject[positional.Length];
+                Array.Copy(parsed, values, positional.Length);
+                bool srcOrDst = false;
+                for (int i = 0; i < keywordOnly.Length; i++)
+                {
+                    var value = parsed[positional.Length + i];
+                    if (value == null)
+                        continue;
+                    switch (keywordOnly[i])
+                    {
+                        case "dir_fd":
+                            // dir_fd_unavailable: an int other than DEFAULT_DIR_FD is refused.
+                            if (value is not PyNone)
+                                throw PyNotImplementedError.Create("dir_fd unavailable on this platform");
+                            break;
+                        case "src_dir_fd":
+                        case "dst_dir_fd":
+                            srcOrDst |= value is not PyNone;
+                            break;
+                        case "follow_symlinks":
+                            flags["follow_symlinks"] = value.IsTrue();
+                            break;
+                        case "effective_ids":
+                            flags["effective_ids"] = value.IsTrue();
+                            break;
+                    }
+                }
+                if (srcOrDst)
+                    throw PyNotImplementedError.Create($"{name}: src_dir_fd and dst_dir_fd unavailable on this platform");
+                // follow_symlinks_specified: only stat answers follow_symlinks=False on Windows.
+                if (!flags["follow_symlinks"] && name != "stat")
+                    throw PyNotImplementedError.Create($"{name}: follow_symlinks unavailable on this platform");
+                if (flags["effective_ids"])
+                    throw PyNotImplementedError.Create($"{name}: effective_ids unavailable on this platform");
+                if (name == "utime")
+                {
+                    // utime's ns, which the body reads as times in seconds.
+                    var ns = parsed[2];
+                    if (ns != null)
+                    {
+                        if (values[1] != null && values[1] is not PyNone)
+                            throw PyValueError.Create("utime: you may specify either 'times' or 'ns' but not both");
+                        if (ns is not PyTuple { Items.Length: 2 } pair)
+                            throw PyTypeError.Create("utime: 'ns' must be a tuple of two ints");
+                        values[1] = PyTuple.From(new PyObject[]
+                        {
+                            new PyFloat((double)PyObject.IndexOrThrow(pair.Items[0]).Value / 1e9),
+                            new PyFloat((double)PyObject.IndexOrThrow(pair.Items[1]).Value / 1e9),
+                        });
+                    }
+                }
+                return body(values, flags);
+            });
+        }
+
+        private static PyObject UtimeClinic(PyObject[] values, Dictionary<string, bool> flags) =>
+            Utime(values[1] == null ? new[] { values[0] } : new[] { values[0], values[1] });
 
         private static PyObject Utime(PyObject[] args)
         {
