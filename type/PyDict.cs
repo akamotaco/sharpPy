@@ -265,14 +265,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     // CPython 3.12.15 measured: dict.__getitem__ is METH_O in the dict method table
 
-                    // dict_subscript: the table, then __missing__ when the type is not exactly dict.
-                    var pyDict = (PyDict)self;
-                    if (pyDict.TryGetStoredValue(args[0], out var value))
-                        return value;
-                    // dict_subscript: only !PyDict_CheckExact looks __missing__ up.
-                    if (!pyDict.IsExact && pyDict.LookupSpecialMethodUncached("__missing__") is { } missing)
-                        return pyDict.CallSpecial(missing, args[0]);
-                    throw PyKeyError.Create(args[0]);
+                    return ((PyDict)self).DictSubscript(args[0]);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -407,7 +400,10 @@ namespace SharpPy
 
         protected internal override PyString Str() => ToRepr();
 
-        protected internal override PyString Repr()
+        protected internal override PyString Repr() => DictRepr();
+
+        /// <summary>dict_repr itself, which dict.__repr__ and a subtype's own repr (defdict_repr) call.</summary>
+        internal PyString DictRepr()
         {
             if (_dict.Count == 0) return PyString.From("{}");
 
@@ -515,11 +511,18 @@ namespace SharpPy
         /// <summary>
         /// 키로 값 접근 dict[key]
         /// </summary>
-        protected internal override PyObject MpSubscript(PyObject key)
-        {
-            if (_dict.TryGetValue(key, out PyObject value))
-                return value;
+        protected internal override PyObject MpSubscript(PyObject key) => DictSubscript(key);
 
+        /// <summary>
+        /// dict_subscript, the mp_subscript of dict and of every type that inherits it: the table,
+        /// then, when the type is not exactly dict (!PyDict_CheckExact), its __missing__.
+        /// </summary>
+        internal PyObject DictSubscript(PyObject key)
+        {
+            if (TryGetStoredValue(key, out PyObject value))
+                return value;
+            if (!IsExact && LookupSpecialMethodUncached("__missing__") is { } missing)
+                return CallSpecial(missing, key);
             throw PyKeyError.Create(key);
         }
 

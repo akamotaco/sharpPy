@@ -1652,7 +1652,7 @@ namespace SharpPy
             Func<PyObject, PyObject> repr = Name switch
             {
                 // The value's own repr function: Py_ReprEnter marks that object, not a copy of it.
-                "dict" => self => (self as PyDict).Repr(),
+                "dict" => self => ((PyDict)self).DictRepr(),
                 "list" => self => (self as PyList).Repr(),
                 "tuple" => self => ((PyTuple)self).Repr(),
                 "set" => self => (self as PySet).Repr(),
@@ -2894,6 +2894,9 @@ namespace SharpPy
                     var cls = self;
                     if (cls == PyType.DictType)
                         return new PyDict();
+                    // type->tp_alloc: the layout of the class's solid base, defaultdict's with default_factory.
+                    if (cls is PyType layout && SharpPy.Modules.PyDefaultDict.IsLayoutOf(layout))
+                        return new SharpPy.Modules.PyDefaultDict(layout);
                     if (!(cls is PyClass dictClass)) {
                         string foreign = TpName(cls);
                         throw PyTypeError.Create(

@@ -4413,6 +4413,22 @@ namespace SharpPy
                     return result;
                 slotW = false;
             }
+            // Two builtin types: slotw first when the right one is a subtype whose own nb_<op>
+            // differs from the left's (defaultdict's defdict_or under dict's dict_or).
+            if (slotW && !writtenV && !writtenW && !sequenceV && typeW.IsSubclassOf(typeV))
+            {
+                name ??= BinarySlotName(operation);
+                reflected ??= "__r" + name.Substring(2);
+                var ownerW = BuiltinSlotOwner(typeW, name, reflected);
+                if (ownerW != null && !ReferenceEquals(ownerW, BuiltinSlotOwner(typeV, name, reflected))
+                    && w.LookupSpecialMethodUncached(reflected) is { } slot)
+                {
+                    result = w.BindSpecialMethod(slot).Call(new[] { v }, null);
+                    if (!ReferenceEquals(result, PyNotImplemented.Instance))
+                        return result;
+                    slotW = false;
+                }
+            }
             if (writtenV)
             {
                 result = SlotNumberBinary(v, w, name, reflected);
@@ -4436,6 +4452,15 @@ namespace SharpPy
             return method == null
                 ? PyNotImplemented.Instance
                 : w.BindSpecialMethod(method).Call(new[] { v }, null);
+        }
+
+        // The builtin type whose nb_<op> a type has: the first in its MRO that defines the slot's wrappers.
+        private static PyType BuiltinSlotOwner(PyType type, string name, string reflected)
+        {
+            foreach (var entry in type.MRO)
+                if (entry.TypeDict.ContainsKey(name) || entry.TypeDict.ContainsKey(reflected))
+                    return entry;
+            return null;
         }
 
         // SLOT1BINFULL, Objects/typeobject.c.
