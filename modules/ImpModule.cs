@@ -91,6 +91,16 @@ namespace SharpPy.Modules
             d["_override_frozen_modules_for_tests"] = new PyBuiltinFunction("_override_frozen_modules_for_tests", args => PyNone.Instance);
             d["_override_multi_interp_extensions_check"] = new PyBuiltinFunction("_override_multi_interp_extensions_check", args => PyInt.From(-1));
             d["check_hash_based_pycs"] = PyString.From("default");
+            // _imp_source_hash_impl: _Py_KeyedHash((uint64_t)key, source), little-endian.
+            d["source_hash"] = new PyBuiltinFunction("source_hash", (args, kwargs) =>
+            {
+                var parsed = PyArgs.Unpack("source_hash", args, kwargs, new[] { "key", "source" }, 0, 2, 2);
+                long key = PyArgs.CLong(parsed[0]);
+                var source = BytesMethods.RequireBuffer(parsed[1]);
+                var hash = new byte[8];
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(hash, PyHash.Keyed(unchecked((ulong)key), source));
+                return PyBytes.From(hash);
+            });
             return module;
         }
     }

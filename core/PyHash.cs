@@ -43,13 +43,23 @@ namespace SharpPy
             }
         }
 
-        // siphash13, and _Py_HashBytes: empty is 0, and -1 is never a hash.
+        // _Py_HashBytes over pysiphash: empty is 0, and -1 is never a hash.
         internal static long Bytes(ReadOnlySpan<byte> data)
         {
             if (data.Length == 0)
                 return 0;
-            ulong v0 = K0 ^ 0x736f6d6570736575UL, v1 = K1 ^ 0x646f72616e646f6dUL;
-            ulong v2 = K0 ^ 0x6c7967656e657261UL, v3 = K1 ^ 0x7465646279746573UL;
+            long hash = unchecked((long)SipHash13(K0, K1, data));
+            return hash == -1 ? -2 : hash;
+        }
+
+        // _Py_KeyedHash: siphash13 keyed by (key, 0), which _imp.source_hash answers.
+        internal static ulong Keyed(ulong key, ReadOnlySpan<byte> data) => SipHash13(key, 0, data);
+
+        // siphash13
+        private static ulong SipHash13(ulong k0, ulong k1, ReadOnlySpan<byte> data)
+        {
+            ulong v0 = k0 ^ 0x736f6d6570736575UL, v1 = k1 ^ 0x646f72616e646f6dUL;
+            ulong v2 = k0 ^ 0x6c7967656e657261UL, v3 = k1 ^ 0x7465646279746573UL;
             int offset = 0;
             for (; data.Length - offset >= 8; offset += 8)
             {
@@ -68,8 +78,7 @@ namespace SharpPy
             Round(ref v0, ref v1, ref v2, ref v3);
             Round(ref v0, ref v1, ref v2, ref v3);
             Round(ref v0, ref v1, ref v2, ref v3);
-            long hash = unchecked((long)(v0 ^ v1 ^ v2 ^ v3));
-            return hash == -1 ? -2 : hash;
+            return v0 ^ v1 ^ v2 ^ v3;
         }
 
         // unicode_hash: the bytes of the compact form, one, two or four to a character.
