@@ -3772,51 +3772,26 @@ namespace SharpPy
                 // Loop control now uses structured JUMP_FORWARD/JUMP_BACKWARD
 
                 case ByteCodeOp.IMPORT_NAME:
-                    // CPython 3.12: IMPORT_NAME(namei)
-                    // TOS = fromlist, TOS1 = level
-                    // Implements: __import__(name, globals(), locals(), fromlist, level)
-                    var fromlist = frame.ValueStack.Pop(); // TOS
-                    var level = frame.ValueStack.Pop();    // TOS1
-                    var moduleName = frame.Code.Names[argument];
-
-                    // import_name: __import__ comes from the frame's builtins, and a replaced one is called.
+                {
+                    // import_name (Python/ceval.c): __import__ from the frame's builtins; the one the
+                    // interpreter started with is PyImport_ImportModuleLevelObject directly, a
+                    // replaced one is called with f_globals and f_locals (None in a function).
+                    var fromlist = frame.ValueStack.Pop();
+                    var level = frame.ValueStack.Pop();
+                    var moduleName = frame.Code.NameObjects[argument];
                     var importer = frame.Builtin("__import__") ?? throw PyImportError.Create("__import__ not found");
-                    if (importer is not PyBuiltinFunction { Name: "__import__" })
+                    var globalsDict = PyGlobalsDict.DictOf(frame.Globals);
+                    if (!ReferenceEquals(importer, PyImportSystem.DefaultImportFunc))
                     {
-                        frame.ValueStack.Push(importer.Call(new PyObject[]
-                        {
-                            PyString.From(moduleName), PyGlobalsDict.DictOf(frame.Globals),
-                            frame.ClassLocalsDict ?? ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
-                                ? frame.GetAttribute("f_locals") : PyGlobalsDict.DictOf(frame.Globals)),
-                            fromlist, level,
-                        }, null));
+                        var locals = frame.ClassLocalsDict ?? ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
+                            ? PyNone.Instance : globalsDict);
+                        frame.ValueStack.Push(importer.Call(new PyObject[] { moduleName, globalsDict, locals, fromlist, level }, null));
                         break;
                     }
-
-                    // Extract level as integer (0 for absolute, 1+ for relative)
-                    int importLevel = 0;
-                    if (level is PyInt pyIntLevel)
-                    {
-                        importLevel = (int)pyIntLevel.Value;
-                    }
-
-                    // Extract fromlist as string array
-                    string[] fromlistArray = null;
-                    if (fromlist is PyTuple pyTupleFromlist)
-                    {
-                        // Performance: Eliminated LINQ - manual conversion
-                        fromlistArray = new string[pyTupleFromlist.Items.Length];
-                        for (int i = 0; i < pyTupleFromlist.Items.Length; i++)
-                        {
-                            var item = pyTupleFromlist.Items[i];
-                            fromlistArray[i] = item is PyString s ? s.Value : item.ToClrString();
-                        }
-                    }
-
-                    // CPython 3.12: Pass frame.Globals to import system for relative import resolution
-                    var importedModule = PyImportSystem.Import(moduleName, importLevel, fromlistArray, frame.Globals);
-                    frame.ValueStack.Push(importedModule);
+                    frame.ValueStack.Push(PyImportSystem.ImportModuleLevelObject(moduleName, globalsDict, fromlist, PyArgs.Int(level)));
                     break;
+                }
+
 
                 case ByteCodeOp.IMPORT_FROM:
                     // IMPORT_FROM (from -- from, res): import_from(tstate, from, name).

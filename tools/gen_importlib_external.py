@@ -4,7 +4,7 @@ SharpPy's path finder and loaders are C# (core/PyImportSpecs.cs, the _frozen_imp
 module); the module-level functions of _bootstrap_external (path helpers, cache_from_source,
 source_from_cache, _get_sourcefile, _get_cached, decode_source, spec_from_file_location, the pyc
 helpers) and _LoaderBasics are CPython's code, taken here up to the first class ("# Loaders") and
-that class. The import bootstrap (core/PyImportSpecs.cs) runs them in _frozen_importlib_external. The one change: winreg, which only WindowsRegistryFinder
+that class, and _set_bootstrap_module. The import bootstrap (core/PyImportSpecs.cs) runs them in _frozen_importlib_external. The one change: winreg, which only WindowsRegistryFinder
 uses, is not imported.
 
 usage: python tools/gen_importlib_external.py <cpython Lib/importlib/_bootstrap_external.py>
@@ -17,6 +17,9 @@ head = source[:source.index("# Loaders #####")]
 # _LoaderBasics: the base zipimport.zipimporter and the loaders of Lib/importlib/abc.py share.
 start = source.index("class _LoaderBasics:")
 head += source[start:source.index("class SourceLoader(_LoaderBasics):")]
+# _set_bootstrap_module: importlib/__init__.py hands a fresh _bootstrap over with it.
+start = source.index("def _set_bootstrap_module(_bootstrap_module):")
+head += source[start:source.index("\n\n", start) + 2]
 assert head.count("    import winreg\n") == 1
 head = head.replace("    import winreg\n", "    # winreg: WindowsRegistryFinder only, which SharpPy does not have.\n")
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

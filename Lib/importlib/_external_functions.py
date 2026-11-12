@@ -952,3 +952,7 @@ class _LoaderBasics:
         return _bootstrap._load_module_shim(self, fullname)
 
 
+def _set_bootstrap_module(_bootstrap_module):
+    global _bootstrap
+    _bootstrap = _bootstrap_module
+

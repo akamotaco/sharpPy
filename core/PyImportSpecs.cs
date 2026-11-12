@@ -166,37 +166,6 @@ namespace SharpPy
             return null;
         }
 
-        /// <summary>
-        /// _find_spec and _load_unlocked: each finder of sys.meta_path asked for a spec in turn; the
-        /// first one found is loaded. searchPath is the parent package's __path__, None at the top.
-        /// </summary>
-        private static PyModule FindAndLoad(string name, PyObject searchPath, PyModule parent)
-        {
-            EnsureBootstrapped();
-            if (Bootstrap == null)
-                return LoadBeforeBootstrap(name);
-            PyObject[] finders = Array.Empty<PyObject>();
-            if (TryGetModule("sys", out var sys) && sys.ModuleDict.TryGetValue("meta_path", out var list) && list is PyList paths)
-                finders = paths.AsTuple().Items;
-            foreach (var finder in finders)
-            {
-                PyObject spec;
-                if (ReferenceEquals(finder, PathFinderType))
-                    spec = FindSpec(name, searchPath, parent);
-                else
-                {
-                    var findSpec = finder.LookupAttribute("find_spec");
-                    if (findSpec == null)
-                        continue;
-                    spec = findSpec.Call(new[] { PyString.From(name), searchPath, PyNone.Instance }, null);
-                }
-                if (spec == null || spec is PyNone)
-                    continue;
-                var loaded = Bootstrap.GetAttribute("_load_unlocked").Call(new[] { spec }, null);
-                return TryGetModule(name, out var module) ? module : loaded as PyModule;
-            }
-            return null;
-        }
 
         // While _frozen_importlib is being made: the interpreter's own modules only.
         private static PyModule LoadBeforeBootstrap(string name)
@@ -241,8 +210,15 @@ namespace SharpPy
             type.TypeDict["find_spec"] = new PyBuiltinFunction("find_spec", (args, kwargs) =>
             {
                 var parsed = PyArgs.Unpack("find_spec", args, kwargs, new[] { "fullname", "path", "target" }, 0, 1, 3);
-                string name = PyArgs.ClinicStr("find_spec", "argument 'fullname'", "str", parsed[0]);
-                return FindSpec(name, parsed[1] ?? PyNone.Instance, null) ?? PyNone.Instance;
+                // A Python classmethod in CPython: any str is a name to look for (an embedded NUL just
+                // finds nothing), not a clinic argument.
+                string name = (parsed[0] as PyString)?.Value
+                    ?? throw PyTypeError.Create($"find_spec() argument 'fullname' must be str, not {parsed[0].GetTypeName()}");
+                // A package that lives in a bundle answers for its submodules.
+                int dot = name.LastIndexOf('.');
+                PyModule parent = null;
+                if (dot > 0) TryGetModule(name.Substring(0, dot), out parent);
+                return FindSpec(name, parsed[1] ?? PyNone.Instance, parent) ?? PyNone.Instance;
             });
             type.TypeDict["invalidate_caches"] = new PyBuiltinFunction("invalidate_caches", args => PyNone.Instance);
             return type;

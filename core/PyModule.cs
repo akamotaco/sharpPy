@@ -331,7 +331,6 @@ public class PyModule : PyObject
             // 시스템 인터페이스 Built-in 모듈
             ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
             ["_tokenize"] = () => SharpPy.Modules._TokenizeModule.Create(),
-            ["_importlib_native"] = () => SharpPy.Modules.ImportlibModule.CreateImportlibModule(),
             ["_imp"] = SharpPy.Modules.ImpModule.Create,
             // The C functions Lib/_typing.py stands in front of (Objects/typevarobject.c, unionobject.c).
             ["_typing_native"] = () =>
@@ -361,17 +360,38 @@ public class PyModule : PyObject
         };
 
 
-        // import module_name (dotted import 지원)
+
+
         /// <summary>
-        /// CPython 3.12 compatible import
-        /// Implements: __import__(name, globals, locals, fromlist, level)
+        /// PyImport_Import's use from the host: the module named, as sys.modules holds it after
+        /// PyImport_ImportModuleLevelObject (a dotted name gives the leaf, not the top package).
         /// </summary>
-        public static PyModule Import(string moduleName, int level = 0, string[] fromlist = null, IDictionary<string, PyObject> globals = null)
+        public static PyModule Import(string moduleName)
         {
-            // PyImport_ImportModuleLevelObject: a failed import loses importlib's frames.
+            if (TryGetModule(moduleName, out var cached))
+                return cached;
+            ImportModuleLevelObject(PyString.From(moduleName), null, null, 0);
+            return SysModules.InternalDict.TryGetValue(PyString.From(moduleName), out var module) && module is PyModule found
+                ? found
+                : throw PyImportError.Create($"{Repr(moduleName)} is not a module in sys.modules");
+        }
+
+        // interp->import_func: the builtins.__import__ the interpreter started with, which
+        // IMPORT_NAME bypasses for PyImport_ImportModuleLevelObject (_PyImport_IsDefaultImportFunc).
+        private static PyObject _importFunc;
+        internal static PyObject DefaultImportFunc => _importFunc ??= PyBuiltinsModule.Instance.ModuleDict["__import__"];
+
+        /// <summary>
+        /// PyImport_ImportModuleLevelObject (Python/import.c): the absolute name (resolve_name for a
+        /// relative one); the module sys.modules holds (waiting while another thread initializes
+        /// it), else _bootstrap._find_and_load; then the top package when there is no fromlist,
+        /// or _bootstrap._handle_fromlist for a package. A failure loses importlib's frames.
+        /// </summary>
+        internal static PyObject ImportModuleLevelObject(PyObject nameObject, PyObject globals, PyObject fromlist, int level)
+        {
             try
             {
-                return ImportLevel(moduleName, level, fromlist, globals);
+                return ImportModuleLevel(nameObject, globals, fromlist, level);
             }
             catch (PythonException error) when (error.PyException is PyBaseException exception)
             {
@@ -380,129 +400,143 @@ public class PyModule : PyObject
             }
         }
 
-        private static PyModule ImportLevel(string moduleName, int level, string[] fromlist, IDictionary<string, PyObject> globals)
+        private static PyObject ImportModuleLevel(PyObject nameObject, PyObject globals, PyObject fromlist, int level)
         {
-            // CPython 3.12: level parameter for relative imports
-            // level=0: absolute import (default)
-            // level>0: relative import (1=., 2=.., etc)
-
-            // CPython 3.12: Use globals dict to resolve relative imports
+            if (nameObject is not PyString name)
+                throw PyTypeError.Create("module name must be a string");
+            if (level < 0)
+                throw PyValueError.Create("level must be >= 0");
+            string absName;
             if (level > 0)
+                absName = ResolveName(name.Value, globals, level);
+            else
             {
-                // Resolve relative import using globals['__package__'] or globals['__name__']
-                moduleName = ResolveRelativeImport(moduleName, level, globals);
+                if (name.Value.Length == 0)
+                    throw PyValueError.Create("Empty module name");
+                absName = name.Value;
             }
 
-            // CPython 3.12: fromlist parameter affects what is returned
-            // If fromlist is empty/null AND module name has dots, return top-level package
-            // If fromlist has items, return the actual module with those attributes
-            bool hasFrom = fromlist != null && fromlist.Length > 0;
+            // import_get_module: whatever sys.modules holds, a module or not; None means "load".
+            PyObject mod = SysModules.InternalDict.TryGetValue(PyString.From(absName), out var found) ? found : null;
+            if (mod != null && mod is not PyNone)
+                ImportEnsureInitialized(mod, absName);
+            else
+                mod = ImportFindAndLoad(absName);
 
-            if (!hasFrom && moduleName.Contains('.'))
+            bool hasFrom = fromlist != null && fromlist is not PyNone && fromlist.IsTrue();
+            if (!hasFrom)
             {
-                // CPython behavior: import collections.abc → return collections (not collections.abc)
-                // First, load the full module path (ensures all submodules are loaded)
-                var fullModule = Import(moduleName);
-
-                // Then return only the top-level package
-                var firstPart = moduleName.Split('.')[0];
-                if (TryGetModule(firstPart, out var topModule))
-                    return topModule;
-                throw new Exception($"Module '{firstPart}' not found in sys.modules");
+                int length = name.Value.Length;
+                if (level == 0 || length > 0)
+                {
+                    int dot = name.Value.IndexOf('.');
+                    if (dot == -1)
+                        return mod;
+                    if (level == 0)
+                        return ImportModuleLevel(PyString.From(name.Value.Substring(0, dot)), null, null, 0);
+                    int cutOff = length - dot;
+                    string toReturn = absName.Substring(0, absName.Length - cutOff);
+                    return SysModules.InternalDict.TryGetValue(PyString.From(toReturn), out var top)
+                        ? top
+                        : throw PyKeyError.Create(PyString.From($"{Repr(toReturn)} not in sys.modules as expected"));
+                }
+                return mod;
             }
+            if (Bootstrap == null || mod.LookupAttribute("__path__") == null)
+                return mod;
+            return Bootstrap.GetAttribute("_handle_fromlist").Call(new[] { mod, fromlist, DefaultImportFunc }, null);
+        }
 
-            // Load the main module
-            var module = Import(moduleName);
+        // import_ensure_initialized: a module whose spec is still initializing is waited for
+        // (_bootstrap._lock_unlock_module), so another thread never sees it half made.
+        private static void ImportEnsureInitialized(PyObject mod, string name)
+        {
+            if (Bootstrap == null)
+                return;
+            var spec = mod.LookupAttribute("__spec__");
+            if (spec == null || spec is PyNone)
+                return;
+            if (spec.LookupAttribute("_initializing") is { } initializing && initializing.IsTrue())
+                Bootstrap.GetAttribute("_lock_unlock_module").Call(new PyObject[] { PyString.From(name) }, null);
+        }
 
-            // CPython 3.12: Python/import.c:2938-2947 (_handle_fromlist)
-            // IMPORTANT: Even if module was cached, we must still handle fromlist!
-            // The fromlist items (submodules) need to be imported regardless of
-            // whether the parent module was newly loaded or from cache.
-            if (hasFrom)
+        // import_find_and_load: _bootstrap._find_and_load(abs_name, __import__); before
+        // _frozen_importlib exists, the interpreter's own modules only.
+        private static PyObject ImportFindAndLoad(string absName)
+        {
+            EnsureBootstrapped();
+            if (Bootstrap == null)
+                return LoadBeforeBootstrap(absName)
+                    ?? throw PyModuleNotFoundError.Create($"No module named {Repr(absName)}", absName);
+            return Bootstrap.GetAttribute("_find_and_load").Call(new[] { PyString.From(absName), DefaultImportFunc }, null);
+        }
+
+        /// <summary>
+        /// resolve_name (Python/import.c): the package a relative import starts from - globals'
+        /// __package__ (warning when it differs from __spec__.parent), else __spec__.parent, else
+        /// __name__ (less its last part unless __path__ says it is a package) with an ImportWarning
+        /// - then level - 1 parts up, and the name after it.
+        /// </summary>
+        private static string ResolveName(string name, PyObject globals, int level)
+        {
+            if (globals == null)
+                throw PyKeyError.Create(PyString.From("'__name__' not in globals"));
+            if (globals is not PyDict dict)
+                throw PyTypeError.Create("globals must be a dict");
+            dict.TryGetStoredValue(PyString.From("__package__"), out var package);
+            if (package is PyNone)
+                package = null;
+            dict.TryGetStoredValue(PyString.From("__spec__"), out var spec);
+            string packageName;
+            if (package != null)
             {
-                HandleFromList(module, fromlist);
+                if (package is not PyString packageText)
+                    throw PyTypeError.Create("package must be a string");
+                packageName = packageText.Value;
+                if (spec != null && spec is not PyNone)
+                {
+                    var parent = spec.GetAttribute("parent");
+                    if (!PyObject.CompareBool(package, parent, PyObject.CompareOp.EQ))
+                        PyWarnings.Warn(PyType.ImportWarningType, "__package__ != __spec__.parent", 1);
+                }
             }
-
-            return module;
+            else if (spec != null && spec is not PyNone)
+            {
+                packageName = (spec.GetAttribute("parent") as PyString)?.Value
+                    ?? throw PyTypeError.Create("__spec__.parent must be a string");
+            }
+            else
+            {
+                PyWarnings.Warn(PyType.ImportWarningType,
+                    "can't resolve package from __spec__ or __package__, falling back on __name__ and __path__", 1);
+                if (!dict.TryGetStoredValue(PyString.From("__name__"), out var nameObject))
+                    throw PyKeyError.Create(PyString.From("'__name__' not in globals"));
+                packageName = (nameObject as PyString)?.Value ?? throw PyTypeError.Create("__name__ must be a string");
+                if (!dict.ContainsKey(PyString.From("__path__")))
+                {
+                    int dot = packageName.LastIndexOf('.');
+                    if (dot == -1)
+                        throw PyImportError.Create("attempted relative import with no known parent package");
+                    packageName = packageName.Substring(0, dot);
+                }
+            }
+            int lastDot = packageName.Length;
+            if (lastDot == 0)
+                throw PyImportError.Create("attempted relative import with no known parent package");
+            for (int levelUp = 1; levelUp < level; levelUp++)
+            {
+                lastDot = packageName.LastIndexOf('.', lastDot - 1);
+                if (lastDot == -1)
+                    throw PyImportError.Create("attempted relative import beyond top-level package");
+            }
+            string bas = packageName.Substring(0, lastDot);
+            return name.Length == 0 ? bas : bas + "." + name;
         }
 
         // _ERR_MSG of Lib/importlib/_bootstrap.py: the name by its repr.
         private static string Repr(string name) => PyString.From(name).ToRepr().Value;
 
-        public static PyModule Import(string moduleName)
-        {
-            // CPython 3.12: Python/import.c:1673 - Check sys.modules cache first
-            if (TryGetModule(moduleName, out PyModule cachedModule))
-            {
-                return cachedModule;
-            }
-            // _find_and_load: None in sys.modules stops the import.
-            if (SysModules.InternalDict.TryGetValue(PyString.From(moduleName), out var blocked) && blocked is PyNone)
-                throw PyModuleNotFoundError.Create($"import of {moduleName} halted; None in sys.modules", moduleName);
 
-            // 2. 점으로 구분된 모듈명 처리 (예: package.submodule)
-            if (moduleName.Contains('.'))
-            {
-                return ImportDottedModule(moduleName);
-            }
-
-            return FindAndLoad(moduleName, PyNone.Instance, null)
-                ?? throw PyModuleNotFoundError.Create($"No module named {Repr(moduleName)}", moduleName);
-        }
-
-        /// <summary>
-        /// 점으로 구분된 모듈 import (예: package.submodule)
-        /// </summary>
-        private static PyModule ImportDottedModule(string dottedName)
-        {
-            var parts = dottedName.Split('.');
-            PyModule currentModule = null;
-            string currentPath = "";
-            
-            for (int i = 0; i < parts.Length; i++)
-            {
-                var part = parts[i];
-                currentPath = i == 0 ? part : $"{currentPath}.{part}";
-                
-                // CPython 3.12: Check sys.modules cache for each step
-                if (TryGetModule(currentPath, out PyModule existingModule))
-                {
-                    currentModule = existingModule;
-                    continue;
-                }
-                
-                // 서브모듈 검색
-                PyModule subModule;
-                if (i == 0)
-                    subModule = FindAndLoad(part, PyNone.Instance, null);
-                else
-                {
-                    // _find_and_load_unlocked: the parent's __path__, which a plain module lacks.
-                    if (!currentModule.ModuleDict.TryGetValue("__path__", out var searchPath))
-                        throw PyModuleNotFoundError.Create(
-                            $"No module named {Repr(currentPath)}; {Repr(currentPath.Substring(0, currentPath.LastIndexOf('.')))} is not a package", currentPath);
-                    subModule = FindAndLoad(currentPath, searchPath, currentModule);
-                }
-                
-                if (subModule == null)
-                {
-                    throw PyModuleNotFoundError.Create($"No module named {Repr(currentPath)}", currentPath);
-                }
-                
-                // CPython 3.12: Register in sys.modules
-                SetModule(currentPath, subModule);
-                
-                // 부모 모듈에 서브모듈 attribute 설정
-                if (currentModule != null)
-                {
-                    currentModule.SetAttribute(part, subModule);
-                }
-                
-                currentModule = subModule;
-            }
-            
-            return currentModule;
-        }
         
         // sys.path 가져오기
         private static PyList GetSysPath()
@@ -530,130 +564,9 @@ public class PyModule : PyObject
         /// Python/import.c:2940-2948 - Calls _handle_fromlist
         /// importlib/_bootstrap.py:1020-1040 - _handle_fromlist implementation
         /// </summary>
-        // _handle_fromlist's except clause: only the submodule itself being absent is silent, and not
-        // when sys.modules holds None for it.
-        private static bool IsMissing(PythonException error, string fullName) =>
-            error.PyException.GetPyType().IsSubclassOf(PyType.ModuleNotFoundErrorType) &&
-            error.PyException.LookupAttribute("name") is PyString name && name.Value == fullName &&
-            !(SysModules.InternalDict.TryGetValue(PyString.From(fullName), out var entry) && entry is PyNone);
 
-        // PyImport_ImportModuleLevelObject: _handle_fromlist runs for a package, a module that has
-        // __path__ (read with getattr, so a module's __getattr__ answers and its errors propagate).
-        private static void HandleFromList(PyModule module, string[] fromlist)
-        {
-            if (fromlist == null || fromlist.Length == 0 || module.LookupAttribute("__path__") == null)
-                return;
-            var names = new PyObject[fromlist.Length];
-            for (int i = 0; i < names.Length; i++) names[i] = PyString.From(fromlist[i]);
-            HandleFromList(module, names, recursive: false);
-        }
 
-        // importlib._bootstrap._handle_fromlist: a name the module does not have is imported as its
-        // submodule; '*' does that for the names in __all__.
-        private static void HandleFromList(PyModule module, IEnumerable<PyObject> fromlist, bool recursive)
-        {
-            foreach (var item in fromlist)
-            {
-                if (item is not PyString name)
-                {
-                    string where = recursive ? module.GetAttribute("__name__").ToStr().Value + ".__all__" : "``from list''";
-                    throw PyTypeError.Create($"Item in {where} must be str, not {item.GetTypeName()}");
-                }
-                if (name.Value == "*")
-                {
-                    if (!recursive && module.LookupAttribute("__all__") is { } all)
-                        HandleFromList(module, new List<PyObject>(PySet.IterableItems(all)), recursive: true);
-                    continue;
-                }
-                if (module.LookupAttribute(name.Value) != null)
-                    continue;
-                string fromName = $"{module.GetAttribute("__name__").ToStr().Value}.{name.Value}";
-                try
-                {
-                    var subModule = Import(fromName);
-                    module.ModuleDict[name.Value] = subModule;
-                }
-                catch (PythonException error) when (IsMissing(error, fromName))
-                {
-                }
-            }
-        }
 
-        /// 상대 import 경로 해석 (.module, ..module 등)
-        /// </summary>
-        /// <summary>
-        /// CPython 3.12 compatible relative import resolution
-        /// Based on CPython's resolve_name() in Python/import.c
-        /// </summary>
-        private static string ResolveRelativeImport(string moduleName, int level, IDictionary<string, PyObject> globals)
-        {
-            if (globals == null)
-            {
-                throw PyImportError.Create("attempted relative import with no known parent package");
-            }
-
-            // resolve_name (Python/import.c): __package__, else __spec__.parent, else __name__
-            // (and __path__) with an ImportWarning.
-            string package;
-            globals.TryGetValue("__package__", out var packageObject);
-            if (packageObject is PyNone) packageObject = null;
-            globals.TryGetValue("__spec__", out var spec);
-            if (packageObject != null)
-            {
-                package = (packageObject as PyString)?.Value ?? throw PyTypeError.Create("package must be a string");
-            }
-            else if (spec != null && spec is not PyNone)
-            {
-                package = (spec.GetAttribute("parent") as PyString)?.Value
-                    ?? throw PyTypeError.Create("__spec__.parent must be a string");
-            }
-            else
-            {
-                PyWarnings.Warn(PyType.ImportWarningType,
-                    "can't resolve package from __spec__ or __package__, falling back on __name__ and __path__", 1);
-                if (!globals.TryGetValue("__name__", out var nameObject))
-                    throw PyKeyError.Create(PyString.From("'__name__' not in globals"));
-                package = (nameObject as PyString)?.Value ?? throw PyTypeError.Create("__name__ must be a string");
-                if (!globals.ContainsKey("__path__"))
-                {
-                    int lastDot = package.LastIndexOf('.');
-                    package = lastDot >= 0 ? package.Substring(0, lastDot) : "";
-                }
-            }
-
-            if (string.IsNullOrEmpty(package))
-            {
-                throw PyImportError.Create("attempted relative import with no known parent package");
-            }
-
-            // 4. Walk up 'level - 1' times
-            string[] parts = package.Split('.');
-            int levelsUp = level - 1;
-
-            if (levelsUp >= parts.Length)
-            {
-                throw PyImportError.Create("attempted relative import beyond top-level package");
-            }
-
-            // Performance: Eliminated LINQ - manual array copy instead of Take + ToArray
-            int targetLength = parts.Length - levelsUp;
-            string[] targetParts = new string[targetLength];
-            for (int i = 0; i < targetLength; i++)
-            {
-                targetParts[i] = parts[i];
-            }
-            string targetPackage = string.Join(".", targetParts);
-
-            // 5. Combine with relative name
-            if (string.IsNullOrEmpty(moduleName))
-            {
-                return targetPackage;  // from .. import something
-            }
-            else
-            {
-                return $"{targetPackage}.{moduleName}";  // from ..module import something
-            }
-        }
 
         // abc and contextlib modules are now loaded as .py files from Lib/ directory
 
