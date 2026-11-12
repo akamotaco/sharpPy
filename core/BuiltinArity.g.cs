@@ -326,6 +326,7 @@ namespace SharpPy
             ["_thread.lock.locked"] = new(PyCall.NoArgs, 0, 0),
             ["_thread.lock.locked_lock"] = new(PyCall.NoArgs, 0, 0),
             ["_thread.stack_size"] = new(PyCall.ParseTuple, 0, 1),
+            ["_typing._idfunc"] = new(PyCall.One, 1, 1),
             ["_weakref._remove_dead_weakref"] = new(PyCall.Fast, 2, 2, QualifiedKeywordRefusal: true),
             ["_weakref.getweakrefcount"] = new(PyCall.One, 1, 1),
             ["_weakref.getweakrefs"] = new(PyCall.One, 1, 1),

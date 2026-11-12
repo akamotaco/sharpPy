@@ -262,8 +262,9 @@ namespace SharpPy
 
         public override bool IsCallable() => true;
 
-        // ga_hash
-        public override int ToHash() => Origin.ToHash() ^ Args.ToHash();
+        // ga_hash: PyObject_Hash(origin) ^ PyObject_Hash(args), so an argument's own __hash__ counts.
+        protected internal override long Hash() => Origin.GetPythonHash() ^ Args.GetPythonHash();
+        public override int ToHash() => unchecked((int)GetPythonHash());
 
         protected override int GetDefaultHash() => ToHash();
 

@@ -56,7 +56,7 @@ def main():
     # module readies them, keyed "<module>.<qualname>" as their tp_name reads.
     import importlib
     modules = ("array", "_io", "_collections", "itertools", "_functools", "_struct", "_thread", "_sre", "_csv",
-               "_weakref", "_contextvars", "_operator", "_queue", "weakref", "_random", "_bisect", "_heapq")
+               "_weakref", "_contextvars", "_operator", "_queue", "weakref", "_random", "_bisect", "_heapq", "_typing")
     module_lines = []
     seen = set()
     for modname in modules:

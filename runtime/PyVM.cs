@@ -3985,10 +3985,9 @@ namespace SharpPy
                 case ByteCodeOp.LOAD_FROM_DICT_OR_GLOBALS:
                     var globalsMapping = frame.ValueStack.Pop();
                     var mappedName = frame.Code.Names[argument];
+                    // bytecodes.c: the mapping, then what LOAD_GLOBAL would answer.
                     frame.ValueStack.Push(LookupNamespaceMapping(globalsMapping, PyString.From(mappedName))
-                        ?? (frame.Globals.TryGetValue(mappedName, out var mappedGlobal) ? mappedGlobal : null)
-                        ?? frame.ScopeChain.BuiltinModule.GetBuiltin(mappedName)
-                        ?? throw CreateNameErrorWithSuggestion(mappedName, frame));
+                        ?? LoadGlobal(frame, mappedName));
                     break;
 
                 // The deref instructions (Python/bytecodes.c): oparg is a localsplus slot holding a cell.
@@ -4925,15 +4924,15 @@ namespace SharpPy
                     }
                     throw PyTypeError.Create($"INTRINSIC_LIST_TO_TUPLE expected list, got {arg.GetTypeName()}");
                 case (int)IntrinsicFunction.INTRINSIC_TYPEVAR:
-                    return MakeTypeVar(arg, PyNone.Instance, PyNone.Instance);
+                    return SharpPy.Modules.TypingModule.MakeTypeVar(arg, null, null);
                 case (int)IntrinsicFunction.INTRINSIC_PARAMSPEC:
-                    return PyImportSystem.Import("_typing").GetAttribute("ParamSpec").Call(new[] { arg }, InferVariance());
+                    return SharpPy.Modules.TypingModule.MakeParamSpec(arg);
                 case (int)IntrinsicFunction.INTRINSIC_TYPEVARTUPLE:
-                    return MakeTypingObject("TypeVarTuple", arg);
+                    return SharpPy.Modules.TypingModule.MakeTypeVarTuple(arg);
                 case (int)IntrinsicFunction.INTRINSIC_SUBSCRIPT_GENERIC:
-                    return CreateGenericSubscript(arg);
+                    return SharpPy.Modules.TypingModule.SubscriptGeneric(arg);
                 case (int)IntrinsicFunction.INTRINSIC_TYPEALIAS:
-                    return CreateTypeAlias(arg);
+                    return SharpPy.Modules.TypingModule.MakeTypeAlias((PyTuple)arg);
                 default:
                     throw new NotImplementedException($"Intrinsic function {functionId} not implemented");
             }
@@ -5044,41 +5043,6 @@ namespace SharpPy
             return exc;
         }
 
-        /// <summary>make_typevar (Python/intrinsics.c): a type parameter is the object typing.TypeVar makes.</summary>
-        private static PyObject MakeTypeVar(PyObject name, PyObject evaluateBound, PyObject evaluateConstraints) =>
-            PyImportSystem.Import("_typing").GetAttribute("TypeVar").GetAttribute("_from_type_param")
-                .Call(new[] { name, evaluateBound, evaluateConstraints }, null);
-
-        private static PyDict InferVariance()
-        {
-            var keywords = new PyDict();
-            keywords.SetItem(PyString.From("infer_variance"), PyBool.True);
-            return keywords;
-        }
-
-        private static PyObject MakeTypingObject(string type, PyObject name) =>
-            PyImportSystem.Import("_typing").GetAttribute(type).Call(new[] { name }, null);
-
-        /// <summary>_Py_subscript_generic (Objects/typevarobject.c): Generic[*params] made by typing.</summary>
-        private PyObject CreateGenericSubscript(PyObject arg)
-        {
-            var typing = PyImportSystem.Import("typing");
-            var parameters = new List<PyObject>();
-            foreach (var parameter in ((PyTuple)arg).Items)
-            {
-                // unpack_typevartuples: Py_IS_TYPE(param, typevartuple_type) gives *param.
-                if (ReferenceEquals(parameter.GetPyType(), PyImportSystem.Import("_typing").GetAttribute("TypeVarTuple")))
-                    parameters.Add(parameter.GetIterator().Next());
-                else parameters.Add(parameter);
-            }
-            return typing.GetAttribute("_generic_class_getitem").Call(
-                new[] { typing.GetAttribute("Generic"), PyTuple.From(parameters.ToArray()) }, null);
-        }
-
-        // _Py_make_typealias
-        private PyObject CreateTypeAlias(PyObject args) =>
-            PyImportSystem.Import("_typing").GetAttribute("TypeAliasType").GetAttribute("_make").Call(((PyTuple)args).Items, null);
-
         /// <summary>
         /// Execute intrinsic function with 2 arguments (CPython 3.12)
         /// </summary>
@@ -5094,9 +5058,9 @@ namespace SharpPy
                     // CPython passes (orig, excs) to the intrinsic.
                     return PrepReraiseStar(arg1, arg2);
                 case (int)IntrinsicFunction.INTRINSIC_TYPEVAR_WITH_BOUND:
-                    return MakeTypeVar(arg1, arg2, PyNone.Instance);
+                    return SharpPy.Modules.TypingModule.MakeTypeVar(arg1, arg2, null);
                 case (int)IntrinsicFunction.INTRINSIC_TYPEVAR_WITH_CONSTRAINTS:
-                    return MakeTypeVar(arg1, PyNone.Instance, arg2);
+                    return SharpPy.Modules.TypingModule.MakeTypeVar(arg1, null, arg2);
                 case (int)IntrinsicFunction.INTRINSIC_SET_FUNCTION_TYPE_PARAMS: // PEP 695 Generic Function
                     return SetFunctionTypeParams(arg1, arg2);
                 default:

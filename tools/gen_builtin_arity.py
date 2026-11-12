@@ -271,7 +271,7 @@ FUNCTION_MODULES = {
     "sys": {"breakpointhook", "addaudithook", "activate_stack_trampoline", "deactivate_stack_trampoline",
             "set_asyncgen_hooks"},
     "_codecs": set(), "_io": set(), "_sre": set(), "_string": set(), "_struct": set(), "_weakref": set(),
-    "_csv": set(), "_contextvars": set(), "_opcode": set(), "array": set(), "binascii": set(),
+    "_csv": set(), "_contextvars": set(), "_opcode": set(), "array": set(), "binascii": set(), "_typing": set(),
     "marshal": set(), "unicodedata": set(), "zlib": set(),
     "_signal": {"raise_signal", "default_int_handler", "signal", "set_wakeup_fd"},
     "_thread": {"interrupt_main", "start_new_thread", "start_new", "exit", "exit_thread", "_exit"},
@@ -286,7 +286,7 @@ FUNCTION_MODULES = {
 }
 
 # The C modules whose types SharpPy has, and the types module's types that builtins does not name.
-MODULES = ("_io", "re", "array", "_thread", "operator", "itertools", "collections", "functools", "_struct", "types")
+MODULES = ("_io", "re", "array", "_thread", "operator", "itertools", "collections", "functools", "_struct", "types", "_typing")
 
 
 def scanner_type():
