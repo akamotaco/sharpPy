@@ -63,18 +63,56 @@ namespace SharpPy.Modules
                 PyVM.Instance.BoundState.Sentinels.Add(sentinel);
                 return sentinel;
             });
-            // _thread._local has its one implementation in Lib/_threading_local.py.
-            module.ModuleDict["__getattr__"] = new PyBuiltinFunction("__getattr__", args =>
-            {
-                if (args[0] is PyString { Value: "_local" })
-                    return PyImportSystem.Import("_threading_local").GetAttribute("local");
-                throw PyAttributeError.Create($"module '_thread' has no attribute '{args[0].AsString().Value}'");
-            });
+            module.ModuleDict["_local"] = PyThreadLocal.LocalType;
+            module.ModuleDict["_ExceptHookArgs"] = ExceptHookArgsType;
+            module.ModuleDict["_excepthook"] = new PyBuiltinFunction("_excepthook", ExceptHook);
+            // thread__is_main_interpreter: SharpPy has the one interpreter.
+            module.ModuleDict["_is_main_interpreter"] = new PyBuiltinFunction("_is_main_interpreter", _ => PyBool.True);
             module.ModuleDict["daemon_threads_allowed"] = new PyBuiltinFunction("daemon_threads_allowed", _ => PyBool.True);
             module.ModuleDict["start_new_thread"] = new PyBuiltinFunction("start_new_thread", StartNewThread);
             module.ModuleDict["start_new"] = module.ModuleDict["start_new_thread"];
 
             return module;
+        }
+
+        // ExceptHookArgs_desc: _thread._ExceptHookArgs, made by PyStructSequence_NewType.
+        private static readonly PyStructSequenceType ExceptHookArgsType =
+            new("_thread", "_ExceptHookArgs", new[] { "exc_type", "exc_value", "exc_traceback", "thread" }, heap: true);
+
+        /// <summary>
+        /// thread_excepthook: a SystemExit is ignored; anything else is "Exception in thread NAME:"
+        /// and the traceback (_PyErr_Display) on sys.stderr - or, when that is None, on the stderr
+        /// the thread kept (thread._stderr) - then flush().
+        /// </summary>
+        private static PyObject ExceptHook(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"_excepthook() takes exactly one argument ({args.Length} given)");
+            if (args[0] is not PyStructSequence hook || !ReferenceEquals(hook.GetPyType(), ExceptHookArgsType))
+                throw PyTypeError.Create("_thread.excepthook argument type must be ExceptHookArgs");
+            var items = hook.AllFields;
+            PyObject excType = items[0], excValue = items[1], excTraceback = items[2], thread = items[3];
+            if (ReferenceEquals(excType, PyType.SystemExitType))
+                return PyNone.Instance;
+            var sys = PyImportSystem.Import("sys");
+            PyObject file = sys.ModuleDict.TryGetValue("stderr", out var stderr) ? stderr : null;
+            if (file == null || file is PyNone)
+            {
+                if (thread is PyNone)
+                    return PyNone.Instance;
+                file = thread.GetAttribute("_stderr");
+                if (file is PyNone)
+                    return PyNone.Instance;
+            }
+            // thread_excepthook_file
+            var write = file.GetAttribute("write");
+            write.Call(new PyObject[] { PyString.From("Exception in thread ") }, null);
+            PyObject name = thread is PyNone ? null : thread.LookupAttribute("name");
+            write.Call(new PyObject[] { name != null ? name.ToStr() : PyString.From(Environment.CurrentManagedThreadId.ToString()) }, null);
+            write.Call(new PyObject[] { PyString.From(":\n") }, null);
+            PyErrorDisplay.Display(file, excValue, excTraceback);
+            file.GetAttribute("flush").Call(Array.Empty<PyObject>(), null);
+            return PyNone.Instance;
         }
 
         // A worker gets a stack the parser's and the VM's recursion can use.
@@ -160,6 +198,7 @@ namespace SharpPy.Modules
             finally
             {
                 // PyThreadState_Clear: on_delete releases what join waits on.
+                state.ClearLocalDummies();
                 foreach (var sentinel in state.Sentinels)
                     if (sentinel.Locked)
                         sentinel.Release();

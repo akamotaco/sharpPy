@@ -20,6 +20,37 @@ namespace SharpPy
         internal PyObject ProfileFunction;
         internal bool IsMain;
         internal int Ident = Environment.CurrentManagedThreadId;
+
+        // tstate->dict as _thread._local uses it: self->key -> the localdummy of that local object.
+        internal readonly Dictionary<long, Modules.PyThreadLocal.Dummy> LocalDummies = new();
+        private int _pruneAt = 64;
+
+        internal void AddLocalDummy(long key, Modules.PyThreadLocal.Dummy dummy)
+        {
+            // local_clear pops a dying local's dummy from every thread state; here a thread drops the
+            // dummies of locals already collected whenever its table has doubled.
+            if (LocalDummies.Count >= _pruneAt)
+            {
+                var dead = new List<long>();
+                foreach (var pair in LocalDummies)
+                    if (!pair.Value.OwnerAlive)
+                        dead.Add(pair.Key);
+                foreach (var gone in dead)
+                    LocalDummies.Remove(gone);
+                _pruneAt = Math.Max(64, 2 * LocalDummies.Count);
+            }
+            if (LocalDummies.Remove(key, out var replaced))
+                replaced.Destroyed();
+            LocalDummies[key] = dummy;
+        }
+
+        /// <summary>PyThreadState_Clear's Py_CLEAR(tstate->dict): each dummy goes, and its local dict with it.</summary>
+        internal void ClearLocalDummies()
+        {
+            foreach (var dummy in LocalDummies.Values)
+                dummy.Destroyed();
+            LocalDummies.Clear();
+        }
     }
 
     /// <summary>

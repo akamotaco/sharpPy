@@ -117,10 +117,11 @@ namespace SharpPy
         /// _PyObject_GenericSetAttrWithDict (Objects/object.c), value null to delete: a data
         /// descriptor of the type sets or deletes; else the instance dict - the dict given, else the
         /// store given - which an object without __dict__ lacks. object's __class__ getset
-        /// (object_set_class) refuses deletion.
+        /// (object_set_class) refuses deletion. given: the caller's own dict argument (local_setattro's
+        /// ldict), used whatever the type declares, rather than the store that stands for a dictptr.
         /// </summary>
         internal static void GenericSetAttrWithDict(PyObject self, PyType type, PyString nameObject, PyObject value,
-            Dictionary<string, PyObject> dict, IInstanceDictStore store)
+            Dictionary<string, PyObject> dict, IInstanceDictStore store, bool given = false)
         {
             string name = nameObject.Value;
             if (name == "__class__" && value == null)
@@ -132,7 +133,7 @@ namespace SharpPy
                 else PyClassInstance.CallDescriptorSet(descriptor, self, value);
                 return;
             }
-            bool hasDict = type is PyClass heap ? heap.InstancesHaveDict() : dict != null || store != null;
+            bool hasDict = given || (type is PyClass heap ? heap.InstancesHaveDict() : dict != null || store != null);
             if (value == null)
             {
                 if (dict != null ? PyGlobalsDict.Delete(dict, name) : store != null && store.RemoveInstanceAttribute(nameObject))
