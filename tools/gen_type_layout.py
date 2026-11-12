@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 MODULES = """types collections functools itertools re io weakref array struct operator select
-decimal datetime contextvars json pickle csv threading random time zlib os""".split()
+decimal datetime contextvars json pickle csv threading random time zlib os _md5 _sha1 _sha2 _sha3 _blake2""".split()
 
 HEAPTYPE = 1 << 9
 IMMUTABLETYPE = 1 << 8

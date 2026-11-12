@@ -60,6 +60,7 @@ namespace SharpPy.Modules
             module.ModuleDict["indexOf"] = PyArgs.FastCall("_operator", "indexOf", 2, 2, IndexOf);
             module.ModuleDict["setitem"] = PyArgs.FastCall("_operator", "setitem", 3, 3, SetItem);
             module.ModuleDict["length_hint"] = PyArgs.FastCall("_operator", "length_hint", 1, 2, LengthHint);
+            module.ModuleDict["_compare_digest"] = PyArgs.FastCall("_operator", "_compare_digest", 2, 2, CompareDigest);
 
             // In-place operators: PyNumber_InPlace*, and PySequence_InPlaceConcat for iconcat.
             module.ModuleDict["iadd"] = PyArgs.FastCall("_operator", "iadd", 2, 2, args => Number(args, BinaryOpType.INPLACE_ADD));
@@ -294,6 +295,44 @@ namespace SharpPy.Modules
             // PyObject_SetItem
             PyAbstract.SetItem(args[0], args[1], args[2]);
             return PyNone.Instance;
+        }
+
+        /// <summary>
+        /// _operator__compare_digest_impl: two ASCII str, or two buffers, compared by _tscmp, whose
+        /// loop runs over b's length whatever a holds.
+        /// </summary>
+        private static PyObject CompareDigest(PyObject[] args)
+        {
+            PyObject a = args[0], b = args[1];
+            if (a is PyString sa && b is PyString sb)
+            {
+                if (!IsAscii(sa.Value) || !IsAscii(sb.Value))
+                    throw PyTypeError.Create("comparing strings with non-ASCII characters is not supported");
+                return PyBool.FromBool(TimingSafeEqual(System.Text.Encoding.ASCII.GetBytes(sa.Value), System.Text.Encoding.ASCII.GetBytes(sb.Value)));
+            }
+            byte[] va = BytesMethods.Buffer(a), vb = BytesMethods.Buffer(b);
+            if (va == null && vb == null)
+                throw PyTypeError.Create($"unsupported operand types(s) or combination of types: '{a.GetTypeName()}' and '{b.GetTypeName()}'");
+            return PyBool.FromBool(TimingSafeEqual(va ?? BytesMethods.RequireBuffer(a), vb ?? BytesMethods.RequireBuffer(b)));
+        }
+
+        private static bool IsAscii(string text)
+        {
+            foreach (char c in text)
+                if (c > 0x7f)
+                    return false;
+            return true;
+        }
+
+        // _tscmp
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining | System.Runtime.CompilerServices.MethodImplOptions.NoOptimization)]
+        private static bool TimingSafeEqual(byte[] a, byte[] b)
+        {
+            byte[] left = a.Length == b.Length ? a : b;
+            int result = a.Length == b.Length ? 0 : 1;
+            for (int i = 0; i < b.Length; i++)
+                result |= left[i] ^ b[i];
+            return result == 0;
         }
 
         private static PyObject LengthHint(PyObject[] args)
