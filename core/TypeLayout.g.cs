@@ -7,6 +7,7 @@ namespace SharpPy
     {
         private static readonly Dictionary<string, TypeLayout> Table = new()
         {
+            ["AST"] = new TypeLayout(24, 0, 16, 0, true, Spec: true),
             ["ArithmeticError"] = new TypeLayout(72, 0, 16, 0, true),
             ["AssertionError"] = new TypeLayout(72, 0, 16, 0, true),
             ["AttributeError"] = new TypeLayout(88, 0, 16, 0, true),

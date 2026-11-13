@@ -570,6 +570,16 @@ namespace SharpPy
         // A heap type is mutable unless its spec says otherwise: the static default is undone.
         internal void MarkHeapType() => _flags = (_flags | PyTypeFlags.HeapType) & ~PyTypeFlags.ImmutableType;
 
+        // PyType_FromSpec of a module type: a heap type whose tp_name is the spec's "module.name"
+        // (ast.AST), unlike one type() or PyErr_NewException makes.
+        private bool _specName;
+
+        internal void MarkSpecHeapType()
+        {
+            MarkHeapType();
+            _specName = true;
+        }
+
         // type_new made it: a class statement or a type() call, whose tp_base is best_base.
         private bool MadeByTypeNew => this is PyClass && this is not PyTypeMetaclass;
 
@@ -586,7 +596,7 @@ namespace SharpPy
 
         /// <summary>tp_name of a type that keeps its module in it, as a compiled one does.</summary>
         // tp_name: a heap type's is its name; a static type of a C module's is "module.name".
-        internal virtual string FullName => this is PyClass || IsHeapType || string.IsNullOrEmpty(Module) || Module == "builtins" ? Name : Module + "." + Name;
+        internal virtual string FullName => this is PyClass || (IsHeapType && !_specName) || string.IsNullOrEmpty(Module) || Module == "builtins" ? Name : Module + "." + Name;
 
         /// <summary>type_set_bases (Objects/typeobject.c): new bases, then a new MRO, here and in
         /// every subclass, as mro_hierarchy does.</summary>

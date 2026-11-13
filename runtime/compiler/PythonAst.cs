@@ -1,5 +1,6 @@
 // Python/Python-ast.c of CPython v3.12.15: the compiler's tree as Python objects and back.
-// The per-node code is generated into PythonAst.g.cs; the classes are in Lib/_ast.py.
+// The per-node code is generated into PythonAst.g.cs; the classes and singletons are the _ast
+// module's state (modules/AstModule.cs), as ast2obj and obj2ast use state->X_type.
 using System;
 using SharpPy.Generated;
 
@@ -7,8 +8,6 @@ namespace SharpPy
 {
     public sealed partial class PythonAst
     {
-        private readonly PyObject _module = PyImportSystem.Import("_ast");
-        private readonly System.Collections.Generic.Dictionary<string, PyObject> _singletons = new();
 
         public const int PyCF_ONLY_AST = 0x0400;
         public const int PyCF_ALLOW_TOP_LEVEL_AWAIT = 0x2000;
@@ -26,27 +25,19 @@ namespace SharpPy
                 CompileMode.Single => "Interactive",
                 _ => "Module",
             };
-            if (!value.GetPyType().IsSubclassOf((PyType)ast._module.GetAttribute(wanted)) &&
-                !ReferenceEquals(value.GetPyType(), ast._module.GetAttribute(wanted)))
+            var wantedType = Modules.AstModule.Type(wanted);
+            if (!value.GetPyType().IsSubclassOf(wantedType) && !ReferenceEquals(value.GetPyType(), wantedType))
                 throw PyTypeError.Create($"expected {wanted} node, got {value.GetTypeName()}");
             return (GeneratedMod)ast.ToNode(value)!;
         }
 
-        public static bool IsAst(PyObject value)
-        {
-            if (!PyImportSystem.TryGetModule("_ast", out var module))
-                return false;
-            return value.GetPyType().IsSubclassOf((PyType)module.GetAttribute("AST"));
-        }
+        public static bool IsAst(PyObject value) => value.GetPyType().IsSubclassOf(Modules.AstModule.AstType);
 
-        private PyObject New(string name) => _module.GetAttribute(name).Call(Array.Empty<PyObject>(), null);
+        // ast2obj_<name>: PyType_GenericNew(state->X_type, NULL, NULL), no __init__.
+        private PyObject New(string name) => Modules.AstModule.NewNode(name);
 
-        private PyObject Singleton(string name)
-        {
-            if (!_singletons.TryGetValue(name, out var value))
-                _singletons[name] = value = New(name);
-            return value;
-        }
+        // ast2obj of a simple sum: state->X_singleton.
+        private PyObject Singleton(string name) => Modules.AstModule.Singleton(name);
 
         private PyObject Convert(GeneratedPtr? node) => node == null ? PyNone.Instance : Node(node);
 
@@ -106,17 +97,7 @@ namespace SharpPy
             throw PyTypeError.Create($"expected some sort of AST node, but got {value.ToRepr().Value}");
         }
 
-        private PyObject? ModuleAttribute(string name)
-        {
-            try
-            {
-                return _module.GetAttribute(name);
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-                return null;
-            }
-        }
+        private PyObject? ModuleAttribute(string name) => Modules.AstModule.TryGetType(name, out var type) ? type : null;
 
         private static PyObject? Field(PyObject o, string name, bool optional, string owner)
         {

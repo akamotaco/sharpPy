@@ -5,13 +5,14 @@ tp_dictoffset and tp_weaklistoffset; whether a type takes subclasses is Py_TPFLA
 of the static types come from the reference CPython 3.12 this tool runs on.
 """
 import importlib
+import types
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 MODULES = """types collections functools itertools re io weakref array struct operator select
-decimal datetime contextvars json pickle csv threading random time zlib os _md5 _sha1 _sha2 _sha3 _blake2""".split()
+decimal datetime contextvars json pickle csv threading random time zlib os _md5 _sha1 _sha2 _sha3 _blake2 _ast""".split()
 
 HEAPTYPE = 1 << 9
 IMMUTABLETYPE = 1 << 8
@@ -44,7 +45,11 @@ def main():
         # A class written in Python; a C module's heap type (_io's, since 3.12) has a layout, and so
         # has one a .py module re-exports (functools.partial is _functools', os.stat_result is
         # posix'), which, unlike a class statement, a spec can make IMMUTABLETYPE or final.
-        made_by_spec = kind.__flags__ & IMMUTABLETYPE or not kind.__flags__ & BASETYPE
+        # A type whose own dict has C slots or methods of its own (ast.AST: a spec type of a .py
+        # module's name) is a C type too; a class statement never makes those.
+        own_c = any(isinstance(value, (types.WrapperDescriptorType, types.MethodDescriptorType))
+                    and getattr(value, '__objclass__', None) is kind for value in vars(kind).values())
+        made_by_spec = kind.__flags__ & IMMUTABLETYPE or not kind.__flags__ & BASETYPE or own_c
         if kind.__flags__ & HEAPTYPE and not made_by_spec and not written_in_c(kind):
             continue
         rows.setdefault(kind.__name__, (kind.__basicsize__, kind.__itemsize__, kind.__dictoffset__,
