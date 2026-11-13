@@ -133,6 +133,11 @@ namespace SharpPy.Core
                             AddXOption(args[++i]);
                         else if (arg.StartsWith("-X", StringComparison.Ordinal) && arg.Length > 2)
                             AddXOption(arg.Substring(2));
+                        // -W: config_parse_cmdline adds it to cmdline_warnoptions.
+                        else if (arg == "-W" && i + 1 < args.Length)
+                            SharpPyConfig.CommandLineWarnOptions.Add(args[++i]);
+                        else if (arg.StartsWith("-W", StringComparison.Ordinal) && arg.Length > 2)
+                            SharpPyConfig.CommandLineWarnOptions.Add(arg.Substring(2));
                         else if (arg is "-W" or "-X")
                             i++;
                         else if (!arg.StartsWith("-", StringComparison.Ordinal))

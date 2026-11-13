@@ -58,8 +58,21 @@ namespace SharpPy
             // init_interp_main: the standard streams, once the import system is up.
             using (PyHost.Enter())
             {
-                PyImportSystem.Import("sys");
+                var sys = PyImportSystem.Import("sys");
                 Modules.SysModule.InitStdStreams();
+                // init_interp_main: with warnoptions, warnings is imported, which applies them.
+                if (sys.ModuleDict.TryGetValue("warnoptions", out var warnoptions) && warnoptions is PyList list && list.RawCount() > 0)
+                {
+                    try
+                    {
+                        PyImportSystem.Import("warnings");
+                    }
+                    catch (PythonException error)
+                    {
+                        Console.Error.WriteLine("'import warnings' failed; traceback:");
+                        PyErrorDisplay.Display(error.PyException, error.PyException.__traceback__);
+                    }
+                }
             }
 
             SetupBuiltinHelpers();
@@ -133,7 +146,14 @@ namespace SharpPy
 
             // Store filename and source lines for Python-like error reporting
             if (mode == CompileMode.File && !string.IsNullOrEmpty(fileName) && !fileName.StartsWith("<", StringComparison.Ordinal))
-                PyGlobalsDict.Store(_globalScope.GlobalScope.Variables, "__file__", PyString.From(fileName));
+            {
+                // _PyRun_SimpleFileObject: __file__ and __cached__ = None, then set_main_loader(d,
+                // filename, "SourceFileLoader").
+                var main = _globalScope.GlobalScope.Variables;
+                PyGlobalsDict.Store(main, "__file__", PyString.From(fileName));
+                PyGlobalsDict.Store(main, "__cached__", PyNone.Instance);
+                PyGlobalsDict.Store(main, "__loader__", new PySourceFileLoader("__main__", fileName, null));
+            }
             // Fix: Handle all line ending types correctly (\r\n, \r, \n)
             
             // Verbose 모드일 때만 상세 디버그 정보 출력

@@ -541,7 +541,8 @@ public sealed class PyFileIO : PyIOBaseInstance
         Method(type, "_dealloc_warn", (self, args) =>
         {
             if (self.Fd >= 0 && self._closefd)
-                PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[] { PyString.From($"unclosed file {args[0].ToRepr().Value}"), PyType.ResourceWarningType, PyInt.From(1) }, PyDictOf("source", args[0]));
+                // fileio_dealloc_warn: PyErr_ResourceWarning(source, 1, "unclosed file %R", source)
+                PyWarnings.ResourceWarning(args[0], $"unclosed file {args[0].ToRepr().Value}", 1);
             return PyNone.Instance;
         }, 1, 1);
         Method(type, "__getstate__", (self, args) => throw PyTypeError.Create($"cannot pickle '{self.GetPyType().FullName}' instances"));

@@ -110,7 +110,7 @@ namespace SharpPy
                 var sys = Import("sys");
                 Import("builtins");
                 var imp = Import("_imp");
-                // _setup takes _warnings from sys.modules; SharpPy's is Lib/_warnings.py.
+                // _setup takes _warnings from sys.modules (Python/_warnings.c, core/PyWarnings.cs).
                 Import("_warnings");
                 string path = LocateInSysPath("importlib/_bootstrap.py");
                 string externalPath = LocateInSysPath("importlib/_external_functions.py");

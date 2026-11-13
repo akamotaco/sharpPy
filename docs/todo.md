@@ -87,7 +87,7 @@
 
 ## 5. 모듈 표면
 
-- 5-0. 라이브러리 복사: `encodings`, `pickle`, `warnings`, `_collections_abc`, `dis`, `opcode`, `inspect`, `dataclasses`, `tokenize`, `linecache`, `tracemalloc`, `abc`, `types`, `keyword`, `io`, `stat`, `colorsys`, `collections.abc`는 CPython 원본이다. `_warnings`는 `Lib/_warnings.py`, `_tracemalloc`는 추적 없는 스텁이다. `collections/__init__.py`, `os.py`, `pathlib.py`, `hashlib.py`, `shutil.py`, `asyncio`는 아직 수정본이다.
+- 5-0. 라이브러리 복사: `encodings`, `pickle`, `warnings`, `_collections_abc`, `dis`, `opcode`, `inspect`, `dataclasses`, `tokenize`, `linecache`, `tracemalloc`, `abc`, `types`, `keyword`, `io`, `stat`, `colorsys`, `collections.abc`는 CPython 원본이다. `_warnings`는 `Python/_warnings.c`의 C# 이식(`core/PyWarnings.cs`)이고 C#의 모든 경고가 그 C API(`PyErr_WarnEx` 등)를 지난다. `_tracemalloc`는 추적 없는 스텁이다. `collections/__init__.py`, `pathlib.py`, `hashlib.py`는 CPython 원본이 됐다. `os.py`, `shutil.py`, `asyncio`는 아직 수정본이다.
 - 5-1. `importlib`: `__init__`, `util`, `_abc`는 CPython 원본이다. `_bootstrap_external`은 C# 부분(`FileFinder`, `SourceFileLoader`, 번들 finder: Godot `res://`·`user://`를 읽어야 해서 C#)과 CPython 코드(`_external_functions.py`, 생성: 경로 함수, `_LoaderBasics`, `_NamespacePath`, `NamespaceLoader`, `PathFinder`)다. 생성기의 변경 두 곳: `winreg` import 없음, `PathFinder.invalidate_caches`는 `importlib.metadata`가 import된 때만 그 캐시를 비운다(`importlib.metadata`는 `email`→`_socket`이 없어 import되지 않는다). 남은 것: `SourcelessFileLoader`, `ExtensionFileLoader`(`machinery.py`의 빈 클래스), `zipimport.zipimporter`가 `sys.path_hooks`에 없음, `importlib.abc`·`importlib.metadata`·`importlib.resources` 없음.
 - 5-2. `os.open` 20건, `tempfile` 없음.
 - 5-4. `weakref` 프록시, `bytearray %`.

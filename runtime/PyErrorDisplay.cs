@@ -864,6 +864,13 @@ namespace SharpPy
             }
         }
 
+        /// <summary>_Py_DisplaySourceLine: the line, indented, with no margin.</summary>
+        internal static void DisplaySourceLine(PyObject file, string filename, int lineno, int indent)
+        {
+            int truncation = 0;
+            DisplaySourceLineWithMargin(file, filename, lineno, indent, 0, null, ref truncation, out _);
+        }
+
         // display_source_line_with_margin: the line read from the file the code names, its
         // indentation removed and counted in truncation. False when there is no line.
         private static bool DisplaySourceLineWithMargin(PyObject file, string filename, int lineno, int indent,

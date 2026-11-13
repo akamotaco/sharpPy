@@ -141,8 +141,7 @@ namespace SharpPy.Core
             if (!Core.Started)
             {
                 Core.MarkFinished();
-                var warnings = PyImportSystem.Import("warnings");
-                warnings.GetAttribute("_warn_unawaited_coroutine").Call(new PyObject[] { this }, null);
+                PyWarnings.WarnUnawaitedCoroutine(this, Qualname.ToStr().Value);
                 return;
             }
             Core.Close();

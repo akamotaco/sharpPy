@@ -27,6 +27,34 @@ namespace SharpPy
         public static bool DevMode =>
             XOptions.Exists(option => option.Key == "dev") ||
             !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("PYTHONDEVMODE"));
+
+        /// <summary>The -W options in the order given (cmdline_warnoptions).</summary>
+        public static readonly List<string> CommandLineWarnOptions = new();
+
+        /// <summary>
+        /// config_init_warnoptions: PyConfig.warnoptions, lowest priority first - "default" in dev
+        /// mode, PYTHONWARNINGS split at commas, then -W - each added once (warnoptions_append).
+        /// sys.warnoptions is this list.
+        /// </summary>
+        public static List<string> WarnOptions()
+        {
+            var options = new List<string>();
+            void Append(string option)
+            {
+                if (!options.Contains(option))
+                    options.Add(option);
+            }
+            if (DevMode)
+                Append("default");
+            // config_init_env_warnoptions: wcstok over ",", so empty pieces are skipped.
+            string environment = System.Environment.GetEnvironmentVariable("PYTHONWARNINGS");
+            if (!string.IsNullOrEmpty(environment))
+                foreach (var piece in environment.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                    Append(piece);
+            foreach (var option in CommandLineWarnOptions)
+                Append(option);
+            return options;
+        }
         
         /// <summary>
         /// 조용한 모드 (--quiet)

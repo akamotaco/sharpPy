@@ -291,7 +291,11 @@ namespace SharpPy.Modules
                 return PyNone.Instance;
             });
             module.ModuleDict["flags"] = Flags();
-            module.ModuleDict["warnoptions"] = new PyList();
+            // PyConfig.warnoptions
+            var warnoptions = new PyList();
+            foreach (var option in SharpPyConfig.WarnOptions())
+                warnoptions.Append(PyString.From(option));
+            module.ModuleDict["warnoptions"] = warnoptions;
 
             // CPython 3.12: Frame and exception introspection
             module.ModuleDict["_getframe"] = new PySysFunction("_getframe");
@@ -728,8 +732,8 @@ namespace SharpPy.Modules
             }
             if (function != null)
                 return function.Call(args, kwargs);
-            PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[]
-                { PyString.From($"Ignoring unimportable $PYTHONBREAKPOINT: \"{setting}\""), PyType.RuntimeWarningType }, null);
+            // PyErr_WarnFormat(PyExc_RuntimeWarning, 0, ...)
+            PyWarnings.Warn(PyType.RuntimeWarningType, $"Ignoring unimportable $PYTHONBREAKPOINT: \"{setting}\"", 0);
             return PyNone.Instance;
         }
 
