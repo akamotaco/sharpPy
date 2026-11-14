@@ -61,6 +61,16 @@ namespace SharpPy.Modules
             module.ModuleDict["charmap_encode"] = new PyBuiltinFunction("charmap_encode", PyCharmapEncode);
             module.ModuleDict["charmap_decode"] = new PyBuiltinFunction("charmap_decode", PyCharmapDecode);
             module.ModuleDict["charmap_build"] = new PyBuiltinFunction("charmap_build", PyCharmapBuild);
+            // MS_WINDOWS: the code page codecs (mbcs is CP_ACP, oem CP_OEMCP).
+            if (OperatingSystem.IsWindows())
+            {
+                module.ModuleDict["mbcs_encode"] = CodePageFunction("mbcs_encode", 1, 2, a => CodePageEncode("mbcs_encode", PyCodePage.CP_ACP, a, 0));
+                module.ModuleDict["mbcs_decode"] = CodePageFunction("mbcs_decode", 1, 3, a => CodePageDecode("mbcs_decode", PyCodePage.CP_ACP, a, 0));
+                module.ModuleDict["oem_encode"] = CodePageFunction("oem_encode", 1, 2, a => CodePageEncode("oem_encode", PyCodePage.CP_OEMCP, a, 0));
+                module.ModuleDict["oem_decode"] = CodePageFunction("oem_decode", 1, 3, a => CodePageDecode("oem_decode", PyCodePage.CP_OEMCP, a, 0));
+                module.ModuleDict["code_page_encode"] = CodePageFunction("code_page_encode", 2, 3, a => CodePageEncode("code_page_encode", PyArgs.Int(a[0]), a, 1));
+                module.ModuleDict["code_page_decode"] = CodePageFunction("code_page_decode", 2, 4, a => CodePageDecode("code_page_decode", PyArgs.Int(a[0]), a, 1));
+            }
             module.ModuleDict["escape_encode"] = new PyBuiltinFunction("escape_encode", PyEscapeEncode);
             module.ModuleDict["escape_decode"] = new PyBuiltinFunction("escape_decode", PyEscapeDecode);
             module.ModuleDict["unicode_escape_encode"] = new PyBuiltinFunction("unicode_escape_encode", PyUnicodeEscapeEncode);
@@ -346,6 +356,40 @@ namespace SharpPy.Modules
         private static PyObject PyLatin1Decode(PyObject[] args, PyDict kwargs = null)
         {
             return Decoded(args, "iso8859-1", "latin1decode");
+        }
+
+        // The positional-only clinic functions of the code page codecs.
+        private static PyBuiltinFunction CodePageFunction(string name, int min, int max, Func<PyObject[], PyObject> body) =>
+            new(name, (args, kwargs) =>
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create($"{name}() takes no keyword arguments");
+                PyArgs.ParseTuple(name, args, min, max);
+                return body(args);
+            });
+
+        // errors: str(accept={str, NoneType}) = None
+        private static string ErrorsArgument(string name, PyObject[] args, int index) =>
+            index >= args.Length || args[index] is PyNone ? null
+                : args[index] is PyString text ? text.Value
+                : throw PyArgs.BadArgument(name, $"argument {index + 1}", "str or None", args[index]);
+
+        // _codecs_code_page_encode_impl and the mbcs/oem ones: (bytes, len(str)).
+        private static PyObject CodePageEncode(string name, int codePage, PyObject[] args, int first)
+        {
+            string text = args[first] is PyString str ? str.Value : throw PyArgs.BadArgument(name, $"argument {first + 1}", "str", args[first]);
+            var bytes = PyCodePage.Encode(codePage, text, ErrorsArgument(name, args, first + 1));
+            return Result(PyBytes.From(bytes), (int)((PyString)args[first]).Length());
+        }
+
+        // _codecs_code_page_decode_impl: final is PyUnicode_DecodeCodePageStateful's consumed == NULL.
+        private static PyObject CodePageDecode(string name, int codePage, PyObject[] args, int first)
+        {
+            var data = BytesMethods.RequireBuffer(args[first]);
+            string errors = ErrorsArgument(name, args, first + 1);
+            bool final = args.Length > first + 2 && args[first + 2].IsTrue();
+            string text = PyCodePage.Decode(codePage, data, errors, final, out int consumed);
+            return Result(PyString.From(text), final ? data.Length : consumed);
         }
 
         // Charmap encoding - stub implementations

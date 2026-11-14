@@ -65,9 +65,9 @@ namespace SharpPy
 
         internal static bool IsBuiltinModule(string name) => _builtinModules.ContainsKey(name) && !OtherPlatform(name);
 
-        // nt and posix are one module, named for the platform.
+        // nt and posix are one module, named for the platform; _winapi is MS_WINDOWS's.
         private static bool OtherPlatform(string name) =>
-            name == (OperatingSystem.IsWindows() ? "posix" : "nt");
+            name == (OperatingSystem.IsWindows() ? "posix" : "nt") || (name == "_winapi" && !OperatingSystem.IsWindows());
 
         /// <summary>sys.builtin_module_names: the table's names, sorted.</summary>
         internal static List<string> BuiltinModuleNames()

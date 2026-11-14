@@ -534,8 +534,25 @@ namespace SharpPy.Modules
                 access = DateTime.UnixEpoch.AddSeconds(times.Items[0].AsFloat().Value).ToLocalTime();
                 modified = DateTime.UnixEpoch.AddSeconds(times.Items[1].AsFloat().Value).ToLocalTime();
             }
-            File.SetLastAccessTime(path, access);
-            File.SetLastWriteTime(path, modified);
+            // win32 utime opens the path with FILE_FLAG_BACKUP_SEMANTICS, so a directory takes times too;
+            // a refusal (a read-only file) is ERROR_ACCESS_DENIED.
+            try
+            {
+                if (IOHelper.DirExists(path))
+                {
+                    Directory.SetLastAccessTime(path, access);
+                    Directory.SetLastWriteTime(path, modified);
+                }
+                else
+                {
+                    File.SetLastAccessTime(path, access);
+                    File.SetLastWriteTime(path, modified);
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                throw WindowsOr(5, path);
+            }
             return PyNone.Instance;
         }
 

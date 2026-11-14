@@ -338,6 +338,7 @@ public class PyModule : PyObject
             ["_imp"] = SharpPy.Modules.ImpModule.Create,
             ["_warnings"] = PyWarnings.CreateModule,
             ["_ast"] = Modules.AstModule.CreateModule,
+            ["_winapi"] = Modules.WinapiModule.Create,
             // Modules/_typingmodule.c and Objects/typevarobject.c.
             ["_typing"] = SharpPy.Modules.TypingModule.CreateTypingModule,
             ["_io"] = () => SharpPy.Modules.IoModule.CreateIoModule(),  // io.py가 사용 (CPython Modules/_io)

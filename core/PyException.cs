@@ -1269,8 +1269,9 @@ namespace SharpPy
                 message = "Unknown error";
             }
             int errnoCode = WindowsErrorToErrno(winCode);
+            // PyErr_SetFromWindowsErr has no filename: None in its place.
             PyObject[] args = path2 == null
-                ? new PyObject[] { PyInt.From(errnoCode), PyString.From(message), PyString.From(path), PyInt.From(winCode) }
+                ? new PyObject[] { PyInt.From(errnoCode), PyString.From(message), path == null ? PyNone.Instance : PyString.From(path), PyInt.From(winCode) }
                 : new PyObject[] { PyInt.From(errnoCode), PyString.From(message), PyString.From(path), PyInt.From(winCode), PyString.From(path2) };
             return new PythonException(FromStructuredArguments(args));
         }

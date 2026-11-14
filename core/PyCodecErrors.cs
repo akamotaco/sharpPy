@@ -255,31 +255,124 @@ namespace SharpPy
         }
 
         // PyCodec_SurrogatePassErrors, for the UTF-8 codec.
+        private enum StandardEncoding { Unknown, Utf8, Utf16LE, Utf16BE, Utf32LE, Utf32BE }
+
+        // get_standard_encoding: the UTF codecs surrogatepass knows, by name ("CP_UTF8" too).
+        private static StandardEncoding GetStandardEncoding(string encoding, out int byteLength)
+        {
+            byteLength = 0;
+            if (encoding == "CP_UTF8")
+            {
+                byteLength = 3;
+                return StandardEncoding.Utf8;
+            }
+            if (encoding.Length < 3 || char.ToLowerInvariant(encoding[0]) != 'u' || char.ToLowerInvariant(encoding[1]) != 't'
+                || char.ToLowerInvariant(encoding[2]) != 'f')
+                return StandardEncoding.Unknown;
+            string rest = encoding.Substring(3);
+            if (rest.StartsWith("-") || rest.StartsWith("_"))
+                rest = rest.Substring(1);
+            if (rest == "8")
+            {
+                byteLength = 3;
+                return StandardEncoding.Utf8;
+            }
+            bool sixteen = rest.StartsWith("16"), thirtyTwo = rest.StartsWith("32");
+            if (!sixteen && !thirtyTwo)
+                return StandardEncoding.Unknown;
+            byteLength = sixteen ? 2 : 4;
+            rest = rest.Substring(2);
+            // no suffix: the machine's order, little-endian here
+            if (rest.Length == 0)
+                return sixteen ? StandardEncoding.Utf16LE : StandardEncoding.Utf32LE;
+            if (rest.StartsWith("-") || rest.StartsWith("_"))
+                rest = rest.Substring(1);
+            if (rest.Length == 2 && char.ToLowerInvariant(rest[1]) == 'e')
+            {
+                if (char.ToLowerInvariant(rest[0]) == 'b')
+                    return sixteen ? StandardEncoding.Utf16BE : StandardEncoding.Utf32BE;
+                if (char.ToLowerInvariant(rest[0]) == 'l')
+                    return sixteen ? StandardEncoding.Utf16LE : StandardEncoding.Utf32LE;
+            }
+            return StandardEncoding.Unknown;
+        }
+
+        // PyCodec_SurrogatePassErrors: a lone surrogate as the UTF codec of the exception would write
+        // it; any other codec, or a character that is no surrogate, fails with the exception itself.
         private static PyObject SurrogatePass(PyObject exc)
         {
             var kind = KindOf(exc, translate: false);
             int start = Field(exc, "start"), end = Field(exc, "end");
+            string encodingName = exc.GetAttribute("encoding") is PyString name ? name.Value : "";
+            var code = GetStandardEncoding(encodingName, out int byteLength);
+            if (code == StandardEncoding.Unknown)
+                return Strict(exc);
             if (kind == Kind.Encode)
             {
                 var bytes = new List<byte>();
                 foreach (var cp in CodePoints(exc, start, end))
                 {
-                    if (cp < 0xD800 || cp > 0xDFFF) Strict(exc);
-                    bytes.Add((byte)(0xE0 | (cp >> 12)));
-                    bytes.Add((byte)(0x80 | ((cp >> 6) & 0x3F)));
-                    bytes.Add((byte)(0x80 | (cp & 0x3F)));
+                    if (cp < 0xD800 || cp > 0xDFFF)
+                        return Strict(exc);
+                    switch (code)
+                    {
+                        case StandardEncoding.Utf8:
+                            bytes.Add((byte)(0xE0 | (cp >> 12)));
+                            bytes.Add((byte)(0x80 | ((cp >> 6) & 0x3F)));
+                            bytes.Add((byte)(0x80 | (cp & 0x3F)));
+                            break;
+                        case StandardEncoding.Utf16LE:
+                            bytes.Add((byte)cp);
+                            bytes.Add((byte)(cp >> 8));
+                            break;
+                        case StandardEncoding.Utf16BE:
+                            bytes.Add((byte)(cp >> 8));
+                            bytes.Add((byte)cp);
+                            break;
+                        case StandardEncoding.Utf32LE:
+                            bytes.Add((byte)cp);
+                            bytes.Add((byte)(cp >> 8));
+                            bytes.Add((byte)(cp >> 16));
+                            bytes.Add((byte)(cp >> 24));
+                            break;
+                        default:
+                            bytes.Add((byte)(cp >> 24));
+                            bytes.Add((byte)(cp >> 16));
+                            bytes.Add((byte)(cp >> 8));
+                            bytes.Add((byte)cp);
+                            break;
+                    }
                 }
                 return PyTuple.From(new PyObject[] { PyBytes.From(bytes.ToArray()), PyInt.From(end) });
             }
+            // Decoding: a single surrogate; the codec calls again for more.
             var data = ((PyBytes)exc.GetAttribute("object")).Value;
-            if (start + 2 < data.Length && (data[start] & 0xF0) == 0xE0 && (data[start + 1] & 0xC0) == 0x80 &&
-                (data[start + 2] & 0xC0) == 0x80)
+            int ch = 0;
+            if (data.Length - start >= byteLength)
             {
-                int cp = ((data[start] & 0x0F) << 12) | ((data[start + 1] & 0x3F) << 6) | (data[start + 2] & 0x3F);
-                if (cp >= 0xD800 && cp <= 0xDFFF)
-                    return Answer(((char)cp).ToString(), start + 3);
+                switch (code)
+                {
+                    case StandardEncoding.Utf8:
+                        if ((data[start] & 0xF0) == 0xE0 && (data[start + 1] & 0xC0) == 0x80 && (data[start + 2] & 0xC0) == 0x80)
+                            ch = ((data[start] & 0x0F) << 12) + ((data[start + 1] & 0x3F) << 6) + (data[start + 2] & 0x3F);
+                        break;
+                    case StandardEncoding.Utf16LE:
+                        ch = data[start + 1] << 8 | data[start];
+                        break;
+                    case StandardEncoding.Utf16BE:
+                        ch = data[start] << 8 | data[start + 1];
+                        break;
+                    case StandardEncoding.Utf32LE:
+                        ch = (data[start + 3] << 24) | (data[start + 2] << 16) | (data[start + 1] << 8) | data[start];
+                        break;
+                    default:
+                        ch = (data[start] << 24) | (data[start + 1] << 16) | (data[start + 2] << 8) | data[start + 3];
+                        break;
+                }
             }
-            return Strict(exc);
+            if (ch < 0xD800 || ch > 0xDFFF)
+                return Strict(exc);
+            return Answer(((char)ch).ToString(), start + byteLength);
         }
     }
 }
