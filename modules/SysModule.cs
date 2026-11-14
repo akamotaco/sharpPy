@@ -37,7 +37,7 @@ namespace SharpPy.Modules
             if (_streamsReady || Current == null)
                 return;
             _streamsReady = true;
-            PyObject Create(int fd, bool write, string name, string errors)
+            PyObject Create(int fd, bool write, string name, string encoding, string errors)
             {
                 var kwargs = new PyDict();
                 kwargs.SetItem(PyString.From("closefd"), PyBool.False);
@@ -46,10 +46,18 @@ namespace SharpPy.Modules
                 raw.SetAttribute("name", PyString.From(name));
                 bool isatty = raw.GetAttribute("isatty").Call(Array.Empty<PyObject>(), null).IsTrue();
                 bool lineBuffering = isatty || fd == 2;
+                // create_stdio: a Windows console is _WindowsConsoleIO, which is UTF-8 with surrogatepass
+                // (stderr keeps backslashreplace).
+                if (isatty && OperatingSystem.IsWindows())
+                {
+                    encoding = "utf-8";
+                    if (fd != 2)
+                        errors = "surrogatepass";
+                }
                 PyObject newline = OperatingSystem.IsWindows() ? PyNone.Instance : PyString.From("\n");
                 var stream = PyTextIOWrapper.WrapperType.Call(new PyObject[]
                 {
-                    buffer, PyString.From(stdioEncoding), PyString.From(errors), newline, PyBool.FromBool(lineBuffering), PyBool.False,
+                    buffer, PyString.From(encoding), PyString.From(errors), newline, PyBool.FromBool(lineBuffering), PyBool.False,
                 }, null);
                 stream.SetAttribute("mode", PyString.From(write ? "w" : "r"));
                 // The interpreter keeps these to its very end (flush_std_files), so no finalizer
@@ -58,24 +66,16 @@ namespace SharpPy.Modules
                     PyFinalizer.Detach(PyFinalizer.Attach(layer));
                 return stream;
             }
-            // config_init_stdio_encoding: PYTHONIOENCODING is "encoding[:errors]"; the errors apply
-            // to stdin and stdout, stderr keeps backslashreplace.
-            string encoding = "utf-8", errors = "strict";
-            var setting = Environment.GetEnvironmentVariable("PYTHONIOENCODING");
-            if (!string.IsNullOrEmpty(setting))
-            {
-                int colon = setting.IndexOf(':');
-                string name = colon < 0 ? setting : setting.Substring(0, colon);
-                if (name.Length != 0)
-                    encoding = name;
-                if (colon >= 0 && colon + 1 < setting.Length)
-                    errors = setting.Substring(colon + 1);
-            }
+            // config_init_stdio_encoding: the errors apply to stdin and stdout, stderr keeps
+            // backslashreplace.
+            var (encoding, errors) = PyLocale.StdioEncoding();
+            // init_stdio_encoding (_PyUnicode_InitEncodings): the codec's own name (config_get_codec_name).
+            encoding = ((PyString)PyCodecRegistry.Lookup(encoding).GetAttribute("name")).Value;
             stdioEncoding = encoding;
             var dict = Current.ModuleDict;
-            dict["stdin"] = dict["__stdin__"] = Create(0, false, "<stdin>", errors);
-            dict["stdout"] = dict["__stdout__"] = Create(1, true, "<stdout>", errors);
-            dict["stderr"] = dict["__stderr__"] = Create(2, true, "<stderr>", "backslashreplace");
+            dict["stdin"] = dict["__stdin__"] = Create(0, false, "<stdin>", encoding, errors);
+            dict["stdout"] = dict["__stdout__"] = Create(1, true, "<stdout>", encoding, errors);
+            dict["stderr"] = dict["__stderr__"] = Create(2, true, "<stderr>", encoding, "backslashreplace");
         }
 
         /// <summary>
@@ -436,6 +436,7 @@ namespace SharpPy.Modules
                     _ => 0,
                 });
             values[Array.IndexOf(fields, "dev_mode")] = PyBool.FromBool(SharpPyConfig.DevMode);
+            values[Array.IndexOf(fields, "utf8_mode")] = PyInt.From(SharpPyConfig.Utf8Mode ? 1 : 0);
             values[Array.IndexOf(fields, "safe_path")] = PyBool.False;
             return new PyStructSequence(new PyStructSequenceType("sys", "flags", fields), values);
         }

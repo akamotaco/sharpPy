@@ -84,7 +84,8 @@ namespace SharpPy.Modules
                     PyArgs.Int(args[1]);
                 if (args[0] is not PyNone)
                     return args[0];
-                return PyString.From("locale");
+                // UTF-8 Mode answers "utf-8", otherwise the marker TextIOWrapper reads as the locale's.
+                return PyString.From(SharpPyConfig.Utf8Mode ? "utf-8" : "locale");
             });
 
             // CPython _io.open_code(path, /): open a source file for the import

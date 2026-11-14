@@ -134,10 +134,8 @@ namespace SharpPy
                 if (real == 0.0 && !double.IsNegative(real)) skipReal = true;
                 else parens = true;
             }
-            else if (format.Type == 'n')
-            {
-                part.Type = 'g';
-            }
+            // 'n' is 'g' with the current locale's point and grouping (get_locale_info(LT_CURRENT_LOCALE)),
+            // which the float renderer applies to each part.
 
             string realText = skipReal ? "" : PyFloatFormatter.Render(real, part);
             if (!skipReal) part.Sign = '+';

@@ -457,9 +457,12 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         _snapshot = null;
         _raw = null;
         _b2cratio = 0.0;
-        // _Py_GetLocaleEncodingObject: SharpPy's locale is UTF-8, on every platform Godot runs on.
-        if (encoding == null || encoding == "locale")
+        // _io_TextIOWrapper___init___impl: no encoding is UTF-8 in UTF-8 Mode; otherwise, and for
+        // "locale" always, _Py_GetLocaleEncodingObject.
+        if (encoding == null && SharpPyConfig.Utf8Mode)
             encoding = "utf-8";
+        else if (encoding == null || encoding == "locale")
+            encoding = PyLocale.LocaleEncoding();
         _encoding = PyString.From(encoding);
         var codecInfo = CodecInfo(encoding);
         _errors = errorsObject;
@@ -496,8 +499,9 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         }
         else
         {
+            // textiowrapper_change_encoding: "locale" is _Py_GetLocaleEncodingObject.
             if (((PyString)encoding).Value == "locale")
-                encoding = PyString.From("utf-8");
+                encoding = PyString.From(PyLocale.LocaleEncoding());
             if (errors is PyNone)
                 errors = PyString.From("strict");
         }

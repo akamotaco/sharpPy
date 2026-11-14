@@ -1531,7 +1531,13 @@ namespace SharpPy
                 prefix = value.Sign < 0 ? "-" : sign == '+' ? "+" : sign == ' ' ? " " : "";
                 if (alternate && binary) prefix += type == 'b' ? "0b" : type == 'o' ? "0o" : type == 'X' ? "0X" : "0x";
                 int groupSize = binary ? 4 : 3;
-                if (grouping != '\0')
+                // 'n': format_long_internal's get_locale_info(LT_CURRENT_LOCALE)
+                if (type == 'n')
+                {
+                    var (_, separator, sizes) = PyLocale.CurrentNumeric();
+                    digits = PyLocale.Group(digits, separator, sizes);
+                }
+                else if (grouping != '\0')
                 {
                     int minDigits = digits.Length;
                     if (fill == "0" && align == '=')

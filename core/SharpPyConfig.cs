@@ -28,6 +28,40 @@ namespace SharpPy
             XOptions.Exists(option => option.Key == "dev") ||
             !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("PYTHONDEVMODE"));
 
+        /// <summary>
+        /// PyPreConfig.utf8_mode as a host sets it before startup, as an embedder does; null leaves it
+        /// to the command line and the environment. The Godot build starts in UTF-8 Mode, so a game's
+        /// files read the same whatever language the system is in.
+        /// </summary>
+#if GODOT
+        public static bool? Utf8ModeSetting { get; set; } = true;
+#else
+        public static bool? Utf8ModeSetting { get; set; }
+#endif
+
+        private static bool? _utf8Mode;
+
+        /// <summary>
+        /// UTF-8 Mode (PEP 540): the host's setting, else -X utf8 (=1, =0), else PYTHONUTF8 (1, 0),
+        /// else on for the C and POSIX locales of a posix system.
+        /// </summary>
+        public static bool Utf8Mode => _utf8Mode ??= ComputeUtf8Mode();
+
+        private static bool ComputeUtf8Mode()
+        {
+            if (Utf8ModeSetting is bool set)
+                return set;
+            var option = XOptions.FindLast(o => o.Key == "utf8");
+            if (option.Key != null)
+                return option.Value != "0";
+            string environment = System.Environment.GetEnvironmentVariable("PYTHONUTF8");
+            if (environment == "1")
+                return true;
+            if (environment == "0")
+                return false;
+            return PyLocale.LegacyCLocale();
+        }
+
         /// <summary>The -W options in the order given (cmdline_warnoptions).</summary>
         public static readonly List<string> CommandLineWarnOptions = new();
 

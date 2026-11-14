@@ -51,6 +51,18 @@ internal static class PyFloatFormatter
             }
         }
         if (type == '%') number += "%";
+        // 'n': format_float_internal's get_locale_info(LT_CURRENT_LOCALE) - the locale's decimal point
+        // and the integer digits grouped by it.
+        if (type == 'n' && !special)
+        {
+            var (point, separator, sizes) = PyLocale.CurrentNumeric();
+            int count = 0;
+            while (count < number.Length && char.IsAsciiDigit(number[count])) count++;
+            string rest = number.Substring(count);
+            if (rest.StartsWith(".", StringComparison.Ordinal))
+                rest = point + rest.Substring(1);
+            number = PyLocale.Group(number.Substring(0, count), separator, sizes) + rest;
+        }
         string prefix = negative ? "-" : sign == '+' ? "+" : sign == ' ' ? " " : "";
         if (!special && group != '\0')
         {
