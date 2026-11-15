@@ -256,9 +256,8 @@ namespace SharpPy
             for (i = start; i < end; ++i)
             {
                 int c = obj[i];
-                // A control character has no name of its own, only an alias: it is escaped.
-                bool control = c <= 0xFFFF && char.GetUnicodeCategory((char)c) == System.Globalization.UnicodeCategory.Control;
-                var name = control ? null : UnicodeNames.Name(c);
+                // ucnhash_capi->getname(c, buffer, sizeof(buffer), 1)
+                var name = UnicodeNames.Name(c);
                 if (name != null)
                     res.Append("\\N{").Append(name).Append('}');
                 else

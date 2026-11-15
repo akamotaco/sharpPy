@@ -1,280 +1,681 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
-using System.IO.Compression;
 using System.Text;
 
 namespace SharpPy.Modules
 {
     /// <summary>
-    /// Modules/unicodedata.c. The tables come from CPython's (tools/gen_unicode_data.py), and
-    /// normalization is done here rather than by string.Normalize, which depends on ICU and is
-    /// not there in every place Godot runs.
+    /// Modules/unicodedata.c (CPython 3.12.15) over core/UnicodedataDb.g.cs, which is its
+    /// unicodedata_db.h and unicodename_db.h. Each function is both a module function and a method
+    /// of unicodedata.UCD: a module function has no previous version (UCD_Check is false), the
+    /// method of ucd_3_2_0 reads the 3.2.0 change records over the current data.
     /// </summary>
     internal static class UnicodedataModule
     {
-        private sealed class Runs
-        {
-            internal readonly List<int> Starts = new();
-            internal readonly List<string> Values = new();
+        // _PyUnicode_DatabaseRecord: six bytes a record
+        private const int CATEGORY = 0, COMBINING = 1, BIDIRECTIONAL = 2, MIRRORED = 3, EAST_ASIAN_WIDTH = 4, QUICK_CHECK = 5;
 
-            internal string At(int code)
-            {
-                int low = 0, high = Starts.Count - 1;
-                while (low < high)
-                {
-                    int middle = (low + high + 1) / 2;
-                    if (Starts[middle] <= code) low = middle;
-                    else high = middle - 1;
-                }
-                return Values[low];
-            }
-        }
+        private static readonly byte[] Records = UnicodedataTables.Bytes(UnicodedataDb.Records);
+        private static readonly int[] Index1 = UnicodedataTables.Ints(UnicodedataDb.Index1, 2);
+        private static readonly int[] Index2 = UnicodedataTables.Ints(UnicodedataDb.Index2, 2);
+        private static readonly int[] DecompData = UnicodedataTables.Ints(UnicodedataDb.DecompData, 4);
+        private static readonly byte[] DecompIndex1 = UnicodedataTables.Bytes(UnicodedataDb.DecompIndex1);
+        private static readonly int[] DecompIndex2 = UnicodedataTables.Ints(UnicodedataDb.DecompIndex2, 2);
+        private static readonly int[] CompIndex = UnicodedataTables.Ints(UnicodedataDb.CompIndex, 2);
+        private static readonly int[] CompData = UnicodedataTables.Ints(UnicodedataDb.CompData, 4);
+        private static readonly byte[] Changes320Index = UnicodedataTables.Bytes(UnicodedataDb.Changes320Index);
+        private static readonly byte[] Changes320Data = UnicodedataTables.Bytes(UnicodedataDb.Changes320Data);
+        private static readonly int[] NumericCodes = UnicodedataTables.Ints(UnicodedataDb.NumericCodes, 4);
 
         private const int SBase = 0xAC00, LBase = 0x1100, VBase = 0x1161, TBase = 0x11A7;
         private const int LCount = 19, VCount = 21, TCount = 28, NCount = VCount * TCount, SCount = LCount * NCount;
 
-        private static Dictionary<string, Runs> _properties;
-        private static Dictionary<long, int> _compositions;
-
-        private static Runs Property(string name)
+        // _getrecord_ex: the offset of the code point's record.
+        private static int Record(int code)
         {
-            if (_properties == null)
-                Load();
-            return _properties[name];
-        }
-
-        private static void Load()
-        {
-            var properties = new Dictionary<string, Runs>();
-            var compositions = new List<int>();
-            using var packed = new MemoryStream(Convert.FromBase64String(UnicodePropertyData.Deflated));
-            using var inflate = new DeflateStream(packed, CompressionMode.Decompress);
-            using var reader = new StreamReader(inflate, Encoding.ASCII);
-            Runs current = null;
-            string line;
-            while ((line = reader.ReadLine()) != null)
+            int index;
+            if ((uint)code >= 0x110000)
+                index = 0;
+            else
             {
-                if (line[0] == '=')
-                {
-                    current = line == "=compositions" ? null : properties[line.Substring(1)] = new Runs();
-                    continue;
-                }
-                int space = line.IndexOf(' ');
-                if (current == null)
-                {
-                    compositions.Add(Convert.ToInt32(line, 16));
-                    continue;
-                }
-                current.Starts.Add(Convert.ToInt32(line.Substring(0, space), 16));
-                current.Values.Add(line.Substring(space + 1));
+                const int shift = UnicodedataDb.Shift;
+                index = Index1[code >> shift];
+                index = Index2[(index << shift) + (code & ((1 << shift) - 1))];
             }
-            var pairs = new Dictionary<long, int>();
-            foreach (int code in compositions)
-            {
-                var parts = properties["decomposition"].At(code).Split(' ');
-                pairs[Pair(Convert.ToInt32(parts[0], 16), Convert.ToInt32(parts[1], 16))] = code;
-            }
-            _compositions = pairs;
-            _properties = properties;
+            return index * 6;
         }
 
-        private static long Pair(int first, int second) => ((long)first << 32) | (uint)second;
+        internal static int Combining(int code) => Records[Record(code) + COMBINING];
 
-        internal static int Combining(int code) => int.Parse(Property("combining").At(code), CultureInfo.InvariantCulture);
-
-        // The argument of each function: a str of one character.
-        // The clinic's int(accept={str}) character converter: "argument" for the METH_O functions,
-        // "argument 1" for those with a default (METH_FASTCALL).
-        private static int Code(string function, PyObject[] args)
+        // _PyUnicode_ToNumeric: -1.0 when the character has no numeric value.
+        private static double ToNumeric(int ch)
         {
-            if (args[0] is PyString text && text.CodePointLength() == 1)
-                return text.Value.Length == 1 ? text.Value[0] : char.ConvertToUtf32(text.Value, 0);
-            throw PyArgs.BadArgument(function, function is "decimal" or "digit" or "numeric" or "name" ? "argument 1" : "argument",
-                "a unicode character", args[0]);
+            int at = Array.BinarySearch(NumericCodes, ch);
+            return at >= 0 ? UnicodedataDb.NumericValues[at] : -1.0;
         }
 
-        private static List<int> CodePoints(string text)
+        /// <summary>
+        /// PreviousDBVersion: a UCD with the change records of an older database (get_change_3_2_0)
+        /// and its normalization changes (normalization_3_2_0).
+        /// </summary>
+        internal sealed class PreviousVersion : PyObject
         {
-            var points = new List<int>(text.Length);
-            for (int i = 0; i < text.Length; i++)
+            internal readonly string Name;
+
+            internal PreviousVersion(string name) => Name = name;
+
+            public override PyType GetPyType() => UcdType;
+
+            // get_change_3_2_0: the change record's index
+            private static int Change(int n)
             {
-                if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
-                    points.Add(char.ConvertToUtf32(text[i], text[++i]));
+                int index;
+                if ((uint)n >= 0x110000)
+                    index = 0;
                 else
-                    points.Add(text[i]);
-            }
-            return points;
-        }
-
-        private static string Text(List<int> points)
-        {
-            var result = new StringBuilder(points.Count);
-            foreach (int point in points)
-            {
-                if (point >= 0x10000) result.Append(char.ConvertFromUtf32(point));
-                else result.Append((char)point);
-            }
-            return result.ToString();
-        }
-
-        private static void Decompose(int code, bool compatible, List<int> output)
-        {
-            if (code >= SBase && code < SBase + SCount)
-            {
-                int index = code - SBase;
-                output.Add(LBase + index / NCount);
-                output.Add(VBase + index % NCount / TCount);
-                if (index % TCount != 0)
-                    output.Add(TBase + index % TCount);
-                return;
-            }
-            string decomposition = Property("decomposition").At(code);
-            var parts = decomposition.Length == 0 ? Array.Empty<string>() : decomposition.Split(' ');
-            int first = parts.Length > 0 && parts[0][0] == '<' ? 1 : 0;
-            if (parts.Length == 0 || (first == 1 && !compatible))
-            {
-                output.Add(code);
-                return;
-            }
-            for (int i = first; i < parts.Length; i++)
-                Decompose(Convert.ToInt32(parts[i], 16), compatible, output);
-        }
-
-        // nfd_nfkd: full decomposition, and then the canonical order of the combining marks
-        private static List<int> Decomposed(string text, bool compatible)
-        {
-            var output = new List<int>(text.Length);
-            foreach (int point in CodePoints(text))
-                Decompose(point, compatible, output);
-            for (int i = 1; i < output.Count; i++)
-            {
-                int point = output[i], rank = Combining(point);
-                if (rank == 0)
-                    continue;
-                int j = i;
-                while (j > 0 && Combining(output[j - 1]) > rank)
                 {
-                    output[j] = output[j - 1];
-                    j--;
+                    index = Changes320Index[n >> 7];
+                    index = Changes320Data[(index << 7) + (n & 127)];
                 }
-                output[j] = point;
+                return index;
             }
-            return output;
+
+            private static int Field(int n, int field) => UnicodedataDb.ChangeRecordBytes[Change(n) * 5 + field];
+            internal int BidirChanged(int n) => Field(n, 0);
+            internal int CategoryChanged(int n) => Field(n, 1);
+            internal int DecimalChanged(int n) => Field(n, 2);
+            internal int MirroredChanged(int n) => Field(n, 3);
+            internal int EastAsianWidthChanged(int n) => Field(n, 4);
+
+            // normalization_3_2_0
+            internal static int Normalization(int n)
+            {
+                var pairs = UnicodedataDb.Normalization320;
+                for (int i = 0; i < pairs.Length; i += 2)
+                    if (pairs[i] == n)
+                        return pairs[i + 1];
+                return 0;
+            }
         }
 
-        private static int Composite(int first, int second)
+        internal static readonly PyType UcdType = MakeUcdType();
+
+        // chr: int(accept={str}), a str of one character
+        private static int Chr(string fname, string displayname, PyObject arg)
         {
-            if (first >= LBase && first < LBase + LCount && second >= VBase && second < VBase + VCount)
-                return SBase + ((first - LBase) * VCount + (second - VBase)) * TCount;
-            if (first >= SBase && first < SBase + SCount && (first - SBase) % TCount == 0 &&
-                second > TBase && second < TBase + TCount)
-                return first + second - TBase;
-            return _compositions.TryGetValue(Pair(first, second), out int code) ? code : -1;
+            if (arg is not PyString text || text.CodePointLength() != 1)
+                throw PyArgs.BadArgument(fname, displayname, "a unicode character", arg);
+            return PyString.CodePointAt(text.Value, 0, out _);
+        }
+
+        private static PyObject Default(PyObject defaultValue, string message) =>
+            defaultValue ?? throw PyValueError.Create(message);
+
+        // unicodedata_UCD_decimal_impl
+        private static PyObject Decimal(PreviousVersion self, int c, PyObject defaultValue)
+        {
+            bool haveOld = false;
+            long rc = 0;
+            if (self != null)
+            {
+                if (self.CategoryChanged(c) == 0)
+                {
+                    // unassigned
+                    haveOld = true;
+                    rc = -1;
+                }
+                else if (self.DecimalChanged(c) != 0xFF)
+                {
+                    haveOld = true;
+                    rc = self.DecimalChanged(c);
+                }
+            }
+            if (!haveOld)
+                rc = UnicodeType.ToDecimalDigit(c);
+            if (rc < 0)
+                return Default(defaultValue, "not a decimal");
+            return PyInt.From(rc);
+        }
+
+        // unicodedata_UCD_digit_impl
+        private static PyObject Digit(PreviousVersion self, int c, PyObject defaultValue)
+        {
+            long rc = UnicodeType.ToDigit(c);
+            if (rc < 0)
+                return Default(defaultValue, "not a digit");
+            return PyInt.From(rc);
+        }
+
+        // unicodedata_UCD_numeric_impl
+        private static PyObject Numeric(PreviousVersion self, int c, PyObject defaultValue)
+        {
+            bool haveOld = false;
+            double rc = 0;
+            if (self != null)
+            {
+                if (self.CategoryChanged(c) == 0)
+                {
+                    // unassigned
+                    haveOld = true;
+                    rc = -1.0;
+                }
+                else if (self.DecimalChanged(c) != 0xFF)
+                {
+                    haveOld = true;
+                    rc = self.DecimalChanged(c);
+                }
+            }
+            if (!haveOld)
+                rc = ToNumeric(c);
+            if (rc == -1.0)
+                return Default(defaultValue, "not a numeric character");
+            return new PyFloat(rc);
+        }
+
+        // unicodedata_UCD_category_impl
+        private static PyObject Category(PreviousVersion self, int c)
+        {
+            int index = Records[Record(c) + CATEGORY];
+            if (self != null && self.CategoryChanged(c) != 0xFF)
+                index = self.CategoryChanged(c);
+            return PyString.From(UnicodedataDb.CategoryNames[index]);
+        }
+
+        // unicodedata_UCD_bidirectional_impl
+        private static PyObject Bidirectional(PreviousVersion self, int c)
+        {
+            int index = Records[Record(c) + BIDIRECTIONAL];
+            if (self != null)
+            {
+                if (self.CategoryChanged(c) == 0)
+                    index = 0;  // unassigned
+                else if (self.BidirChanged(c) != 0xFF)
+                    index = self.BidirChanged(c);
+            }
+            return PyString.From(UnicodedataDb.BidirectionalNames[index]);
+        }
+
+        // unicodedata_UCD_combining_impl
+        private static PyObject CombiningImpl(PreviousVersion self, int c)
+        {
+            int index = Records[Record(c) + COMBINING];
+            if (self != null && self.CategoryChanged(c) == 0)
+                index = 0;  // unassigned
+            return PyInt.From(index);
+        }
+
+        // unicodedata_UCD_mirrored_impl
+        private static PyObject Mirrored(PreviousVersion self, int c)
+        {
+            int index = Records[Record(c) + MIRRORED];
+            if (self != null)
+            {
+                if (self.CategoryChanged(c) == 0)
+                    index = 0;  // unassigned
+                else if (self.MirroredChanged(c) != 0xFF)
+                    index = self.MirroredChanged(c);
+            }
+            return PyInt.From(index);
+        }
+
+        // unicodedata_UCD_east_asian_width_impl
+        private static PyObject EastAsianWidth(PreviousVersion self, int c)
+        {
+            int index = Records[Record(c) + EAST_ASIAN_WIDTH];
+            if (self != null)
+            {
+                if (self.CategoryChanged(c) == 0)
+                    index = 0;  // unassigned
+                else if (self.EastAsianWidthChanged(c) != 0xFF)
+                    index = self.EastAsianWidthChanged(c);
+            }
+            return PyString.From(UnicodedataDb.EastAsianWidthNames[index]);
+        }
+
+        private static int DecompIndex(int code)
+        {
+            if ((uint)code >= 0x110000)
+                return 0;
+            const int shift = UnicodedataDb.DecompShift;
+            int index = DecompIndex1[code >> shift];
+            return DecompIndex2[(index << shift) + (code & ((1 << shift) - 1))];
+        }
+
+        // unicodedata_UCD_decomposition_impl
+        private static PyObject Decomposition(PreviousVersion self, int c)
+        {
+            if (self != null && self.CategoryChanged(c) == 0)
+                return PyString.From("");  // unassigned
+            int index = DecompIndex(c);
+            // high byte is number of hex bytes (usually one or two), low byte is prefix code
+            int count = DecompData[index] >> 8;
+            int prefixIndex = DecompData[index] & 255;
+            var decomp = new StringBuilder(UnicodedataDb.DecompPrefix[prefixIndex]);
+            while (count-- > 0)
+            {
+                if (decomp.Length != 0)
+                    decomp.Append(' ');
+                decomp.Append(DecompData[++index].ToString("X4"));
+            }
+            return PyString.From(decomp.ToString());
+        }
+
+        // get_decomp_record
+        private static void GetDecompRecord(PreviousVersion self, int code, out int index, out int prefix, out int count)
+        {
+            if ((uint)code >= 0x110000)
+                index = 0;
+            else if (self != null && self.CategoryChanged(code) == 0)
+                index = 0;  // unassigned in old version
+            else
+                index = DecompIndex(code);
+            count = DecompData[index] >> 8;
+            prefix = DecompData[index] & 255;
+            index++;
+        }
+
+        // nfd_nfkd
+        private static int[] NfdNfkd(PreviousVersion self, int[] input, bool k)
+        {
+            var output = new List<int>(input.Length + 10);
+            var stack = new Stack<int>();
+            foreach (int ch in input)
+            {
+                stack.Push(ch);
+                while (stack.Count != 0)
+                {
+                    int code = stack.Pop();
+                    // Hangul Decomposition.
+                    if (SBase <= code && code < SBase + SCount)
+                    {
+                        int SIndex = code - SBase;
+                        int L = LBase + SIndex / NCount;
+                        int V = VBase + (SIndex % NCount) / TCount;
+                        int T = TBase + SIndex % TCount;
+                        output.Add(L);
+                        output.Add(V);
+                        if (T != TBase)
+                            output.Add(T);
+                        continue;
+                    }
+                    // normalization changes
+                    if (self != null)
+                    {
+                        int value = PreviousVersion.Normalization(code);
+                        if (value != 0)
+                        {
+                            stack.Push(value);
+                            continue;
+                        }
+                    }
+                    // Other decompositions.
+                    GetDecompRecord(self, code, out int index, out int prefix, out int count);
+                    // Copy character if it is not decomposable, or has a compatibility
+                    // decomposition, but we do NFD.
+                    if (count == 0 || (prefix != 0 && !k))
+                    {
+                        output.Add(code);
+                        continue;
+                    }
+                    // Copy decomposition onto the stack, in reverse order.
+                    while (count != 0)
+                        stack.Push(DecompData[index + (--count)]);
+                }
+            }
+            var result = output.ToArray();
+            // Sort each consecutive combining-character run canonically (a stable sort by class).
+            int i = 0, o = result.Length;
+            while (i < o)
+            {
+                int prev = Combining(result[i]);
+                if (prev == 0)
+                {
+                    i++;
+                    continue;
+                }
+                int runStart = i++;
+                bool needsSort = false;
+                while (i < o)
+                {
+                    int cur = Combining(result[i]);
+                    if (cur == 0)
+                        break;
+                    if (prev > cur)
+                        needsSort = true;
+                    prev = cur;
+                    i++;
+                }
+                if (!needsSort)
+                    continue;
+                // canonical_ordering_sort_insertion (the counting sort gives the same order)
+                for (int a = runStart + 1; a < i; a++)
+                {
+                    int code = result[a];
+                    int combining = Combining(code);
+                    int j = a;
+                    while (j > runStart && Combining(result[j - 1]) > combining)
+                    {
+                        result[j] = result[j - 1];
+                        j--;
+                    }
+                    result[j] = code;
+                }
+            }
+            return result;
+        }
+
+        // find_nfc_index over struct reindex {start, count, index}, ending at start 0
+        private static int FindNfcIndex(int[] nfc, int code)
+        {
+            for (int row = 0; nfc[row * 3] != 0; row++)
+            {
+                int start = nfc[row * 3];
+                if (code < start)
+                    return -1;
+                if (code <= start + nfc[row * 3 + 1])
+                    return nfc[row * 3 + 2] + (code - start);
+            }
+            return -1;
         }
 
         // nfc_nfkc
-        private static List<int> Composed(List<int> points)
+        private static int[] NfcNfkc(PreviousVersion self, int[] input, bool k)
         {
-            if (points.Count == 0)
-                return points;
-            var output = new List<int>(points.Count);
-            // A mark is blocked from the starter by one of the same or a higher class between them.
-            int starterIndex = -1, lastRank = -1;
-            foreach (int point in points)
+            var data = NfdNfkd(self, input, k);
+            int len = data.Length;
+            var output = new int[len];
+            var skipped = new List<int>();
+            int i = 0, o = 0;
+            while (i < len)
             {
-                int rank = Combining(point);
-                if (starterIndex >= 0 && lastRank < rank)
+                int skip = skipped.IndexOf(i);
+                if (skip >= 0)
                 {
-                    int composite = Composite(output[starterIndex], point);
-                    if (composite >= 0)
+                    // the character is skipped. Remove from list.
+                    skipped[skip] = skipped[^1];
+                    skipped.RemoveAt(skipped.Count - 1);
+                    i++;
+                    continue;
+                }
+                // Hangul Composition. We don't need to check for <LV,T> pairs, since we always
+                // have decomposed data.
+                int code = data[i];
+                if (LBase <= code && code < LBase + LCount && i + 1 < len &&
+                    VBase <= data[i + 1] && data[i + 1] < VBase + VCount)
+                {
+                    int LIndex = code - LBase;
+                    int VIndex = data[i + 1] - VBase;
+                    code = SBase + (LIndex * VCount + VIndex) * TCount;
+                    i += 2;
+                    if (i < len && TBase < data[i] && data[i] < TBase + TCount)
                     {
-                        output[starterIndex] = composite;
+                        code += data[i] - TBase;
+                        i++;
+                    }
+                    output[o++] = code;
+                    continue;
+                }
+                // code is still input[i] here
+                int f = FindNfcIndex(UnicodedataDb.NfcFirst, code);
+                if (f == -1)
+                {
+                    output[o++] = code;
+                    i++;
+                    continue;
+                }
+                // Find next unblocked character.
+                int i1 = i + 1;
+                int comb = 0;
+                // output base character for now; might be updated later.
+                output[o] = data[i];
+                while (i1 < len)
+                {
+                    int code1 = data[i1];
+                    int comb1 = Combining(code1);
+                    if (comb != 0)
+                    {
+                        if (comb1 == 0)
+                            break;
+                        if (comb >= comb1)
+                        {
+                            // Character is blocked.
+                            i1++;
+                            continue;
+                        }
+                    }
+                    int l = FindNfcIndex(UnicodedataDb.NfcLast, code1);
+                    int composed = 0;
+                    if (l != -1)
+                    {
+                        int index = f * UnicodedataDb.TotalLast + l;
+                        int index1 = CompIndex[index >> UnicodedataDb.CompShift];
+                        composed = CompData[(index1 << UnicodedataDb.CompShift) + (index & ((1 << UnicodedataDb.CompShift) - 1))];
+                    }
+                    if (composed == 0)
+                    {
+                        // not_combinable: i1 cannot be combined with i. If i1 is a starter, we
+                        // don't need to look further. Otherwise, record the combining class.
+                        if (comb1 == 0)
+                            break;
+                        comb = comb1;
+                        i1++;
                         continue;
                     }
+                    // Replace the original character.
+                    output[o] = composed;
+                    // Mark the second character unused.
+                    skipped.Add(i1);
+                    i1++;
+                    f = FindNfcIndex(UnicodedataDb.NfcFirst, output[o]);
+                    if (f == -1)
+                        break;
                 }
-                if (rank == 0)
-                {
-                    starterIndex = output.Count;
-                    lastRank = -1;
-                }
-                else
-                    lastRank = rank;
-                output.Add(point);
+                // Output character was already written. Just advance the indices.
+                o++;
+                i++;
             }
+            if (o == len)
+                // No changes. Return original string.
+                return data;
+            Array.Resize(ref output, o);
             return output;
         }
 
-        private static string Normalize(PyObject form, PyObject input, string function)
+        private enum Quickcheck { Yes = 0, Maybe = 1, No = 2 }
+
+        // is_normalized_quickcheck
+        private static Quickcheck IsNormalizedQuickcheck(PreviousVersion self, string input, int[] data, bool nfc, bool k, bool yesOnly)
         {
-            if (form is not PyString name)
-                throw PyArgs.BadArgument(function, "argument 1", "str", form);
-            if (input is not PyString text)
-                throw PyArgs.BadArgument(function, "argument 2", "str", input);
-            return name.Value switch
+            // UCD 3.2.0 is requested, quickchecks must be disabled.
+            if (self != null)
+                return Quickcheck.Maybe;
+            bool ascii = true;
+            foreach (char c in input)
+                if (c >= 128) { ascii = false; break; }
+            if (ascii)
+                return Quickcheck.Yes;
+            int prevCombining = 0;
+            // The two quickcheck bits at this shift have type QuickcheckResult.
+            int quickcheckShift = (nfc ? 4 : 0) + (k ? 2 : 0);
+            var result = Quickcheck.Yes;
+            foreach (int ch in data)
             {
-                "NFC" => Text(Composed(Decomposed(text.Value, false))),
-                "NFKC" => Text(Composed(Decomposed(text.Value, true))),
-                "NFD" => Text(Decomposed(text.Value, false)),
-                "NFKD" => Text(Decomposed(text.Value, true)),
-                _ => throw PyValueError.Create("invalid normalization form"),
-            };
+                int record = Record(ch);
+                int combining = Records[record + COMBINING];
+                if (combining != 0 && prevCombining > combining)
+                    return Quickcheck.No;  // non-canonical sort order, not normalized
+                prevCombining = combining;
+                int quickcheckWhole = Records[record + QUICK_CHECK];
+                if (yesOnly)
+                {
+                    if ((quickcheckWhole & (3 << quickcheckShift)) != 0)
+                        return Quickcheck.Maybe;
+                }
+                else
+                {
+                    switch ((Quickcheck)((quickcheckWhole >> quickcheckShift) & 3))
+                    {
+                        case Quickcheck.No:
+                            return Quickcheck.No;
+                        case Quickcheck.Maybe:
+                            result = Quickcheck.Maybe;  // this string might need normalization
+                            break;
+                    }
+                }
+            }
+            return result;
         }
 
-        private static PyObject TwoArguments(string function, PyObject[] args, Func<PyObject, PyObject, PyObject> body)
+        private static string Text(int[] points)
         {
-            return body(args[0], args[1]);
+            var sb = new StringBuilder(points.Length);
+            foreach (int cp in points)
+            {
+                if (cp < 0x10000) sb.Append((char)cp);
+                else sb.Append(char.ConvertFromUtf32(cp));
+            }
+            return sb.ToString();
         }
 
-        private static void Text1(PyModule module, string name, Func<int, PyObject> answer) =>
-            module.ModuleDict[name] = new PyBuiltinFunction(name, args => answer(Code(name, args)));
+        private static bool Form(string form, out bool nfc, out bool k)
+        {
+            nfc = form is "NFC" or "NFKC";
+            k = form is "NFKC" or "NFKD";
+            return form is "NFC" or "NFKC" or "NFD" or "NFKD";
+        }
 
-        // decimal, digit and numeric: what the table has, or the default, or this error
-        private static void Number(PyModule module, string name, string error, Func<string, PyObject> value) =>
-            module.ModuleDict[name] = new PyBuiltinFunction(name, args =>
+        // unicodedata_UCD_is_normalized_impl
+        private static PyObject IsNormalized(PreviousVersion self, PyString form, PyString input)
+        {
+            if (input.Value.Length == 0)
+                // special case empty input strings.
+                return PyBool.True;
+            if (!Form(form.Value, out bool nfc, out bool k))
+                throw PyValueError.Create("invalid normalization form");
+            var data = UnicodeEncoders.CodePoints(input.Value);
+            var m = IsNormalizedQuickcheck(self, input.Value, data, nfc, k, false);
+            if (m == Quickcheck.Maybe)
             {
-                string found = Property(name).At(Code(name, args));
-                if (found.Length != 0)
-                    return value(found);
-                return args.Length > 1 ? args[1] : throw PyValueError.Create(error);
+                var cmp = nfc ? NfcNfkc(self, data, k) : NfdNfkd(self, data, k);
+                return PyBool.FromBool(Text(cmp) == input.Value);
+            }
+            return PyBool.FromBool(m == Quickcheck.Yes);
+        }
+
+        // unicodedata_UCD_normalize_impl
+        private static PyObject Normalize(PreviousVersion self, PyString form, PyString input)
+        {
+            if (input.Value.Length == 0)
+                // Special case empty input strings.
+                return input;
+            if (!Form(form.Value, out bool nfc, out bool k))
+                throw PyValueError.Create("invalid normalization form");
+            var data = UnicodeEncoders.CodePoints(input.Value);
+            if (IsNormalizedQuickcheck(self, input.Value, data, nfc, k, true) == Quickcheck.Yes)
+                return input;
+            return PyString.From(Text(nfc ? NfcNfkc(self, data, k) : NfdNfkd(self, data, k)));
+        }
+
+        // unicodedata_UCD_name_impl
+        private static PyObject Name(PreviousVersion self, int c, PyObject defaultValue)
+        {
+            var name = UnicodeNames.GetUcName(self, c, UnicodedataDb.NameMaxLen, false);
+            if (name == null)
+                return Default(defaultValue, "no such name");
+            return PyString.From(name);
+        }
+
+        // unicodedata_UCD_lookup: PyArg_Parse "s#:lookup", a str's UTF-8 or a read-only buffer.
+        private static PyObject Lookup(PreviousVersion self, PyObject arg)
+        {
+            // convertbuffer: a buffer must be read-only (getbuffer refuses a writable one), and
+            // anything that is no buffer at all is PyObject_GetBuffer's refusal.
+            byte[] name;
+            if (arg is PyString text)
+                name = text.Encode("utf-8").Value;
+            else if (arg is PyBytes bytes)
+                name = bytes.Value;
+            else if (arg is PyByteArray || arg is PyMemoryView { ReadOnly: false })
+                throw PyTypeError.Create($"lookup() argument must be read-only bytes-like object, not {arg.GetPyType().FullName}");
+            else
+                name = BytesMethods.Buffer(arg) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{arg.GetPyType().FullName}'");
+            if (name.Length > UnicodedataDb.NameMaxLen)
+                throw PyKeyError.Create(PyString.From("name too long"));
+            int code = UnicodeNames.GetCode(self, name, true);
+            if (code < 0)
+            {
+                int nul = Array.IndexOf(name, (byte)0);
+                string shown = Encoding.UTF8.GetString(name, 0, nul < 0 ? name.Length : nul);
+                throw PyKeyError.Create(PyString.From($"undefined character name '{shown}'"));
+            }
+            // check if code is in the PUA range that we use for named sequences and convert it
+            if (UnicodeNames.IsNamedSeq(code))
+            {
+                int index = code - UnicodedataDb.NamedSequencesStart;
+                var seq = UnicodedataDb.NamedSequences;
+                var sb = new StringBuilder();
+                for (int i = 0; i < seq[index * 5]; i++)
+                    sb.Append((char)seq[index * 5 + 1 + i]);
+                return PyString.From(sb.ToString());
+            }
+            return PyString.From(PyString.CodePointText(code));
+        }
+
+        private static PyString StrArgument(string fname, string displayname, PyObject arg) =>
+            arg as PyString ?? throw PyArgs.BadArgument(fname, displayname, "str", arg);
+
+        // unicodedata_functions: each with its calling convention; self is the UCD or null.
+        private static void Install(Action<string, int, int, Func<PreviousVersion, PyObject[], PyObject>> define)
+        {
+            define("decimal", 1, 2, (s, a) => Decimal(s, Chr("decimal", "argument 1", a[0]), a.Length > 1 ? a[1] : null));
+            define("digit", 1, 2, (s, a) => Digit(s, Chr("digit", "argument 1", a[0]), a.Length > 1 ? a[1] : null));
+            define("numeric", 1, 2, (s, a) => Numeric(s, Chr("numeric", "argument 1", a[0]), a.Length > 1 ? a[1] : null));
+            define("category", -1, -1, (s, a) => Category(s, Chr("category", "argument", a[0])));
+            define("bidirectional", -1, -1, (s, a) => Bidirectional(s, Chr("bidirectional", "argument", a[0])));
+            define("combining", -1, -1, (s, a) => CombiningImpl(s, Chr("combining", "argument", a[0])));
+            define("mirrored", -1, -1, (s, a) => Mirrored(s, Chr("mirrored", "argument", a[0])));
+            define("east_asian_width", -1, -1, (s, a) => EastAsianWidth(s, Chr("east_asian_width", "argument", a[0])));
+            define("decomposition", -1, -1, (s, a) => Decomposition(s, Chr("decomposition", "argument", a[0])));
+            define("name", 1, 2, (s, a) => Name(s, Chr("name", "argument 1", a[0]), a.Length > 1 ? a[1] : null));
+            define("lookup", -1, -1, (s, a) => Lookup(s, a[0]));
+            define("is_normalized", 2, 2, (s, a) => IsNormalized(s, StrArgument("is_normalized", "argument 1", a[0]), StrArgument("is_normalized", "argument 2", a[1])));
+            define("normalize", 2, 2, (s, a) => Normalize(s, StrArgument("normalize", "argument 1", a[0]), StrArgument("normalize", "argument 2", a[1])));
+        }
+
+        // ucd_type_spec: unicodedata.UCD, DISALLOW_INSTANTIATION, its methods and unidata_version.
+        private static PyType MakeUcdType()
+        {
+            var type = new PyType("UCD", new[] { PyType.ObjectType }, "unicodedata");
+            type.MarkSpecHeapType();
+            type.TypeDict["__module__"] = PyString.From("unicodedata");
+            Install((name, min, max, body) =>
+            {
+                // min -1 is METH_O; otherwise METH_FASTCALL with _PyArg_CheckPositional
+                if (min < 0)
+                    PyArgs.Define(type, name, PyCall.One, (self, args) => body((PreviousVersion)self, args));
+                else
+                    PyArgs.Define(type, name, PyCall.Fast, (self, args) => body((PreviousVersion)self, args), min, max);
             });
+            // DB_members: {"unidata_version", T_STRING, READONLY}
+            type.TypeDict["unidata_version"] = new PyMemberDescriptor("unidata_version", type,
+                self => PyString.From(((PreviousVersion)self).Name), readOnly: true);
+            return type;
+        }
 
         internal static PyModule CreateModule()
         {
             var module = new PyModule("unicodedata");
-            module.ModuleDict["unidata_version"] = PyString.From(UnicodePropertyData.Version);
-            Text1(module, "category", code => PyString.From(Property("category").At(code)));
-            Text1(module, "bidirectional", code => PyString.From(Property("bidirectional").At(code)));
-            Text1(module, "east_asian_width", code => PyString.From(Property("east_asian_width").At(code)));
-            Text1(module, "decomposition", code => PyString.From(Property("decomposition").At(code)));
-            Text1(module, "combining", code => PyInt.From(Combining(code)));
-            Text1(module, "mirrored", code => PyInt.From(Property("mirrored").At(code) == "1" ? 1 : 0));
-            Number(module, "decimal", "not a decimal", found => PyInt.From(int.Parse(found, CultureInfo.InvariantCulture)));
-            Number(module, "digit", "not a digit", found => PyInt.From(int.Parse(found, CultureInfo.InvariantCulture)));
-            Number(module, "numeric", "not a numeric character", found => new PyFloat(double.Parse(found, CultureInfo.InvariantCulture)));
-            module.ModuleDict["normalize"] = new PyBuiltinFunction("normalize", args => TwoArguments("normalize", args,
-                (form, input) => PyString.From(Normalize(form, input, "normalize"))));
-            module.ModuleDict["is_normalized"] = new PyBuiltinFunction("is_normalized", args => TwoArguments("is_normalized", args,
-                (form, input) => PyBool.FromBool(Normalize(form, input, "is_normalized") == ((PyString)input).Value)));
-            module.ModuleDict["name"] = new PyBuiltinFunction("name", args =>
-            {
-                // The table also serves N{...}, where a control character goes by an alias.
-                int code = Code("name", args);
-                string found = Property("category").At(code) == "Cc" ? null : UnicodeNames.Name(code);
-                if (found != null)
-                    return PyString.From(found);
-                return args.Length > 1 ? args[1] : throw PyValueError.Create("no such name");
-            });
-            module.ModuleDict["lookup"] = new PyBuiltinFunction("lookup", args =>
-            {
-                if (args.Length != 1 || args[0] is not PyString name)
-                    throw PyTypeError.Create("lookup() argument must be str");
-                int code = UnicodeNames.Lookup(name.Value);
-                if (code < 0)
-                    throw PyKeyError.Create(PyString.From($"undefined character name '{name.Value}'"));
-                return PyString.From(code >= 0x10000 ? char.ConvertFromUtf32(code) : ((char)code).ToString());
-            });
+            Install((name, min, max, body) =>
+                module.ModuleDict[name] = min < 0
+                    ? PyArgs.MethO("unicodedata", name, args => body(null, args))
+                    : PyArgs.FastCall("unicodedata", name, min, max, args => body(null, args)));
+            // unicodedata_exec
+            module.ModuleDict["unidata_version"] = PyString.From(UnicodedataDb.UnidataVersion);
+            module.ModuleDict["UCD"] = UcdType;
+            // Unicode database version 3.2.0 used by the IDNA encoding
+            module.ModuleDict["ucd_3_2_0"] = new PreviousVersion("3.2.0");
+            // Export C API
+            module.ModuleDict["_ucnhash_CAPI"] = new PyCapsule("unicodedata._ucnhash_CAPI", null);
             return module;
         }
     }

@@ -13,6 +13,7 @@ namespace SharpPy
     internal static class EscapeCodecs
     {
         private const int MAX_UNICODE = 0x10FFFF;
+        private static bool _ucnhashLoaded;
         private const string Hexdigits = "0123456789abcdef";
 
         // WRITE_CHAR
@@ -142,6 +143,21 @@ namespace SharpPy
 
                     // \N{name}
                     case 'N':
+                        // interp->unicode.ucnhash_capi: the unicodedata module's C API, loaded once
+                        if (!_ucnhashLoaded)
+                        {
+                            try
+                            {
+                                var capsule = PyImportSystem.Import("unicodedata").GetAttribute("_ucnhash_CAPI");
+                                if (capsule is not PyCapsule { Name: "unicodedata._ucnhash_CAPI" })
+                                    throw PyAttributeError.Create("_ucnhash_CAPI");
+                            }
+                            catch (PythonException)
+                            {
+                                throw PyExceptionSlots.Raise(PyType.UnicodeErrorType, "\\N escapes not supported (can't load unicodedata module)");
+                            }
+                            _ucnhashLoaded = true;
+                        }
                         message = "malformed \\N character escape";
                         if (p >= end)
                             goto incomplete;

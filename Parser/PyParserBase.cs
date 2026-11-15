@@ -185,9 +185,31 @@ namespace SharpPy.Generated
             {
                 _lastToken = token;  // Track last consumed token
                 _position++;
+                token.Value = NewIdentifier(token.Value);
                 return token;
             }
             return null;
+        }
+
+        // p->normalize: unicodedata.normalize, imported the first time a parser needs it.
+        private PyObject _normalize;
+
+        /// <summary>
+        /// _PyPegen_new_identifier: an identifier with a non-ASCII character is normalized to
+        /// NFKC by unicodedata.normalize (init_normalization imports it).
+        /// </summary>
+        private string NewIdentifier(string n)
+        {
+            bool ascii = true;
+            foreach (char c in n)
+                if (c >= 128) { ascii = false; break; }
+            if (ascii)
+                return n;
+            _normalize ??= PyImportSystem.Import("unicodedata").GetAttribute("normalize");
+            var id2 = _normalize.Call(new PyObject[] { PyString.From("NFKC"), PyString.From(n) }, null);
+            if (id2 is not PyString normalized)
+                throw PyTypeError.Create($"unicodedata.normalize() must return a string, not {id2.GetPyType().Name}");
+            return normalized.Value;
         }
 
         /// <summary>
