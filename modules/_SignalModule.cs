@@ -40,9 +40,14 @@ namespace SharpPy.Modules
             module.ModuleDict["default_int_handler"] = DefaultIntHandler;
             module.ModuleDict["signal"] = new PyBuiltinFunction("signal", Signal);
             module.ModuleDict["getsignal"] = new PyBuiltinFunction("getsignal", args => Handler(Number(args[0])));
+            // signal_raise_signal_impl: raise(signalnum), whose failure for a signal the C runtime does
+            // not have is OSError from errno (EINVAL).
             module.ModuleDict["raise_signal"] = new PyBuiltinFunction("raise_signal", args =>
             {
-                Trip(Number(args[0]));
+                int number = PyArgs.Int(args[0]);
+                if (!IsSignal(number))
+                    throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyInt.From(22), PyString.From("Invalid argument") }, null));
+                Trip(number);
                 return PyNone.Instance;
             });
             // signal_strsignal's clinic: signalnum through the int converter.
@@ -60,6 +65,17 @@ namespace SharpPy.Modules
             });
             module.ModuleDict["set_wakeup_fd"] = new PyBuiltinFunction("set_wakeup_fd", args => PyInt.From(-1));
             return module;
+        }
+
+        // The signals of the C runtime: on Windows the seven of its signal.h, elsewhere 1 to NSIG - 1.
+        private static bool IsSignal(int number)
+        {
+            if (!Windows)
+                return number >= 1 && number < NSIG;
+            foreach (var (_, signal) in Signals)
+                if (signal == number)
+                    return true;
+            return false;
         }
 
         private static int Number(PyObject value)
@@ -83,6 +99,9 @@ namespace SharpPy.Modules
         // signal_signal_impl
         private static PyObject Signal(PyObject[] args)
         {
+            // MS_WINDOWS: only the signals Windows' signal() takes.
+            if (Windows && !IsSignal(PyArgs.Int(args[0])))
+                throw PyValueError.Create("invalid signal value");
             if (!PyVM.Instance.BoundState.IsMain)
                 throw PyValueError.Create("signal only works in main thread of the main interpreter");
             int number = Number(args[0]);

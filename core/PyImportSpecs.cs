@@ -11,10 +11,10 @@ namespace SharpPy
     /// <summary>
     /// The import route of Lib/importlib/_bootstrap.py, with the searches in C#: _bootstrap.py itself
     /// runs as _frozen_importlib (ModuleSpec, BuiltinImporter, module_from_spec, _init_module_attrs,
-    /// _load_unlocked are CPython's code) over the _imp module (Modules/ImpModule.cs); PathFinder and
-    /// its loaders are C#, so files, SharpPy bundles and Godot's res:// and user:// paths are found
-    /// and read by the code that always did. Every finder of sys.meta_path answers a ModuleSpec, and
-    /// every module is loaded from one through _load_unlocked.
+    /// _load_unlocked are CPython's code) over the _imp module (Modules/ImpModule.cs); FileFinder and
+    /// SharpPy's bundles are C#, so directories, bundles and Godot's res:// and user:// paths are
+    /// listed by IOHelper, and the file loaders are CPython's, reading through _io and nt. Every finder
+    /// of sys.meta_path answers a ModuleSpec, and every module is loaded from one through _load_unlocked.
     /// </summary>
     public partial class PyImportSystem
     {
@@ -119,39 +119,37 @@ namespace SharpPy
                     return;
                 // Frozen modules' code is named "<frozen importlib._bootstrap>" and
                 // "<frozen importlib._bootstrap_external>", as Python/frozen.c names it.
+                // PyImport_ImportFrozenModuleObject: a frozen module's dict has its __origname__,
+                // which FrozenImporter._fix_up_module takes when _setup gives it its spec.
                 var boot = new PyModule("_frozen_importlib");
+                boot.ModuleDict["__origname__"] = PyString.From("importlib._bootstrap");
                 SetModule("_frozen_importlib", boot);
                 boot.ExecuteCode(Compiler.CompileSource(ReadSource(path), "<frozen importlib._bootstrap>"));
-                // _bootstrap_external's functions run in the module that holds the C# finder and loaders;
-                // _install_external_importers's _set_bootstrap_module, then _bootstrap._bootstrap_external.
-                var external = ExternalModule();
-                External = external;
-                external.ModuleDict["_bootstrap"] = boot;
-                SetModule("_frozen_importlib_external", external);
-                external.ExecuteCode(Compiler.CompileSource(ReadSource(externalPath), "<frozen importlib._bootstrap_external>"));
-                // _install(_bootstrap_module): _set_bootstrap_module first, as the module's own global is None.
-                external.GetAttribute("_set_bootstrap_module").Call(new PyObject[] { boot }, null);
-                boot.ModuleDict["_bootstrap_external"] = external;
-                boot.GetAttribute("_setup").Call(new PyObject[] { sys, imp }, null);
-                // _install: sys.path_hooks gets FileFinder's hook for the supported loaders, and
-                // sys.meta_path PathFinder; _PyImportZip_Init's zipimporter has its counterpart in
-                // the bundle finder, put first as zipimporter is.
-                var pathFinder = external.GetAttribute("PathFinder");
-                if (sys.ModuleDict.TryGetValue("meta_path", out var metaPath) && metaPath is PyList finders)
+                // _PyImport_InitCore's _install(sys, _imp): _setup, then BuiltinImporter and
+                // FrozenImporter on sys.meta_path. sys._stdlib_dir comes after it (_PySys_UpdateConfig
+                // in init_interp_main), so _setup finds no file for _frozen_importlib.
+                var stdlibDir = sys.ModuleDict.TryGetValue("_stdlib_dir", out var dir) ? dir : null;
+                sys.ModuleDict.Remove("_stdlib_dir");
+                try
                 {
-                    finders.Clear();
-                    finders.Append(boot.GetAttribute("BuiltinImporter"));
-                    finders.Append(boot.GetAttribute("FrozenImporter"));
-                    finders.Append(pathFinder);
+                    boot.GetAttribute("_install").Call(new PyObject[] { sys, imp }, null);
                 }
-                if (sys.ModuleDict.TryGetValue("path_hooks", out var pathHooks) && pathHooks is PyList hooks)
+                finally
                 {
-                    hooks.Clear();
-                    hooks.Append(PyBundleFinder.FinderType);
-                    hooks.Append(PyFileFinder.PathHook(PyFileFinder.FinderType, new PyObject[]
-                        { PyTuple.From(PySourceFileLoader.LoaderType, external.GetAttribute("SOURCE_SUFFIXES")) }));
+                    if (stdlibDir != null)
+                        sys.ModuleDict["_stdlib_dir"] = stdlibDir;
                 }
+                // _PyImport_InitExternal: _install_external_importers imports _frozen_importlib_external,
+                // a frozen module, through the import system, and its _install puts FileFinder's hook
+                // for the supported loaders on sys.path_hooks and PathFinder on sys.meta_path;
+                // _PyImportZip_Init's zipimporter has its counterpart in the bundle finder, put first
+                // as zipimporter is.
                 Bootstrap = boot;
+                boot.GetAttribute("_install_external_importers").Call(Array.Empty<PyObject>(), null);
+                External = (PyModule)boot.GetAttribute("_bootstrap_external");
+                var pathFinder = External.GetAttribute("PathFinder");
+                if (sys.ModuleDict.TryGetValue("path_hooks", out var pathHooks) && pathHooks is PyList hooks)
+                    hooks.Insert(0, PyBundleFinder.FinderType);
                 _bootstrapped = true;
                 // _setup gave the builtins their specs; a source module read before it gets its own.
                 var findSpec = pathFinder.GetAttribute("find_spec");
@@ -206,8 +204,7 @@ namespace SharpPy
             SetModule(name, module);
             try
             {
-                module.ExecuteCode(PyBytecodeCache.TryLoad(path)
-                    ?? Compiler.CompileSource(Generated.Tokenizer.DecodeFile(IOHelper.ReadAllBytes(path), path), path));
+                module.ExecuteCode(Compiler.CompileSource(Generated.Tokenizer.DecodeFile(IOHelper.ReadAllBytes(path), path), path));
                 return module;
             }
             catch
@@ -217,18 +214,42 @@ namespace SharpPy
             }
         }
 
-        // _frozen_importlib_external: the C# half of Lib/importlib/_bootstrap_external.py, what finds
-        // and reads files; Lib/importlib/_external_functions.py, run in it, is CPython's rest.
-        private static PyModule ExternalModule()
+        /// <summary>
+        /// set_main_loader(d, filename, "SourceFileLoader"): _bootstrap_external.SourceFileLoader("__main__",
+        /// filename); None without the import system.
+        /// </summary>
+        internal static PyObject MainLoader(string fileName)
         {
-            var module = new PyModule("_frozen_importlib_external");
-            module.ModuleDict["FileFinder"] = PyFileFinder.FinderType;
-            module.ModuleDict["SourceFileLoader"] = PySourceFileLoader.LoaderType;
-            module.ModuleDict["SOURCE_SUFFIXES"] = new PyList(new PyObject[] { PyString.From(".py") });
-            module.ModuleDict["BYTECODE_SUFFIXES"] = new PyList(new PyObject[] { PyString.From(".pyc") });
-            module.ModuleDict["EXTENSION_SUFFIXES"] = new PyList();
-            module.ModuleDict["MAGIC_NUMBER"] = PyBytes.From(new byte[] { 0xcb, 0x0d, 0x0d, 0x0a });
-            return module;
+            EnsureBootstrapped();
+            return External?.ModuleDict.TryGetValue("SourceFileLoader", out var loader) == true
+                ? loader.Call(new PyObject[] { PyString.From("__main__"), PyString.From(fileName) }, null)
+                : PyNone.Instance;
+        }
+
+        /// <summary>
+        /// py_compile.compile's cache: _code_to_timestamp_pyc(code, the source's mtime and size)
+        /// written by SourceFileLoader to cache_from_source(path); nothing when the path has no cache
+        /// or the write fails, and nothing under -B.
+        /// </summary>
+        internal static void CacheBytecode(string fileName, PyCodeObject code)
+        {
+            EnsureBootstrapped();
+            if (External == null || !TryGetModule("sys", out var sys)
+                || (sys.ModuleDict.TryGetValue("dont_write_bytecode", out var flag) && flag.IsTrue()))
+                return;
+            try
+            {
+                var path = PyString.From(fileName);
+                var cache = External.GetAttribute("cache_from_source").Call(new PyObject[] { path }, null);
+                var stat = External.GetAttribute("_path_stat").Call(new PyObject[] { path }, null);
+                var data = External.GetAttribute("_code_to_timestamp_pyc").Call(new PyObject[]
+                    { code, stat.GetAttribute("st_mtime"), stat.GetAttribute("st_size") }, null);
+                var loader = External.GetAttribute("SourceFileLoader").Call(new PyObject[] { PyString.From("__main__"), path }, null);
+                loader.GetAttribute("_cache_bytecode").Call(new[] { path, cache, data }, null);
+            }
+            catch (PythonException)
+            {
+            }
         }
 
         private static PyObject NewSpec(string name, PyObject loader, string origin, bool isPackage) =>
@@ -243,15 +264,14 @@ namespace SharpPy
             return kwargs;
         }
 
-        // spec_from_file_location for SourceFileLoader: has_location, the cache's path, a package's
-        // own directory as its submodule_search_locations.
-        internal static PyObject FileSpec(string name, string file, string packageDir, PyBundle bundle, string bundleName = null)
+        // zipimporter's spec for a bundle's module: spec_from_file_location without a cache,
+        // has_location, a package's own directory as its submodule_search_locations.
+        internal static PyObject BundleSpec(string name, string file, string packageDir, PyBundle bundle, string bundleName)
         {
-            var loader = new PySourceFileLoader(name, file, bundle, bundleName);
+            var loader = new PyBundleLoader(name, file, bundle, bundleName);
             var spec = NewSpec(name, loader, file, packageDir != null);
             spec.SetAttribute("has_location", PyBool.True);
-            string cached = bundle == null ? PyBytecodeCache.CachePathFor(file) : null;
-            spec.SetAttribute("cached", cached == null ? PyNone.Instance : PyString.From(cached));
+            spec.SetAttribute("cached", PyNone.Instance);
             if (packageDir != null)
                 spec.SetAttribute("submodule_search_locations", new PyList(new PyObject[] { PyString.From(packageDir) }));
             return spec;
@@ -308,8 +328,6 @@ namespace SharpPy
             }
             if (string.IsNullOrEmpty(path) || path == ".")
                 Path = Getcwd();
-            else if (IsGodotPath(path))
-                Path = path;
             else
                 Path = ((PyString)External.GetAttribute("_path_abspath").Call(new PyObject[] { PyString.From(path) }, null)).Value;
             _pathMtime = -1;
@@ -397,12 +415,9 @@ namespace SharpPy
             return PyNone.Instance;
         }
 
-        // FileFinder._get_spec: loader_class(fullname, path), then spec_from_file_location; SharpPy's
-        // own SourceFileLoader makes its spec in C#, which keeps res:// paths as they are.
+        // FileFinder._get_spec: loader_class(fullname, path), then spec_from_file_location.
         private static PyObject GetSpec(PyObject loaderClass, string fullName, string path, string packageDir)
         {
-            if (ReferenceEquals(loaderClass, PySourceFileLoader.LoaderType))
-                return PyImportSystem.FileSpec(fullName, path, packageDir, null);
             var loader = loaderClass.Call(new PyObject[] { PyString.From(fullName), PyString.From(path) }, null);
             return External.GetAttribute("spec_from_file_location").Call(new PyObject[] { PyString.From(fullName), PyString.From(path) },
                 PyImportSystem.Kwargs(("loader", loader), ("submodule_search_locations",
@@ -453,6 +468,17 @@ namespace SharpPy
                 foreach (var (suffix, loader) in ((PyFileFinder)self)._loaders)
                     list.Append(PyTuple.From(PyString.From(suffix), loader));
                 return list;
+            }, readOnly: true);
+            // FileFinder's _path_mtime (-1 until the directory is listed) and _path_cache, the names it listed.
+            type.TypeDict["_path_mtime"] = new PyMemberDescriptor("_path_mtime", type, self =>
+                ((PyFileFinder)self)._pathMtime == -1 ? PyInt.From(-1) : new PyFloat(((PyFileFinder)self)._pathMtime),
+                (self, value) => ((PyFileFinder)self)._pathMtime = PyFloat.FromNumber(value).Value);
+            type.TypeDict["_path_cache"] = new PyMemberDescriptor("_path_cache", type, self =>
+            {
+                var names = new PySet();
+                foreach (var name in ((PyFileFinder)self)._pathCache)
+                    names.Add(PyString.From(name));
+                return names;
             }, readOnly: true);
             type.TypeDict["find_spec"] = new PyMethodDescriptor("find_spec", type, (self, args, kwargs) =>
             {
@@ -520,7 +546,7 @@ namespace SharpPy
             string relative = name.Replace('.', '/');
             bool isPackage = _bundle.IsPackage(name);
             string file = $"{_bundle.Path}/{relative}{(isPackage ? "/__init__.py" : ".py")}";
-            return PyImportSystem.FileSpec(fullName, file, isPackage ? $"{_bundle.Path}/{relative}" : null, _bundle, name);
+            return PyImportSystem.BundleSpec(fullName, file, isPackage ? $"{_bundle.Path}/{relative}" : null, _bundle, name);
         }
 
         private static PyType MakeType()
@@ -544,45 +570,37 @@ namespace SharpPy
     }
 
     /// <summary>
-    /// SourceFileLoader (Lib/importlib/_bootstrap_external.py) over SharpPy's reading of a file: the
-    /// source decoded by the tokenizer's rules, the __pycache__ code when it is current, a module of a
-    /// SharpPy bundle read from the bundle; Godot's res:// and user:// go through IOHelper.
+    /// The loader of a SharpPy bundle's module, which zipimporter's is to a zip file's: the code is
+    /// the bundle's, compiled when it was made; the module is a file-backed one whose submodules are
+    /// looked up in the bundle.
     /// </summary>
-    internal sealed class PySourceFileLoader : PyObject
+    internal sealed class PyBundleLoader : PyObject
     {
-        internal static readonly PyType LoaderType = MakeType("SourceFileLoader", "_frozen_importlib_external");
-        internal static readonly PyType BundleLoaderType = MakeType("BundleLoader", "sharppy");
+        internal static readonly PyType LoaderType = MakeType();
 
         internal readonly string Name, Path;
         internal readonly PyBundle Bundle;
         // the module's name in the bundle, which a bundle entry with a prefix may give another name
         private readonly string _bundleName;
 
-        internal PySourceFileLoader(string name, string path, PyBundle bundle, string bundleName = null)
+        internal PyBundleLoader(string name, string path, PyBundle bundle, string bundleName)
         {
             Name = name;
             Path = path;
             Bundle = bundle;
-            _bundleName = bundleName ?? name;
+            _bundleName = bundleName;
         }
 
-        public override PyType GetPyType() => Bundle == null ? LoaderType : BundleLoaderType;
+        public override PyType GetPyType() => LoaderType;
 
         private bool IsPackage => System.IO.Path.GetFileNameWithoutExtension(Path) == "__init__";
 
-        private static PyType MakeType(string name, string module)
+        private static PyType MakeType()
         {
-            var type = new PyType(name, new[] { PyType.ObjectType }, module);
-            PySourceFileLoader Self(PyObject self) => (PySourceFileLoader)self;
-            // FileLoader.__init__(fullname, path)
-            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
-            {
-                var parsed = PyArgs.Unpack(name, args, kwargs, new[] { "fullname", "path" }, 0, 2, 2);
-                return new PySourceFileLoader(((PyString)parsed[0]).Value, PyArgs.FSDecoder(parsed[1]), null);
-            }, 0, int.MaxValue, acceptsKwargs: true);
+            var type = new PyType("BundleLoader", new[] { PyType.ObjectType }, "sharppy");
+            PyBundleLoader Self(PyObject self) => (PyBundleLoader)self;
             type.TypeDict["name"] = new PyGetSetDescriptor("name", type, self => PyString.From(Self(self).Name));
             type.TypeDict["path"] = new PyGetSetDescriptor("path", type, self => PyString.From(Self(self).Path));
-            // _LoaderBasics.create_module: None would do; the module SharpPy's tracebacks name its file by.
             type.TypeDict["create_module"] = new PyMethodDescriptor("create_module", type, (self, args, kwargs) =>
                 new PyModule(Self(self).Name, Self(self).Path) { HasSourceFile = true, Bundle = Self(self).Bundle }, 1, 1);
             type.TypeDict["exec_module"] = new PyMethodDescriptor("exec_module", type, (self, args, kwargs) =>
@@ -592,45 +610,19 @@ namespace SharpPy
             }, 1, 1);
             type.TypeDict["get_filename"] = new PyMethodDescriptor("get_filename", type, (self, args, kwargs) => PyString.From(Self(self).Path), 0, 1);
             type.TypeDict["is_package"] = new PyMethodDescriptor("is_package", type, (self, args, kwargs) => PyBool.FromBool(Self(self).IsPackage), 1, 1);
-            type.TypeDict["get_source"] = new PyMethodDescriptor("get_source", type, (self, args, kwargs) =>
-                Self(self).Bundle != null ? PyNone.Instance : PyString.From(Self(self).Source()), 1, 1);
+            type.TypeDict["get_source"] = new PyMethodDescriptor("get_source", type, (self, args, kwargs) => PyNone.Instance, 1, 1);
             type.TypeDict["get_code"] = new PyMethodDescriptor("get_code", type, (self, args, kwargs) => Self(self).Code(), 1, 1);
-            type.TypeDict["get_data"] = new PyMethodDescriptor("get_data", type, (self, args, kwargs) =>
-                PyBytes.From(IOHelper.ReadAllBytes(PyArgs.FSDecoder(args[0]))), 1, 1);
             type.TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", type, (self, args, kwargs) =>
                 PyString.From($"<{type.FullName} object at {PyObjectId.Pointer(self)}>"));
             return type;
         }
 
-        private string Source() => Generated.Tokenizer.DecodeFile(IOHelper.ReadAllBytes(Path), Path);
+        private PyCodeObject Code() => Bundle.Code(_bundleName);
 
-        // SourceLoader.get_code: the cache, or the source compiled and then cached.
-        private PyCodeObject Code()
-        {
-            if (Bundle != null)
-                return Bundle.Code(_bundleName);
-            var cached = PyBytecodeCache.TryLoad(Path);
-            if (cached != null)
-                return cached;
-            var code = Compiler.CompileSource(Source(), Path);
-            PyBytecodeCache.Store(Path, code);
-            return code;
-        }
-
-        // _LoaderBasics.exec_module: get_code, then exec in the module's dict.
+        // _LoaderBasics.exec_module: _bootstrap._call_with_frames_removed(exec, code, module.__dict__).
         private void Exec(PyModule module)
         {
-            PyCodeObject code;
-            try
-            {
-                code = Code();
-            }
-            catch (PySyntaxErrorException syntax)
-            {
-                // An import is Python code calling: its SyntaxError can be caught there.
-                throw PySyntaxError.Create(syntax.Message.Replace("SyntaxError: ", ""), Path, Math.Max(syntax.LineNumber, 0));
-            }
-            // _LoaderBasics.exec_module: _bootstrap._call_with_frames_removed(exec, code, module.__dict__).
+            var code = Code();
             var boot = PyImportSystem.Bootstrap;
             if (boot == null)
             {

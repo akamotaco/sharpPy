@@ -1,5 +1,5 @@
 import functools
-import types
+import inspect
 import reprlib
 import sys
 import traceback
@@ -8,9 +8,8 @@ from . import constants
 
 
 def _get_function_source(func):
-    while hasattr(func, '__wrapped__'):
-        func = func.__wrapped__
-    if isinstance(func, types.FunctionType):
+    func = inspect.unwrap(func)
+    if inspect.isfunction(func):
         code = func.__code__
         return (code.co_filename, code.co_firstlineno)
     if isinstance(func, functools.partial):

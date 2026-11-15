@@ -152,7 +152,7 @@ namespace SharpPy
                 var main = _globalScope.GlobalScope.Variables;
                 PyGlobalsDict.Store(main, "__file__", PyString.From(fileName));
                 PyGlobalsDict.Store(main, "__cached__", PyNone.Instance);
-                PyGlobalsDict.Store(main, "__loader__", new PySourceFileLoader("__main__", fileName, null));
+                PyGlobalsDict.Store(main, "__loader__", PyImportSystem.MainLoader(fileName));
             }
             // Fix: Handle all line ending types correctly (\r\n, \r, \n)
             
@@ -356,7 +356,7 @@ namespace SharpPy
 
                 // Compiling a file caches it the way importing it would (SourceLoader.get_code).
                 if (!string.IsNullOrEmpty(fileName) && fileName != "<string>")
-                    PyBytecodeCache.Store(fileName, codeObject);
+                    PyImportSystem.CacheBytecode(fileName, codeObject);
 
                 return codeObject;
             }

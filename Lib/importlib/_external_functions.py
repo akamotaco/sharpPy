@@ -33,7 +33,7 @@ import marshal
 _MS_WINDOWS = (sys.platform == 'win32')
 if _MS_WINDOWS:
     import nt as _os
-    # SharpPy: winreg is WindowsRegistryFinder's only, which SharpPy does not have.
+    pass  # SharpPy: no winreg module; WindowsRegistryFinder, its only user, raises NameError
 else:
     import posix as _os
 
@@ -184,7 +184,7 @@ else:
 
 def _path_abspath(path):
     """Replacement for os.path.abspath."""
-    if not _path_isabs(path):
+    if not _path_isabs(path) and not path.startswith(('res://', 'user://')):  # SharpPy: Godot's asset paths
         for sep in path_separators:
             path = path.removeprefix(f".{sep}")
         return _path_join(_os.getcwd(), path)
@@ -512,7 +512,7 @@ def cache_from_source(path, debug_override=None, *, optimization=None):
     head, tail = _path_split(path)
     base, sep, rest = tail.rpartition('.')
     tag = sys.implementation.cache_tag
-    if tag is None:
+    if tag is None or path.startswith(('res://', 'user://')):  # SharpPy: Godot's asset paths have no cache
         raise NotImplementedError('sys.implementation.cache_tag is None')
     almost_filename = ''.join([(base if base else rest), sep, tag])
     if optimization is None:
@@ -921,6 +921,59 @@ def _bless_my_loader(module_globals):
     return spec_loader
 
 
+# Loaders #####################################################################
+
+class WindowsRegistryFinder:
+
+    """Meta path finder for modules declared in the Windows registry."""
+
+    REGISTRY_KEY = (
+        'Software\\Python\\PythonCore\\{sys_version}'
+        '\\Modules\\{fullname}')
+    REGISTRY_KEY_DEBUG = (
+        'Software\\Python\\PythonCore\\{sys_version}'
+        '\\Modules\\{fullname}\\Debug')
+    DEBUG_BUILD = (_MS_WINDOWS and '_d.pyd' in EXTENSION_SUFFIXES)
+
+    @staticmethod
+    def _open_registry(key):
+        try:
+            return winreg.OpenKey(winreg.HKEY_CURRENT_USER, key)
+        except OSError:
+            return winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key)
+
+    @classmethod
+    def _search_registry(cls, fullname):
+        if cls.DEBUG_BUILD:
+            registry_key = cls.REGISTRY_KEY_DEBUG
+        else:
+            registry_key = cls.REGISTRY_KEY
+        key = registry_key.format(fullname=fullname,
+                                  sys_version='%d.%d' % sys.version_info[:2])
+        try:
+            with cls._open_registry(key) as hkey:
+                filepath = winreg.QueryValue(hkey, '')
+        except OSError:
+            return None
+        return filepath
+
+    @classmethod
+    def find_spec(cls, fullname, path=None, target=None):
+        filepath = cls._search_registry(fullname)
+        if filepath is None:
+            return None
+        try:
+            _path_stat(filepath)
+        except OSError:
+            return None
+        for loader, suffixes in _get_supported_file_loaders():
+            if filepath.endswith(tuple(suffixes)):
+                spec = _bootstrap.spec_from_loader(fullname,
+                                                   loader(fullname, filepath),
+                                                   origin=filepath)
+                return spec
+
+
 class _LoaderBasics:
 
     """Base class of common code needed by both SourceLoader and
@@ -949,6 +1002,324 @@ class _LoaderBasics:
         """This method is deprecated."""
         # Warning implemented in _load_module_shim().
         return _bootstrap._load_module_shim(self, fullname)
+
+
+class SourceLoader(_LoaderBasics):
+
+    def path_mtime(self, path):
+        """Optional method that returns the modification time (an int) for the
+        specified path (a str).
+
+        Raises OSError when the path cannot be handled.
+        """
+        raise OSError
+
+    def path_stats(self, path):
+        """Optional method returning a metadata dict for the specified
+        path (a str).
+
+        Possible keys:
+        - 'mtime' (mandatory) is the numeric timestamp of last source
+          code modification;
+        - 'size' (optional) is the size in bytes of the source code.
+
+        Implementing this method allows the loader to read bytecode files.
+        Raises OSError when the path cannot be handled.
+        """
+        return {'mtime': self.path_mtime(path)}
+
+    def _cache_bytecode(self, source_path, cache_path, data):
+        """Optional method which writes data (bytes) to a file path (a str).
+
+        Implementing this method allows for the writing of bytecode files.
+
+        The source path is needed in order to correctly transfer permissions
+        """
+        # For backwards compatibility, we delegate to set_data()
+        return self.set_data(cache_path, data)
+
+    def set_data(self, path, data):
+        """Optional method which writes data (bytes) to a file path (a str).
+
+        Implementing this method allows for the writing of bytecode files.
+        """
+
+
+    def get_source(self, fullname):
+        """Concrete implementation of InspectLoader.get_source."""
+        path = self.get_filename(fullname)
+        try:
+            source_bytes = self.get_data(path)
+        except OSError as exc:
+            raise ImportError('source not available through get_data()',
+                              name=fullname) from exc
+        return decode_source(source_bytes)
+
+    def source_to_code(self, data, path, *, _optimize=-1):
+        """Return the code object compiled from source.
+
+        The 'data' argument can be any object type that compile() supports.
+        """
+        return _bootstrap._call_with_frames_removed(compile, data, path, 'exec',
+                                        dont_inherit=True, optimize=_optimize)
+
+    def get_code(self, fullname):
+        """Concrete implementation of InspectLoader.get_code.
+
+        Reading of bytecode requires path_stats to be implemented. To write
+        bytecode, set_data must also be implemented.
+
+        """
+        source_path = self.get_filename(fullname)
+        source_mtime = None
+        source_bytes = None
+        source_hash = None
+        hash_based = False
+        check_source = True
+        try:
+            bytecode_path = cache_from_source(source_path)
+        except NotImplementedError:
+            bytecode_path = None
+        else:
+            try:
+                st = self.path_stats(source_path)
+            except OSError:
+                pass
+            else:
+                source_mtime = int(st['mtime'])
+                try:
+                    data = self.get_data(bytecode_path)
+                except OSError:
+                    pass
+                else:
+                    exc_details = {
+                        'name': fullname,
+                        'path': bytecode_path,
+                    }
+                    try:
+                        flags = _classify_pyc(data, fullname, exc_details)
+                        bytes_data = memoryview(data)[16:]
+                        hash_based = flags & 0b1 != 0
+                        if hash_based:
+                            check_source = flags & 0b10 != 0
+                            if (_imp.check_hash_based_pycs != 'never' and
+                                (check_source or
+                                 _imp.check_hash_based_pycs == 'always')):
+                                source_bytes = self.get_data(source_path)
+                                source_hash = _imp.source_hash(
+                                    _RAW_MAGIC_NUMBER,
+                                    source_bytes,
+                                )
+                                _validate_hash_pyc(data, source_hash, fullname,
+                                                   exc_details)
+                        else:
+                            _validate_timestamp_pyc(
+                                data,
+                                source_mtime,
+                                st['size'],
+                                fullname,
+                                exc_details,
+                            )
+                    except (ImportError, EOFError):
+                        pass
+                    else:
+                        _bootstrap._verbose_message('{} matches {}', bytecode_path,
+                                                    source_path)
+                        return _compile_bytecode(bytes_data, name=fullname,
+                                                 bytecode_path=bytecode_path,
+                                                 source_path=source_path)
+        if source_bytes is None:
+            source_bytes = self.get_data(source_path)
+        code_object = self.source_to_code(source_bytes, source_path)
+        _bootstrap._verbose_message('code object from {}', source_path)
+        if (not sys.dont_write_bytecode and bytecode_path is not None and
+                source_mtime is not None):
+            if hash_based:
+                if source_hash is None:
+                    source_hash = _imp.source_hash(_RAW_MAGIC_NUMBER,
+                                                   source_bytes)
+                data = _code_to_hash_pyc(code_object, source_hash, check_source)
+            else:
+                data = _code_to_timestamp_pyc(code_object, source_mtime,
+                                              len(source_bytes))
+            try:
+                self._cache_bytecode(source_path, bytecode_path, data)
+            except NotImplementedError:
+                pass
+        return code_object
+
+
+class FileLoader:
+
+    """Base file loader class which implements the loader protocol methods that
+    require file system usage."""
+
+    def __init__(self, fullname, path):
+        """Cache the module name and the path to the file found by the
+        finder."""
+        self.name = fullname
+        self.path = path
+
+    def __eq__(self, other):
+        return (self.__class__ == other.__class__ and
+                self.__dict__ == other.__dict__)
+
+    def __hash__(self):
+        return hash(self.name) ^ hash(self.path)
+
+    @_check_name
+    def load_module(self, fullname):
+        """Load a module from a file.
+
+        This method is deprecated.  Use exec_module() instead.
+
+        """
+        # The only reason for this method is for the name check.
+        # Issue #14857: Avoid the zero-argument form of super so the implementation
+        # of that form can be updated without breaking the frozen module.
+        return super(FileLoader, self).load_module(fullname)
+
+    @_check_name
+    def get_filename(self, fullname):
+        """Return the path to the source file as found by the finder."""
+        return self.path
+
+    def get_data(self, path):
+        """Return the data from path as raw bytes."""
+        if isinstance(self, (SourceLoader, SourcelessFileLoader, ExtensionFileLoader)):
+            with _io.open_code(str(path)) as file:
+                return file.read()
+        else:
+            with _io.FileIO(path, 'r') as file:
+                return file.read()
+
+    @_check_name
+    def get_resource_reader(self, module):
+        from importlib.readers import FileReader
+        return FileReader(self)
+
+
+class SourceFileLoader(FileLoader, SourceLoader):
+
+    """Concrete implementation of SourceLoader using the file system."""
+
+    def path_stats(self, path):
+        """Return the metadata for the path."""
+        st = _path_stat(path)
+        return {'mtime': st.st_mtime, 'size': st.st_size}
+
+    def _cache_bytecode(self, source_path, bytecode_path, data):
+        # Adapt between the two APIs
+        mode = _calc_mode(source_path)
+        return self.set_data(bytecode_path, data, _mode=mode)
+
+    def set_data(self, path, data, *, _mode=0o666):
+        """Write bytes data to a file."""
+        parent, filename = _path_split(path)
+        path_parts = []
+        # Figure out what directories are missing.
+        while parent and not _path_isdir(parent):
+            parent, part = _path_split(parent)
+            path_parts.append(part)
+        # Create needed directories.
+        for part in reversed(path_parts):
+            parent = _path_join(parent, part)
+            try:
+                _os.mkdir(parent)
+            except FileExistsError:
+                # Probably another Python process already created the dir.
+                continue
+            except OSError as exc:
+                # Could be a permission error, read-only filesystem: just forget
+                # about writing the data.
+                _bootstrap._verbose_message('could not create {!r}: {!r}',
+                                            parent, exc)
+                return
+        try:
+            _write_atomic(path, data, _mode)
+            _bootstrap._verbose_message('created {!r}', path)
+        except OSError as exc:
+            # Same as above: just don't write the bytecode.
+            _bootstrap._verbose_message('could not create {!r}: {!r}', path,
+                                        exc)
+
+
+class SourcelessFileLoader(FileLoader, _LoaderBasics):
+
+    """Loader which handles sourceless file imports."""
+
+    def get_code(self, fullname):
+        path = self.get_filename(fullname)
+        data = self.get_data(path)
+        # Call _classify_pyc to do basic validation of the pyc but ignore the
+        # result. There's no source to check against.
+        exc_details = {
+            'name': fullname,
+            'path': path,
+        }
+        _classify_pyc(data, fullname, exc_details)
+        return _compile_bytecode(
+            memoryview(data)[16:],
+            name=fullname,
+            bytecode_path=path,
+        )
+
+    def get_source(self, fullname):
+        """Return None as there is no source code."""
+        return None
+
+
+class ExtensionFileLoader(FileLoader, _LoaderBasics):
+
+    """Loader for extension modules.
+
+    The constructor is designed to work with FileFinder.
+
+    """
+
+    def __init__(self, name, path):
+        self.name = name
+        self.path = path
+
+    def __eq__(self, other):
+        return (self.__class__ == other.__class__ and
+                self.__dict__ == other.__dict__)
+
+    def __hash__(self):
+        return hash(self.name) ^ hash(self.path)
+
+    def create_module(self, spec):
+        """Create an uninitialized extension module"""
+        module = _bootstrap._call_with_frames_removed(
+            _imp.create_dynamic, spec)
+        _bootstrap._verbose_message('extension module {!r} loaded from {!r}',
+                         spec.name, self.path)
+        return module
+
+    def exec_module(self, module):
+        """Initialize an extension module"""
+        _bootstrap._call_with_frames_removed(_imp.exec_dynamic, module)
+        _bootstrap._verbose_message('extension module {!r} executed from {!r}',
+                         self.name, self.path)
+
+    def is_package(self, fullname):
+        """Return True if the extension module is a package."""
+        file_name = _path_split(self.path)[1]
+        return any(file_name == '__init__' + suffix
+                   for suffix in EXTENSION_SUFFIXES)
+
+    def get_code(self, fullname):
+        """Return None as an extension module cannot create a code object."""
+        return None
+
+    def get_source(self, fullname):
+        """Return None as extension modules have no source code."""
+        return None
+
+    @_check_name
+    def get_filename(self, fullname):
+        """Return the path to the source file as found by the finder."""
+        return self.path
 
 
 class _NamespacePath:
@@ -1191,8 +1562,55 @@ class PathFinder:
         return MetadataPathFinder.find_distributions(*args, **kwargs)
 
 
+# SharpPy: FileFinder is C# (core/PyImportSpecs.cs), which lists directories through Godot's library.
+from sharppy import FileFinder
+
+
+def _fix_up_module(ns, name, pathname, cpathname=None):
+    # This function is used by PyImport_ExecCodeModuleObject().
+    loader = ns.get('__loader__')
+    spec = ns.get('__spec__')
+    if not loader:
+        if spec:
+            loader = spec.loader
+        elif pathname == cpathname:
+            loader = SourcelessFileLoader(name, pathname)
+        else:
+            loader = SourceFileLoader(name, pathname)
+    if not spec:
+        spec = spec_from_file_location(name, pathname, loader=loader)
+        if cpathname:
+            spec.cached = _path_abspath(cpathname)
+    try:
+        ns['__spec__'] = spec
+        ns['__loader__'] = loader
+        ns['__file__'] = pathname
+        ns['__cached__'] = cpathname
+    except Exception:
+        # Not important enough to report.
+        pass
+
+
+def _get_supported_file_loaders():
+    """Returns a list of file-based module loaders.
+
+    Each item is a tuple (loader, suffixes).
+    """
+    extensions = ExtensionFileLoader, _imp.extension_suffixes()
+    source = SourceFileLoader, SOURCE_SUFFIXES
+    bytecode = SourcelessFileLoader, BYTECODE_SUFFIXES
+    return [extensions, source, bytecode]
+
+
 def _set_bootstrap_module(_bootstrap_module):
     global _bootstrap
     _bootstrap = _bootstrap_module
 
+
+def _install(_bootstrap_module):
+    """Install the path-based import components."""
+    _set_bootstrap_module(_bootstrap_module)
+    supported_loaders = _get_supported_file_loaders()
+    sys.path_hooks.extend([FileFinder.path_hook(*supported_loaders)])
+    sys.meta_path.append(PathFinder)
 # Generated by tools/gen_importlib_external.py from CPython 3.12's Lib/importlib/_bootstrap_external.py.

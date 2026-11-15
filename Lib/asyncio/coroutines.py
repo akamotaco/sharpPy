@@ -1,7 +1,7 @@
 __all__ = 'iscoroutinefunction', 'iscoroutine'
 
 import collections.abc
-import functools
+import inspect
 import os
 import sys
 import types
@@ -19,11 +19,7 @@ _is_coroutine = object()
 
 def iscoroutinefunction(func):
     """Return True if func is a decorated coroutine function."""
-    while isinstance(func, functools.partial):
-        func = func.func
-    func = getattr(func, '__func__', func)
-    code = getattr(func, '__code__', None)
-    return ((code is not None and bool(code.co_flags & 0x80)) or  # CO_COROUTINE
+    return (inspect.iscoroutinefunction(func) or
             getattr(func, '_is_coroutine', None) is _is_coroutine)
 
 

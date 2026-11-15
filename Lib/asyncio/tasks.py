@@ -10,10 +10,10 @@ __all__ = (
     '_register_task', '_unregister_task', '_enter_task', '_leave_task',
 )
 
-import collections.abc
 import concurrent.futures
 import contextvars
 import functools
+import inspect
 import itertools
 import types
 import warnings
@@ -365,7 +365,7 @@ class Task(futures._PyFuture):  # Inherit Python Task implementation
             elif result is None:
                 # Bare yield relinquishes control for one event loop iteration.
                 self._loop.call_soon(self.__step, context=self._context)
-            elif isinstance(result, types.GeneratorType):
+            elif inspect.isgenerator(result):
                 # Yielding a generator is just wrong.
                 new_exc = RuntimeError(
                     f'yield was used instead of yield from for '
@@ -679,7 +679,7 @@ def ensure_future(coro_or_future, *, loop=None):
         return coro_or_future
     should_close = True
     if not coroutines.iscoroutine(coro_or_future):
-        if isinstance(coro_or_future, collections.abc.Awaitable):
+        if inspect.isawaitable(coro_or_future):
             async def _wrap_awaitable(awaitable):
                 return await awaitable
 

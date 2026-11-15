@@ -391,15 +391,23 @@ namespace SharpPy
         public int Flags { get; }                     // co_flags (CPython 호환)
         public string? FileName { get; private set; }              // co_filename (CPython 호환)
 
-        // update_code_filenames: this code and the code among its constants.
+        // update_compiled_module: nothing when the name is already the file's; else
+        // update_code_filenames, which renames this code and, among its constants, the code that
+        // had its old name.
         internal void FixFileName(string fileName)
         {
-            if (FileName == fileName)
+            if (FileName != fileName)
+                RenameFile(FileName, fileName);
+        }
+
+        private void RenameFile(string oldName, string newName)
+        {
+            if (FileName != oldName)
                 return;
-            FileName = fileName;
+            FileName = newName;
             foreach (var constant in Constants)
                 if (constant is PyCodeObject inner)
-                    inner.FixFileName(fileName);
+                    inner.RenameFile(oldName, newName);
         }
         
         // CPython 스타일 에러 보고를 위한 소스 라인 정보

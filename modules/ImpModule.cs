@@ -9,31 +9,38 @@ namespace SharpPy.Modules
     /// </summary>
     internal static class ImpModule
     {
-        // The stdlib modules CPython 3.12 freezes (_imp._frozen_module_names()), with the module each
-        // one's code is ("os.path" is posixpath's, as there), less _frozen_importlib and
-        // _frozen_importlib_external, which the import bootstrap makes itself.
+        // The stdlib modules CPython 3.12 freezes (_imp._frozen_module_names(), in its order), with the
+        // module each one's code is ("os.path" is posixpath's, as there). The import bootstrap runs
+        // _frozen_importlib and _frozen_importlib_external itself, and _setup gives them FrozenImporter's
+        // spec, as CPython's.
         private static readonly System.Collections.Generic.Dictionary<string, string> Frozen = new()
         {
-            ["_collections_abc"] = "_collections_abc", ["_sitebuiltins"] = "_sitebuiltins", ["abc"] = "abc",
-            ["codecs"] = "codecs", ["genericpath"] = "genericpath", ["importlib.machinery"] = "importlib.machinery",
-            ["importlib.util"] = "importlib.util", ["io"] = "io", ["ntpath"] = "ntpath", ["os"] = "os",
-            ["os.path"] = "posixpath", ["posixpath"] = "posixpath", ["runpy"] = "runpy", ["site"] = "site",
-            ["stat"] = "stat", ["zipimport"] = "zipimport",
+            ["_frozen_importlib"] = "importlib._bootstrap", ["_frozen_importlib_external"] = "importlib._bootstrap_external",
+            ["zipimport"] = "zipimport", ["abc"] = "abc", ["codecs"] = "codecs", ["io"] = "io",
+            ["_collections_abc"] = "_collections_abc", ["_sitebuiltins"] = "_sitebuiltins", ["genericpath"] = "genericpath",
+            ["ntpath"] = "ntpath", ["posixpath"] = "posixpath", ["os.path"] = "posixpath", ["os"] = "os",
+            ["site"] = "site", ["stat"] = "stat", ["importlib.util"] = "importlib.util",
+            ["importlib.machinery"] = "importlib.machinery", ["runpy"] = "runpy",
         };
 
         private static string Name(PyObject value) =>
             (value as PyString ?? throw PyArgs.BadArgument("find_frozen", "argument 1", "str", value)).Value;
 
+        // The file of a frozen module's code: _bootstrap_external's Python part is the generated file
+        // (core/PyImportSpecs.cs has FileFinder).
+        private static string SourceFile(string origin) =>
+            origin == "importlib._bootstrap_external" ? "importlib/_external_functions.py" : origin.Replace('.', '/') + ".py";
+
         // The module frozen under name: its origname, when Lib has its source.
         private static string FrozenOrigin(string name) =>
-            Frozen.TryGetValue(name, out var origin) && PyImportSystem.LocateSource(origin.Replace('.', '/') + ".py") != null ? origin : null;
+            Frozen.TryGetValue(name, out var origin) && PyImportSystem.LocateSource(SourceFile(origin)) != null ? origin : null;
 
         private static PyCodeObject FrozenCode(string name)
         {
             string origin = FrozenOrigin(name);
             if (origin == null)
                 return null;
-            string path = PyImportSystem.LocateSource(origin.Replace('.', '/') + ".py");
+            string path = PyImportSystem.LocateSource(SourceFile(origin));
             return Compiler.CompileSource(PyImportSystem.ReadSource(path), "<frozen " + origin + ">");
         }
         internal static PyModule Create()
@@ -87,7 +94,17 @@ namespace SharpPy.Modules
             d["release_lock"] = new PyBuiltinFunction("release_lock", args => PyNone.Instance);
             d["lock_held"] = new PyBuiltinFunction("lock_held", args => PyBool.False);
             d["extension_suffixes"] = new PyBuiltinFunction("extension_suffixes", args => new PyList());
-            d["_fix_co_filename"] = new PyBuiltinFunction("_fix_co_filename", args => PyNone.Instance);
+            // _imp__fix_co_filename_impl: update_compiled_module's update_code_filenames - the code and
+            // the code among its constants name the file it was imported from.
+            d["_fix_co_filename"] = PyArgs.FastCall("_imp", "_fix_co_filename", 2, 2, args =>
+            {
+                if (args[0] is not PyCodeObject code)
+                    throw PyArgs.BadArgument("_fix_co_filename", "argument 1", "code", args[0]);
+                if (args[1] is not PyString path)
+                    throw PyArgs.BadArgument("_fix_co_filename", "argument 2", "str", args[1]);
+                code.FixFileName(path.Value);
+                return PyNone.Instance;
+            });
             d["_override_frozen_modules_for_tests"] = new PyBuiltinFunction("_override_frozen_modules_for_tests", args => PyNone.Instance);
             d["_override_multi_interp_extensions_check"] = new PyBuiltinFunction("_override_multi_interp_extensions_check", args => PyInt.From(-1));
             d["check_hash_based_pycs"] = PyString.From("default");

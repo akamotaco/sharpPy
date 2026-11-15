@@ -333,7 +333,7 @@ namespace SharpPy.Modules
             kwargs.SetItem(PyString.From("version"), CreateVersionInfo());
             kwargs.SetItem(PyString.From("hexversion"), PyInt.From(HexVersion));
             // Its own tag, so a cache SharpPy writes never takes the name of one CPython reads.
-            kwargs.SetItem(PyString.From("cache_tag"), PyString.From(PyBytecodeCache.Tag));
+            kwargs.SetItem(PyString.From("cache_tag"), PyString.From("sharppy-312"));
 
             return new PySimpleNamespace(kwargs);
         }

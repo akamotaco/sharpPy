@@ -1,14 +1,22 @@
 """Generate Lib/importlib/_external_functions.py from CPython 3.12's Lib/importlib/_bootstrap_external.py.
 
-SharpPy's file finder and source loader are C# (core/PyImportSpecs.cs, the _frozen_importlib_external
-module), since finding and reading files must go through Godot's library for res:// and user://.
-What reads no file is CPython's code, taken here: the module-level functions up to the first class
-("# Loaders": path helpers, cache_from_source, source_from_cache, _get_sourcefile, _get_cached,
-decode_source, spec_from_file_location, the pyc helpers), _LoaderBasics, and _NamespacePath,
-NamespaceLoader and PathFinder, which walk sys.path through sys.path_hooks and
-sys.path_importer_cache; and _set_bootstrap_module. The import bootstrap runs them in
-_frozen_importlib_external. The changes, each marked in the output:
-- winreg, which only WindowsRegistryFinder uses, is not imported.
+SharpPy's file finder is C# (core/PyImportSpecs.cs), since listing directories must go through
+Godot's library for res:// and user://; the module takes it from the sharppy module where CPython
+defines its class. The rest is CPython's code, taken here: the module-level functions up to the first class ("# Loaders": path helpers,
+cache_from_source, source_from_cache, _get_sourcefile, _get_cached, decode_source,
+spec_from_file_location, the pyc helpers); WindowsRegistryFinder; the loaders, _LoaderBasics, SourceLoader, FileLoader,
+SourceFileLoader, SourcelessFileLoader and ExtensionFileLoader, whose files are read and written
+through _io and nt, which reach Godot's files; _NamespacePath, NamespaceLoader and PathFinder, which
+walk sys.path through sys.path_hooks and sys.path_importer_cache; and what follows FileFinder,
+_fix_up_module, _get_supported_file_loaders, _set_bootstrap_module and _install, which
+_bootstrap._install_external_importers calls. _imp has the file as the frozen
+_frozen_importlib_external's code, which _install_external_importers imports. The changes, each
+marked in the output:
+- winreg, which only WindowsRegistryFinder uses, is not imported: SharpPy has no winreg module, so
+  WindowsRegistryFinder, which is not on sys.meta_path, raises NameError when it is asked.
+- _path_abspath takes a Godot asset path (res://, user://) as absolute, as FileFinder does.
+- cache_from_source has no cache for a Godot asset path (NotImplementedError, as without a
+  cache_tag): res:// is read-only once exported, and its files are the project's.
 - PathFinder.invalidate_caches clears MetadataPathFinder's caches only once importlib.metadata
   has been imported: SharpPy cannot import it (email needs _socket), so it holds no caches.
 
@@ -25,26 +33,38 @@ def between(start, end):
     return source[first:source.index(end, first)]
 
 
-head = source[:source.index("# Loaders #####")]
-# _LoaderBasics: the base zipimport.zipimporter and the loaders of Lib/importlib/abc.py share.
-head += between("class _LoaderBasics:", "class SourceLoader(_LoaderBasics):")
-# _NamespacePath, NamespaceLoader and PathFinder: PEP 420 and the sys.path walk.
-head += between("class _NamespacePath:", "class FileFinder:")
-# _set_bootstrap_module: importlib/__init__.py hands a fresh _bootstrap over with it.
-start = source.index("def _set_bootstrap_module(_bootstrap_module):")
-head += source[start:source.index("\n\n", start) + 2]
+# Everything before FileFinder, at its own lines: the module-level functions, WindowsRegistryFinder;
+# _LoaderBasics, the base zipimport.zipimporter and the loaders of Lib/importlib/abc.py share; the file
+# loaders; _NamespacePath, NamespaceLoader and PathFinder: PEP 420 and the sys.path walk.
+head = source[:source.index("class FileFinder:")]
+# FileFinder is SharpPy's.
+head += ("# SharpPy: FileFinder is C# (core/PyImportSpecs.cs), which lists directories through Godot's library.\n"
+         "from sharppy import FileFinder\n\n\n")
+# After FileFinder: _fix_up_module, _get_supported_file_loaders, _set_bootstrap_module, with which
+# importlib/__init__.py hands a fresh _bootstrap over, and _install.
+head += source[source.index("def _fix_up_module("):]
 
-assert head.count("    import winreg\n") == 1
-head = head.replace("    import winreg\n", "    # SharpPy: winreg is WindowsRegistryFinder's only, which SharpPy does not have.\n")
-metadata = ("        from importlib.metadata import MetadataPathFinder\n"
-            "        MetadataPathFinder.invalidate_caches()\n")
-assert head.count(metadata) == 1
-head = head.replace(metadata,
-                    "        # SharpPy: importlib.metadata cannot be imported here (email needs _socket),\n"
-                    "        # so there are metadata caches only if it was.\n"
-                    "        if 'importlib.metadata' in sys.modules:\n"
-                    "            from importlib.metadata import MetadataPathFinder\n"
-                    "            MetadataPathFinder.invalidate_caches()\n")
+
+def change(old, new):
+    global head
+    assert head.count(old) == 1, old
+    head = head.replace(old, new)
+
+
+# Each change keeps its line count, so the lines after it stay CPython's.
+change("    if not _path_isabs(path):\n",
+       "    if not _path_isabs(path) and not path.startswith(('res://', 'user://')):  # SharpPy: Godot's asset paths\n")
+change("    if tag is None:\n",
+       "    if tag is None or path.startswith(('res://', 'user://')):  # SharpPy: Godot's asset paths have no cache\n")
+
+change("    import winreg\n", "    pass  # SharpPy: no winreg module; WindowsRegistryFinder, its only user, raises NameError\n")
+change("        from importlib.metadata import MetadataPathFinder\n"
+       "        MetadataPathFinder.invalidate_caches()\n",
+       "        # SharpPy: importlib.metadata cannot be imported here (email needs _socket),\n"
+       "        # so there are metadata caches only if it was.\n"
+       "        if 'importlib.metadata' in sys.modules:\n"
+       "            from importlib.metadata import MetadataPathFinder\n"
+       "            MetadataPathFinder.invalidate_caches()\n")
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 target = os.path.join(root, "Lib", "importlib", "_external_functions.py")

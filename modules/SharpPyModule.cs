@@ -2,7 +2,11 @@ using System;
 
 namespace SharpPy.Modules
 {
-    /// <summary>What Python code on a worker thread needs from the host. CPython has no such module.</summary>
+    /// <summary>
+    /// What Python code on a worker thread needs from the host, and the C# half of the import
+    /// system: FileFinder, which _frozen_importlib_external takes (it lists directories through
+    /// Godot's library), and BundleFinder. CPython has no such module.
+    /// </summary>
     internal static class SharpPyModule
     {
         internal static PyModule CreateSharpPyModule()
@@ -19,6 +23,8 @@ namespace SharpPy.Modules
             });
             module.ModuleDict["is_main_thread"] = new PyBuiltinFunction("is_main_thread", args =>
                 PyBool.FromBool(PyVM.Instance.BoundState.IsMain));
+            module.ModuleDict["FileFinder"] = PyFileFinder.FinderType;
+            module.ModuleDict["BundleFinder"] = PyBundleFinder.FinderType;
             return module;
         }
     }
