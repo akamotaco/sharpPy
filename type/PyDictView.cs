@@ -3,7 +3,7 @@ namespace SharpPy
     public enum DictViewKind { Keys, Values, Items }
 
     // A view retains its dictionary. Materialization is deferred until requested.
-    public sealed class PyDictView : PyObject
+    public class PyDictView : PyObject
     {
         static PyDictView()
         {

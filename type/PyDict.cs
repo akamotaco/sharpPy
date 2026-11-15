@@ -283,7 +283,7 @@ namespace SharpPy
 
                     // dict_ass_sub: the table itself.
                     var pyDict = (PyDict)self;
-                    pyDict.MpAssSubscript(args[0], args[1]);
+                    pyDict.DictAssSub(args[0], args[1]);
                     return PyNone.Instance;
                 },
                 minArgs: 2, maxArgs: 2
@@ -300,7 +300,7 @@ namespace SharpPy
                     // CPython 3.12.15 measured: dict.__delitem__ reports "expected 1 argument, got N".
                     // dict_ass_sub without a value: the table itself.
                     var pyDict = (PyDict)self;
-                    pyDict.MpDelSubscript(args[0]);
+                    pyDict.DictDelSub(args[0]);
                     return PyNone.Instance;
                 },
                 minArgs: 1, maxArgs: 1
@@ -502,6 +502,13 @@ namespace SharpPy
         // dict_ass_sub without a value: PyDict_DelItem.
         protected internal override void MpDelSubscript(PyObject key) => DelItem(key);
 
+        /// <summary>
+        /// dict_ass_sub itself, what dict.__setitem__ and dict.__delitem__ call: a type with an
+        /// mp_ass_subscript of its own (OrderedDict) is written in the table alone here.
+        /// </summary>
+        internal virtual void DictAssSub(PyObject key, PyObject value) => MpAssSubscript(key, value);
+        internal virtual void DictDelSub(PyObject key) => MpDelSubscript(key);
+
         public virtual PyObject DelItem(PyObject key)
         {
             if (!_dict.Remove(key, out _, out _))
@@ -601,7 +608,9 @@ namespace SharpPy
         /// when the storage may be read directly instead of through keys().
         /// </summary>
         internal static bool IterIsDictIter(PyObject value) =>
-            IsDictLike(value) && (value.GetPyType() is not SharpPy.PyClass heap || heap.IterSlotIs(PyType.DictType));
+            IsDictLike(value) && (value.GetPyType() is not SharpPy.PyClass heap
+                ? value is not SharpPy.Modules.PyODict
+                : heap.IterSlotIs(PyType.DictType));
 
 
         /// <summary>

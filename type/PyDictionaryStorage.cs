@@ -54,6 +54,20 @@ namespace SharpPy
             entry = default;
             return false;
         }
+        /// <summary>
+        /// _Py_dict_lookup as _odict_get_index_raw reads it: the entry index of the key, or
+        /// dk_nentries (the index a new entry would take) when it is absent.
+        /// </summary>
+        internal int LookupIndex(PyObject key, long hash)
+        {
+            int index = Find(key, hash, out _);
+            return index >= 0 ? index : used;
+        }
+
+        // dk_size (an empty table is Py_EMPTY_KEYS, of size 8) and the keys object itself.
+        internal int TableSize => Math.Max(indices.Length, 8);
+        internal object TableIdentity => indices;
+
         // dict_popitem: the last live entry of dk_entries.
         internal Entry LastEntry()
         {

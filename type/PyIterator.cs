@@ -108,6 +108,8 @@ namespace SharpPy
                 case "enumerate":
                 // ga_iter_methods: __reduce__ only.
                 case "generic_alias_iterator":
+                // odictiter_methods: __reduce__ only.
+                case "odict_iterator":
                     InstallMethods(type, false, true, false);
                     break;
                 // repeat_methods: __length_hint__ beside __reduce__.

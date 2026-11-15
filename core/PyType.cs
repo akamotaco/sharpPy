@@ -2918,6 +2918,8 @@ namespace SharpPy
                     // type->tp_alloc: the layout of the class's solid base, defaultdict's with default_factory.
                     if (cls is PyType layout && SharpPy.Modules.PyDefaultDict.IsLayoutOf(layout))
                         return new SharpPy.Modules.PyDefaultDict(layout);
+                    if (cls is PyType odictLayout && SharpPy.Modules.PyODict.IsLayoutOf(odictLayout))
+                        return new SharpPy.Modules.PyODict(odictLayout);
                     if (!(cls is PyClass dictClass)) {
                         string foreign = TpName(cls);
                         throw PyTypeError.Create(
