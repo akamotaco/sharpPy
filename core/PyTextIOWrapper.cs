@@ -347,6 +347,17 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
 
     private static PythonException Unsupported(string message) => PyUnsupportedOperation.Create(message);
 
+    // io_check_errors: only in development mode, the handler must exist.
+    private static void CheckErrors(PyString errors)
+    {
+        if (!SharpPyConfig.DevMode)
+            return;
+        string name = PyArgs.AsUtf8(errors);
+        if (name.IndexOf('\0') >= 0)
+            throw PyValueError.Create("embedded null character in errors");
+        PyCodecErrors.LookupError(name);
+    }
+
     // validate_newline
     private static void ValidateNewline(string newline)
     {
@@ -438,8 +449,12 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
 
         _ok = false;
         _detached = false;
+        if (encoding == null && SharpPyConfig.WarnDefaultEncoding)
+            PyWarnings.Warn(PyType.EncodingWarningType, "'encoding' argument not specified", 1);
         if (errorsObject is PyNone)
             errorsObject = PyString.From("strict");
+        else if (errorsObject is PyString)
+            CheckErrors((PyString)errorsObject);
         string errors = PyArgs.ClinicStr("TextIOWrapper", "argument 'errors'", "str or None", errorsObject);
         ValidateNewline(newline);
 
@@ -501,9 +516,12 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             if (errors is PyNone)
                 errors = PyString.From("strict");
         }
-        var codecInfo = CodecInfo(((PyString)encoding).Value);
-        SetDecoder(codecInfo, ((PyString)errors).Value);
-        SetEncoder(codecInfo, ((PyString)errors).Value);
+        // PyUnicode_AsUTF8 of both, read as C strings
+        string cEncoding = PyArgs.AsUtf8CString((PyString)encoding);
+        string cErrors = PyArgs.AsUtf8CString((PyString)errors);
+        var codecInfo = CodecInfo(cEncoding);
+        SetDecoder(codecInfo, cErrors);
+        SetEncoder(codecInfo, cErrors);
         _encoding = encoding;
         _errors = errors;
         FixEncoderState();
@@ -534,7 +552,8 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             throw PyArgs.BadArgument("reconfigure", "argument 'newline'", "str or None", newline);
         if (_decoded != null && (encoding is not PyNone || errors is not PyNone || newline != null))
             throw Unsupported("It is not possible to set the encoding or newline of stream after the first read");
-        string newlineText = newline is PyString text ? text.Value : null;
+        // PyUnicode_AsUTF8, then validate_newline on the C string
+        string newlineText = newline is PyString text ? PyArgs.AsUtf8CString(text) : null;
         if (newlineText != null)
             ValidateNewline(newlineText);
         bool line = lineBuffering is PyNone ? _lineBuffering : PyArgs.CLong(lineBuffering) != 0;

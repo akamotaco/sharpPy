@@ -14,7 +14,7 @@ name, target = sys.argv[1], sys.argv[2]
 # test_4_daemon_threads: its child imports test.test_threading, and CPython's importlib needs
 # winreg there, so the daemon threads die and the child waits for them for good (docs/todo.md 5-8).
 KNOWN_TOO_SLOW = ("test_4_daemon_threads",)
-output = open(target, "w", encoding="utf-8")
+output = open(target, "w", encoding="utf-8", errors="backslashreplace")
 
 
 def frames(err):
@@ -142,5 +142,15 @@ class Result(unittest.TestResult):
             emit("FAIL", test.id(), f"subtest {subtest}: {err[0].__name__}: {err[1]}{frames(err)}")
 
 
+# SHARPPY_TEST_ONLY: only the tests whose id contains it, to look at one test alone.
+only = os.environ.get("SHARPPY_TEST_ONLY")
+if only:
+    def flatten(item):
+        if isinstance(item, unittest.TestSuite):
+            for inner in item:
+                yield from flatten(inner)
+        else:
+            yield item
+    suite = unittest.TestSuite(t for t in flatten(suite) if only in t.id())
 suite.run(Result())
 emit("END", name)

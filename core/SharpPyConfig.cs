@@ -29,6 +29,14 @@ namespace SharpPy
             !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("PYTHONDEVMODE"));
 
         /// <summary>
+        /// PyConfig.warn_default_encoding (PEP 597): -X warn_default_encoding, or a non-empty
+        /// PYTHONWARNDEFAULTENCODING.
+        /// </summary>
+        public static bool WarnDefaultEncoding =>
+            XOptions.Exists(option => option.Key == "warn_default_encoding") ||
+            !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("PYTHONWARNDEFAULTENCODING"));
+
+        /// <summary>
         /// PyPreConfig.utf8_mode as a host sets it before startup, as an embedder does; null leaves it
         /// to the command line and the environment. The Godot build starts in UTF-8 Mode, so a game's
         /// files read the same whatever language the system is in.

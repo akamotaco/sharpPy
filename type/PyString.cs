@@ -43,10 +43,8 @@ namespace SharpPy
 
             // unicode_new's clinic converts encoding and errors first; then, with either present,
             // PyUnicode_FromEncodedObject never accepts a str and never calls str().
-            if (encodingArg != null && encodingArg is not PyString)
-                throw PyArgs.BadArgument("str", "argument 'encoding'", "str", encodingArg);
-            if (errorsArg != null && errorsArg is not PyString)
-                throw PyArgs.BadArgument("str", "argument 'errors'", "str", errorsArg);
+            string encodingName = PyArgs.ClinicStr("str", "argument 'encoding'", "str", encodingArg) ?? "utf-8";
+            string errorName = PyArgs.ClinicStr("str", "argument 'errors'", "str", errorsArg);
             if (objectArg is PyString)
                 throw PyTypeError.Create("decoding str is not supported");
 
@@ -55,8 +53,6 @@ namespace SharpPy
                 throw PyTypeError.Create(
                     $"decoding to str: need a bytes-like object, {objectArg.GetTypeName()} found");
 
-            string encodingName = (encodingArg as PyString)?.Value ?? "utf-8";
-            string errorName = (errorsArg as PyString)?.Value;
             return PyString.From(DecodeBytes(data, encodingName, errorName));
         }
 
@@ -1085,21 +1081,11 @@ namespace SharpPy
                     string errors = "strict";
 
                     PyObject[] paEnc = ProjectKeywordSlots(args, kwargs, "encoding", "errors");
+                    // unicode_encode's clinic: both by the str converter.
                     if (paEnc.Length >= 1 && paEnc[0] != null)
-                    {
-                        if (paEnc[0] is PyString encodingStr)
-                            encoding = encodingStr.Value;
-                        else
-                            throw PyArgs.BadArgument("encode", "argument 'encoding'", "str", paEnc[0]);
-                    }
-
+                        encoding = PyArgs.ClinicStr("encode", "argument 'encoding'", "str", paEnc[0]);
                     if (paEnc.Length >= 2 && paEnc[1] != null)
-                    {
-                        if (paEnc[1] is PyString errorsStr)
-                            errors = errorsStr.Value;
-                        else
-                            throw PyArgs.BadArgument("encode", "argument 'errors'", "str", paEnc[1]);
-                    }
+                        errors = PyArgs.ClinicStr("encode", "argument 'errors'", "str", paEnc[1]);
 
                     // One encoder. This descriptor kept its own codec table, so str.encode had two
                     // implementations: Encoding.ASCII turned 'é' into b'?' here, while the faithful

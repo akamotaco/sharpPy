@@ -549,6 +549,7 @@ namespace SharpPy.Modules.Cjk
                         throw PyAttributeError.Create("cannot delete attribute");
                     if (value is not PyString text)
                         throw PyTypeError.Create("errors must be a string");
+                    PyArgs.AsUtf8(text);
                     if (text.Value.IndexOf('\0') >= 0)
                         throw PyValueError.Create("embedded null character");
                     ((StatefulContext)self).Errors = text.Value;
@@ -571,11 +572,7 @@ namespace SharpPy.Modules.Cjk
         {
             if (value == null)
                 return null;
-            if (value is not PyString text)
-                throw PyTypeError.Create($"{fname}() argument 'errors' must be str, not {value.GetPyType().Name}");
-            if (text.Value.IndexOf('\0') >= 0)
-                throw PyValueError.Create("embedded null character");
-            return text.Value;
+            return PyArgs.ClinicStr(fname, "argument 'errors'", "str", value);
         }
 
         // encoder_encode_stateful

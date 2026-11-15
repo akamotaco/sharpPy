@@ -160,10 +160,8 @@ namespace SharpPy.Modules
         private static PyObject PyLookup(PyObject[] args, PyDict kwargs = null)
         {
 
-            if (!(args[0] is PyString encodingStr))
-                throw PyArgs.BadArgument("lookup", "argument", "str", args[0]);
-
-            return PyCodecRegistry.Lookup(encodingStr.Value);
+            // _codecs_lookup: METH_O with the str converter.
+            return PyCodecRegistry.Lookup(PyArgs.ClinicStr("lookup", "argument", "str", args[0]));
         }
 
         // CPython 3.12: Modules/_codecsmodule.c:82-107 (codec_encode)
@@ -328,8 +326,7 @@ namespace SharpPy.Modules
         // errors: str(accept={str, NoneType}) = None
         private static string ErrorsArgument(string name, PyObject[] args, int index) =>
             index >= args.Length || args[index] is PyNone ? null
-                : args[index] is PyString text ? text.Value
-                : throw PyArgs.BadArgument(name, $"argument {index + 1}", "str or None", args[index]);
+                : PyArgs.ClinicStr(name, $"argument {index + 1}", "str or None", args[index]);
 
         // _codecs_code_page_encode_impl and the mbcs/oem ones: (bytes, len(str)).
         private static PyObject CodePageEncode(string name, int codePage, PyObject[] args, int first)

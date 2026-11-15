@@ -80,10 +80,11 @@ namespace SharpPy.Modules
             module.ModuleDict["text_encoding"] = new PyBuiltinFunction("text_encoding", (args, kwargs) =>
             {
                 // _io_text_encoding's clinic: stacklevel through the int converter.
-                if (args.Length > 1)
-                    PyArgs.Int(args[1]);
+                int stacklevel = args.Length > 1 ? PyArgs.Int(args[1]) : 2;
                 if (args[0] is not PyNone)
                     return args[0];
+                if (SharpPyConfig.WarnDefaultEncoding)
+                    PyWarnings.Warn(PyType.EncodingWarningType, "'encoding' argument not specified", stacklevel);
                 // UTF-8 Mode answers "utf-8", otherwise the marker TextIOWrapper reads as the locale's.
                 return PyString.From(SharpPyConfig.Utf8Mode ? "utf-8" : "locale");
             });

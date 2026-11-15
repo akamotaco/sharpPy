@@ -438,6 +438,7 @@ namespace SharpPy.Modules
                 });
             values[Array.IndexOf(fields, "dev_mode")] = PyBool.FromBool(SharpPyConfig.DevMode);
             values[Array.IndexOf(fields, "utf8_mode")] = PyInt.From(SharpPyConfig.Utf8Mode ? 1 : 0);
+            values[Array.IndexOf(fields, "warn_default_encoding")] = PyInt.From(SharpPyConfig.WarnDefaultEncoding ? 1 : 0);
             values[Array.IndexOf(fields, "safe_path")] = PyBool.False;
             return new PyStructSequence(new PyStructSequenceType("sys", "flags", fields), values);
         }

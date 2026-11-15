@@ -800,11 +800,10 @@ namespace SharpPy
         {
             PyObject encoding = args.Length > 0 ? args[0] : kwargs != null ? PyObject.KwValue(kwargs, "encoding") : null;
             PyObject errors = args.Length > 1 ? args[1] : kwargs != null ? PyObject.KwValue(kwargs, "errors") : null;
-            if (encoding != null && encoding is not PyString)
-                throw PyArgs.BadArgument("decode", "argument 'encoding'", "str", encoding);
-            if (errors != null && errors is not PyString)
-                throw PyArgs.BadArgument("decode", "argument 'errors'", "str", errors);
-            return PyString.From(PyStringNewArguments.DecodeBytes(Self(self), (encoding as PyString)?.Value ?? "utf-8", (errors as PyString)?.Value ?? "strict"));
+            // bytes_decode's clinic: both by the str converter.
+            string encodingName = PyArgs.ClinicStr("decode", "argument 'encoding'", "str", encoding) ?? "utf-8";
+            string errorName = PyArgs.ClinicStr("decode", "argument 'errors'", "str", errors) ?? "strict";
+            return PyString.From(PyStringNewArguments.DecodeBytes(Self(self), encodingName, errorName));
         }
 
         private static byte ByteValue(PyObject item, string message)
