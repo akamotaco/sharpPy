@@ -335,18 +335,14 @@ namespace SharpPy
         #region Core Properties
 
         // PyObject를 키로 사용하기 위한 사용자 정의 비교기
-        protected readonly PyDictionaryStorage _dict;  // O(1) 조회용
-        protected readonly List<PyObject> _keys;  // 삽입 순서 보관
+        // ma_keys: the hash table and dk_entries, which also hold the insertion order.
+        protected readonly PyDictionaryStorage _dict;
 
         // 내부 딕셔너리 접근용 (타입 생성 등에서 사용)
         internal PyDictionaryStorage InternalDict => _dict;
         // Bypass Python __getitem__ overrides while allowing internal storage adapters.
         internal virtual bool TryGetStoredValue(PyObject key, out PyObject value) => _dict.TryGetValue(key, out value);
-        internal List<PyObject>.Enumerator GetStorageKeyEnumerator() => _keys.GetEnumerator();
-        internal OrderedIterationState GetIterationState() => ((OrderedKeyList)_keys).GetIterationState();
-        private void AddOrderedKey(PyObject key) => ((OrderedKeyList)_keys).AddKey(key);
-        private void RemoveOrderedKeyAt(int index, bool trimTail = false) => ((OrderedKeyList)_keys).RemoveKeyAt(index, trimTail);
-        private void ClearOrderedKeys() => ((OrderedKeyList)_keys).ClearKeys();
+        internal PyDictionaryStorage.Enumerator GetStorageKeyEnumerator() => _dict.GetEnumerator();
 
         /// <summary>
         /// CPython 3.12: Include/cpython/dictobject.h - 내부 딕셔너리 순회용
@@ -354,35 +350,25 @@ namespace SharpPy
         /// </summary>
         public IEnumerable<KeyValuePair<PyObject, PyObject>> GetInternalDict()
         {
-            // Python 3.7+: 삽입 순서 보장하여 반환
-            foreach (var key in _keys)
-            {
-                yield return new KeyValuePair<PyObject, PyObject>(key, _dict.StoredValue(key));
-            }
+            foreach (var entry in _dict)
+                yield return entry;
         }
 
         public PyDict()
         {
             _dict = new PyDictionaryStorage();
-            _keys = new OrderedKeyList();
         }
 
         public PyDict(Dictionary<string, PyObject> items)
         {
             _dict = new PyDictionaryStorage();
-            _keys = new OrderedKeyList();
             foreach (var kv in items)
-            {
-                var key = PyString.From(kv.Key);
-                _dict[key] = kv.Value;
-                AddOrderedKey(key);
-            }
+                _dict[PyString.From(kv.Key)] = kv.Value;
         }
 
         public PyDict(Dictionary<PyObject, PyObject> items)
         {
             _dict = new PyDictionaryStorage(items);
-            _keys = new OrderedKeyList(items.Keys);
         }
 
         public override PyType GetPyType() => _customType ?? PyType.DictType;
@@ -421,54 +407,28 @@ namespace SharpPy
             }
         }
 
+        // dict_repr: PyDict_Next over the entries, each key and value repr'd as it is reached, so a
+        // repr that changes the dict is seen by what follows.
         private PyString ToReprContents()
         {
-            // Python 3.7+: 삽입 순서대로 출력
-            // Performance: string.Create() - CPython-style single allocation
-
-            // Step 1: Calculate total length and cache reprs
-            var keyReprs = new string[_keys.Count];
-            var valueReprs = new string[_keys.Count];
-            int totalLength = 2; // "{}"
-            for (int i = 0; i < _keys.Count; i++)
+            var writer = new System.Text.StringBuilder();
+            writer.Append('{');
+            bool first = true;
+            int position = 0;
+            while (_dict.NextEntry(ref position, out var entry))
             {
-                keyReprs[i] = _keys[i].ToRepr().Value;
-                valueReprs[i] = _dict.StoredValue(_keys[i]).ToRepr().Value;
-
-                if (i > 0) totalLength += 2; // ", "
-                totalLength += keyReprs[i].Length;
-                totalLength += 2; // ": "
-                totalLength += valueReprs[i].Length;
+                if (!first)
+                    writer.Append(", ");
+                first = false;
+                // Prevent repr from deleting key or value during key format.
+                var key = entry.Key;
+                var value = entry.Value;
+                writer.Append(key.ToRepr().Value);
+                writer.Append(": ");
+                writer.Append(value.ToRepr().Value);
             }
-
-            // Step 2: string.Create with single allocation
-            var result = string.Create(totalLength, (keyReprs, valueReprs), (span, state) =>
-            {
-                int pos = 0;
-                span[pos++] = '{';
-
-                for (int i = 0; i < state.keyReprs.Length; i++)
-                {
-                    if (i > 0)
-                    {
-                        span[pos++] = ',';
-                        span[pos++] = ' ';
-                    }
-
-                    state.keyReprs[i].AsSpan().CopyTo(span.Slice(pos));
-                    pos += state.keyReprs[i].Length;
-
-                    span[pos++] = ':';
-                    span[pos++] = ' ';
-
-                    state.valueReprs[i].AsSpan().CopyTo(span.Slice(pos));
-                    pos += state.valueReprs[i].Length;
-                }
-
-                span[pos] = '}';
-            });
-
-            return PyString.From(result);
+            writer.Append('}');
+            return PyString.From(writer.ToString());
         }
 
         #endregion
@@ -532,7 +492,7 @@ namespace SharpPy
         /// </summary>
         protected internal override void MpAssSubscript(PyObject key, PyObject value)
         {
-            if (_dict.Set(key, value)) AddOrderedKey(key);
+            _dict.Set(key, value);
         }
 
         /// <summary>
@@ -544,24 +504,9 @@ namespace SharpPy
 
         public virtual PyObject DelItem(PyObject key)
         {
-            if (!_dict.Remove(key, out _, out var storedKey))
+            if (!_dict.Remove(key, out _, out _))
                 throw PyKeyError.Create(key);
-
-            RemoveOrderedKey(storedKey);
             return PyNone.Instance;
-        }
-
-        protected void RemoveOrderedKey(PyObject key)
-        {
-            // Use the same Python equality as lookup storage; List.Remove uses CLR equality.
-            for (int i = 0; i < _keys.Count; i++)
-            {
-                if (ReferenceEquals(_keys[i], key))
-                {
-                    RemoveOrderedKeyAt(i);
-                    break;
-                }
-            }
         }
 
         /// <summary>
@@ -602,11 +547,8 @@ namespace SharpPy
                 if (defaultValue != null) return defaultValue;
                 throw PyKeyError.Create(key);
             }
-            if (_dict.Remove(key, out PyObject value, out var storedKey))
-            {
-                RemoveOrderedKey(storedKey);
+            if (_dict.Remove(key, out PyObject value, out _))
                 return value;
-            }
 
             if (defaultValue != null)
                 return defaultValue;
@@ -623,12 +565,10 @@ namespace SharpPy
             if (_dict.Count == 0)
                 throw PyKeyError.Create("popitem(): dictionary is empty");
 
-            // Python 3.7+: LIFO (Last-In-First-Out) - 마지막 삽입된 키
-            var lastKey = _keys[_keys.Count - 1];
-            var value = _dict.StoredValue(lastKey);
-            _dict.Remove(lastKey, out _, out _, knownHash: true);
-            RemoveOrderedKeyAt(_keys.Count - 1, trimTail: true);
-            return PyTuple.From(lastKey, value);
+            // dict_popitem: the last entry of dk_entries, which then ends before it.
+            var last = _dict.LastEntry();
+            _dict.Remove(last.Key, out _, out _, knownHash: true);
+            return PyTuple.From(last.Key, last.Value);
         }
 
         /// <summary>
@@ -638,7 +578,6 @@ namespace SharpPy
         public virtual PyNone Clear()
         {
             _dict.Clear();
-            ClearOrderedKeys();
             return PyNone.Instance;
         }
 
@@ -757,8 +696,6 @@ namespace SharpPy
                 if (_dict.Count == 0 && otherDict._dict.CanCloneForMerge)
                 {
                     _dict.CopyFrom(otherDict._dict);
-                    ClearOrderedKeys();
-                    foreach (var key in otherDict._keys) AddOrderedKey(key);
                     return PyNone.Instance;
                 }
                 // CPython 3.12: Objects/dictobject.c:2811-2990 (dict_merge)
@@ -769,7 +706,7 @@ namespace SharpPy
                 int position = 0, originalSize = otherDict._dict.EntriesUsed;
                 while (otherDict._dict.NextEntry(ref position, out var entry))
                 {
-                    if (_dict.SetKnownHash(entry.Key, entry.Value, entry.Hash)) AddOrderedKey(entry.Key);
+                    _dict.SetKnownHash(entry.Key, entry.Value, entry.Hash);
                     if (originalSize != otherDict._dict.EntriesUsed)
                         throw PyRuntimeError.Create("dict mutated during update");
                 }
@@ -795,7 +732,7 @@ namespace SharpPy
                     #endif
 
                     // Direct storage update (bypass __setitem__)
-                    if (_dict.Set(pyKey, value)) AddOrderedKey(pyKey);
+                    _dict.Set(pyKey, value);
                 }
             }
             else
@@ -811,9 +748,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject SetDefault(PyObject key, PyObject defaultValue = null)
         {
-            var value = _dict.SetDefault(key, defaultValue ?? PyNone.Instance, out bool added);
-            if (added) AddOrderedKey(key);
-            return value;
+            return _dict.SetDefault(key, defaultValue ?? PyNone.Instance, out _);
         }
 
         #endregion
@@ -826,45 +761,28 @@ namespace SharpPy
         /// </summary>
         public PyList Keys()
         {
-            // _keys를 사용하여 삽입 순서 보장
-            // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
-            var keysArray = new PyObject[_keys.Count];
-            for (int i = 0; i < _keys.Count; i++)
-            {
-                keysArray[i] = _keys[i];
-            }
-            return new PyList(keysArray);
+            var keys = new PyObject[_dict.Count];
+            int i = 0;
+            foreach (var entry in _dict)
+                keys[i++] = entry.Key;
+            return new PyList(keys);
         }
 
-        /// <summary>
-        /// 모든 값의 뷰 반환
-        /// Python 3.7+: 삽입 순서 보장
-        /// </summary>
         public PyList Values()
         {
-            // _keys 순서대로 값을 가져옴
-            // Performance: Eliminated LINQ (Select + ToArray) - direct array copy + Cache
-            var values = new PyObject[_keys.Count];
-            for (int i = 0; i < _keys.Count; i++)
-            {
-                values[i] = _dict.StoredValue(_keys[i]);
-            }
+            var values = new PyObject[_dict.Count];
+            int i = 0;
+            foreach (var entry in _dict)
+                values[i++] = entry.Value;
             return new PyList(values);
         }
 
-        /// <summary>
-        /// 모든 키-값 쌍의 뷰 반환
-        /// Python 3.7+: 삽입 순서 보장
-        /// </summary>
         public PyList Items()
         {
-            // _keys 순서대로 키-값 쌍을 생성
-            // Performance: Eliminated LINQ (Select + Cast + ToArray) - direct tuple creation + Cache
-            var items = new PyObject[_keys.Count];
-            for (int i = 0; i < _keys.Count; i++)
-            {
-                items[i] = PyTuple.From(_keys[i], _dict.StoredValue(_keys[i]));
-            }
+            var items = new PyObject[_dict.Count];
+            int i = 0;
+            foreach (var entry in _dict)
+                items[i++] = PyTuple.From(entry.Key, entry.Value);
             return new PyList(items);
         }
 
@@ -919,7 +837,7 @@ namespace SharpPy
 
         internal void SetKnownHash(PyObject key, PyObject value, long hash)
         {
-            if (_dict.SetKnownHash(key, value, hash)) AddOrderedKey(key);
+            _dict.SetKnownHash(key, value, hash);
         }
 
         public static PyDict FromKeys(PyObject keys, PyObject value = null)
@@ -1007,15 +925,13 @@ namespace SharpPy
                 compact.Update(this);
                 return compact;
             }
-            return new PyDict(_dict, _keys);
+            return new PyDict(_dict);
         }
 
-        private PyDict(PyDictionaryStorage items, List<PyObject> keys)
+        // clone_combined_dict_keys: the table and its entries, order included.
+        private PyDict(PyDictionaryStorage items)
         {
-            // The identical comparer lets Dictionary reuse stored hashes. Keep the
-            // Python insertion order separately: CLR deletion reuses entry slots.
             _dict = items.Clone();
-            _keys = new OrderedKeyList(keys);
         }
 
         #endregion
@@ -1420,8 +1336,8 @@ namespace SharpPy
                 var keys = source.GetStorageKeyEnumerator();
                 while (keys.MoveNext())
                 {
-                    var key = keys.Current;
-                    SetItem(key, source.InternalDict[key]);
+                    var entry = keys.Current;
+                    SetItem(entry.Key, entry.Value);
                 }
                 return PyNone.Instance;
             }
@@ -1460,9 +1376,10 @@ namespace SharpPy
         public void SynchronizeFromHost()
         {
             if (_globalScopeVariables is PyNamespace) return;
-            for (int i = _keys.Count - 1; i >= 0; i--)
+            var stored = StoredKeys();
+            for (int i = stored.Length - 1; i >= 0; i--)
             {
-                if (_keys[i] is not PyString key) continue;
+                if (stored[i] is not PyString key) continue;
                 if (!_globalScopeVariables.TryGetValue(key.Value, out var value)) base.DelItem(key);
                 else if (!ReferenceEquals(_dict.StoredValue(key), value)) base.MpAssSubscript(key, value);
             }
@@ -1478,27 +1395,36 @@ namespace SharpPy
             ? owned.RemoveFromMapping(name) : _globalScopeVariables.Remove(name);
 
         internal PyObject ReadStoredKey(PyObject key) => _dict.StoredValue(key);
+        // The keys in table order, taken before a loop that deletes some of them.
+        private PyObject[] StoredKeys()
+        {
+            var keys = new PyObject[_dict.Count];
+            int i = 0;
+            foreach (var entry in _dict)
+                keys[i++] = entry.Key;
+            return keys;
+        }
+
         internal void ClearStringKeys()
         {
-            for (int i = _keys.Count - 1; i >= 0; i--)
+            var stored = StoredKeys();
+            for (int i = stored.Length - 1; i >= 0; i--)
             {
-                var key = _keys[i];
+                var key = stored[i];
                 if (key is not PyString) continue;
                 _dict.Remove(key, out _, out _, knownHash: true);
-                RemoveOrderedKey(key);
             }
             ((PyNamespace)_globalScopeVariables).RebuildLookup();
         }
         internal int StringKeyCount()
         {
             int count = 0;
-            foreach (var key in _keys) if (key is PyString) count++;
+            foreach (var entry in _dict) if (entry.Key is PyString) count++;
             return count;
         }
         internal bool RemoveName(string name)
         {
-            if (!_dict.Remove(PyString.From(name), out _, out var stored)) return false;
-            RemoveOrderedKey(stored);
+            if (!_dict.Remove(PyString.From(name), out _, out _)) return false;
             if (_globalScopeVariables is PyNamespace owned && !owned.GenericKeys) owned.RemoveFromMapping(name);
             return true;
         }

@@ -690,8 +690,8 @@ namespace SharpPy
                     var keys = _materialized.GetStorageKeyEnumerator();
                     while (keys.MoveNext())
                     {
-                        if (keys.Current is PyString ps && _materialized.TryGetStoredValue(ps, out var stored))
-                            yield return new KeyValuePair<string, PyObject>(ps.Value, stored);
+                        if (keys.Current.Key is PyString ps)
+                            yield return new KeyValuePair<string, PyObject>(ps.Value, keys.Current.Value);
                     }
                 }
                 else

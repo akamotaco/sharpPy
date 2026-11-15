@@ -61,8 +61,8 @@ public sealed class PyNamespace : IDictionary<string, PyObject>
     {
         var cursor = Mapping.GetStorageKeyEnumerator();
         while (cursor.MoveNext())
-            if (cursor.Current is PyString key)
-                yield return new KeyValuePair<string, PyObject>(key.Value, Mapping.ReadStoredKey(key));
+            if (cursor.Current.Key is PyString key)
+                yield return new KeyValuePair<string, PyObject>(key.Value, cursor.Current.Value);
     }
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 

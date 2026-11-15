@@ -54,6 +54,14 @@ namespace SharpPy
             entry = default;
             return false;
         }
+        // dict_popitem: the last live entry of dk_entries.
+        internal Entry LastEntry()
+        {
+            int i = used - 1;
+            while (i >= 0 && entries[i].Key == null)
+                i--;
+            return entries[i];
+        }
         internal void PrepareMerge(int incoming)
         {
             if (indices.Length * 2 / 3 < incoming) Resize(checked((Count + incoming) * 3 / 2 + 1));

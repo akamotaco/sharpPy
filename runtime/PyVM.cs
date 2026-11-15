@@ -3956,7 +3956,7 @@ namespace SharpPy
 
                         if (mapAddTarget is PyDict mapAddDict)
                         {
-                            // Use SetItem to properly maintain insertion order (_keys list)
+                            // Use SetItem (PyDict_SetItem)
                             mapAddDict.SetItem(dictKey, dictValue);
                             #if DEBUG_LOG
                             Console.WriteLine($"   MAP_ADD: {dictKey}={dictValue} → dict (depth {dictDepth})");
