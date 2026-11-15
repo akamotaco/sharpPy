@@ -466,7 +466,7 @@ _code_type = type(_write_atomic.__code__)
 # Whenever MAGIC_NUMBER is changed, the ranges in the magic_values array
 # in PC/launcher.c must also be updated.
 
-MAGIC_NUMBER = (3531).to_bytes(2, 'little') + b'\r\n'
+MAGIC_NUMBER = __import__('sharppy').pyc_magic_number.to_bytes(2, 'little') + b'\r\n'  # SharpPy: its own bytecode
 
 _RAW_MAGIC_NUMBER = int.from_bytes(MAGIC_NUMBER, 'little')  # For import.c
 

@@ -7,11 +7,13 @@ import whose name is only known at run time cannot be seen: name it with --inclu
 usage: make_bundle.py --output game.spk --path Lib [--path more] [--include name]
                       [--exclude name] [--top-level] script.py ...
 
-Runs under CPython 3.12 or SharpPy, whose bytecode is the same.
+Run it under SharpPy: the bytecode is the running interpreter's, and so is the magic number in the
+header (importlib.util.MAGIC_NUMBER), which SharpPy checks a bundle against.
 """
 import argparse
 import dis
 import hashlib
+import importlib.util
 import marshal
 import os
 import struct
@@ -20,7 +22,7 @@ import types
 
 MARK = b"SPKB"
 FORMAT_VERSION = 1
-PYTHON_MAGIC = 3531
+PYTHON_MAGIC = int.from_bytes(importlib.util.MAGIC_NUMBER[:2], 'little')
 
 # What a game has no use for, reached only through imports inside rarely used functions.
 DEFAULT_EXCLUDES = ("subprocess", "multiprocessing", "socket", "ssl", "http", "urllib", "email",

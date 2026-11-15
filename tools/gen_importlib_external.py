@@ -19,6 +19,8 @@ marked in the output:
   cache_tag): res:// is read-only once exported, and its files are the project's.
 - PathFinder.invalidate_caches clears MetadataPathFinder's caches only once importlib.metadata
   has been imported: SharpPy cannot import it (email needs _socket), so it holds no caches.
+- MAGIC_NUMBER is SharpPy's (sharppy.pyc_magic_number, core/PycMagic.cs): its bytecode is its
+  own, so a .pyc another interpreter wrote is refused and recompiled.
 
 usage: python tools/gen_importlib_external.py <cpython Lib/importlib/_bootstrap_external.py>
 """
@@ -57,7 +59,9 @@ change("    if not _path_isabs(path):\n",
 change("    if tag is None:\n",
        "    if tag is None or path.startswith(('res://', 'user://')):  # SharpPy: Godot's asset paths have no cache\n")
 
-change("    import winreg\n", "    pass  # SharpPy: no winreg module; WindowsRegistryFinder, its only user, raises NameError\n")
+change("MAGIC_NUMBER = (3531).to_bytes(2, 'little') + b'\\r\\n'\n",
+       "MAGIC_NUMBER = __import__('sharppy').pyc_magic_number.to_bytes(2, 'little') + b'\\r\\n'  # SharpPy: its own bytecode\n")
+change("    import winreg\n","    pass  # SharpPy: no winreg module; WindowsRegistryFinder, its only user, raises NameError\n")
 change("        from importlib.metadata import MetadataPathFinder\n"
        "        MetadataPathFinder.invalidate_caches()\n",
        "        # SharpPy: importlib.metadata cannot be imported here (email needs _socket),\n"

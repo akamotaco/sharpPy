@@ -25,6 +25,8 @@ namespace SharpPy.Modules
                 PyBool.FromBool(PyVM.Instance.BoundState.IsMain));
             module.ModuleDict["FileFinder"] = PyFileFinder.FinderType;
             module.ModuleDict["BundleFinder"] = PyBundleFinder.FinderType;
+            // The magic number of SharpPy's bytecode, which _bootstrap_external.MAGIC_NUMBER is.
+            module.ModuleDict["pyc_magic_number"] = PyInt.From(PycMagic.Number);
             return module;
         }
     }

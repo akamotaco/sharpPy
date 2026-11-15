@@ -24,8 +24,8 @@ namespace SharpPy
         private const string Mark = "SPKB";
         private const int FormatVersion = 1;
         private const int HeaderSize = 20;
-        // PYC_MAGIC_NUMBER of 3.12: what the bytecode inside was made for.
-        private const int PythonMagic = 3531;
+        // The magic number of the bytecode inside: SharpPy's own (core/PycMagic.cs).
+        private const int PythonMagic = PycMagic.Number;
 
         private static readonly Dictionary<string, PyBundle> Opened = new();
 
