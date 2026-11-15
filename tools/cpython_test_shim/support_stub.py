@@ -136,6 +136,15 @@ def reap_children():
     pass
 
 
+# test.support's own.
+def requires_zlib(reason='requires zlib'):
+    try:
+        import zlib
+    except ImportError:
+        zlib = None
+    return unittest.skipUnless(zlib, reason)
+
+
 def setswitchinterval(interval):
     return sys.setswitchinterval(interval)
 

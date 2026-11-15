@@ -232,8 +232,17 @@ public class PyModule : PyObject
         return HasSourceFile ? $"<module '{Name}' from '{FileName}'>" : $"<module '{Name}' (built-in)>";
     }
 
-    // module_repr; a module subclass's __repr__ is its tp_repr, which PyObject_Repr reaches first.
-    protected internal override PyString Repr() => PyString.From(ToString());
+    // module_repr: _PyImport_ImportlibModuleRepr, importlib's _module_repr(m), which names the
+    // module from its spec; before importlib exists, what the module's own fields say. A module
+    // subclass's __repr__ is its tp_repr, which PyObject_Repr reaches first.
+    protected internal override PyString Repr()
+    {
+        if (PyImportSystem.Bootstrap?.ModuleDict.TryGetValue("_module_repr", out var moduleRepr) != true)
+            return PyString.From(ToString());
+        var result = moduleRepr.Call(new PyObject[] { this }, null);
+        return result as PyString
+            ?? throw PyTypeError.Create($"__repr__ returned non-string (type {result.GetPyType().Name})");
+    }
     
 }
 

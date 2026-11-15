@@ -149,7 +149,18 @@ namespace SharpPy
                 External = (PyModule)boot.GetAttribute("_bootstrap_external");
                 var pathFinder = External.GetAttribute("PathFinder");
                 if (sys.ModuleDict.TryGetValue("path_hooks", out var pathHooks) && pathHooks is PyList hooks)
+                {
                     hooks.Insert(0, PyBundleFinder.FinderType);
+                    // init_zipimport: sys.path_hooks.insert(0, zipimport.zipimporter), the frozen
+                    // module's; without it, imports go on without zip files.
+                    try
+                    {
+                        hooks.Insert(0, Import("zipimport").GetAttribute("zipimporter"));
+                    }
+                    catch (PythonException)
+                    {
+                    }
+                }
                 _bootstrapped = true;
                 // _setup gave the builtins their specs; a source module read before it gets its own.
                 var findSpec = pathFinder.GetAttribute("find_spec");
