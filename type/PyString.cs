@@ -2903,46 +2903,34 @@ namespace SharpPy
         #region Encoding
 
         /// <summary>
-        /// The single strict encoder behind str.encode() and the _codecs.*_encode entry points.
-        /// There used to be two implementations: the live descriptor picked a .NET Encoding itself,
-        /// so .NET replaced whatever it could not encode - 'é'.encode('ascii') answered b'?' and a
-        /// lone surrogate answered b'\xef\xbf\xbd'. Silent corruption. CPython refuses, and these
-        /// refusals are measured with CHARACTER positions (a surrogate pair is one character, a lone
-        /// surrogate is one character):
-        ///   'utf-8' codec can't encode character '\ud800' in position 0: surrogates not allowed
-        ///   'ascii' codec can't encode character '\xe9' in position 1: ordinal not in range(128)
-        ///   'latin-1' codec can't encode characters in position 0-1: ordinal not in range(256)
-        /// The error handler is resolved on first use, not upfront, because CPython only consults it
-        /// when something actually fails: 'e'.encode('ascii', 'bogus') succeeds.
+        /// PyUnicode_AsEncodedString: the fast paths of the UTF codecs, ascii and latin-1 (the
+        /// encoders of Objects/unicodeobject.c, UnicodeEncoders), else _PyCodec_EncodeText.
         /// </summary>
         public PyBytes Encode(string encoding = "utf-8", string errors = null)
         {
             // PyUnicode_AsEncodedString
             PyCodecRegistry.CheckEncodingErrors(encoding, errors);
             string codec = PyStringNewArguments.NormalizeCodecName(encoding ?? "utf-8");
-            var ctx = new EncodeContext(codec, errors);
-
             switch (codec)
             {
                 case "utf-8":
-                    return PyBytes.From(EncodeCodePoints(ctx, bigEndian: false));
+                    return PyBytes.From(UnicodeEncoders.EncodeUtf8(Value, errors));
                 case "utf-16":
-                    return PyBytes.From(WithPreamble(
-                        EncodeCodePoints(ctx, bigEndian: false), new byte[] { 0xFF, 0xFE }));
+                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, 0, 2));
                 case "utf-16-le":
-                    return PyBytes.From(EncodeCodePoints(ctx, bigEndian: false));
+                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, -1, 2));
                 case "utf-16-be":
-                    return PyBytes.From(EncodeCodePoints(ctx, bigEndian: true));
+                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, 1, 2));
                 case "utf-32":
-                    return PyBytes.From(WithPreamble(
-                        EncodeCodePoints(ctx, bigEndian: false), new byte[] { 0xFF, 0xFE, 0x00, 0x00 }));
+                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, 0, 4));
                 case "utf-32-le":
-                    return PyBytes.From(EncodeCodePoints(ctx, bigEndian: false));
+                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, -1, 4));
                 case "utf-32-be":
-                    return PyBytes.From(EncodeCodePoints(ctx, bigEndian: true));
+                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, 1, 4));
                 case "ascii":
+                    return PyBytes.From(UnicodeEncoders.EncodeUcs1(Value, errors, 128));
                 case "latin-1":
-                    return PyBytes.From(EncodeCodePoints(ctx, bigEndian: false));
+                    return PyBytes.From(UnicodeEncoders.EncodeUcs1(Value, errors, 256));
                 default:
                     // Not in the native table: the registry answers. A non-text codec is refused by
                     // name ('ab'.encode('rot13') -> "'rot13' is not a text encoding; use
@@ -2965,308 +2953,11 @@ namespace SharpPy
             }
         }
 
-        /// <summary>Everything the byte walk needs to know about the requested codec.</summary>
-        private sealed class EncodeContext
-        {
-            internal EncodeContext(string codec, string errors)
-            {
-                Codec = codec;
-                // PyCodec_LookupError takes the name as given.
-                Errors = errors ?? "strict";
-                IsUtf = codec == "utf-8" || codec == "utf-16" || codec == "utf-16-le" ||
-                        codec == "utf-16-be" || codec == "utf-32" || codec == "utf-32-le" ||
-                        codec == "utf-32-be";
-                Limit = codec == "ascii" ? 0x7F : codec == "latin-1" ? 0xFF : int.MaxValue;
-                Width = codec == "utf-8" ? 0 : codec.StartsWith("utf-16", StringComparison.Ordinal) ? 2
-                      : codec.StartsWith("utf-32", StringComparison.Ordinal) ? 4 : 1;
-            }
-
-            internal readonly string Codec;
-            internal readonly string Errors;
-            internal readonly bool IsUtf;
-            internal readonly int Limit;
-            internal readonly int Width;
-        }
-
-        /// <summary>
-        /// Walk code points and emit bytes: one pass, refusal included. Fixed-width codecs write
-        /// 1/2/4 bytes per character (UTF-16 splits an astral character into a surrogate pair, which
-        /// is why "chr(0x10400).encode('utf-16-be')" measures b'\xd8\x01\xdc\x00'); UTF-8 writes a
-        /// length that depends on the value.
-        /// </summary>
-        private byte[] EncodeCodePoints(EncodeContext ctx, bool bigEndian)
-        {
-            var bytes = new List<byte>(Value.Length * 2);
-            int cpIndex = 0;
-            int i = 0;
-            while (i < Value.Length)
-            {
-                int cp = Value[i];
-                int unitWidth = 1;
-                if (char.IsHighSurrogate(Value[i]) && i + 1 < Value.Length &&
-                    char.IsLowSurrogate(Value[i + 1]))
-                {
-                    cp = char.ConvertToUtf32(Value[i], Value[i + 1]);
-                    unitWidth = 2;
-                }
-
-                // A lone surrogate is out of range for every codec: CPython refuses
-                // chr(0xD800).encode('latin-1') too, with "ordinal not in range(256)". Only the UTF
-                // codecs get the "surrogates not allowed" wording, so the two refusals stay apart.
-                bool loneSurrogate = unitWidth == 1 && char.IsSurrogate(Value[i]);
-                bool outOfRange = cp > ctx.Limit;
-                bool unencodable = outOfRange || loneSurrogate && ctx.IsUtf;
-                bool surrogateRefusal = loneSurrogate && ctx.IsUtf;
-
-                if (!unencodable)
-                {
-                    Emit(bytes, cp, ctx, bigEndian);
-                    i += unitWidth;
-                    cpIndex++;
-                    continue;
-                }
-
-                switch (ctx.Errors)
-                {
-                    case "ignore":
-                        i += unitWidth;
-                        cpIndex++;
-                        continue;
-                    case "replace":
-                        // One '?' per character, including astral ones. Measured.
-                        bytes.Add((byte)'?');
-                        i += unitWidth;
-                        cpIndex++;
-                        continue;
-                    case "surrogatepass":
-                        if (!surrogateRefusal) throw RangeError(ctx, cpIndex, cp, unitWidth);
-                        Emit(bytes, Value[i], ctx, bigEndian);
-                        i += unitWidth;
-                        cpIndex++;
-                        continue;
-                    case "backslashreplace":
-                        // Measured: 'a' + chr(0xE9) + chr(0xEA) + 'b' under ascii gives
-                        // b'a\\xe9\\xeab', chr(0x10400) gives b'\\U00010400', a lone surrogate gives
-                        // b'\\ud800'. The escape is ASCII, so it is written raw for every codec.
-                        AppendEscape(bytes, loneSurrogate ? Value[i] : cp);
-                        i += unitWidth;
-                        cpIndex++;
-                        continue;
-                    case "xmlcharrefreplace":
-                        AppendAscii(bytes, $"&#{(loneSurrogate ? Value[i] : cp)};");
-                        i += unitWidth;
-                        cpIndex++;
-                        continue;
-                    case "surrogateescape":
-                        // CPython maps only U+DC80..U+DCFF back to the bytes 0x80..0xFF; any other
-                        // surrogate is refused with the strict message, which is why
-                        // chr(0xD800).encode('utf-8', 'surrogateescape') still raises.
-                        if (loneSurrogate && ctx.Codec == "utf-8" && Value[i] >= 0xDC80 &&
-                            Value[i] <= 0xDCFF)
-                        {
-                            bytes.Add((byte)(Value[i] - 0xDC00));
-                            i += unitWidth;
-                            cpIndex++;
-                            continue;
-                        }
-                        throw surrogateRefusal ? SurrogateError(ctx, cpIndex, Value[i])
-                                               : RangeError(ctx, cpIndex, cp, unitWidth);
-                    case "strict":
-                        throw surrogateRefusal ? SurrogateError(ctx, cpIndex, Value[i])
-                                               : RangeError(ctx, cpIndex, cp, unitWidth);
-                    default:
-                        (i, cpIndex) = CallEncodeHandler(bytes, ctx, bigEndian, cpIndex, unitWidth, surrogateRefusal, cp);
-                        continue;
-                }
-            }
-            return bytes.ToArray();
-        }
-
-        /// <summary>
-        /// unicode_encode_call_errorhandler for the run of unencodable characters starting at
-        /// cpIndex: the handler's str is encoded again and must be encodable (ASCII for the UTF
-        /// codecs), else the original refusal stands; its bytes are written as they are.
-        /// Answers the unit and character positions encoding resumes at.
-        /// </summary>
-        private (int Unit, int Character) CallEncodeHandler(List<byte> bytes, EncodeContext ctx, bool bigEndian,
-            int cpIndex, int unitWidth, bool surrogateRefusal, int cp)
-        {
-            int runEnd = cpIndex + 1;
-            int at = UnitIndexOfCharacter(cpIndex) + unitWidth;
-            while (at < Value.Length)
-            {
-                int next = Value[at];
-                int nextWidth = 1;
-                if (char.IsHighSurrogate(Value[at]) && at + 1 < Value.Length && char.IsLowSurrogate(Value[at + 1]))
-                {
-                    next = char.ConvertToUtf32(Value[at], Value[at + 1]);
-                    nextWidth = 2;
-                }
-                bool lone = nextWidth == 1 && char.IsSurrogate(Value[at]);
-                bool bad = next > ctx.Limit || lone && ctx.IsUtf;
-                if (!bad) break;
-                runEnd++;
-                at += nextWidth;
-            }
-            string reason = surrogateRefusal ? "surrogates not allowed" : $"ordinal not in range({ctx.Limit + 1})";
-            var replacement = PyCodecErrors.CallEncode(ctx.Errors, ctx.Codec, reason, Value, cpIndex, runEnd,
-                CodePointLength(), out int newPosition);
-            if (replacement is PyBytes raw)
-                bytes.AddRange(raw.Value);
-            else
-            {
-                var text = ((PyString)replacement).Value;
-                foreach (var ch in text)
-                {
-                    bool encodable = ctx.IsUtf ? ch < 0x80 : ch <= ctx.Limit;
-                    if (!encodable)
-                        throw surrogateRefusal ? SurrogateError(ctx, cpIndex, Value[UnitIndexOfCharacter(cpIndex)])
-                                               : RangeError(ctx, cpIndex, cp, unitWidth);
-                    Emit(bytes, ch, ctx, bigEndian);
-                }
-            }
-            return (UnitIndexOfCharacter(newPosition), newPosition);
-        }
-
         /// <summary>
         /// PyUnicode_GET_LENGTH: the text's length in code points, which a subclass's __len__ does
         /// not change (that is PyObject_Size, Length()).
         /// </summary>
         internal int CodePointLength() => (int)Len();
-
-        private static void Emit(List<byte> bytes, int cp, EncodeContext ctx, bool bigEndian)
-        {
-            if (ctx.Width == 0)
-            {
-                EmitUtf8(bytes, cp);
-                return;
-            }
-            if (ctx.Width == 2 && cp > 0xFFFF)
-            {
-                int v = cp - 0x10000;
-                EmitUnit(bytes, 0xD800 + (v >> 10), bigEndian);
-                EmitUnit(bytes, 0xDC00 + (v & 0x3FF), bigEndian);
-                return;
-            }
-            for (int k = 0; k < ctx.Width; k++)
-            {
-                int shift = bigEndian ? 8 * (ctx.Width - 1 - k) : 8 * k;
-                bytes.Add((byte)((cp >> shift) & 0xFF));
-            }
-        }
-
-        private static void EmitUtf8(List<byte> bytes, int cp)
-        {
-            if (cp < 0x80)
-            {
-                bytes.Add((byte)cp);
-            }
-            else if (cp < 0x800)
-            {
-                bytes.Add((byte)(0xC0 | (cp >> 6)));
-                bytes.Add((byte)(0x80 | (cp & 0x3F)));
-            }
-            else if (cp < 0x10000)
-            {
-                bytes.Add((byte)(0xE0 | (cp >> 12)));
-                bytes.Add((byte)(0x80 | ((cp >> 6) & 0x3F)));
-                bytes.Add((byte)(0x80 | (cp & 0x3F)));
-            }
-            else
-            {
-                bytes.Add((byte)(0xF0 | (cp >> 18)));
-                bytes.Add((byte)(0x80 | ((cp >> 12) & 0x3F)));
-                bytes.Add((byte)(0x80 | ((cp >> 6) & 0x3F)));
-                bytes.Add((byte)(0x80 | (cp & 0x3F)));
-            }
-        }
-
-        /// <summary>
-        /// CPython's backslashreplace escape: \xNN up to 0xFF, \uXXXX up to 0xFFFF, \UXXXXXXXX
-        /// beyond, always lower-case hex, always ASCII bytes.
-        /// </summary>
-        private static void AppendEscape(List<byte> bytes, int cp)
-        {
-            if (cp <= 0xFF) AppendAscii(bytes, $"\\x{cp:x2}");
-            else if (cp <= 0xFFFF) AppendAscii(bytes, $"\\u{cp:x4}");
-            else AppendAscii(bytes, $"\\U{cp:x8}");
-        }
-
-        private static void AppendAscii(List<byte> bytes, string text)
-        {
-            for (int k = 0; k < text.Length; k++) bytes.Add((byte)text[k]);
-        }
-
-        private static void EmitUnit(List<byte> bytes, int unit, bool bigEndian)
-        {
-            if (bigEndian)
-            {
-                bytes.Add((byte)((unit >> 8) & 0xFF));
-                bytes.Add((byte)(unit & 0xFF));
-            }
-            else
-            {
-                bytes.Add((byte)(unit & 0xFF));
-                bytes.Add((byte)((unit >> 8) & 0xFF));
-            }
-        }
-
-        /// <summary>
-        /// CPython reports a run of unencodable characters: one is "character '\xe9' in position 1",
-        /// several are "characters in position 0-1". The escape follows the value - \xNN, \uXXXX,
-        /// \UXXXXXXXX - and the old code wrote '\u00e9' for a character CPython writes as '\xe9'.
-        /// </summary>
-        private PythonException RangeError(EncodeContext ctx, int cpIndex, int cp, int unitWidth)
-        {
-            int start = cpIndex;
-            int end = cpIndex;
-            // The scan extends the run AFTER the failing character; starting on it counted that
-            // character twice, so chr(0xE9).encode('ascii') claimed "characters in position 0-1"
-            // for a one-character string.
-            int at = UnitIndexOfCharacter(start) + unitWidth;
-            while (at < Value.Length)
-            {
-                int next = Value[at];
-                int nextWidth = 1;
-                if (char.IsHighSurrogate(Value[at]) && at + 1 < Value.Length &&
-                    char.IsLowSurrogate(Value[at + 1]))
-                {
-                    next = char.ConvertToUtf32(Value[at], Value[at + 1]);
-                    nextWidth = 2;
-                }
-                bool bad = nextWidth == 1 && char.IsSurrogate(Value[at]) ? ctx.IsUtf : next > ctx.Limit;
-                if (!bad) break;
-                end++;
-                at += nextWidth;
-            }
-
-            return PyUnicodeEncodeError.Failure(ctx.Codec, Value, start, end + 1,
-                $"ordinal not in range({ctx.Limit + 1})");
-        }
-
-        private PythonException SurrogateError(EncodeContext ctx, int cpIndex, char unit) =>
-            PyUnicodeEncodeError.Failure(ctx.Codec, Value, cpIndex, cpIndex + 1, "surrogates not allowed");
-
-        /// <summary>Unit offset of a character index: the one place encode() converts the two.</summary>
-        private int UnitIndexOfCharacter(int cpIndex)
-        {
-            int units = 0;
-            for (int seen = 0; seen < cpIndex && units < Value.Length; seen++)
-            {
-                if (char.IsHighSurrogate(Value[units]) && units + 1 < Value.Length &&
-                    char.IsLowSurrogate(Value[units + 1])) units += 2;
-                else units++;
-            }
-            return units;
-        }
-
-        private static byte[] WithPreamble(byte[] body, byte[] preamble)
-        {
-            var all = new byte[preamble.Length + body.Length];
-            Buffer.BlockCopy(preamble, 0, all, 0, preamble.Length);
-            Buffer.BlockCopy(body, 0, all, preamble.Length, body.Length);
-            return all;
-        }
 
         #endregion
 

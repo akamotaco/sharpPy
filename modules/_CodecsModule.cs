@@ -28,8 +28,18 @@ namespace SharpPy.Modules
             module.ModuleDict["lookup_error"] = PyArgs.MethO("_codecs", "lookup_error", args => PyLookupError(args));
 
             // Encoding functions - UTF-8
-            module.ModuleDict["utf_8_encode"] = new PyBuiltinFunction("utf_8_encode", PyUtf8Encode);
             module.ModuleDict["utf_8_decode"] = new PyBuiltinFunction("utf_8_decode", PyUtf8Decode);
+
+            // _codecs_*_encode_impl: codec_tuple(the encoder's bytes, PyUnicode_GET_LENGTH(str)).
+            EncodeFunction(module, "utf_8_encode", 2, (s, e, a) => UnicodeEncoders.EncodeUtf8(s, e));
+            EncodeFunction(module, "utf_16_encode", 3, (s, e, a) => UnicodeEncoders.EncodeUtf16Or32(s, e, ByteOrder(a), 2));
+            EncodeFunction(module, "utf_16_le_encode", 2, (s, e, a) => UnicodeEncoders.EncodeUtf16Or32(s, e, -1, 2));
+            EncodeFunction(module, "utf_16_be_encode", 2, (s, e, a) => UnicodeEncoders.EncodeUtf16Or32(s, e, 1, 2));
+            EncodeFunction(module, "utf_32_encode", 3, (s, e, a) => UnicodeEncoders.EncodeUtf16Or32(s, e, ByteOrder(a), 4));
+            EncodeFunction(module, "utf_32_le_encode", 2, (s, e, a) => UnicodeEncoders.EncodeUtf16Or32(s, e, -1, 4));
+            EncodeFunction(module, "utf_32_be_encode", 2, (s, e, a) => UnicodeEncoders.EncodeUtf16Or32(s, e, 1, 4));
+            EncodeFunction(module, "ascii_encode", 2, (s, e, a) => UnicodeEncoders.EncodeUcs1(s, e, 128));
+            EncodeFunction(module, "latin_1_encode", 2, (s, e, a) => UnicodeEncoders.EncodeUcs1(s, e, 256));
 
             // _codecs_utf_7_decode_impl and _codecs_utf_7_encode_impl
             module.ModuleDict["utf_7_encode"] = PyArgs.FastCall("_codecs", "utf_7_encode", 1, 2, args =>
@@ -49,29 +59,21 @@ namespace SharpPy.Modules
             });
 
             // Encoding functions - UTF-16
-            module.ModuleDict["utf_16_encode"] = new PyBuiltinFunction("utf_16_encode", PyUtf16Encode);
             module.ModuleDict["utf_16_decode"] = new PyBuiltinFunction("utf_16_decode", PyUtf16Decode);
-            module.ModuleDict["utf_16_le_encode"] = new PyBuiltinFunction("utf_16_le_encode", PyUtf16LeEncode);
             module.ModuleDict["utf_16_le_decode"] = new PyBuiltinFunction("utf_16_le_decode", PyUtf16LeDecode);
-            module.ModuleDict["utf_16_be_encode"] = new PyBuiltinFunction("utf_16_be_encode", PyUtf16BeEncode);
             module.ModuleDict["utf_16_be_decode"] = new PyBuiltinFunction("utf_16_be_decode", PyUtf16BeDecode);
             module.ModuleDict["utf_16_ex_decode"] = new PyBuiltinFunction("utf_16_ex_decode", PyUtf16ExDecode);
 
             // Encoding functions - UTF-32
-            module.ModuleDict["utf_32_encode"] = new PyBuiltinFunction("utf_32_encode", PyUtf32Encode);
             module.ModuleDict["utf_32_decode"] = new PyBuiltinFunction("utf_32_decode", PyUtf32Decode);
-            module.ModuleDict["utf_32_le_encode"] = new PyBuiltinFunction("utf_32_le_encode", PyUtf32LeEncode);
             module.ModuleDict["utf_32_le_decode"] = new PyBuiltinFunction("utf_32_le_decode", PyUtf32LeDecode);
-            module.ModuleDict["utf_32_be_encode"] = new PyBuiltinFunction("utf_32_be_encode", PyUtf32BeEncode);
             module.ModuleDict["utf_32_be_decode"] = new PyBuiltinFunction("utf_32_be_decode", PyUtf32BeDecode);
             module.ModuleDict["utf_32_ex_decode"] = new PyBuiltinFunction("utf_32_ex_decode", PyUtf32ExDecode);
 
             // Encoding functions - ASCII
-            module.ModuleDict["ascii_encode"] = new PyBuiltinFunction("ascii_encode", PyAsciiEncode);
             module.ModuleDict["ascii_decode"] = new PyBuiltinFunction("ascii_decode", PyAsciiDecode);
 
             // Encoding functions - Latin-1
-            module.ModuleDict["latin_1_encode"] = new PyBuiltinFunction("latin_1_encode", PyLatin1Encode);
             module.ModuleDict["latin_1_decode"] = new PyBuiltinFunction("latin_1_decode", PyLatin1Decode);
 
             // Encoding functions - other
@@ -97,11 +99,19 @@ namespace SharpPy.Modules
                 return Result(PyBytes.From((byte[])data.Clone()), data.Length);
             });
             module.ModuleDict["escape_encode"] = new PyBuiltinFunction("escape_encode", PyEscapeEncode);
-            module.ModuleDict["escape_decode"] = new PyBuiltinFunction("escape_decode", PyEscapeDecode);
-            module.ModuleDict["unicode_escape_encode"] = new PyBuiltinFunction("unicode_escape_encode", PyUnicodeEscapeEncode);
-            module.ModuleDict["unicode_escape_decode"] = new PyBuiltinFunction("unicode_escape_decode", PyUnicodeEscapeDecode);
-            module.ModuleDict["raw_unicode_escape_encode"] = new PyBuiltinFunction("raw_unicode_escape_encode", PyRawUnicodeEscapeEncode);
-            module.ModuleDict["raw_unicode_escape_decode"] = new PyBuiltinFunction("raw_unicode_escape_decode", PyRawUnicodeEscapeDecode);
+            // _codecs_escape_decode_impl: PyBytes_DecodeEscape.
+            module.ModuleDict["escape_decode"] = PyArgs.FastCall("_codecs", "escape_decode", 1, 2, args =>
+            {
+                var data = BytesMethods.StrOrBuffer(args[0]);
+                string errors = ErrorsArgument("escape_decode", args, 1);
+                return Result(PyBytes.From(EscapeCodecs.DecodeEscape(data, errors)), data.Length);
+            });
+            EncodeFunction(module, "unicode_escape_encode", 2, (s, e, a) => EscapeCodecs.AsUnicodeEscapeString(s));
+            EncodeFunction(module, "raw_unicode_escape_encode", 2, (s, e, a) => EscapeCodecs.AsRawUnicodeEscapeString(s));
+            // _codecs_unicode_escape_decode_impl and _codecs_raw_unicode_escape_decode_impl:
+            // (data: Py_buffer(accept={str, buffer}), errors=None, final: bool = True, /).
+            EscapeDecodeFunction(module, "unicode_escape_decode", EscapeCodecs.DecodeUnicodeEscapeStateful);
+            EscapeDecodeFunction(module, "raw_unicode_escape_decode", EscapeCodecs.DecodeRawUnicodeEscapeStateful);
 
             return module;
         }
@@ -243,26 +253,7 @@ namespace SharpPy.Modules
             return PyTuple.From(new PyObject[] { text, PyInt.From(consumed) });
         }
 
-        private static PyObject Encoded(PyObject[] args, string codec, string name)
-        {
-            // getargs.c words the positional errors of these parsers without the () that the
-            // clinic-generated ones carry: "utf_8_encode expected at most 2 arguments, got 3" and
-            // "utf_8_encode() argument 1 must be str, not bytes" for the converter itself.
-            if (!(args[0] is PyString pyStr))
-                throw PyArgs.BadArgument(name, "argument 1", "str", args[0]);
-            string errors = args.Length > 1 && args[1] is PyString errorName ? errorName.Value : null;
-            return PyTuple.From(new PyObject[] { pyStr.Encode(codec, errors), PyInt.From(pyStr.CodePointLength()) });
-        }
 
-        // UTF-8 encoding - CPython 3.12: Modules/_codecsmodule.c:488-520
-        private static PyObject PyUtf8Encode(PyObject[] args, PyDict kwargs = null)
-        {
-
-            if (!(args[0] is PyString pyStr))
-                throw PyArgs.BadArgument("utf_8_encode", "argument 1", "str", args[0]);
-
-            return Encoded(args, "utf-8", "utf_8_encode");
-        }
 
         // UTF-8 decoding - CPython 3.12: Modules/_codecsmodule.c:522-565
         private static PyObject PyUtf8Decode(PyObject[] args, PyDict kwargs = null)
@@ -273,31 +264,18 @@ namespace SharpPy.Modules
             return DecodedUtf8(args, "utf_8_decode");
         }
 
-        // UTF-16 encoding
-        private static PyObject PyUtf16Encode(PyObject[] args, PyDict kwargs = null)
-        {
-            return Encoded(args, "utf-16", "utf_16_encode");
-        }
 
         private static PyObject PyUtf16Decode(PyObject[] args, PyDict kwargs = null)
         {
             return DecodedFixed(args, "utf_16_decode", 2, 0);
         }
 
-        private static PyObject PyUtf16LeEncode(PyObject[] args, PyDict kwargs = null)
-        {
-            return Encoded(args, "utf-16-le", "utf_16_le_encode");
-        }
 
         private static PyObject PyUtf16LeDecode(PyObject[] args, PyDict kwargs = null)
         {
             return DecodedFixed(args, "utf_16_le_decode", 2, -1);
         }
 
-        private static PyObject PyUtf16BeEncode(PyObject[] args, PyDict kwargs = null)
-        {
-            return Encoded(args, "utf-16-be", "utf_16_be_encode");
-        }
 
         private static PyObject PyUtf16BeDecode(PyObject[] args, PyDict kwargs = null)
         {
@@ -309,31 +287,18 @@ namespace SharpPy.Modules
             return DecodedWithOrder(args, "utf_16_ex_decode", 2);
         }
 
-        // UTF-32 encoding
-        private static PyObject PyUtf32Encode(PyObject[] args, PyDict kwargs = null)
-        {
-            return Encoded(args, "utf-32", "utf_32_encode");
-        }
 
         private static PyObject PyUtf32Decode(PyObject[] args, PyDict kwargs = null)
         {
             return DecodedFixed(args, "utf_32_decode", 4, 0);
         }
 
-        private static PyObject PyUtf32LeEncode(PyObject[] args, PyDict kwargs = null)
-        {
-            return Encoded(args, "utf-32-le", "utf_32_le_encode");
-        }
 
         private static PyObject PyUtf32LeDecode(PyObject[] args, PyDict kwargs = null)
         {
             return DecodedFixed(args, "utf_32_le_decode", 4, -1);
         }
 
-        private static PyObject PyUtf32BeEncode(PyObject[] args, PyDict kwargs = null)
-        {
-            return Encoded(args, "utf-32-be", "utf_32_be_encode");
-        }
 
         private static PyObject PyUtf32BeDecode(PyObject[] args, PyDict kwargs = null)
         {
@@ -345,27 +310,41 @@ namespace SharpPy.Modules
             return DecodedWithOrder(args, "utf_32_ex_decode", 4);
         }
 
-        // ASCII encoding
-        private static PyObject PyAsciiEncode(PyObject[] args, PyDict kwargs = null)
-        {
-            return Encoded(args, "ascii", "ascii_encode");
-        }
 
         private static PyObject PyAsciiDecode(PyObject[] args, PyDict kwargs = null)
         {
             return Decoded(args, "ascii", "asciidecode");
         }
 
-        // Latin-1 encoding
-        private static PyObject PyLatin1Encode(PyObject[] args, PyDict kwargs = null)
-        {
-            return Encoded(args, "latin-1", "latin_1_encode");
-        }
 
         private static PyObject PyLatin1Decode(PyObject[] args, PyDict kwargs = null)
         {
             return Decoded(args, "iso8859-1", "latin1decode");
         }
+
+        // The clinic of _codecs_*_encode: (str: unicode, errors: str(accept={str, NoneType}) = None, /)
+        // and, for utf_16_encode and utf_32_encode, byteorder: int = 0.
+        private static void EncodeFunction(PyModule module, string name, int max, Func<string, string, PyObject[], byte[]> encoder) =>
+            module.ModuleDict[name] = PyArgs.FastCall("_codecs", name, 1, max, args =>
+            {
+                string text = TextOf(args[0], name);
+                string errors = ErrorsArgument(name, args, 1);
+                return Result(PyBytes.From(encoder(text, errors, args)), ((PyString)args[0]).CodePointLength());
+            });
+
+        private static void EscapeDecodeFunction(PyModule module, string name, Func<byte[], string, int[], string> decoder) =>
+            module.ModuleDict[name] = PyArgs.FastCall("_codecs", name, 1, 3, args =>
+            {
+                var data = BytesMethods.StrOrBuffer(args[0]);
+                string errors = ErrorsArgument(name, args, 1);
+                bool final = args.Length <= 2 || args[2].IsTrue();
+                var consumed = final ? null : new[] { data.Length };
+                string decoded = decoder(data, errors, consumed);
+                return Result(PyString.From(decoded), consumed?[0] ?? data.Length);
+            });
+
+        // byteorder: int = 0
+        private static int ByteOrder(PyObject[] args) => args.Length > 2 ? PyArgs.Int(args[2]) : 0;
 
         // The positional-only clinic functions of the code page codecs.
         private static PyBuiltinFunction CodePageFunction(string name, int min, int max, Func<PyObject[], PyObject> body) =>
@@ -453,111 +432,10 @@ namespace SharpPy.Modules
             return Result(PyBytes.From(Encoding.ASCII.GetBytes(text.ToString())), data.Length);
         }
 
-        private static PyObject PyEscapeDecode(PyObject[] args, PyDict kwargs = null)
-        {
-            var data = BytesMethods.StrOrBuffer(args[0]);
-            var decoded = SharpPy.Generated.EscapeDecoders.DecodeBytesEscape(Encoding.Latin1.GetString(data), out _, message => PyValueError.Create(message));
-            return Result(PyBytes.From(decoded), data.Length);
-        }
 
-        // PyUnicode_AsUnicodeEscapeString
-        private static PyObject PyUnicodeEscapeEncode(PyObject[] args, PyDict kwargs = null)
-        {
-            string text = TextOf(args[0], "unicode_escape_encode");
-            var result = new StringBuilder(text.Length);
-            int count = 0;
-            for (int i = 0; i < text.Length; count++)
-            {
-                int cp = PyString.CodePointAt(text, i, out int width);
-                i += width;
-                if (cp == '\\')
-                    result.Append("\\\\");
-                else if (cp >= 32 && cp < 127)
-                    result.Append((char)cp);
-                else if (cp == '\t')
-                    result.Append("\\t");
-                else if (cp == '\n')
-                    result.Append("\\n");
-                else if (cp == '\r')
-                    result.Append("\\r");
-                else if (cp < 256)
-                    result.Append($"\\x{cp:x2}");
-                else if (cp < 0x10000)
-                    result.Append($"\\u{cp:x4}");
-                else
-                    result.Append($"\\U{cp:x8}");
-            }
-            return Result(PyBytes.From(Encoding.ASCII.GetBytes(result.ToString())), count);
-        }
 
-        private static Exception EscapeFailure(string codec, byte[] data, int start, int end, string reason) =>
-            PyUnicodeDecodeError.Failure(codec, data, start, end, reason);
 
-        private static PyObject PyUnicodeEscapeDecode(PyObject[] args, PyDict kwargs = null)
-        {
-            var data = BytesMethods.StrOrBuffer(args[0]);
-            string decoded = SharpPy.Generated.EscapeDecoders.DecodeUnicodeEscape(Encoding.Latin1.GetString(data), out _,
-                (start, end, reason) => EscapeFailure("unicodeescape", data, start, end, reason));
-            return Result(PyString.From(decoded), data.Length);
-        }
 
-        // PyUnicode_AsRawUnicodeEscapeString
-        private static PyObject PyRawUnicodeEscapeEncode(PyObject[] args, PyDict kwargs = null)
-        {
-            string text = TextOf(args[0], "raw_unicode_escape_encode");
-            var result = new List<byte>(text.Length);
-            int count = 0;
-            for (int i = 0; i < text.Length; count++)
-            {
-                int cp = PyString.CodePointAt(text, i, out int width);
-                i += width;
-                if (cp < 256)
-                    result.Add((byte)cp);
-                else
-                    result.AddRange(Encoding.ASCII.GetBytes(cp < 0x10000 ? $"\\u{cp:x4}" : $"\\U{cp:x8}"));
-            }
-            return Result(PyBytes.From(result.ToArray()), count);
-        }
 
-        // _PyUnicode_DecodeRawUnicodeEscapeStateful: \\u and \\U are escapes when the backslash is itself
-        // not escaped, and everything else is Latin-1.
-        private static PyObject PyRawUnicodeEscapeDecode(PyObject[] args, PyDict kwargs = null)
-        {
-            var data = BytesMethods.StrOrBuffer(args[0]);
-            var result = new StringBuilder(data.Length);
-            int position = 0;
-            while (position < data.Length)
-            {
-                byte c = data[position];
-                if (c != (byte)'\\' || position + 1 >= data.Length || (data[position + 1] != (byte)'u' && data[position + 1] != (byte)'U'))
-                {
-                    result.Append((char)c);
-                    position++;
-                    // a backslash takes what follows with it
-                    if (c == (byte)'\\' && position < data.Length)
-                        result.Append((char)data[position++]);
-                    continue;
-                }
-                int start = position;
-                int count = data[position + 1] == (byte)'u' ? 4 : 8;
-                string message = count == 4 ? "truncated \\uXXXX escape" : "truncated \\UXXXXXXXX escape";
-                position += 2;
-                long ch = 0;
-                for (int i = 0; i < count; i++, position++)
-                {
-                    int digit = position < data.Length ? Convert.ToInt32(HexValue((char)data[position])) : -1;
-                    if (digit < 0)
-                        throw PyUnicodeDecodeError.Failure("rawunicodeescape", data, start, position, message);
-                    ch = ch << 4 | (long)digit;
-                }
-                if (ch > 0x10FFFF)
-                    throw PyUnicodeDecodeError.Failure("rawunicodeescape", data, start, position, "\\Uxxxxxxxx out of range");
-                result.Append(PyString.CodePointText((int)ch));
-            }
-            return Result(PyString.From(result.ToString()), data.Length);
-        }
-
-        private static int HexValue(char c) =>
-            c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
     }
 }

@@ -104,55 +104,63 @@ namespace SharpPy
             return (int)position;
         }
 
-        // ---- the builtin handlers, each on the exception it is given (Python/codecs.c)
+        // ---- the builtin handlers of Python/codecs.c, each on the exception it is given
 
-        private enum Kind { Encode, Decode, Translate }
+        private enum Kind { Encode, Decode, Translate, Other }
 
-        private static Kind KindOf(PyObject exc, bool encode = true, bool decode = true, bool translate = true)
+        // PyObject_TypeCheck against the three UnicodeError subclasses, in the handlers' order.
+        private static Kind KindOf(PyObject exc)
         {
             var type = exc.GetPyType();
-            if (encode && type.IsSubclassOf(PyType.UnicodeEncodeErrorType)) return Kind.Encode;
-            if (decode && type.IsSubclassOf(PyType.UnicodeDecodeErrorType)) return Kind.Decode;
-            if (translate && type.IsSubclassOf(PyType.UnicodeTranslateErrorType)) return Kind.Translate;
-            throw WrongException(exc);
+            if (type.IsSubclassOf(PyType.UnicodeEncodeErrorType)) return Kind.Encode;
+            if (type.IsSubclassOf(PyType.UnicodeDecodeErrorType)) return Kind.Decode;
+            if (type.IsSubclassOf(PyType.UnicodeTranslateErrorType)) return Kind.Translate;
+            return Kind.Other;
         }
 
-        private static PythonException WrongException(PyObject exc) =>
-            exc.GetPyType().IsSubclassOf(PyType.BaseExceptionType)
-                ? (PythonException)PyTypeError.Create($"don't know how to handle {exc.GetPyType().Name} in error callback")
-                : (PythonException)PyTypeError.Create("codec must pass exception instance");
+        // wrong_exception_type
+        private static System.Exception WrongExceptionType(PyObject exc) =>
+            PyTypeError.Create($"don't know how to handle {exc.GetPyType().FullName} in error callback");
 
-        private static int Field(PyObject exc, string name) => (int)PyArgs.AsSsize(exc.GetAttribute(name), PyArgs.SsizeError.Overflow);
+        // PyErr_SetObject(PyExceptionInstance_Class(exc), exc): fail with the original exception.
+        private static PythonException Original(PyObject exc) => new PythonException((PyBaseException)exc);
 
-        private static PyObject Answer(string replacement, int end) =>
-            PyTuple.From(new PyObject[] { PyString.From(replacement), PyInt.From(end) });
+        private static PyUnicodeError Error(PyObject exc) => (PyUnicodeError)exc;
 
-        // The characters [start, end) of a str object, as code points.
-        private static int[] CodePoints(PyObject exc, int start, int end)
+        private static PyObject Answer(PyObject replacement, long end) =>
+            PyTuple.From(new PyObject[] { replacement, PyInt.From(end) });
+
+        private static PyObject Answer(string replacement, long end) => Answer(PyString.From(replacement), end);
+
+        // PyUnicode_READ_CHAR over the exception's str object.
+        private static int[] Chars(PyObject exc) => UnicodeEncoders.CodePoints(((PyString)Error(exc).GetObject(false)).Value);
+
+        private const string Hexdigits = "0123456789abcdef";
+
+        // PyUnicode_New and PyBytes_FromStringAndSize refuse a negative size (end before start).
+        private static int Size(long size, string allocator) =>
+            size < 0 ? throw PySystemError.Create($"Negative size passed to {allocator}") : (int)size;
+
+        // \xHH, \uHHHH or \UHHHHHHHH
+        private static void Escape(StringBuilder outp, int c)
         {
-            var text = ((PyString)exc.GetAttribute("object")).Value;
-            var points = new List<int>();
-            int index = 0;
-            for (int unit = 0; unit < text.Length; index++)
+            outp.Append('\\');
+            if (c >= 0x00010000)
             {
-                int cp = text[unit];
-                int width = 1;
-                if (char.IsHighSurrogate(text[unit]) && unit + 1 < text.Length && char.IsLowSurrogate(text[unit + 1]))
-                {
-                    cp = char.ConvertToUtf32(text[unit], text[unit + 1]);
-                    width = 2;
-                }
-                if (index >= start && index < end) points.Add(cp);
-                unit += width;
+                outp.Append('U');
+                for (int shift = 28; shift >= 8; shift -= 4)
+                    outp.Append(Hexdigits[(c >> shift) & 0xf]);
             }
-            return points.ToArray();
-        }
-
-        private static void Escape(StringBuilder text, int cp)
-        {
-            if (cp <= 0xFF) text.Append($"\\x{cp:x2}");
-            else if (cp <= 0xFFFF) text.Append($"\\u{cp:x4}");
-            else text.Append($"\\U{cp:x8}");
+            else if (c >= 0x100)
+            {
+                outp.Append('u');
+                outp.Append(Hexdigits[(c >> 12) & 0xf]);
+                outp.Append(Hexdigits[(c >> 8) & 0xf]);
+            }
+            else
+                outp.Append('x');
+            outp.Append(Hexdigits[(c >> 4) & 0xf]);
+            outp.Append(Hexdigits[c & 0xf]);
         }
 
         // PyCodec_StrictErrors
@@ -166,213 +174,283 @@ namespace SharpPy
         // PyCodec_IgnoreErrors
         private static PyObject Ignore(PyObject exc)
         {
-            KindOf(exc);
-            return Answer("", Field(exc, "end"));
+            var kind = KindOf(exc);
+            if (kind == Kind.Other)
+                throw WrongExceptionType(exc);
+            return Answer("", Error(exc).GetEnd(kind == Kind.Decode));
         }
 
         // PyCodec_ReplaceErrors
         private static PyObject Replace(PyObject exc)
         {
-            var kind = KindOf(exc);
-            int start = Field(exc, "start"), end = Field(exc, "end");
-            int count = Math.Max(end - start, 0);
-            return kind switch
+            switch (KindOf(exc))
             {
-                Kind.Encode => Answer(new string('?', count), end),
-                Kind.Decode => Answer("�", end),
-                _ => Answer(new string('�', count), end),
-            };
+                case Kind.Encode:
+                    {
+                        long start = Error(exc).GetStart(false), end = Error(exc).GetEnd(false);
+                        return Answer(new string('?', Size(end - start, "PyUnicode_New")), end);
+                    }
+                case Kind.Decode:
+                    return Answer("�", Error(exc).GetEnd(true));
+                case Kind.Translate:
+                    {
+                        long start = Error(exc).GetStart(false), end = Error(exc).GetEnd(false);
+                        return Answer(new string('�', Size(end - start, "PyUnicode_New")), end);
+                    }
+                default:
+                    throw WrongExceptionType(exc);
+            }
         }
 
         // PyCodec_XMLCharRefReplaceErrors
         private static PyObject XmlCharRefReplace(PyObject exc)
         {
-            KindOf(exc, decode: false, translate: false);
-            int start = Field(exc, "start"), end = Field(exc, "end");
-            var text = new StringBuilder();
-            foreach (var cp in CodePoints(exc, start, end)) text.Append("&#").Append(cp).Append(';');
-            return Answer(text.ToString(), end);
+            if (KindOf(exc) != Kind.Encode)
+                throw WrongExceptionType(exc);
+            long start = Error(exc).GetStart(false), end = Error(exc).GetEnd(false);
+            var obj = Chars(exc);
+            var res = new StringBuilder();
+            for (long i = start; i < end; ++i)
+                res.Append("&#").Append(obj[i]).Append(';');
+            return Answer(res.ToString(), end);
         }
 
         // PyCodec_BackslashReplaceErrors
         private static PyObject BackslashReplace(PyObject exc)
         {
             var kind = KindOf(exc);
-            int start = Field(exc, "start"), end = Field(exc, "end");
-            var text = new StringBuilder();
+            var res = new StringBuilder();
+            long start, end;
             if (kind == Kind.Decode)
             {
-                var data = ((PyBytes)exc.GetAttribute("object")).Value;
-                for (int i = start; i < end && i < data.Length; i++) text.Append($"\\x{data[i]:x2}");
+                start = Error(exc).GetStart(true);
+                end = Error(exc).GetEnd(true);
+                var p = ((PyBytes)Error(exc).GetObject(true)).Value;
+                Size(4 * (end - start), "PyUnicode_New");
+                for (long i = start; i < end; i++)
+                {
+                    int c = p[i];
+                    res.Append('\\').Append('x').Append(Hexdigits[(c >> 4) & 0xf]).Append(Hexdigits[c & 0xf]);
+                }
+                return Answer(res.ToString(), end);
             }
-            else
-                foreach (var cp in CodePoints(exc, start, end)) Escape(text, cp);
-            return Answer(text.ToString(), end);
+            if (kind is not (Kind.Encode or Kind.Translate))
+                throw WrongExceptionType(exc);
+            start = Error(exc).GetStart(false);
+            end = Error(exc).GetEnd(false);
+            var obj = Chars(exc);
+            for (long i = start; i < end; ++i)
+                Escape(res, obj[i]);
+            return Answer(res.ToString(), end);
         }
 
-        // PyCodec_NameReplaceErrors
+        // PyCodec_NameReplaceErrors: ucnhash's getname, else the \x, \u or \U escape.
         private static PyObject NameReplace(PyObject exc)
         {
-            KindOf(exc, decode: false, translate: false);
-            int start = Field(exc, "start"), end = Field(exc, "end");
-            var text = new StringBuilder();
-            foreach (var cp in CodePoints(exc, start, end))
+            if (KindOf(exc) != Kind.Encode)
+                throw WrongExceptionType(exc);
+            long start = Error(exc).GetStart(false), end = Error(exc).GetEnd(false);
+            var obj = Chars(exc);
+            var res = new StringBuilder();
+            long i;
+            for (i = start; i < end; ++i)
             {
+                int c = obj[i];
                 // A control character has no name of its own, only an alias: it is escaped.
-                bool control = cp <= 0xFFFF && char.GetUnicodeCategory((char)cp) == System.Globalization.UnicodeCategory.Control;
-                var name = control || cp > 0x10FFFF ? null : UnicodeNames.Name(cp);
-                if (name != null) text.Append("\\N{").Append(name).Append('}');
-                else Escape(text, cp);
+                bool control = c <= 0xFFFF && char.GetUnicodeCategory((char)c) == System.Globalization.UnicodeCategory.Control;
+                var name = control ? null : UnicodeNames.Name(c);
+                if (name != null)
+                    res.Append("\\N{").Append(name).Append('}');
+                else
+                    Escape(res, c);
             }
-            return Answer(text.ToString(), end);
+            end = i;
+            return Answer(res.ToString(), end);
+        }
+
+        private const int ENC_UNKNOWN = -1, ENC_UTF8 = 0, ENC_UTF16BE = 1, ENC_UTF16LE = 2, ENC_UTF32BE = 3, ENC_UTF32LE = 4;
+
+        // get_standard_encoding: the UTF codecs surrogatepass knows, by name, on a little-endian host.
+        private static int GetStandardEncoding(string encoding, out int bytelength)
+        {
+            bytelength = 0;
+            int at = 0;
+            char Char(int i) => i < encoding.Length ? encoding[i] : '\0';
+            if (char.ToLowerInvariant(Char(0)) == 'u' && char.ToLowerInvariant(Char(1)) == 't' && char.ToLowerInvariant(Char(2)) == 'f')
+            {
+                at = 3;
+                if (Char(at) == '-' || Char(at) == '_')
+                    at++;
+                if (Char(at) == '8' && Char(at + 1) == '\0')
+                {
+                    bytelength = 3;
+                    return ENC_UTF8;
+                }
+                bool sixteen = Char(at) == '1' && Char(at + 1) == '6';
+                bool thirtyTwo = Char(at) == '3' && Char(at + 1) == '2';
+                if (sixteen || thirtyTwo)
+                {
+                    at += 2;
+                    bytelength = sixteen ? 2 : 4;
+                    if (Char(at) == '\0')
+                        return sixteen ? ENC_UTF16LE : ENC_UTF32LE;
+                    if (Char(at) == '-' || Char(at) == '_')
+                        at++;
+                    if (char.ToLowerInvariant(Char(at + 1)) == 'e' && Char(at + 2) == '\0')
+                    {
+                        if (char.ToLowerInvariant(Char(at)) == 'b')
+                            return sixteen ? ENC_UTF16BE : ENC_UTF32BE;
+                        if (char.ToLowerInvariant(Char(at)) == 'l')
+                            return sixteen ? ENC_UTF16LE : ENC_UTF32LE;
+                    }
+                }
+            }
+            else if (encoding == "CP_UTF8")
+            {
+                bytelength = 3;
+                return ENC_UTF8;
+            }
+            return ENC_UNKNOWN;
+        }
+
+        private static bool IsSurrogate(int ch) => ch >= 0xD800 && ch <= 0xDFFF;
+
+        // PyCodec_SurrogatePassErrors
+        private static PyObject SurrogatePass(PyObject exc)
+        {
+            var kind = KindOf(exc);
+            if (kind == Kind.Encode)
+            {
+                long start = Error(exc).GetStart(false), end = Error(exc).GetEnd(false);
+                var obj = Chars(exc);
+                int code = GetStandardEncoding(Error(exc).GetEncoding(), out int bytelength);
+                if (code == ENC_UNKNOWN)
+                    // Not supported, fail with original exception
+                    throw Original(exc);
+                Size(bytelength * (end - start), "PyBytes_FromStringAndSize");
+                var outp = new List<byte>();
+                for (long i = start; i < end; i++)
+                {
+                    int ch = obj[i];
+                    if (!IsSurrogate(ch))
+                        // Not a surrogate, fail with original exception
+                        throw Original(exc);
+                    switch (code)
+                    {
+                        case ENC_UTF8:
+                            outp.Add((byte)(0xe0 | (ch >> 12)));
+                            outp.Add((byte)(0x80 | ((ch >> 6) & 0x3f)));
+                            outp.Add((byte)(0x80 | (ch & 0x3f)));
+                            break;
+                        case ENC_UTF16LE:
+                            outp.Add((byte)ch);
+                            outp.Add((byte)(ch >> 8));
+                            break;
+                        case ENC_UTF16BE:
+                            outp.Add((byte)(ch >> 8));
+                            outp.Add((byte)ch);
+                            break;
+                        case ENC_UTF32LE:
+                            outp.Add((byte)ch);
+                            outp.Add((byte)(ch >> 8));
+                            outp.Add((byte)(ch >> 16));
+                            outp.Add((byte)(ch >> 24));
+                            break;
+                        case ENC_UTF32BE:
+                            outp.Add((byte)(ch >> 24));
+                            outp.Add((byte)(ch >> 16));
+                            outp.Add((byte)(ch >> 8));
+                            outp.Add((byte)ch);
+                            break;
+                    }
+                }
+                return Answer(PyBytes.From(outp.ToArray()), end);
+            }
+            if (kind == Kind.Decode)
+            {
+                long start = Error(exc).GetStart(true);
+                Error(exc).GetEnd(true);
+                var p = ((PyBytes)Error(exc).GetObject(true)).Value;
+                int code = GetStandardEncoding(Error(exc).GetEncoding(), out int bytelength);
+                if (code == ENC_UNKNOWN)
+                    // Not supported, fail with original exception
+                    throw Original(exc);
+                // Try decoding a single surrogate character. If there are more, let the codec
+                // call us again.
+                int ch = 0;
+                long s = start;
+                if (p.Length - start >= bytelength)
+                {
+                    switch (code)
+                    {
+                        case ENC_UTF8:
+                            if ((p[s] & 0xf0) == 0xe0 && (p[s + 1] & 0xc0) == 0x80 && (p[s + 2] & 0xc0) == 0x80)
+                                // it's a three-byte code
+                                ch = ((p[s] & 0x0f) << 12) + ((p[s + 1] & 0x3f) << 6) + (p[s + 2] & 0x3f);
+                            break;
+                        case ENC_UTF16LE:
+                            ch = p[s + 1] << 8 | p[s];
+                            break;
+                        case ENC_UTF16BE:
+                            ch = p[s] << 8 | p[s + 1];
+                            break;
+                        case ENC_UTF32LE:
+                            ch = (p[s + 3] << 24) | (p[s + 2] << 16) | (p[s + 1] << 8) | p[s];
+                            break;
+                        case ENC_UTF32BE:
+                            ch = (p[s] << 24) | (p[s + 1] << 16) | (p[s + 2] << 8) | p[s + 3];
+                            break;
+                    }
+                }
+                if (!IsSurrogate(ch))
+                    // it's not a surrogate - fail
+                    throw Original(exc);
+                return Answer(((char)ch).ToString(), start + bytelength);
+            }
+            throw WrongExceptionType(exc);
         }
 
         // PyCodec_SurrogateEscapeErrors
         private static PyObject SurrogateEscape(PyObject exc)
         {
-            var kind = KindOf(exc, translate: false);
-            int start = Field(exc, "start"), end = Field(exc, "end");
-            if (kind == Kind.Decode)
-            {
-                var data = ((PyBytes)exc.GetAttribute("object")).Value;
-                var text = new StringBuilder();
-                int consumed = 0;
-                for (int i = start; i < end && i < data.Length && consumed < 4; i++, consumed++)
-                {
-                    if (data[i] < 128) break;
-                    text.Append((char)(0xDC00 + data[i]));
-                }
-                if (consumed == 0) Strict(exc);
-                return Answer(text.ToString(), start + consumed);
-            }
-            var bytes = new List<byte>();
-            foreach (var cp in CodePoints(exc, start, end))
-            {
-                if (cp < 0xDC80 || cp > 0xDCFF) Strict(exc);
-                bytes.Add((byte)(cp - 0xDC00));
-            }
-            return PyTuple.From(new PyObject[] { PyBytes.From(bytes.ToArray()), PyInt.From(end) });
-        }
-
-        // PyCodec_SurrogatePassErrors, for the UTF-8 codec.
-        private enum StandardEncoding { Unknown, Utf8, Utf16LE, Utf16BE, Utf32LE, Utf32BE }
-
-        // get_standard_encoding: the UTF codecs surrogatepass knows, by name ("CP_UTF8" too).
-        private static StandardEncoding GetStandardEncoding(string encoding, out int byteLength)
-        {
-            byteLength = 0;
-            if (encoding == "CP_UTF8")
-            {
-                byteLength = 3;
-                return StandardEncoding.Utf8;
-            }
-            if (encoding.Length < 3 || char.ToLowerInvariant(encoding[0]) != 'u' || char.ToLowerInvariant(encoding[1]) != 't'
-                || char.ToLowerInvariant(encoding[2]) != 'f')
-                return StandardEncoding.Unknown;
-            string rest = encoding.Substring(3);
-            if (rest.StartsWith("-") || rest.StartsWith("_"))
-                rest = rest.Substring(1);
-            if (rest == "8")
-            {
-                byteLength = 3;
-                return StandardEncoding.Utf8;
-            }
-            bool sixteen = rest.StartsWith("16"), thirtyTwo = rest.StartsWith("32");
-            if (!sixteen && !thirtyTwo)
-                return StandardEncoding.Unknown;
-            byteLength = sixteen ? 2 : 4;
-            rest = rest.Substring(2);
-            // no suffix: the machine's order, little-endian here
-            if (rest.Length == 0)
-                return sixteen ? StandardEncoding.Utf16LE : StandardEncoding.Utf32LE;
-            if (rest.StartsWith("-") || rest.StartsWith("_"))
-                rest = rest.Substring(1);
-            if (rest.Length == 2 && char.ToLowerInvariant(rest[1]) == 'e')
-            {
-                if (char.ToLowerInvariant(rest[0]) == 'b')
-                    return sixteen ? StandardEncoding.Utf16BE : StandardEncoding.Utf32BE;
-                if (char.ToLowerInvariant(rest[0]) == 'l')
-                    return sixteen ? StandardEncoding.Utf16LE : StandardEncoding.Utf32LE;
-            }
-            return StandardEncoding.Unknown;
-        }
-
-        // PyCodec_SurrogatePassErrors: a lone surrogate as the UTF codec of the exception would write
-        // it; any other codec, or a character that is no surrogate, fails with the exception itself.
-        private static PyObject SurrogatePass(PyObject exc)
-        {
-            var kind = KindOf(exc, translate: false);
-            int start = Field(exc, "start"), end = Field(exc, "end");
-            string encodingName = exc.GetAttribute("encoding") is PyString name ? name.Value : "";
-            var code = GetStandardEncoding(encodingName, out int byteLength);
-            if (code == StandardEncoding.Unknown)
-                return Strict(exc);
+            var kind = KindOf(exc);
             if (kind == Kind.Encode)
             {
-                var bytes = new List<byte>();
-                foreach (var cp in CodePoints(exc, start, end))
+                long start = Error(exc).GetStart(false), end = Error(exc).GetEnd(false);
+                var obj = Chars(exc);
+                Size(end - start, "PyBytes_FromStringAndSize");
+                var outp = new List<byte>();
+                for (long i = start; i < end; i++)
                 {
-                    if (cp < 0xD800 || cp > 0xDFFF)
-                        return Strict(exc);
-                    switch (code)
-                    {
-                        case StandardEncoding.Utf8:
-                            bytes.Add((byte)(0xE0 | (cp >> 12)));
-                            bytes.Add((byte)(0x80 | ((cp >> 6) & 0x3F)));
-                            bytes.Add((byte)(0x80 | (cp & 0x3F)));
-                            break;
-                        case StandardEncoding.Utf16LE:
-                            bytes.Add((byte)cp);
-                            bytes.Add((byte)(cp >> 8));
-                            break;
-                        case StandardEncoding.Utf16BE:
-                            bytes.Add((byte)(cp >> 8));
-                            bytes.Add((byte)cp);
-                            break;
-                        case StandardEncoding.Utf32LE:
-                            bytes.Add((byte)cp);
-                            bytes.Add((byte)(cp >> 8));
-                            bytes.Add((byte)(cp >> 16));
-                            bytes.Add((byte)(cp >> 24));
-                            break;
-                        default:
-                            bytes.Add((byte)(cp >> 24));
-                            bytes.Add((byte)(cp >> 16));
-                            bytes.Add((byte)(cp >> 8));
-                            bytes.Add((byte)cp);
-                            break;
-                    }
+                    int ch = obj[i];
+                    if (ch < 0xdc80 || ch > 0xdcff)
+                        // Not a UTF-8b surrogate, fail with original exception
+                        throw Original(exc);
+                    outp.Add((byte)(ch - 0xdc00));
                 }
-                return PyTuple.From(new PyObject[] { PyBytes.From(bytes.ToArray()), PyInt.From(end) });
+                return Answer(PyBytes.From(outp.ToArray()), end);
             }
-            // Decoding: a single surrogate; the codec calls again for more.
-            var data = ((PyBytes)exc.GetAttribute("object")).Value;
-            int ch = 0;
-            if (data.Length - start >= byteLength)
+            if (kind == Kind.Decode)
             {
-                switch (code)
+                long start = Error(exc).GetStart(true), end = Error(exc).GetEnd(true);
+                var p = ((PyBytes)Error(exc).GetObject(true)).Value;
+                var str = new StringBuilder(4);
+                int consumed = 0;
+                // decode up to 4 bad bytes.
+                while (consumed < 4 && consumed < end - start)
                 {
-                    case StandardEncoding.Utf8:
-                        if ((data[start] & 0xF0) == 0xE0 && (data[start + 1] & 0xC0) == 0x80 && (data[start + 2] & 0xC0) == 0x80)
-                            ch = ((data[start] & 0x0F) << 12) + ((data[start + 1] & 0x3F) << 6) + (data[start + 2] & 0x3F);
+                    // Refuse to escape ASCII bytes.
+                    if (p[start + consumed] < 128)
                         break;
-                    case StandardEncoding.Utf16LE:
-                        ch = data[start + 1] << 8 | data[start];
-                        break;
-                    case StandardEncoding.Utf16BE:
-                        ch = data[start] << 8 | data[start + 1];
-                        break;
-                    case StandardEncoding.Utf32LE:
-                        ch = (data[start + 3] << 24) | (data[start + 2] << 16) | (data[start + 1] << 8) | data[start];
-                        break;
-                    default:
-                        ch = (data[start] << 24) | (data[start + 1] << 16) | (data[start + 2] << 8) | data[start + 3];
-                        break;
+                    str.Append((char)(0xdc00 + p[start + consumed]));
+                    consumed++;
                 }
+                if (consumed == 0)
+                    // codec complained about ASCII byte.
+                    throw Original(exc);
+                return Answer(str.ToString(), start + consumed);
             }
-            if (ch < 0xD800 || ch > 0xDFFF)
-                return Strict(exc);
-            return Answer(((char)ch).ToString(), start + byteLength);
+            throw WrongExceptionType(exc);
         }
     }
 }

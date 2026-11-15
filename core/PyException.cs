@@ -1734,6 +1734,53 @@ namespace SharpPy
             return code <= 0xFF ? $"\\x{code:x2}" : code <= 0xFFFF ? $"\\u{code:x4}" : $"\\U{code:x8}";
         }
 
+        // get_unicode and get_string (Objects/exceptions.c): a field the accessors below read.
+        private PyObject CheckedField(int field, bool bytes)
+        {
+            var attr = Fields[field];
+            string name = FieldNames[field];
+            if (attr == null)
+                throw PyTypeError.Create($"{name} attribute not set");
+            if (bytes ? attr is not PyBytes : attr is not PyString)
+                throw PyTypeError.Create($"{name} attribute must be {(bytes ? "bytes" : "unicode")}");
+            return attr;
+        }
+
+        /// <summary>PyUnicodeEncodeError_GetObject (str) and PyUnicodeDecodeError_GetObject (bytes).</summary>
+        internal PyObject GetObject(bool bytes) => CheckedField(1, bytes);
+
+        /// <summary>PyUnicode*Error_GetEncoding</summary>
+        internal string GetEncoding() => ((PyString)CheckedField(0, false)).Value;
+
+        private long ObjectSize(bool bytes) =>
+            bytes ? ((PyBytes)GetObject(true)).Value.Length : ((PyString)GetObject(false)).CodePointLength();
+
+        private long FieldValue(int field) => Fields[field] == null ? 0 : (long)((PyInt)Fields[field]).Value;
+
+        /// <summary>PyUnicode*Error_GetStart: start clamped to [0, size - 1].</summary>
+        internal long GetStart(bool bytes)
+        {
+            long size = ObjectSize(bytes);
+            long start = FieldValue(2);
+            if (start < 0)
+                start = 0;
+            if (start >= size)
+                start = size - 1;
+            return start;
+        }
+
+        /// <summary>PyUnicode*Error_GetEnd: end clamped to [1, size].</summary>
+        internal long GetEnd(bool bytes)
+        {
+            long size = ObjectSize(bytes);
+            long end = FieldValue(3);
+            if (end < 1)
+                end = 1;
+            if (end > size)
+                end = size;
+            return end;
+        }
+
         public override PyType GetPyType() => _customType ?? PyType.UnicodeErrorType;
 
         // UnicodeError_members, which the three concrete types carry: start and end are T_PYSSIZET.
