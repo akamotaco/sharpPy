@@ -104,6 +104,9 @@ namespace SharpPy
         internal static bool IsFastPath(string normalized) => normalized is "utf-8" or "ascii" or "latin-1"
             or "utf-16" or "utf-16-le" or "utf-16-be" or "utf-32" or "utf-32-le" or "utf-32-be";
 
+        private static string Utf16(byte[] data, string errors, int byteorder) => UnicodeDecoders.DecodeUtf16(data, errors, ref byteorder, null);
+        private static string Utf32(byte[] data, string errors, int byteorder) => UnicodeDecoders.DecodeUtf32(data, errors, ref byteorder, null);
+
         internal static string DecodeBytes(byte[] data, string encodingName, string errorName)
         {
             // PyUnicode_Decode: the fast paths, then _PyCodec_DecodeText.
@@ -121,16 +124,15 @@ namespace SharpPy
             }
             switch (normalized)
             {
-                case "utf-8": return PyBytes.DecodeUtf8Python(data, errorName ?? "strict");
-                case "ascii": return PyBytes.DecodeAsciiPython(data, errorName ?? "strict");
-                case "utf-16": return PyBytes.DecodeUtf16Python(data, errorName ?? "strict", 0);
-                case "utf-16-le": return PyBytes.DecodeUtf16Python(data, errorName ?? "strict", -1);
-                case "utf-16-be": return PyBytes.DecodeUtf16Python(data, errorName ?? "strict", 1);
-                case "utf-32": return PyBytes.DecodeUtf32Python(data, errorName ?? "strict", 0);
-                case "utf-32-le": return PyBytes.DecodeUtf32Python(data, errorName ?? "strict", -1);
-                case "utf-32-be": return PyBytes.DecodeUtf32Python(data, errorName ?? "strict", 1);
-                // PyUnicode_DecodeLatin1: every byte is its code point.
-                default: return System.Text.Encoding.Latin1.GetString(data);
+                case "utf-8": return UnicodeDecoders.DecodeUtf8(data, errorName, null);
+                case "ascii": return UnicodeDecoders.DecodeAscii(data, errorName);
+                case "utf-16": return Utf16(data, errorName, 0);
+                case "utf-16-le": return Utf16(data, errorName, -1);
+                case "utf-16-be": return Utf16(data, errorName, 1);
+                case "utf-32": return Utf32(data, errorName, 0);
+                case "utf-32-le": return Utf32(data, errorName, -1);
+                case "utf-32-be": return Utf32(data, errorName, 1);
+                default: return UnicodeDecoders.DecodeLatin1(data);
             }
         }
     }

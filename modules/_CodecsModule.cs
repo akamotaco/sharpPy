@@ -28,7 +28,39 @@ namespace SharpPy.Modules
             module.ModuleDict["lookup_error"] = PyArgs.MethO("_codecs", "lookup_error", args => PyLookupError(args));
 
             // Encoding functions - UTF-8
-            module.ModuleDict["utf_8_decode"] = new PyBuiltinFunction("utf_8_decode", PyUtf8Decode);
+
+            // _codecs_utf_8_decode_impl and the utf_16/utf_32 ones: (data: Py_buffer, errors=None,
+            // final: bool = False, /), codec_tuple(decoded, consumed); the _ex forms take byteorder
+            // and answer it as the BOM left it.
+            module.ModuleDict["utf_8_decode"] = PyArgs.FastCall("_codecs", "utf_8_decode", 1, 3, args =>
+            {
+                var data = BufferArgument(args, "utf_8_decode");
+                string errors = ErrorsArgument("utf_8_decode", args, 1);
+                var consumed = Final(args, 2) ? null : new[] { data.Length };
+                string decoded = UnicodeDecoders.DecodeUtf8(data, errors, consumed);
+                return Result(PyString.From(decoded), consumed?[0] ?? data.Length);
+            });
+            UtfDecodeFunction(module, "utf_16_decode", 0, 2);
+            UtfDecodeFunction(module, "utf_16_le_decode", -1, 2);
+            UtfDecodeFunction(module, "utf_16_be_decode", 1, 2);
+            UtfExDecodeFunction(module, "utf_16_ex_decode", 2);
+            UtfDecodeFunction(module, "utf_32_decode", 0, 4);
+            UtfDecodeFunction(module, "utf_32_le_decode", -1, 4);
+            UtfDecodeFunction(module, "utf_32_be_decode", 1, 4);
+            UtfExDecodeFunction(module, "utf_32_ex_decode", 4);
+            // _codecs_ascii_decode_impl and _codecs_latin_1_decode_impl: (data: Py_buffer, errors=None, /).
+            module.ModuleDict["ascii_decode"] = PyArgs.FastCall("_codecs", "ascii_decode", 1, 2, args =>
+            {
+                var data = BufferArgument(args, "ascii_decode");
+                string errors = ErrorsArgument("ascii_decode", args, 1);
+                return Result(PyString.From(UnicodeDecoders.DecodeAscii(data, errors)), data.Length);
+            });
+            module.ModuleDict["latin_1_decode"] = PyArgs.FastCall("_codecs", "latin_1_decode", 1, 2, args =>
+            {
+                var data = BufferArgument(args, "latin_1_decode");
+                ErrorsArgument("latin_1_decode", args, 1);
+                return Result(PyString.From(UnicodeDecoders.DecodeLatin1(data)), data.Length);
+            });
 
             // _codecs_*_encode_impl: codec_tuple(the encoder's bytes, PyUnicode_GET_LENGTH(str)).
             EncodeFunction(module, "utf_8_encode", 2, (s, e, a) => UnicodeEncoders.EncodeUtf8(s, e));
@@ -59,22 +91,12 @@ namespace SharpPy.Modules
             });
 
             // Encoding functions - UTF-16
-            module.ModuleDict["utf_16_decode"] = new PyBuiltinFunction("utf_16_decode", PyUtf16Decode);
-            module.ModuleDict["utf_16_le_decode"] = new PyBuiltinFunction("utf_16_le_decode", PyUtf16LeDecode);
-            module.ModuleDict["utf_16_be_decode"] = new PyBuiltinFunction("utf_16_be_decode", PyUtf16BeDecode);
-            module.ModuleDict["utf_16_ex_decode"] = new PyBuiltinFunction("utf_16_ex_decode", PyUtf16ExDecode);
 
             // Encoding functions - UTF-32
-            module.ModuleDict["utf_32_decode"] = new PyBuiltinFunction("utf_32_decode", PyUtf32Decode);
-            module.ModuleDict["utf_32_le_decode"] = new PyBuiltinFunction("utf_32_le_decode", PyUtf32LeDecode);
-            module.ModuleDict["utf_32_be_decode"] = new PyBuiltinFunction("utf_32_be_decode", PyUtf32BeDecode);
-            module.ModuleDict["utf_32_ex_decode"] = new PyBuiltinFunction("utf_32_ex_decode", PyUtf32ExDecode);
 
             // Encoding functions - ASCII
-            module.ModuleDict["ascii_decode"] = new PyBuiltinFunction("ascii_decode", PyAsciiDecode);
 
             // Encoding functions - Latin-1
-            module.ModuleDict["latin_1_decode"] = new PyBuiltinFunction("latin_1_decode", PyLatin1Decode);
 
             // Encoding functions - other
             module.ModuleDict["charmap_encode"] = PyArgs.FastCall("_codecs", "charmap_encode", 1, 3, PyCharmapEncode);
@@ -210,117 +232,31 @@ namespace SharpPy.Modules
         private static byte[] BufferArgument(PyObject[] args, string name) =>
             BytesMethods.RequireBuffer(args[0]);
 
-        private static PyObject Decoded(PyObject[] args, string codec, string name)
-        {
-            var data = BufferArgument(args, name);
-            string decoded = PyStringNewArguments.DecodeBytes(data, codec, ErrorsOf(args, 1));
-            return PyTuple.From(new PyObject[] { PyString.From(decoded), PyInt.From(data.Length) });
-        }
-
-        // utf_8_decode(data, errors=None, final=False): what the decoder consumed.
-        private static PyObject DecodedUtf8(PyObject[] args, string name)
-        {
-            var data = BufferArgument(args, name);
-            bool final = args.Length > 2 && args[2].IsTrue();
-            string decoded = PyBytes.DecodeUtf8(data, ErrorsOf(args, 1), final, out int consumed);
-            return PyTuple.From(new PyObject[] { PyString.From(decoded), PyInt.From(consumed) });
-        }
-
-        // utf_16/utf_32 (_le, _be, _ex) decoding: the byte order given, or the mark's when it is 0.
-        private static (PyString Text, int Consumed, int Order) DecodedUtfWide(byte[] data, string errors, int order, bool final, int width)
-        {
-            int consumed;
-            string text = width == 2
-                ? PyBytes.DecodeUtf16(data, errors, ref order, final, out consumed)
-                : PyBytes.DecodeUtf32(data, errors, ref order, final, out consumed);
-            return (PyString.From(text), consumed, order);
-        }
-
-        private static PyObject DecodedWithOrder(PyObject[] args, string name, int width)
-        {
-            var data = BufferArgument(args, name);
-            int order = args.Length > 2 ? args[2].ToInt() : 0;
-            bool final = args.Length > 3 && args[3].IsTrue();
-            var (text, consumed, found) = DecodedUtfWide(data, ErrorsOf(args, 1), order, final, width);
-            return PyTuple.From(new PyObject[] { text, PyInt.From(consumed), PyInt.From(found) });
-        }
-
-        private static PyObject DecodedFixed(PyObject[] args, string name, int width, int order)
-        {
-            var data = BufferArgument(args, name);
-            bool final = args.Length > 2 && args[2].IsTrue();
-            var (text, consumed, _) = DecodedUtfWide(data, ErrorsOf(args, 1), order, final, width);
-            return PyTuple.From(new PyObject[] { text, PyInt.From(consumed) });
-        }
 
 
 
-        // UTF-8 decoding - CPython 3.12: Modules/_codecsmodule.c:522-565
-        private static PyObject PyUtf8Decode(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length < 1 || args.Length > 3)
-                throw PyTypeError.Create($"utf_8_decode() takes 1 to 3 arguments ({args.Length} given)");
-
-            return DecodedUtf8(args, "utf_8_decode");
-        }
 
 
-        private static PyObject PyUtf16Decode(PyObject[] args, PyDict kwargs = null)
-        {
-            return DecodedFixed(args, "utf_16_decode", 2, 0);
-        }
 
 
-        private static PyObject PyUtf16LeDecode(PyObject[] args, PyDict kwargs = null)
-        {
-            return DecodedFixed(args, "utf_16_le_decode", 2, -1);
-        }
 
 
-        private static PyObject PyUtf16BeDecode(PyObject[] args, PyDict kwargs = null)
-        {
-            return DecodedFixed(args, "utf_16_be_decode", 2, 1);
-        }
-
-        private static PyObject PyUtf16ExDecode(PyObject[] args, PyDict kwargs = null)
-        {
-            return DecodedWithOrder(args, "utf_16_ex_decode", 2);
-        }
 
 
-        private static PyObject PyUtf32Decode(PyObject[] args, PyDict kwargs = null)
-        {
-            return DecodedFixed(args, "utf_32_decode", 4, 0);
-        }
 
 
-        private static PyObject PyUtf32LeDecode(PyObject[] args, PyDict kwargs = null)
-        {
-            return DecodedFixed(args, "utf_32_le_decode", 4, -1);
-        }
 
 
-        private static PyObject PyUtf32BeDecode(PyObject[] args, PyDict kwargs = null)
-        {
-            return DecodedFixed(args, "utf_32_be_decode", 4, 1);
-        }
-
-        private static PyObject PyUtf32ExDecode(PyObject[] args, PyDict kwargs = null)
-        {
-            return DecodedWithOrder(args, "utf_32_ex_decode", 4);
-        }
 
 
-        private static PyObject PyAsciiDecode(PyObject[] args, PyDict kwargs = null)
-        {
-            return Decoded(args, "ascii", "asciidecode");
-        }
 
 
-        private static PyObject PyLatin1Decode(PyObject[] args, PyDict kwargs = null)
-        {
-            return Decoded(args, "iso8859-1", "latin1decode");
-        }
+
+
+
+
+
+
 
         // The clinic of _codecs_*_encode: (str: unicode, errors: str(accept={str, NoneType}) = None, /)
         // and, for utf_16_encode and utf_32_encode, byteorder: int = 0.
@@ -341,6 +277,39 @@ namespace SharpPy.Modules
                 var consumed = final ? null : new[] { data.Length };
                 string decoded = decoder(data, errors, consumed);
                 return Result(PyString.From(decoded), consumed?[0] ?? data.Length);
+            });
+
+        // final: bool = False
+        private static bool Final(PyObject[] args, int index) => args.Length > index && args[index].IsTrue();
+
+        // PyUnicode_DecodeUTF16Stateful or PyUnicode_DecodeUTF32Stateful by the unit width.
+        private static string DecodeUtfWide(byte[] data, string errors, ref int byteorder, int[] consumed, int width) =>
+            width == 2
+                ? UnicodeDecoders.DecodeUtf16(data, errors, ref byteorder, consumed)
+                : UnicodeDecoders.DecodeUtf32(data, errors, ref byteorder, consumed);
+
+        private static void UtfDecodeFunction(PyModule module, string name, int byteorder, int width) =>
+            module.ModuleDict[name] = PyArgs.FastCall("_codecs", name, 1, 3, args =>
+            {
+                var data = BufferArgument(args, name);
+                string errors = ErrorsArgument(name, args, 1);
+                var consumed = Final(args, 2) ? null : new[] { data.Length };
+                int order = byteorder;
+                string decoded = DecodeUtfWide(data, errors, ref order, consumed, width);
+                return Result(PyString.From(decoded), consumed?[0] ?? data.Length);
+            });
+
+        // _codecs_utf_16_ex_decode_impl: (data, errors=None, byteorder: int = 0, final: bool = False, /)
+        // -> (decoded, consumed, byteorder).
+        private static void UtfExDecodeFunction(PyModule module, string name, int width) =>
+            module.ModuleDict[name] = PyArgs.FastCall("_codecs", name, 1, 4, args =>
+            {
+                var data = BufferArgument(args, name);
+                string errors = ErrorsArgument(name, args, 1);
+                int order = ByteOrder(args);
+                var consumed = Final(args, 3) ? null : new[] { data.Length };
+                string decoded = DecodeUtfWide(data, errors, ref order, consumed, width);
+                return PyTuple.From(new PyObject[] { PyString.From(decoded), PyInt.From(consumed?[0] ?? data.Length), PyInt.From(order) });
             });
 
         // byteorder: int = 0

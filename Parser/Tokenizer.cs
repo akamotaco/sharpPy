@@ -446,47 +446,10 @@ namespace SharpPy.Generated
             }
         }
 
-        // What is not UTF-8 stays in the text as U+DC80..U+DCFF, for the place that decodes it to say so.
-        private static string DecodeUtf8(byte[] s, int from)
-        {
-            var strict = new UTF8Encoding(false, true);
-            try
-            {
-                return strict.GetString(s, from, s.Length - from);
-            }
-            catch (ArgumentException)
-            {
-            }
-            var result = new StringBuilder(s.Length);
-            int index = from;
-            while (index < s.Length)
-            {
-                int b = s[index];
-                int length = b < 0x80 ? 1 : b >= 0xC2 && b < 0xE0 ? 2 : b >= 0xE0 && b < 0xF0 ? 3 : b >= 0xF0 && b < 0xF5 ? 4 : 0;
-                string decoded = null;
-                if (length != 0 && index + length <= s.Length)
-                {
-                    try
-                    {
-                        decoded = strict.GetString(s, index, length);
-                    }
-                    catch (ArgumentException)
-                    {
-                    }
-                }
-                if (decoded != null)
-                {
-                    result.Append(decoded);
-                    index += length;
-                }
-                else
-                {
-                    result.Append((char)(b < 0x80 ? b : 0xDC00 + b));
-                    index++;
-                }
-            }
-            return result.ToString();
-        }
+        // What is not UTF-8 stays in the text as U+DC80..U+DCFF, for the place that decodes it to say so:
+        // PyUnicode_DecodeUTF8 with surrogateescape.
+        private static string DecodeUtf8(byte[] s, int from) =>
+            UnicodeDecoders.DecodeUtf8(from == 0 ? s : s.AsSpan(from).ToArray(), "surrogateescape", null);
 
         /// <summary>decode_str: the text of a source given as bytes, by its BOM and its coding cookie.</summary>
         public static string DecodeStr(byte[] input, bool single, string filename) =>
