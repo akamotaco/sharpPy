@@ -60,32 +60,53 @@ namespace SharpPy
             return PyString.From(DecodeBytes(data, encodingName, errorName));
         }
 
+        /// <summary>The codecs PyUnicode_Decode and PyUnicode_AsEncodedString take without the registry.</summary>
+        internal enum Shortcut { None, Utf8, Utf16, Utf32, Ascii, Mbcs, Latin1 }
+
         /// <summary>
-        /// CPython resolves codecs through its alias table; .NET's name table is different enough that
-        /// GetEncoding("utf8") fails here, so the names CPython's own tests and documentation use are
-        /// mapped explicitly and anything else is CPython's LookupError.
+        /// The "Shortcuts for common default encodings" of PyUnicode_Decode and
+        /// PyUnicode_AsEncodedString: _Py_normalize_encoding into char buflower[11] (a longer name
+        /// fails and takes the registry), then utf8/utf_8, utf16, utf32, ascii/us_ascii, mbcs on
+        /// Windows, and latin1/latin_1/iso_8859_1/iso8859_1.
         /// </summary>
-        internal static string NormalizeCodecName(string name)
+        internal static Shortcut ShortcutOf(string encoding)
         {
-            var lowered = name.ToLowerInvariant().Replace("_", "-");
-            return lowered switch
+            const int lowerLen = 11;
+            var lower = new System.Text.StringBuilder(lowerLen);
+            bool punct = false;
+            foreach (char c in encoding)
             {
-                "u8" or "utf" or "utf-8" or "utf8" => "utf-8",
-                "latin" or "latin-1" or "latin1" or "iso-8859-1" or "iso8859-1" or "8859" or "cp819"
-                    or "l1" => "latin-1",
-                "ascii" or "us-ascii" or "646" or "ansi_x3.4-1968" => "ascii",
-                // utf-16/utf-32 are BOM codecs in CPython; folding them onto -le dropped the
-                // preamble, so "ab".encode("utf-16") answered b'a\x00b\x00'. Measured:
-                //   "ab".encode("utf-16") -> b'\xff\xfea\x00b\x00'
-                //   "ab".encode("utf-32") -> b'\xff\xfe\x00\x00a\x00\x00\x00b\x00\x00\x00'
-                //   "".encode("utf-16")   -> b'\xff\xfe'
-                "utf-16" or "utf16" or "u16" => "utf-16",
-                "utf-16le" or "utf-16-le" => "utf-16-le",
-                "utf-16be" or "utf-16-be" => "utf-16-be",
-                "utf-32" or "utf32" or "u32" => "utf-32",
-                "utf-32le" or "utf-32-le" => "utf-32-le",
-                "utf-32be" or "utf-32-be" => "utf-32-be",
-                _ => lowered,
+                if ((c < 0x80 && char.IsAsciiLetterOrDigit(c)) || c == '.')
+                {
+                    if (punct && lower.Length != 0)
+                    {
+                        if (lower.Length == lowerLen - 1)
+                            return Shortcut.None;
+                        lower.Append('_');
+                    }
+                    punct = false;
+                    if (lower.Length == lowerLen - 1)
+                        return Shortcut.None;
+                    lower.Append(char.ToLowerInvariant(c));
+                }
+                else
+                    punct = true;
+            }
+            string name = lower.ToString();
+            if (name.StartsWith("utf", System.StringComparison.Ordinal))
+            {
+                string rest = name.Substring(3);
+                // Match "utf8" and "utf_8"
+                if (rest.StartsWith("_", System.StringComparison.Ordinal))
+                    rest = rest.Substring(1);
+                return rest switch { "8" => Shortcut.Utf8, "16" => Shortcut.Utf16, "32" => Shortcut.Utf32, _ => Shortcut.None };
+            }
+            return name switch
+            {
+                "ascii" or "us_ascii" => Shortcut.Ascii,
+                "mbcs" when System.OperatingSystem.IsWindows() => Shortcut.Mbcs,
+                "latin1" or "latin_1" or "iso_8859_1" or "iso8859_1" => Shortcut.Latin1,
+                _ => Shortcut.None,
             };
         }
 
@@ -100,40 +121,31 @@ namespace SharpPy
             return null;
         }
 
-        // The codecs PyUnicode_Decode and PyUnicode_AsEncodedString take without the registry.
-        internal static bool IsFastPath(string normalized) => normalized is "utf-8" or "ascii" or "latin-1"
-            or "utf-16" or "utf-16-le" or "utf-16-be" or "utf-32" or "utf-32-le" or "utf-32-be";
-
-        private static string Utf16(byte[] data, string errors, int byteorder) => UnicodeDecoders.DecodeUtf16(data, errors, ref byteorder, null);
-        private static string Utf32(byte[] data, string errors, int byteorder) => UnicodeDecoders.DecodeUtf32(data, errors, ref byteorder, null);
-
+        /// <summary>
+        /// PyUnicode_Decode: nothing to decode is the empty string before any lookup, a null
+        /// encoding is UTF-8, then the shortcuts, then _PyCodec_DecodeText over a memoryview.
+        /// </summary>
         internal static string DecodeBytes(byte[] data, string encodingName, string errorName)
         {
-            // PyUnicode_Decode: the fast paths, then _PyCodec_DecodeText.
             PyCodecRegistry.CheckEncodingErrors(encodingName, errorName);
-            string normalized = NormalizeCodecName(encodingName);
-            if (!IsFastPath(normalized))
+            if (data.Length == 0)
+                return "";
+            if (encodingName == null)
+                return UnicodeDecoders.DecodeUtf8(data, errorName, null);
+            int byteorder = 0;
+            switch (ShortcutOf(encodingName))
             {
-                // The registry decides which of CPython's two refusals this is: a codec that exists
-                // but is not about text ('base64') is reported as such, a name nothing implements is
-                // the unknown encoding. Measured: str(b'ab', 'base64') ->
-                // LookupError: 'base64' is not a text encoding; use codecs.decode() ...
-                var viaRegistry = PyCodecRegistry.DecodeText(new PyMemoryView(data, readOnly: true), encodingName, errorName);  // PyMemoryView_FromBuffer
-                return viaRegistry is PyString text ? text.Value
-                    : throw PyTypeError.Create($"'{encodingName}' decoder returned '{viaRegistry.GetPyType().FullName}' instead of 'str'; use codecs.decode() to decode to arbitrary types");
+                case Shortcut.Utf8: return UnicodeDecoders.DecodeUtf8(data, errorName, null);
+                case Shortcut.Utf16: return UnicodeDecoders.DecodeUtf16(data, errorName, ref byteorder, null);
+                case Shortcut.Utf32: return UnicodeDecoders.DecodeUtf32(data, errorName, ref byteorder, null);
+                case Shortcut.Ascii: return UnicodeDecoders.DecodeAscii(data, errorName);
+                case Shortcut.Mbcs: return PyCodePage.Decode(PyCodePage.CP_ACP, data, errorName, true, out _);
+                case Shortcut.Latin1: return UnicodeDecoders.DecodeLatin1(data);
             }
-            switch (normalized)
-            {
-                case "utf-8": return UnicodeDecoders.DecodeUtf8(data, errorName, null);
-                case "ascii": return UnicodeDecoders.DecodeAscii(data, errorName);
-                case "utf-16": return Utf16(data, errorName, 0);
-                case "utf-16-le": return Utf16(data, errorName, -1);
-                case "utf-16-be": return Utf16(data, errorName, 1);
-                case "utf-32": return Utf32(data, errorName, 0);
-                case "utf-32-le": return Utf32(data, errorName, -1);
-                case "utf-32-be": return Utf32(data, errorName, 1);
-                default: return UnicodeDecoders.DecodeLatin1(data);
-            }
+            // Decode via the codec registry (PyMemoryView_FromBuffer)
+            var unicode = PyCodecRegistry.DecodeText(new PyMemoryView(data, readOnly: true), encodingName, errorName);
+            return unicode is PyString text ? text.Value
+                : throw PyTypeError.Create($"'{encodingName}' decoder returned '{unicode.GetPyType().FullName}' instead of 'str'; use codecs.decode() to decode to arbitrary types");
         }
     }
 
@@ -2912,33 +2924,24 @@ namespace SharpPy
         {
             // PyUnicode_AsEncodedString
             PyCodecRegistry.CheckEncodingErrors(encoding, errors);
-            string codec = PyStringNewArguments.NormalizeCodecName(encoding ?? "utf-8");
-            switch (codec)
+            if (encoding == null)
+                return PyBytes.From(UnicodeEncoders.EncodeUtf8(Value, errors));
+            switch (PyStringNewArguments.ShortcutOf(encoding))
             {
-                case "utf-8":
+                case PyStringNewArguments.Shortcut.Utf8:
                     return PyBytes.From(UnicodeEncoders.EncodeUtf8(Value, errors));
-                case "utf-16":
+                case PyStringNewArguments.Shortcut.Utf16:
                     return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, 0, 2));
-                case "utf-16-le":
-                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, -1, 2));
-                case "utf-16-be":
-                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, 1, 2));
-                case "utf-32":
+                case PyStringNewArguments.Shortcut.Utf32:
                     return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, 0, 4));
-                case "utf-32-le":
-                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, -1, 4));
-                case "utf-32-be":
-                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, 1, 4));
-                case "ascii":
+                case PyStringNewArguments.Shortcut.Ascii:
                     return PyBytes.From(UnicodeEncoders.EncodeUcs1(Value, errors, 128));
-                case "latin-1":
+                case PyStringNewArguments.Shortcut.Mbcs:
+                    return PyBytes.From(PyCodePage.Encode(PyCodePage.CP_ACP, Value, errors));
+                case PyStringNewArguments.Shortcut.Latin1:
                     return PyBytes.From(UnicodeEncoders.EncodeUcs1(Value, errors, 256));
                 default:
-                    // Not in the native table: the registry answers. A non-text codec is refused by
-                    // name ('ab'.encode('rot13') -> "'rot13' is not a text encoding; use
-                    // codecs.encode() to handle arbitrary codecs"), a registered text codec is
-                    // called, and anything else is still CPython's LookupError naming the caller's
-                    // spelling. Codecs with no implementation here stay in docs/known_gaps.md.
+                    // Encode via the codec registry
                     PyObject v = PyCodecRegistry.EncodeText(this, encoding, errors);
                     // The normal path
                     if (v is PyBytes encoded)

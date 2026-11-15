@@ -1801,14 +1801,6 @@ namespace SharpPy
                         throw PyTypeError.Create($"object.__new__(X): X is not a type object (got {self.GetTypeName()})");
                     }
 
-                    // CPython 3.12: Check for excess args (lines 5446-5457)
-                    // object.__new__() takes exactly one argument (the type to instantiate)
-                    if (args.Length > 0 || (kwargs != null && kwargs.Length() > 0))
-                    {
-                        // Note: CPython has more complex logic here for subclasses
-                        // For now, we allow extra args (will be passed to __init__)
-                    }
-
                     // Create instance of the class. This is the live object.__new__ (PyMethodDescriptor
                     // pulls cls out of self), so it files its own result: object.__new__(C) and
                     // C.__new__(C) both owe C's __del__ (probe H).
