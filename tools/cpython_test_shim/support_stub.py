@@ -22,8 +22,6 @@ import warnings
 verbose = 0
 is_jython = is_android = is_emscripten = is_wasi = False
 Py_DEBUG = False
-MISSING_C_DOCSTRINGS = True
-HAVE_DOCSTRINGS = False
 SHORT_TIMEOUT = LONG_TIMEOUT = INTERNET_TIMEOUT = 30.0
 C_RECURSION_LIMIT = 3000
 EXCEEDS_RECURSION_LIMIT = 150000
@@ -110,6 +108,18 @@ def impl_detail(msg=None, **guards):
 
 def check_impl_detail(**guards):
     return guards.get("cpython", True) is True
+
+
+# Lib/test/support/__init__.py: _check_docstrings, MISSING_C_DOCSTRINGS, HAVE_DOCSTRINGS
+def _check_docstrings():
+    """Just used to check if docstrings are enabled"""
+
+MISSING_C_DOCSTRINGS = (check_impl_detail() and
+                        sys.platform != 'win32' and
+                        not __import__('sysconfig').get_config_var('WITH_DOC_STRINGS'))
+
+HAVE_DOCSTRINGS = (_check_docstrings.__doc__ is not None and
+                   not MISSING_C_DOCSTRINGS)
 
 
 SHORT_TIMEOUT = 30.0
@@ -232,8 +242,8 @@ def requires_working_socket(*, module=False):
     return unittest.skip("no sockets")
 
 
-def requires_docstrings(test):
-    return unittest.skip("no docstrings")(test)
+requires_docstrings = unittest.skipUnless(HAVE_DOCSTRINGS,
+                                          "test requires docstrings")
 
 
 def no_tracing(test):
