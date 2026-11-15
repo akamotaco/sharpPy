@@ -202,34 +202,26 @@ public static class PyIOBaseSlots
                 return PyNone.Instance;
             }, minArgs: 0, maxArgs: 0);
 
+        // _io__IOBase_seek_impl, _io__IOBase_truncate_impl: iobase_unsupported, open or closed.
         IOBaseType.TypeDict["seek"] = new PyMethodDescriptor(
-            "seek", IOBaseType, (self, args, kwargs) =>
-            {
-                CheckClosed(self);
-                throw PyUnsupportedOperation.Create("seek");
-            }, minArgs: 1, maxArgs: 2);
+            "seek", IOBaseType, (self, args, kwargs) => throw PyUnsupportedOperation.Create("seek"),
+            minArgs: 1, maxArgs: 2);
 
-        // _IOBase.tell reports the *seek* operation as unsupported (measured).
+        // _io__IOBase_tell_impl: self.seek(0, 1), the subclass's seek when it has one.
         IOBaseType.TypeDict["tell"] = new PyMethodDescriptor(
             "tell", IOBaseType, (self, args, kwargs) =>
-            {
-                CheckClosed(self);
-                throw PyUnsupportedOperation.Create("seek");
-            }, minArgs: 0, maxArgs: 0);
+                self.GetAttribute("seek").Call(new PyObject[] { PyInt.From(0), PyInt.From(1) }, null),
+            minArgs: 0, maxArgs: 0);
 
         IOBaseType.TypeDict["truncate"] = new PyMethodDescriptor(
-            "truncate", IOBaseType, (self, args, kwargs) =>
-            {
-                CheckClosed(self);
-                throw PyUnsupportedOperation.Create("truncate");
-            }, minArgs: 0, maxArgs: 1);
+            "truncate", IOBaseType, (self, args, kwargs) => throw PyUnsupportedOperation.Create("truncate"),
+            minArgs: 0, maxArgs: 1);
 
         // _io__IOBase_readline_impl: peek() says how far to read ahead, read() reads it.
         IOBaseType.TypeDict["readline"] = new PyMethodDescriptor(
             "readline", IOBaseType, (self, args, kwargs) =>
             {
                 long limit = PyArgs.OptionalSsize(args.Length > 0 ? args[0] : null);
-                CheckClosed(self);
                 PyObject peek = null;
                 try { peek = self.GetAttribute("peek"); }
                 catch (PythonException error) when (error.PyException is PyAttributeError) { }
@@ -480,19 +472,14 @@ public static class PyIOBaseSlots
             minArgs: 0, maxArgs: 0);
 
         // ---- _TextIOBase: read/write report unsupported rather than unimplemented.
+        // _io__TextIOBase_read_impl, _io__TextIOBase_write_impl: _unsupported, open or closed.
         TextIOBaseType.TypeDict["read"] = new PyMethodDescriptor(
-            "read", TextIOBaseType, (self, args, kwargs) =>
-            {
-                CheckClosed(self);
-                throw PyUnsupportedOperation.Create("read");
-            }, minArgs: 0, maxArgs: 1);
+            "read", TextIOBaseType, (self, args, kwargs) => throw PyUnsupportedOperation.Create("read"),
+            minArgs: 0, maxArgs: 1);
 
         TextIOBaseType.TypeDict["write"] = new PyMethodDescriptor(
-            "write", TextIOBaseType, (self, args, kwargs) =>
-            {
-                CheckClosed(self);
-                throw PyUnsupportedOperation.Create("write");
-            }, minArgs: 1, maxArgs: 1);
+            "write", TextIOBaseType, (self, args, kwargs) => throw PyUnsupportedOperation.Create("write"),
+            minArgs: 1, maxArgs: 1);
 
         foreach (var name in new[] { "encoding", "errors", "newlines" })
         {

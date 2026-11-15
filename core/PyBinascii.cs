@@ -180,15 +180,28 @@ namespace SharpPy
             return module;
         }
 
-        /// <summary>The CRC-32 binascii.crc32 and zlib.crc32 both compute.</summary>
-        internal static uint Crc32(byte[] data, uint crc)
+        // crc32.c's table: the CRC of each byte value, polynomial 0xedb88320.
+        private static readonly uint[] CrcTable = MakeCrcTable();
+
+        private static uint[] MakeCrcTable()
+        {
+            var table = new uint[256];
+            for (uint n = 0; n < 256; n++)
+            {
+                uint c = n;
+                for (int bit = 0; bit < 8; bit++)
+                    c = (c & 1) != 0 ? (c >> 1) ^ 0xEDB88320u : c >> 1;
+                table[n] = c;
+            }
+            return table;
+        }
+
+        /// <summary>The CRC-32 binascii.crc32 and zlib.crc32 both compute (crc32_z).</summary>
+        internal static uint Crc32(ReadOnlySpan<byte> data, uint crc)
         {
             crc = ~crc;
             foreach (byte b in data)
-            {
-                crc ^= b;
-                for (int bit = 0; bit < 8; bit++) crc = (crc >> 1) ^ (0xEDB88320u & (uint)-(int)(crc & 1));
-            }
+                crc = CrcTable[(crc ^ b) & 0xff] ^ (crc >> 8);
             return ~crc;
         }
 

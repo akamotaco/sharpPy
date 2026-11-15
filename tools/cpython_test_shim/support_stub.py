@@ -145,6 +145,22 @@ def requires_zlib(reason='requires zlib'):
     return unittest.skipUnless(zlib, reason)
 
 
+def requires_bz2(reason='requires bz2'):
+    try:
+        import bz2
+    except ImportError:
+        bz2 = None
+    return unittest.skipUnless(bz2, reason)
+
+
+def requires_lzma(reason='requires lzma'):
+    try:
+        import lzma
+    except ImportError:
+        lzma = None
+    return unittest.skipUnless(lzma, reason)
+
+
 def setswitchinterval(interval):
     return sys.setswitchinterval(interval)
 
