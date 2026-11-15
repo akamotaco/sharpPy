@@ -314,10 +314,8 @@ public class PyModule : PyObject
             // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
             ["_random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),  // random.py가 사용
             ["_codecs"] = () => SharpPy.Modules._CodecsModule.CreateCodecsModule(),
-            // CPython's binascii is Modules/binascii.c. Only the four primitives the hex and
-            // base64 codecs need exist here; Lib/encodings/hex_codec.py and base64_codec.py import
-            // this module, so it has a name of its own.
-            ["binascii"] = () => PyBinascii.CreateBinasciiModule(),  // codecs.py가 사용
+            // Modules/binascii.c (core/PyBinascii.cs).
+            ["binascii"] = () => PyBinascii.CreateBinasciiModule(),
             // CPython's gc is a built-in C module (Modules/gcmodule.c), so there is no Lib/gc.py
             // to copy: the surface and its refusals are implemented against measured behaviour.
             ["gc"] = () => SharpPy.Modules.GcModule.CreateGcModule(),

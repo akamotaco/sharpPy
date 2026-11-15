@@ -370,11 +370,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     // _PyCodec_LookupTextEncoding
     private static PyObject CodecInfo(string encoding)
     {
-        var info = PyImportSystem.Import("codecs").GetAttribute("lookup").Call(new PyObject[] { PyString.From(encoding) }, null);
-        var isText = info.LookupAttribute("_is_text_encoding");
-        if (isText != null && !isText.IsTrue())
-            throw PyLookupError.Create($"'{encoding}' is not a text encoding; use codecs.open() to handle arbitrary codecs");
-        return info;
+        return PyCodecRegistry.LookupTextEncoding(encoding, "codecs.open()");
     }
 
     private void SetDecoder(PyObject codecInfo, string errors)

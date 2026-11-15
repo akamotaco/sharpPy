@@ -115,9 +115,9 @@ namespace SharpPy
                 // but is not about text ('base64') is reported as such, a name nothing implements is
                 // the unknown encoding. Measured: str(b'ab', 'base64') ->
                 // LookupError: 'base64' is not a text encoding; use codecs.decode() ...
-                var viaRegistry = PyCodecRegistry.DecodeText(PyBytes.From(data), encodingName, errorName ?? "strict");
+                var viaRegistry = PyCodecRegistry.DecodeText(new PyMemoryView(data, readOnly: true), encodingName, errorName);  // PyMemoryView_FromBuffer
                 return viaRegistry is PyString text ? text.Value
-                    : throw PyTypeError.Create($"'{encodingName}' decoder returned '{viaRegistry.GetTypeName()}' instead of 'str'; use codecs.decode() to decode to arbitrary types");
+                    : throw PyTypeError.Create($"'{encodingName}' decoder returned '{viaRegistry.GetPyType().FullName}' instead of 'str'; use codecs.decode() to decode to arbitrary types");
             }
             switch (normalized)
             {
@@ -2949,11 +2949,19 @@ namespace SharpPy
                     // codecs.encode() to handle arbitrary codecs"), a registered text codec is
                     // called, and anything else is still CPython's LookupError naming the caller's
                     // spelling. Codecs with no implementation here stay in docs/known_gaps.md.
-                    PyObject viaRegistry = PyCodecRegistry.EncodeText(this, encoding, ctx.Errors);
-                    if (!(viaRegistry is PyBytes encoded))
-                        throw PyTypeError.Create(
-                            $"encoding with '{encoding}' must return bytes, not {viaRegistry.GetTypeName()}");
-                    return encoded;
+                    PyObject v = PyCodecRegistry.EncodeText(this, encoding, errors);
+                    // The normal path
+                    if (v is PyBytes encoded)
+                        return encoded;
+                    // If the codec returns a buffer, raise a warning and convert to bytes
+                    if (v is PyByteArray array)
+                    {
+                        PyWarnings.Warn(PyType.RuntimeWarningType,
+                            $"encoder {encoding} returned bytearray instead of bytes; use codecs.encode() to encode to arbitrary types", 1);
+                        return PyBytes.From(array.ToByteArrayCopy());
+                    }
+                    throw PyTypeError.Create(
+                        $"'{encoding}' encoder returned '{v.GetPyType().FullName}' instead of 'bytes'; use codecs.encode() to encode to arbitrary types");
             }
         }
 

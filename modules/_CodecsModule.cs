@@ -31,6 +31,23 @@ namespace SharpPy.Modules
             module.ModuleDict["utf_8_encode"] = new PyBuiltinFunction("utf_8_encode", PyUtf8Encode);
             module.ModuleDict["utf_8_decode"] = new PyBuiltinFunction("utf_8_decode", PyUtf8Decode);
 
+            // _codecs_utf_7_decode_impl and _codecs_utf_7_encode_impl
+            module.ModuleDict["utf_7_encode"] = PyArgs.FastCall("_codecs", "utf_7_encode", 1, 2, args =>
+            {
+                string text = TextOf(args[0], "utf_7_encode");
+                ErrorsArgument("utf_7_encode", args, 1);
+                return Result(PyBytes.From(Utf7Codec.Encode(text, false, false)), ((PyString)args[0]).CodePointLength());
+            });
+            module.ModuleDict["utf_7_decode"] = PyArgs.FastCall("_codecs", "utf_7_decode", 1, 3, args =>
+            {
+                var data = BufferArgument(args, "utf_7_decode");
+                string errors = ErrorsArgument("utf_7_decode", args, 1);
+                bool final = args.Length > 2 && args[2].IsTrue();
+                var consumed = final ? null : new[] { data.Length };
+                string decoded = Utf7Codec.Decode(data, errors, consumed);
+                return Result(PyString.From(decoded), consumed?[0] ?? data.Length);
+            });
+
             // Encoding functions - UTF-16
             module.ModuleDict["utf_16_encode"] = new PyBuiltinFunction("utf_16_encode", PyUtf16Encode);
             module.ModuleDict["utf_16_decode"] = new PyBuiltinFunction("utf_16_decode", PyUtf16Decode);
@@ -58,9 +75,10 @@ namespace SharpPy.Modules
             module.ModuleDict["latin_1_decode"] = new PyBuiltinFunction("latin_1_decode", PyLatin1Decode);
 
             // Encoding functions - other
-            module.ModuleDict["charmap_encode"] = new PyBuiltinFunction("charmap_encode", PyCharmapEncode);
-            module.ModuleDict["charmap_decode"] = new PyBuiltinFunction("charmap_decode", PyCharmapDecode);
-            module.ModuleDict["charmap_build"] = new PyBuiltinFunction("charmap_build", PyCharmapBuild);
+            module.ModuleDict["charmap_encode"] = PyArgs.FastCall("_codecs", "charmap_encode", 1, 3, PyCharmapEncode);
+            module.ModuleDict["charmap_decode"] = PyArgs.FastCall("_codecs", "charmap_decode", 1, 3, PyCharmapDecode);
+            // _codecs_charmap_build_impl: PyUnicode_BuildEncodingMap.
+            module.ModuleDict["charmap_build"] = PyArgs.MethO("_codecs", "charmap_build", a => CharmapCodec.BuildEncodingMap(TextOf(a[0], "charmap_build", "argument")));
             // MS_WINDOWS: the code page codecs (mbcs is CP_ACP, oem CP_OEMCP).
             if (OperatingSystem.IsWindows())
             {
@@ -71,6 +89,13 @@ namespace SharpPy.Modules
                 module.ModuleDict["code_page_encode"] = CodePageFunction("code_page_encode", 2, 3, a => CodePageEncode("code_page_encode", PyArgs.Int(a[0]), a, 1));
                 module.ModuleDict["code_page_decode"] = CodePageFunction("code_page_decode", 2, 4, a => CodePageDecode("code_page_decode", PyArgs.Int(a[0]), a, 1));
             }
+            // _codecs_readbuffer_encode_impl: data is Py_buffer(accept={str, buffer}).
+            module.ModuleDict["readbuffer_encode"] = PyArgs.FastCall("_codecs", "readbuffer_encode", 1, 2, args =>
+            {
+                var data = BytesMethods.StrOrBuffer(args[0]);
+                ErrorsArgument("readbuffer_encode", args, 1);
+                return Result(PyBytes.From((byte[])data.Clone()), data.Length);
+            });
             module.ModuleDict["escape_encode"] = new PyBuiltinFunction("escape_encode", PyEscapeEncode);
             module.ModuleDict["escape_decode"] = new PyBuiltinFunction("escape_decode", PyEscapeDecode);
             module.ModuleDict["unicode_escape_encode"] = new PyBuiltinFunction("unicode_escape_encode", PyUnicodeEscapeEncode);
@@ -115,25 +140,10 @@ namespace SharpPy.Modules
             // _codecs_encode's clinic: encode(obj, encoding='utf-8', errors='strict'), both by the str converter.
             var parsed = PyArgs.Unpack("encode", args, kwargs, new[] { "obj", "encoding", "errors" }, 0, 1, 3);
             var obj = parsed[0];
+            // c_default NULL: no encoding is PyUnicode_GetDefaultEncoding, no errors is not passed.
             string encoding = PyArgs.ClinicStr("encode", "argument 'encoding'", "str", parsed[1]) ?? "utf-8";
-            string errors = PyArgs.ClinicStr("encode", "argument 'errors'", "str", parsed[2]) ?? "strict";
-
-            // Registry first, like _codecsmodule.c: the codec answers for the name, so
-            // _codecs.encode(b'ab') reports utf_8_encode's own refusal and _codecs.encode('ab',
-            // 'rot13') reaches the non-text codec instead of being rejected as "not str". Like
-            // codec_encode in that file, the wrapper hands back the result and not the
-            // (result, consumed) pair the codec function returns.
-            return ResultOf(PyCodecRegistry.EncodeAny(obj, encoding, errors));
-        }
-
-        /// <summary>
-        /// _codecsmodule.c:82-107 extracts item 0 of the codec's (result, consumed) pair. Measured:
-        /// codecs.encode(b'ab','hex') is b'6162', not (b'6162', 2).
-        /// </summary>
-        private static PyObject ResultOf(PyObject codecResult)
-        {
-            if (codecResult is PyTuple pair && pair.Items.Length == 2) return pair.Items[0];
-            return codecResult;
+            string errors = PyArgs.ClinicStr("encode", "argument 'errors'", "str", parsed[2]);
+            return PyCodecRegistry.Encode(obj, encoding, errors);
         }
 
         // CPython 3.12: Modules/_codecsmodule.c:109-134 (codec_decode)
@@ -143,9 +153,8 @@ namespace SharpPy.Modules
             var parsed = PyArgs.Unpack("decode", args, kwargs, new[] { "obj", "encoding", "errors" }, 0, 1, 3);
             var obj = parsed[0];
             string encoding = PyArgs.ClinicStr("decode", "argument 'encoding'", "str", parsed[1]) ?? "utf-8";
-            string decErrors = PyArgs.ClinicStr("decode", "argument 'errors'", "str", parsed[2]) ?? "strict";
-
-            return ResultOf(PyCodecRegistry.DecodeAny(obj, encoding, decErrors));
+            string errors = PyArgs.ClinicStr("decode", "argument 'errors'", "str", parsed[2]);
+            return PyCodecRegistry.Decode(obj, encoding, errors);
         }
 
 
@@ -403,145 +412,23 @@ namespace SharpPy.Modules
 
         private static PyObject Result(PyObject value, int consumed) => PyTuple.From(new[] { value, PyInt.From(consumed) });
 
-        // PyUnicode_DecodeCharmap: a str maps by index, U+FFFE is undefined; anything else by lookup
-        private static PyObject PyCharmapDecode(PyObject[] args, PyDict kwargs = null)
+        // _codecs_charmap_decode_impl: a None mapping is Latin-1.
+        private static PyObject PyCharmapDecode(PyObject[] args)
         {
-            var data = ByteArrayOf(args[0]);
-            string errors = ErrorsOf(args, 1);
-            PyObject mapping = args.Length > 2 ? args[2] : PyNone.Instance;
-            var result = new StringBuilder(data.Length);
-            for (int i = 0; i < data.Length; i++)
-            {
-                int ch = -1;
-                if (mapping is PyNone)
-                    ch = data[i];
-                else if (mapping is PyString table)
-                {
-                    if (i >= 0 && data[i] < table.Value.Length && table.Value[data[i]] != '￾')
-                        ch = table.Value[data[i]];
-                }
-                else
-                {
-                    PyObject item = null;
-                    try
-                    {
-                        item = mapping.GetItem(PyInt.From(data[i]));
-                    }
-                    catch (PythonException error) when (error.PyException is SharpPy.PyLookupError)
-                    {
-                    }
-                    if (item is PyString text)
-                    {
-                        result.Append(text.Value);
-                        continue;
-                    }
-                    if (item is PyInt number)
-                        ch = number.ToInt();
-                }
-                if (ch >= 0)
-                {
-                    result.Append(PyString.CodePointText(ch));
-                    continue;
-                }
-                switch (errors)
-                {
-                    case "ignore":
-                        break;
-                    case "replace":
-                        result.Append('�');
-                        break;
-                    case "backslashreplace":
-                        result.Append($"\\x{data[i]:x2}");
-                        break;
-                    case "surrogateescape":
-                        result.Append((char)(0xDC00 + data[i]));
-                        break;
-                    case "strict":
-                        throw PyUnicodeDecodeError.Failure("charmap", data, i, i + 1, "character maps to <undefined>");
-                    default:
-                        i = PyCodecErrors.CallDecode(errors, "charmap", "character maps to <undefined>", ref data, i, i + 1, result) - 1;
-                        break;
-                }
-            }
-            return Result(PyString.From(result.ToString()), data.Length);
+            var data = BufferArgument(args, "charmap_decode");
+            string errors = ErrorsArgument("charmap_decode", args, 1);
+            PyObject mapping = args.Length > 2 && args[2] is not PyNone ? args[2] : null;
+            return Result(PyString.From(CharmapCodec.Decode(data, mapping, errors)), data.Length);
         }
 
-        // PyUnicode_EncodeCharmap
-        private static PyObject PyCharmapEncode(PyObject[] args, PyDict kwargs = null)
+        // _codecs_charmap_encode_impl: a None mapping is Latin-1 (unicode_encode_ucs1).
+        private static PyObject PyCharmapEncode(PyObject[] args)
         {
-            string text = TextOf(args[0], "charmap_encode");
-            string errors = ErrorsOf(args, 1);
-            PyObject mapping = args.Length > 2 ? args[2] : PyNone.Instance;
-            var result = new List<byte>(text.Length);
-            int position = 0;
-
-            bool Write(int cp)
-            {
-                if (mapping is PyNone)
-                {
-                    if (cp < 256)
-                        result.Add((byte)cp);
-                    return cp < 256;
-                }
-                PyObject item;
-                try
-                {
-                    item = mapping.GetItem(PyInt.From(cp));
-                }
-                catch (PythonException error) when (error.PyException is SharpPy.PyLookupError)
-                {
-                    return false;
-                }
-                if (item is PyInt number)
-                    result.Add((byte)number.ToInt());
-                else if (item is PyBytes bytes)
-                    result.AddRange(bytes.Value);
-                else
-                    return false;
-                return true;
-            }
-
-            for (int i = 0; i < text.Length; position++)
-            {
-                int cp = PyString.CodePointAt(text, i, out int width);
-                if (!Write(cp))
-                {
-                    switch (errors)
-                    {
-                        case "ignore":
-                            break;
-                        case "replace":
-                            Write('?');
-                            break;
-                        case "xmlcharrefreplace":
-                            result.AddRange(Encoding.ASCII.GetBytes($"&#{cp};"));
-                            break;
-                        case "backslashreplace":
-                            result.AddRange(Encoding.ASCII.GetBytes(cp > 0xFFFF ? $"\\U{cp:x8}" : cp > 0xFF ? $"\\u{cp:x4}" : $"\\x{cp:x2}"));
-                            break;
-                        default:
-                            throw PyUnicodeEncodeError.Failure("charmap", text, position, position + 1, "character maps to <undefined>");
-                    }
-                }
-                i += width;
-            }
-            return Result(PyBytes.From(result.ToArray()), position);
-        }
-
-        // PyUnicode_BuildEncodingMap: the reverse table, a dict here
-        private static PyObject PyCharmapBuild(PyObject[] args, PyDict kwargs = null)
-        {
-            string table = TextOf(args[0], "charmap_build", "argument");
-            var map = new PyDict();
-            int index = 0;
-            for (int i = 0; i < table.Length; index++)
-            {
-                int cp = PyString.CodePointAt(table, i, out int width);
-                if (cp != 0xFFFE)
-                    map.SetItem(PyInt.From(cp), PyInt.From(index));
-                i += width;
-            }
-            return map;
+            var str = args[0] as PyString ?? throw PyArgs.BadArgument("charmap_encode", "argument 1", "str", args[0]);
+            string errors = ErrorsArgument("charmap_encode", args, 1);
+            PyObject mapping = args.Length > 2 && args[2] is not PyNone ? args[2] : null;
+            var encoded = mapping == null ? str.Encode("latin-1", errors) : PyBytes.From(CharmapCodec.Encode(str.Value, mapping, errors));
+            return Result(encoded, str.CodePointLength());
         }
 
         // PyBytes_Repr without the quotes around it

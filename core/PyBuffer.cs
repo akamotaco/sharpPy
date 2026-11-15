@@ -711,7 +711,7 @@ namespace SharpPy
             CheckReleased();
             return _data is IBufferExporter exporter
                 ? new ExportedView(exporter, _readonly, _itemsize, _offset, _length, _stride, _fmt, _shape)
-                : new PyMemoryView(_data, _readonly, _itemsize, _offset, _length, _stride, _fmt);
+                : new PyMemoryView(_data, _readonly, _itemsize, _offset, _length, _stride, _fmt, _shape, _exportee);
         }
 
         public byte[] Data

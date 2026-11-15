@@ -71,9 +71,21 @@ namespace SharpPy
             return BytesSlot(value) ?? PyBytes.From(FromObject(value, "bytes"));
         }
 
-        /// <summary>PyObject_GetBuffer, the Py_buffer converter: what any buffer holds, else its refusal.</summary>
+        /// <summary>
+        /// PyObject_GetBuffer(value, PyBUF_SIMPLE): what any buffer holds, null when it is none. A
+        /// memoryview's memory_getbuf refuses a view that is not C-contiguous for a request
+        /// without PyBUF_STRIDES.
+        /// </summary>
+        internal static byte[] SimpleBuffer(PyObject value)
+        {
+            if (value is PyMemoryView view && !view.IsCContiguous)
+                throw PyBufferError.Create("memoryview: underlying buffer is not C-contiguous");
+            return Buffer(value);
+        }
+
+        /// <summary>The clinic's Py_buffer converter: PyBUF_SIMPLE, else its refusal.</summary>
         internal static byte[] RequireBuffer(PyObject value) =>
-            Buffer(value) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{value.GetTypeName()}'");
+            SimpleBuffer(value) ?? throw PyTypeError.Create($"a bytes-like object is required, not '{value.GetTypeName()}'");
 
         /// <summary>Py_buffer(accept={str, buffer}): a str is its UTF-8 (PyUnicode_AsUTF8AndSize).</summary>
         internal static byte[] StrOrBuffer(PyObject value) =>

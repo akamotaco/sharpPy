@@ -352,6 +352,25 @@ namespace SharpPy
         public static readonly PyType OverflowErrorType = new PyType("OverflowError", new[] { ArithmeticErrorType });
         public static readonly PyType FloatingPointErrorType = new PyType("FloatingPointError", new[] { ArithmeticErrorType });
         
+        /// <summary>BaseException_add_note (and _PyException_AddNote): __notes__ is an ordinary attribute.</summary>
+        internal static PyObject AddNote(PyObject self, PyObject note)
+        {
+            if (!(note is PyString))
+                throw PyTypeError.Create($"note must be a str, not '{note.GetTypeName()}'");
+            PyObject notes = null;
+            try { notes = self.GetAttribute("__notes__"); }
+            catch (PythonException error) when (error.PyException is PyAttributeError) { }
+            if (notes == null)
+            {
+                notes = new PyList();
+                self.SetAttribute("__notes__", notes);
+            }
+            if (!(notes is PyList list))
+                throw PyTypeError.Create("Cannot add note: __notes__ is not a list");
+            list.Append(note);
+            return PyNone.Instance;
+        }
+
         public static readonly PyType LookupErrorType = new PyType("LookupError", new[] { ExceptionType });
         public static readonly PyType IndexErrorType = new PyType("IndexError", new[] { LookupErrorType });
         public static readonly PyType KeyErrorType = new PyType("KeyError", new[] { LookupErrorType });
@@ -3211,23 +3230,7 @@ namespace SharpPy
                 (self, value) => Head(self).SuppressContextSet(value), deleter: self => Head(self).SuppressContextSet(null));
 
             // BaseException_add_note: __notes__ is an ordinary attribute of the exception.
-            TypeDict["add_note"] = new PyMethodDescriptor("add_note", this, (self, args, kwargs) =>
-            {
-                if (!(args[0] is PyString))
-                    throw PyTypeError.Create($"note must be a str, not '{args[0].GetTypeName()}'");
-                PyObject notes = null;
-                try { notes = self.GetAttribute("__notes__"); }
-                catch (PythonException error) when (error.PyException is PyAttributeError) { }
-                if (notes == null)
-                {
-                    notes = new PyList();
-                    self.SetAttribute("__notes__", notes);
-                }
-                if (!(notes is PyList list))
-                    throw PyTypeError.Create("Cannot add note: __notes__ is not a list");
-                list.Append(args[0]);
-                return PyNone.Instance;
-            }, 1, 1);
+            TypeDict["add_note"] = new PyMethodDescriptor("add_note", this, (self, args, kwargs) => AddNote(self, args[0]), 1, 1);
 
             TypeDict["with_traceback"] = new PyMethodDescriptor("with_traceback", this, (self, args, kwargs) =>
             {
