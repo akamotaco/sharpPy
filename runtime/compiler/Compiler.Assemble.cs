@@ -12,14 +12,27 @@ namespace SharpPy
 
         // _PyParser_ASTFromString
         // fileInput: _PyParser_ASTFromFile, the script pyrun_file runs; anything else is a string.
-        public static GeneratedMod Parse(string source, string filename, CompileMode mode, int flags = 0, bool fileInput = false)
+        internal const int PyCF_TYPE_COMMENTS = 0x1000;
+
+        // PY_MINOR_VERSION
+        internal const int PyMinorVersion = 12;
+
+        public static GeneratedMod Parse(string source, string filename, CompileMode mode, int flags = 0, bool fileInput = false,
+            int featureVersion = Compiler.PyMinorVersion)
         {
-            var tok = new Tokenizer(source, execInput: mode == CompileMode.File, filename: filename, fileInput: fileInput);
-            var parser = new PyParser(tok, filename, source, mode, flags);
+            // _PyPegen_compute_parser_flags: PyPARSE_ASYNC_HACKS below 3.7
+            var tok = new Tokenizer(source, execInput: mode == CompileMode.File, filename: filename, fileInput: fileInput)
+            {
+                AsyncHacks = featureVersion < 7,
+                // PyPARSE_TYPE_COMMENTS
+                TypeComments = (flags & PyCF_TYPE_COMMENTS) != 0,
+            };
+            var parser = new PyParser(tok, filename, source, mode, flags) { FeatureVersion = featureVersion };
             return mode switch
             {
                 CompileMode.Eval => parser.ParseEval(),
                 CompileMode.Single => parser.ParseInteractive(),
+                CompileMode.FuncType => parser.ParseFuncType(),
                 _ => parser.ParseFile(),
             };
         }

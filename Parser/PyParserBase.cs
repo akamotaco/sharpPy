@@ -46,6 +46,12 @@ namespace SharpPy.Generated
         protected readonly Tokenizer _tok;
         private readonly CompileMode _startRule;
         private int _flags;
+
+        /// <summary>
+        /// Parser.feature_version: the minor version whose grammar is accepted. _PyPegen_run_parser_from_string
+        /// passes cf_feature_version under PyCF_ONLY_AST, else PY_MINOR_VERSION.
+        /// </summary>
+        internal int FeatureVersion { get; set; } = Compiler.PyMinorVersion;
         private bool _parsingStarted;
 
         // Left-recursion handling (Warth et al. algorithm)
@@ -78,6 +84,13 @@ namespace SharpPy.Generated
         private void FillNextToken()
         {
             var token = _tok.Get();
+            // Record and skip '# type: ignore' comments: the tag is the token's bytes
+            // (end_col_offset - col_offset of them, from its start), at the tokenizer's line.
+            while (token.Type == PyToken.Type.TYPE_IGNORE)
+            {
+                _typeIgnoreComments.Add((_tok.Lineno, Utf8Prefix(_tok.Buffer, token.StartIndex, token.EndColumn - token.Column)));
+                token = _tok.Get();
+            }
             // At the end, single input mode needs a newline.
             if (_startRule == CompileMode.Single && token.Type == PyToken.Type.ENDMARKER && _parsingStarted)
             {
@@ -94,6 +107,37 @@ namespace SharpPy.Generated
             _tokens.Add(token);
             if (token.Type == PyToken.Type.ERRORTOKEN)
                 TokenizerError();
+        }
+
+        // p->type_ignore_comments
+        private readonly List<(int Lineno, string Comment)> _typeIgnoreComments = new();
+
+        // strncpy of length bytes: the characters whose UTF-8 form fits in them.
+        private static string Utf8Prefix(string text, int start, int length)
+        {
+            int end = start, bytes = 0;
+            while (end < text.Length && bytes < length)
+            {
+                int width = char.IsHighSurrogate(text[end]) && end + 1 < text.Length && char.IsLowSurrogate(text[end + 1]) ? 4
+                    : text[end] < 0x80 ? 1 : text[end] < 0x800 ? 2 : 3;
+                bytes += width;
+                end += width == 4 ? 2 : 1;
+            }
+            return text.Substring(start, end - start);
+        }
+
+        // _PyPegen_make_module: the recorded (comment, lineno) pairs become the TypeIgnore nodes.
+        protected GeneratedMod MakeModule(GeneratedStmtSeq? body)
+        {
+            var module = PyParserRuntime.MakeModule(body);
+            if (_typeIgnoreComments.Count > 0)
+            {
+                var typeIgnores = new GeneratedTypeIgnoreSeq(_typeIgnoreComments.Count);
+                foreach (var (lineno, comment) in _typeIgnoreComments)
+                    typeIgnores.Add(PyAst.TypeIgnore(lineno, comment));
+                module.TypeIgnores = typeIgnores;
+            }
+            return module;
         }
 
         protected GeneratedTokenInfo CurrentToken
@@ -519,6 +563,9 @@ namespace SharpPy.Generated
             var constant = new GeneratedConstant { LineNo = token.Line, ColOffset = token.Column, EndLineNo = token.EndLine, EndColOffset = token.EndColumn };
             // CPython 3.12: Parse number value (decimal, hex, octal, binary, float)
             string value = token.Value;
+            // _PyPegen_number_token
+            if (FeatureVersion < 6 && value.Contains('_'))
+                RaiseSyntaxError("Underscores in numeric literals are only supported in Python 3.6 and greater");
 
             // PEP 515: Remove underscores from numeric literals (Python 3.6+)
             // Underscores are allowed in all numeric literals for readability
@@ -668,7 +715,7 @@ namespace SharpPy.Generated
         private static string Format(string format, object[] args)
         {
             int next = 0;
-            return System.Text.RegularExpressions.Regex.Replace(format, @"%(?:\.\d+)?[sUcRd]",
+            return System.Text.RegularExpressions.Regex.Replace(format, @"%(?:\.\d+)?[sUcRdi]",
                 match => next < args.Length ? args[next++]?.ToString() ?? "" : match.Value);
         }
 
@@ -1198,17 +1245,11 @@ namespace SharpPy.Generated
         /// </summary>
         protected T? CheckVersion<T>(int version, string message, T? node) where T : class
         {
-            // SharpPy targets Python 3.12, so all features up to 3.12 are enabled
-            // version parameter is the Python minor version (e.g., 10 for Python 3.10, 12 for Python 3.12)
-            // In CPython, this would raise RAISE_SYNTAX_ERROR_STARTING_FROM for older versions
-            const int CURRENT_VERSION = 12; // Python 3.12
-
-            if (version > CURRENT_VERSION)
-            {
-                // Feature requires a newer Python version
-                throw new SyntaxErrorException($"{message} requires Python 3.{version} or newer");
-            }
-
+            // INVALID_VERSION_CHECK
+            if (node == null)
+                return null;
+            if (FeatureVersion < version)
+                RaiseSyntaxError("%s only supported in Python 3.%i and greater", message, version);
             return node;
         }
 

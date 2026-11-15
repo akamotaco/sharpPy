@@ -1043,27 +1043,37 @@ namespace SharpPy
             int compileFlags = args[3] == null ? 0 : PyArgs.Int(args[3]);
             bool dontInherit = args[4] != null && args[4].IsTrue();
             int optimizeLevel = args[5] == null ? -1 : PyArgs.Int(args[5]);
+            int featureVersion = args[6] == null ? -1 : PyArgs.Int(args[6]);
             // builtin_compile_impl: PyCF_MASK, PyCF_MASK_OBSOLETE and PyCF_COMPILE_MASK.
             if ((compileFlags & ~(0x1FE0000 | 0x10 | 0x400 | 0x200 | 0x1000 | 0x2000 | 0x4000)) != 0)
                 throw PyValueError.Create("compile(): unrecognised flags");
 
-            // Validate mode
-            if (mode != "exec" && mode != "eval" && mode != "single")
-                throw PyValueError.Create($"compile() mode must be 'exec', 'eval' or 'single', not '{mode}'");
+            if (optimizeLevel < -1 || optimizeLevel > 2)
+                throw PyValueError.Create("compile(): invalid optimize value");
+            if (!dontInherit)
+                compileFlags |= InheritedCompilerFlags();
 
-            // If source is already a code object, return it as-is (CPython behavior)
-            if (source is PyCodeObject pyCode)
-                return pyCode;
+            CompileMode compileMode;
+            if (mode == "exec")
+                compileMode = CompileMode.File;
+            else if (mode == "eval")
+                compileMode = CompileMode.Eval;
+            else if (mode == "single")
+                compileMode = CompileMode.Single;
+            else if (mode == "func_type")
+            {
+                if ((compileFlags & PythonAst.PyCF_ONLY_AST) == 0)
+                    throw PyValueError.Create("compile() mode 'func_type' requires flag PyCF_ONLY_AST");
+                compileMode = CompileMode.FuncType;
+            }
+            else
+                throw PyValueError.Create((compileFlags & PythonAst.PyCF_ONLY_AST) != 0
+                    ? "compile() mode must be 'exec', 'eval', 'single' or 'func_type'"
+                    : "compile() mode must be 'exec', 'eval' or 'single'");
 
-            // builtin_compile_impl: flags, dont_inherit, optimize, and a tree in place of text.
+            // optimize -1 is the interpreter's own level (sys.flags.optimize, 0 here)
             if (optimizeLevel < 0)
                 optimizeLevel = 0;
-            var compileMode = mode switch
-            {
-                "eval" => CompileMode.Eval,
-                "single" => CompileMode.Single,
-                _ => CompileMode.File,
-            };
             if (PythonAst.IsAst(source))
             {
                 if ((compileFlags & PythonAst.PyCF_ONLY_AST) != 0)
@@ -1071,19 +1081,19 @@ namespace SharpPy
                 // builtin_compile_impl: PyAST_obj2mod, then _PyAST_Validate before compiling.
                 var mod = PythonAst.ObjectToMod(source, compileMode);
                 AstValidator.Validate(mod);
-                return Compiler.Compile(mod, filename, optimizeLevel, null);
+                return Compiler.Compile(mod, filename, optimizeLevel, null, compileFlags);
             }
 
             string sourceCode = SourceAsString(source, "compile", "string, bytes or AST", compileMode == CompileMode.File, filename);
-            if (!dontInherit)
-                compileFlags |= InheritedCompilerFlags();
 
             PyCodeObject codeObject;
 
             try
             {
+                // builtin_compile_impl: cf_feature_version only for an AST with feature_version >= 0.
                 if ((compileFlags & PythonAst.PyCF_ONLY_AST) != 0)
-                    return PythonAst.ModToObject(Compiler.Parse(sourceCode, filename, compileMode, compileFlags));
+                    return PythonAst.ModToObject(Compiler.Parse(sourceCode, filename, compileMode, compileFlags,
+                        featureVersion: featureVersion >= 0 ? featureVersion : Compiler.PyMinorVersion));
                 codeObject = Compiler.CompileSource(sourceCode, filename, compileMode, optimizeLevel, compileFlags);
             }
             catch (Exception ex)

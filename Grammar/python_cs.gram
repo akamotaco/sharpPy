@@ -81,7 +81,7 @@ public GeneratedMod ParseFuncType() => (GeneratedMod)RunParser(Parse_FuncType);
 # - [expr_ty] → [GeneratedExpr] (single expression)
 
 # CPython: file[mod_ty]: a=[statements] ENDMARKER { MakeModule(p, a) }
-file[GeneratedMod]: a=[statements] ENDMARKER { (GeneratedMod)PyParserRuntime.MakeModule((GeneratedStmtSeq?)a) }
+file[GeneratedMod]: a=[statements] ENDMARKER { MakeModule((GeneratedStmtSeq?)a) }
 
 # CPython: interactive[mod_ty]: a=statement_newline { _PyAST_Interactive(a, p->arena) }
 interactive[GeneratedMod]: a=statement_newline { (GeneratedMod)PyAst.Interactive((GeneratedStmtSeq)a) }

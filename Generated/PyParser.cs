@@ -82,7 +82,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return ( GeneratedMod ) PyParserRuntime . MakeModule (( GeneratedStmtSeq ?) a );
+                    return MakeModule (( GeneratedStmtSeq ?) a );
                 }
             }
 
@@ -22792,8 +22792,6 @@ namespace SharpPy.Generated
             "and",
             "as",
             "assert",
-            "async",
-            "await",
             "break",
             "class",
             "continue",
@@ -22866,8 +22864,6 @@ namespace SharpPy.Generated
             },
             new Dictionary<string, PyToken.Type>
             {
-                { "async", (PyToken.Type)57 },
-                { "await", (PyToken.Type)56 },
                 { "break", (PyToken.Type)508 },
                 { "class", (PyToken.Type)514 },
                 { "False", (PyToken.Type)527 },

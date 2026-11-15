@@ -20,11 +20,11 @@ namespace SharpPy.Generated
         /// </summary>
         public static GeneratedNameDefaultPair NameDefaultPair(GeneratedArg arg, GeneratedExpr defaultValue, GeneratedTokenInfo? typeComment)
         {
+            // _PyPegen_name_default_pair: the type comment goes on the arg
             return new GeneratedNameDefaultPair
             {
-                Arg = arg,
+                Arg = AddTypeCommentToArg(arg, typeComment),
                 Default = defaultValue,
-                TypeComment = typeComment?.Value
             };
         }
 

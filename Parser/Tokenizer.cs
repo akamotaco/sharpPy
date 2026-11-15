@@ -238,7 +238,8 @@ namespace SharpPy.Generated
     /// <summary>
     /// Parser/tokenizer.c of CPython v3.12.15. The parser asks for one token at a time (_PyTokenizer_Get),
     /// so an error further on is only seen if the parser gets there. The buffer is UTF-16, the columns
-    /// count UTF-8 bytes as CPython's do. async and await stay NAME: the parser's keyword table sorts them.
+    /// count UTF-8 bytes as CPython's do. async and await are the ASYNC and AWAIT tokens, as tok_get_normal_mode
+    /// makes them (with AsyncHacks, only in front of def and inside an async def).
     /// </summary>
     public sealed class Tokenizer
     {
@@ -289,6 +290,17 @@ namespace SharpPy.Generated
         public State Done = State.E_OK;
         public PythonException Error;
         public bool ReportWarnings;
+
+        /// <summary>tok->async_hacks: async and await are not always keywords (feature_version below 3.7).</summary>
+        public bool AsyncHacks;
+
+        /// <summary>tok->type_comments: '# type: ...' is a TYPE_COMMENT or a TYPE_IGNORE token.</summary>
+        public bool TypeComments;
+
+        private const string TypeCommentPrefix = "# type: ";
+        private bool _asyncDef;      // =1 if tokens are inside an 'async def' body
+        private int _asyncDefIndent; // indentation level of the outermost 'async def'
+        private bool _asyncDefNl;    // =1 if the outermost 'async def' had at least one NEWLINE token after it
         private int _colOffset;
         private int _startingColOffset = -1;
         private bool _atbol = true;
@@ -1108,6 +1120,91 @@ namespace SharpPy.Generated
             return MakeToken(PyToken.Type.NUMBER);
         }
 
+        // The look ahead of the async/await block: a copy of the state (memcpy of tok_state) reads
+        // one token, and only whether it is the NAME 'def' is kept.
+        private bool AheadIsDef(Mode currentTok)
+        {
+            var ahead = (Tokenizer)MemberwiseClone();
+            ahead.ReportWarnings = false;
+            try
+            {
+                var token = ahead.GetNormalMode(currentTok);
+                return token.Type == PyToken.Type.NAME && ahead.Cur - ahead.Start == 3
+                    && string.CompareOrdinal(_str, ahead.Start, "def", 0, 3) == 0;
+            }
+            catch (PythonException)
+            {
+                return false;
+            }
+        }
+
+        // The type comment part of the comment branch: '#', then 'type:' with any spaces and tabs
+        // where the prefix has its one space. c is the character after the comment, still unread
+        // by the token. Null when the comment is not a type comment.
+        private GeneratedTokenInfo TypeComment(int c, bool blankline)
+        {
+            int p = Start;
+            int currentStartingColOffset = _startingColOffset;
+            int prefix = 0;
+            while (prefix < TypeCommentPrefix.Length && p < Cur)
+            {
+                if (TypeCommentPrefix[prefix] == ' ')
+                {
+                    while (p < _str.Length && (_str[p] == ' ' || _str[p] == '\t'))
+                    {
+                        p++;
+                        currentStartingColOffset++;
+                    }
+                }
+                else if (TypeCommentPrefix[prefix] == _str[p])
+                {
+                    p++;
+                    currentStartingColOffset++;
+                }
+                else
+                    break;
+                prefix++;
+            }
+            // a type comment if all of the prefix matched
+            if (prefix < TypeCommentPrefix.Length)
+                return null;
+
+            // +6 in order to skip the word 'ignore'
+            int ignoreEnd = p + 6;
+            int ignoreEndColOffset = currentStartingColOffset + 6;
+            Backup(c); // don't eat the newline or EOF
+            int typeStart = p;
+
+            // A TYPE_IGNORE is "type: ignore" followed by the end of the token or anything ASCII and
+            // non-alphanumeric.
+            bool isTypeIgnore = Cur >= ignoreEnd && string.CompareOrdinal(_str, p, "ignore", 0, 6) == 0
+                && !(Cur > ignoreEnd && (_str[ignoreEnd] >= 128 || char.IsAsciiLetterOrDigit(_str[ignoreEnd])));
+            if (isTypeIgnore)
+            {
+                _pStart = ignoreEnd;
+                _pEnd = Cur;
+                // If this type ignore is the only thing on the line, consume the newline also.
+                if (blankline)
+                {
+                    NextC();
+                    _atbol = true;
+                }
+                return TypeCommentToken(PyToken.Type.TYPE_IGNORE, ignoreEndColOffset, _colOffset);
+            }
+            _pStart = typeStart;
+            _pEnd = Cur;
+            return TypeCommentToken(PyToken.Type.TYPE_COMMENT, currentStartingColOffset, _colOffset);
+        }
+
+        // type_comment_token_setup: the columns are the ones given.
+        private GeneratedTokenInfo TypeCommentToken(PyToken.Type type, int colOffset, int endColOffset)
+        {
+            var token = MakeToken(type);
+            token.Column = colOffset;
+            token.EndColumn = endColOffset;
+            return token;
+        }
+
         // tok_get_normal_mode
         private GeneratedTokenInfo GetNormalMode(Mode currentTok)
         {
@@ -1222,6 +1319,14 @@ namespace SharpPy.Generated
             // Peek ahead at the next character
             c = NextC();
             Backup(c);
+            // Check if we are closing an async function: past the signature (a NEWLINE after
+            // ASYNC DEF), outside brackets, at an indentation no deeper than the async def's.
+            if (_asyncDef && !blankline && c != '\n' && Level == 0 && _asyncDefNl && _asyncDefIndent >= Indent)
+            {
+                _asyncDef = false;
+                _asyncDefIndent = 0;
+                _asyncDefNl = false;
+            }
 
         again:
             Start = -1;
@@ -1235,11 +1340,13 @@ namespace SharpPy.Generated
             Start = Cur - 1;
             _startingColOffset = c == EOF ? _colOffset - 1 : _colOffset - ByteWidth(c);
 
-            // Skip comment
+            // Skip comment, unless it's a type comment
             if (c == '#')
             {
                 while (c != EOF && c != '\n' && c != '\r')
                     c = NextC();
+                if (TypeComments && TypeComment(c, blankline) is GeneratedTokenInfo typeComment)
+                    return typeComment;
                 if (_extraTokens)
                 {
                     Backup(c);
@@ -1293,6 +1400,27 @@ namespace SharpPy.Generated
                 if (nonascii && !VerifyIdentifier())
                     return MakeToken(PyToken.Type.ERRORTOKEN);
                 TakeToken(Cur);
+
+                // async/await parsing block: from 3.7 always the keywords; with AsyncHacks 'async'
+                // in front of 'def', and either one inside an 'async def'.
+                if (Cur - Start == 5 && _str[Start] == 'a')
+                {
+                    string word = _str.Substring(Start, 5);
+                    if (!AsyncHacks || _asyncDef)
+                    {
+                        if (word == "async")
+                            return MakeToken(PyToken.Type.ASYNC);
+                        if (word == "await")
+                            return MakeToken(PyToken.Type.AWAIT);
+                    }
+                    else if (word == "async" && AheadIsDef(currentTok))
+                    {
+                        // the next token is 'def': ASYNC, not a plain NAME
+                        _asyncDefIndent = Indent;
+                        _asyncDef = true;
+                        return MakeToken(PyToken.Type.ASYNC);
+                    }
+                }
                 return MakeToken(PyToken.Type.NAME);
             }
 
@@ -1321,6 +1449,9 @@ namespace SharpPy.Generated
                 }
                 TakeToken(Cur - 1); // Leave '\n' out of the string
                 _contLine = false;
+                // somewhere inside an 'async def', a NEWLINE after its signature
+                if (_asyncDef)
+                    _asyncDefNl = true;
                 return MakeToken(PyToken.Type.NEWLINE);
             }
 

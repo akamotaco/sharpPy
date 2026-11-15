@@ -94,24 +94,9 @@ public class KeywordExtractor
                 ExtractFromAtom(gather.Item, hard, soft);
                 break;
 
-            case Token token:
-                // ASYNC and AWAIT tokens represent 'async' and 'await' keywords
-                // These are special context-sensitive keywords with fixed token numbers from Grammar/Tokens
-                // Use PyToken.GetTypeValue to get actual enum values from generated PyTokens.cs
-                if (token.TokenType == "ASYNC")
-                {
-                    if (!hard.ContainsKey("async"))
-                    {
-                        hard["async"] = PyToken.GetTypeValue("ASYNC");
-                    }
-                }
-                else if (token.TokenType == "AWAIT")
-                {
-                    if (!hard.ContainsKey("await"))
-                    {
-                        hard["await"] = PyToken.GetTypeValue("AWAIT");
-                    }
-                }
+            case Token:
+                // ASYNC and AWAIT are tokens the tokenizer makes (tok_get_normal_mode), not keywords:
+                // parser.c's reserved_keywords has neither.
                 break;
 
             case RuleRef:

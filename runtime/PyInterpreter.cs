@@ -20,7 +20,11 @@ namespace SharpPy
 
         // Include/compile.h:8
         // #define Py_single_input 256
-        Single = 256     // single mode: single statement/expression (REPL, prints expr result)
+        Single = 256,    // single mode: single statement/expression (REPL, prints expr result)
+
+        // Include/compile.h:11
+        // #define Py_func_type_input 345
+        FuncType = 345   // func_type mode: a function type comment, '(argtypes) -> returns'
     }
 
     #region Interpreter Integration (기존 시스템과 통합)

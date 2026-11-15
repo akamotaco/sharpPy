@@ -137,7 +137,9 @@ namespace SharpPy.Modules
                         lineno = endLineno = lineno + 1;
                         column = endColumn = 0;
                     }
-                    if (type == PyToken.Type.NEWLINE)
+                    if (type is PyToken.Type.ASYNC or PyToken.Type.AWAIT)
+                        type = PyToken.Type.NAME;
+                    else if (type == PyToken.Type.NEWLINE)
                     {
                         if (!ImplicitNewline)
                             text = _tok.Buffer[_tok.Start] == '\r' ? "\r\n" : "\n";

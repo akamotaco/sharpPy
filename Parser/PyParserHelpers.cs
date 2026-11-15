@@ -1969,7 +1969,6 @@ namespace SharpPy.Generated
     {
         public GeneratedArg Arg { get; set; }
         public GeneratedExpr Default { get; set; }
-        public string? TypeComment { get; set; }
     }
 
     public class GeneratedKeyPatternPair : GeneratedPtr

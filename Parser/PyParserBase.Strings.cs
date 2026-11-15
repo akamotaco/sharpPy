@@ -53,11 +53,15 @@ namespace SharpPy.Generated
                 colOffset += quoteCount;
             }
 
+            // the category is SyntaxWarning from 3.12, DeprecationWarning before
+            string category = FeatureVersion >= 12 ? "SyntaxWarning" : "DeprecationWarning";
             try
             {
-                Compiler.WarnExplicit("SyntaxWarning", message, _filename, lineno);
+                Compiler.WarnExplicit(category, message, _filename, lineno);
             }
-            catch (PythonException error) when (error.PyException.GetTypeName() == "SyntaxWarning")
+            // PyErr_ExceptionMatches(category)
+            catch (PythonException error) when (error.PyException.GetPyType().IsSubclassOf(
+                category == "SyntaxWarning" ? PyType.SyntaxWarningType : PyType.DeprecationWarningType))
             {
                 _knownErrToken = t;
                 throw KnownLocation(new PySyntaxError(message), lineno, colOffset, lineno, colOffset + 2, message);
