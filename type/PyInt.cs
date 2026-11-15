@@ -1330,31 +1330,9 @@ namespace SharpPy
                 throw PyValueError.Create("int() base must be >= 2 and <= 36, or 0");
             int requestedBase = baseValue;
             string text = original;
-            // PyUnicode_TransformDecimalAndSpaceToASCII. Allocate only for
-            // non-ASCII input; errors retain the original Unicode spelling.
-            for (int i = 0; unicode && i < text.Length; i++)
-            {
-                if (text[i] < 128) continue;
-                var normalized = new System.Text.StringBuilder(text.Length);
-                for (int j = 0; j < text.Length; j++)
-                {
-                    char c = text[j];
-                    if (c < 128) normalized.Append(c);
-                    else if (char.IsWhiteSpace(c)) normalized.Append(' ');
-                    else
-                    {
-                        int digit = System.Globalization.CharUnicodeInfo.GetDecimalDigitValue(text, j);
-                        if (digit < 0) normalized.Append(c);
-                        else
-                        {
-                            normalized.Append((char)('0' + digit));
-                            if (char.IsHighSurrogate(c) && j + 1 < text.Length && char.IsLowSurrogate(text[j + 1])) j++;
-                        }
-                    }
-                }
-                text = normalized.ToString();
-                break;
-            }
+            // _PyUnicode_TransformDecimalAndSpaceToASCII; errors keep the original spelling.
+            if (unicode)
+                text = PyString.TransformDecimalAndSpaceToAscii(text);
             int start = 0, end = text.Length;
             while (start < end && IsIntegerSpace(text[start])) start++;
             while (end > start && IsIntegerSpace(text[end - 1])) end--;

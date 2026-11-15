@@ -9,7 +9,7 @@ namespace SharpPy
     ///   unicode_isupper_impl / unicode_islower_impl / unicode_istitle_impl,
     ///   plus handle_capital_sigma + lower_ucs4.
     /// The data behind them is Unicode's FULL case mappings and the cased / case-ignorable /
-    /// uppercase / lowercase / titlecase properties (see core/UnicodeCaseData.cs).
+    /// uppercase / lowercase / titlecase properties of Objects/unicodetype_db.h (core/UnicodeType.cs).
     ///
     /// This exists because .NET's ToUpper/ToLowerInvariant implement only the SIMPLE (one-to-one)
     /// mapping: "ß".ToUpperInvariant() is "ß" where CPython gives "SS", U+0130 lowers to itself
@@ -78,15 +78,27 @@ namespace SharpPy
         {
             int j;
             for (j = i - 1; j >= 0; j--)
-                if (!UnicodeCaseData.IsCaseIgnorable(cps[j])) break;
-            bool finalSigma = j >= 0 && UnicodeCaseData.IsCased(cps[j]);
+                if (!UnicodeType.IsCaseIgnorable(cps[j])) break;
+            bool finalSigma = j >= 0 && UnicodeType.IsCased(cps[j]);
             if (finalSigma)
             {
                 for (j = i + 1; j < length; j++)
-                    if (!UnicodeCaseData.IsCaseIgnorable(cps[j])) break;
-                finalSigma = j == length || !UnicodeCaseData.IsCased(cps[j]);
+                    if (!UnicodeType.IsCaseIgnorable(cps[j])) break;
+                finalSigma = j == length || !UnicodeType.IsCased(cps[j]);
             }
             return finalSigma ? 0x3C2 : 0x3C3;
+        }
+
+        private delegate int FullMapping(int ch, Span<int> res);
+
+        // The _PyUnicode_To*Full mapping of cp appended; true when it is not cp itself.
+        private static bool AppendFull(FullMapping mapping, StringBuilder sb, int cp)
+        {
+            Span<int> mapped = stackalloc int[3];
+            int n = mapping(cp, mapped);
+            for (int k = 0; k < n; k++)
+                AppendCp(sb, mapped[k]);
+            return n != 1 || mapped[0] != cp;
         }
 
         private static void AppendCp(StringBuilder sb, int cp)
@@ -133,7 +145,7 @@ namespace SharpPy
             int n = FillCodePoints(s, cps);
             var sb = new StringBuilder(n + 2);
             bool changed = false;
-            for (int i = 0; i < n; i++) changed |= UnicodeCaseData.AppendUpper(sb, cps[i]);
+            for (int i = 0; i < n; i++) changed |= AppendFull(UnicodeType.ToUpperFull, sb, cps[i]);
             return changed ? sb.ToString() : s;
         }
 
@@ -147,7 +159,7 @@ namespace SharpPy
             for (int i = 0; i < n; i++)
             {
                 if (cps[i] == 0x3A3) { AppendCp(sb, HandleCapitalSigma(cps, i, n)); changed = true; }
-                else changed |= UnicodeCaseData.AppendLower(sb, cps[i]);
+                else changed |= AppendFull(UnicodeType.ToLowerFull, sb, cps[i]);
             }
             return changed ? sb.ToString() : s;
         }
@@ -169,13 +181,13 @@ namespace SharpPy
                 if (previousIsCased)
                 {
                     if (cp == 0x3A3) { AppendCp(sb, HandleCapitalSigma(cps, i, n)); changed = true; }
-                    else changed |= UnicodeCaseData.AppendLower(sb, cp);
+                    else changed |= AppendFull(UnicodeType.ToLowerFull, sb, cp);
                 }
                 else
                 {
-                    changed |= UnicodeCaseData.AppendTitle(sb, cp);
+                    changed |= AppendFull(UnicodeType.ToTitleFull, sb, cp);
                 }
-                previousIsCased = UnicodeCaseData.IsCased(cp);
+                previousIsCased = UnicodeType.IsCased(cp);
             }
             return changed ? sb.ToString() : s;
         }
@@ -187,11 +199,11 @@ namespace SharpPy
             int[] cps = Scratch(s.Length);
             int n = FillCodePoints(s, cps);
             var sb = new StringBuilder(n + 2);
-            UnicodeCaseData.AppendTitle(sb, cps[0]);
+            AppendFull(UnicodeType.ToTitleFull, sb, cps[0]);
             for (int i = 1; i < n; i++)
             {
                 if (cps[i] == 0x3A3) AppendCp(sb, HandleCapitalSigma(cps, i, n));
-                else UnicodeCaseData.AppendLower(sb, cps[i]);
+                else AppendFull(UnicodeType.ToLowerFull, sb, cps[i]);
             }
             return sb.ToString();
         }
@@ -206,14 +218,14 @@ namespace SharpPy
             for (int i = 0; i < n; i++)
             {
                 int cp = cps[i];
-                if (UnicodeCaseData.IsUppercase(cp))
+                if (UnicodeType.IsUppercase(cp))
                 {
                     if (cp == 0x3A3) { AppendCp(sb, HandleCapitalSigma(cps, i, n)); changed = true; }
-                    else changed |= UnicodeCaseData.AppendLower(sb, cp);
+                    else changed |= AppendFull(UnicodeType.ToLowerFull, sb, cp);
                 }
-                else if (UnicodeCaseData.IsLowercase(cp))
+                else if (UnicodeType.IsLowercase(cp))
                 {
-                    changed |= UnicodeCaseData.AppendUpper(sb, cp);
+                    changed |= AppendFull(UnicodeType.ToUpperFull, sb, cp);
                 }
                 else
                 {
@@ -231,7 +243,7 @@ namespace SharpPy
             int n = FillCodePoints(s, cps);
             var sb = new StringBuilder(n + 2);
             bool changed = false;
-            for (int i = 0; i < n; i++) changed |= UnicodeCaseData.AppendFold(sb, cps[i]);
+            for (int i = 0; i < n; i++) changed |= AppendFull(UnicodeType.ToFoldedFull, sb, cps[i]);
             return changed ? sb.ToString() : s;
         }
 
@@ -243,8 +255,8 @@ namespace SharpPy
             {
                 int cp = CodePointAt(s, i, out int width);
                 i += width - 1;
-                if (UnicodeCaseData.IsLowercase(cp) || UnicodeCaseData.IsTitlecase(cp)) return false;
-                if (!cased && UnicodeCaseData.IsUppercase(cp)) cased = true;
+                if (UnicodeType.IsLowercase(cp) || UnicodeType.IsTitlecase(cp)) return false;
+                if (!cased && UnicodeType.IsUppercase(cp)) cased = true;
             }
             return cased;
         }
@@ -257,8 +269,8 @@ namespace SharpPy
             {
                 int cp = CodePointAt(s, i, out int width);
                 i += width - 1;
-                if (UnicodeCaseData.IsUppercase(cp) || UnicodeCaseData.IsTitlecase(cp)) return false;
-                if (!cased && UnicodeCaseData.IsLowercase(cp)) cased = true;
+                if (UnicodeType.IsUppercase(cp) || UnicodeType.IsTitlecase(cp)) return false;
+                if (!cased && UnicodeType.IsLowercase(cp)) cased = true;
             }
             return cased;
         }
@@ -272,13 +284,13 @@ namespace SharpPy
             {
                 int cp = CodePointAt(s, i, out int width);
                 i += width - 1;
-                if (UnicodeCaseData.IsUppercase(cp) || UnicodeCaseData.IsTitlecase(cp))
+                if (UnicodeType.IsUppercase(cp) || UnicodeType.IsTitlecase(cp))
                 {
                     if (previousIsCased) return false;
                     previousIsCased = true;
                     cased = true;
                 }
-                else if (UnicodeCaseData.IsLowercase(cp))
+                else if (UnicodeType.IsLowercase(cp))
                 {
                     if (!previousIsCased) return false;
                     previousIsCased = true;

@@ -316,12 +316,9 @@ namespace SharpPy
                     if (str.Value.Length == 0)
                         return PyBool.False;
 
-                    // CPython IS_DIGIT is Nd plus a handful of characters carrying the digit
-                    // property (superscripts, circled digits); the Nd part is what this covers,
-                    // which now includes astral decimal digits. The rest is a table gap in
-                    // docs/known_gaps.md.
+                    // unicode_isdigit_impl: Py_UNICODE_ISDIGIT of each character
                     foreach (int cp in str.CodePoints())
-                        if (cp >= 0xD800 && cp < 0xE000 || System.Globalization.CharUnicodeInfo.GetDigitValue(char.ConvertFromUtf32(cp), 0) < 0)
+                        if (!UnicodeType.IsDigit(cp))
                             return PyBool.False;
                     return PyBool.True;
                 },
@@ -1380,8 +1377,7 @@ namespace SharpPy
                 if (char.IsHighSurrogate(c) && char.IsSurrogatePair(Value, index))
                 {
                     int code = char.ConvertToUtf32(Value, index);
-                    var category = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(Value, index);
-                    if (IsPrintableCategory(category)) result.Append(Value, index, 2);
+                    if (UnicodeType.IsPrintable(code)) result.Append(Value, index, 2);
                     else result.Append($"\\U{code:x8}");
                     index++;
                     continue;
@@ -1427,23 +1423,8 @@ namespace SharpPy
             return PyString.From(result.ToString());
         }
 
-        /// <summary>
-        /// Determines if a character is printable for repr() output, following CPython's isprintable() logic
-        /// </summary>
-        private static bool IsPrintableForRepr(char c)
-        {
-            // CPython's isprintable() logic is quite specific
-            // We need to match it exactly for compatibility
-
-            if (c < 128) return c >= ' ' && c != 127;
-            return IsPrintableCategory(char.GetUnicodeCategory(c));
-        }
-
-        private static bool IsPrintableCategory(System.Globalization.UnicodeCategory category) => category is not
-            (System.Globalization.UnicodeCategory.Control or System.Globalization.UnicodeCategory.Format or
-             System.Globalization.UnicodeCategory.Surrogate or System.Globalization.UnicodeCategory.PrivateUse or
-             System.Globalization.UnicodeCategory.OtherNotAssigned or System.Globalization.UnicodeCategory.SpaceSeparator or
-             System.Globalization.UnicodeCategory.LineSeparator or System.Globalization.UnicodeCategory.ParagraphSeparator);
+        // unicode_repr: below 128 only ' '..'~' stand for themselves; above, Py_UNICODE_ISPRINTABLE.
+        private static bool IsPrintableForRepr(char c) => c < 128 ? c >= ' ' && c != 127 : UnicodeType.IsPrintable(c);
 
         #endregion
 
@@ -1790,41 +1771,12 @@ namespace SharpPy
         // IS_SPACE / IS_PRINTABLE macros used by unicode_isalpha_impl and friends); iterating .NET
         // units asks that question about half of an astral character, which is why
         // 'a\U00010000'.isalpha() answered False.
-        private static System.Globalization.UnicodeCategory CategoryOf(int cp) =>
-            System.Globalization.CharUnicodeInfo.GetUnicodeCategory(cp);
-
-        internal static bool IsLetterCp(int cp)
-        {
-            switch (CategoryOf(cp))
-            {
-                case System.Globalization.UnicodeCategory.UppercaseLetter:
-                case System.Globalization.UnicodeCategory.LowercaseLetter:
-                case System.Globalization.UnicodeCategory.TitlecaseLetter:
-                case System.Globalization.UnicodeCategory.ModifierLetter:
-                case System.Globalization.UnicodeCategory.OtherLetter:
-                    return true;
-                default:
-                    return false;
-            }
-        }
-
-        internal static bool IsDecimalDigitCp(int cp) =>
-            CategoryOf(cp) == System.Globalization.UnicodeCategory.DecimalDigitNumber;
-
-        internal static bool IsNumericCp(int cp)
-        {
-            switch (CategoryOf(cp))
-            {
-                case System.Globalization.UnicodeCategory.DecimalDigitNumber:
-                case System.Globalization.UnicodeCategory.LetterNumber:
-                case System.Globalization.UnicodeCategory.OtherNumber:
-                    return true;
-                default:
-                    return false;
-            }
-        }
-
-        internal static bool IsLetterOrDigitCp(int cp) => IsLetterCp(cp) || IsDecimalDigitCp(cp);
+        // Py_UNICODE_ISALPHA, Py_UNICODE_ISDECIMAL, Py_UNICODE_ISNUMERIC, Py_UNICODE_ISALNUM
+        // (Objects/unicodectype.c over unicodetype_db.h, core/UnicodeType.cs).
+        internal static bool IsLetterCp(int cp) => UnicodeType.IsAlpha(cp);
+        internal static bool IsDecimalDigitCp(int cp) => UnicodeType.IsDecimalDigit(cp);
+        internal static bool IsNumericCp(int cp) => UnicodeType.IsNumeric(cp);
+        internal static bool IsLetterOrDigitCp(int cp) => UnicodeType.IsAlnum(cp);
 
         /// <summary>A code point at an index; a lone surrogate stands for itself.</summary>
         internal static int CodePointAt(string s, int index, out int width)
@@ -1840,51 +1792,9 @@ namespace SharpPy
 
         internal static string CodePointText(int cp) => cp >= 0x10000 ? char.ConvertFromUtf32(cp) : ((char)cp).ToString();
 
-        // XID_Start and XID_Continue of Objects/unicodetype_db.h, from the general category plus
-        // Other_ID_Start, Other_ID_Continue and what NFKC takes out of them.
-        private static bool IsXidExcluded(int cp) =>
-            cp is 0x037A or 0x0E33 or 0x0EB3 or 0x309B or 0x309C or 0xFDFA or 0xFDFB or 0xFE70 or 0xFE72 or 0xFE74 or 0xFE76
-                or 0xFE78 or 0xFE7A or 0xFE7C or 0xFE7E or 0xFF9E or 0xFF9F || (cp >= 0xFC5E && cp <= 0xFC63);
-
-        internal static bool IsXidStart(int cp)
-        {
-            if (cp < 0x80)
-                return (cp >= 'a' && cp <= 'z') || (cp >= 'A' && cp <= 'Z');
-            if (cp is 0x1885 or 0x1886 or 0x2118 or 0x212E)
-                return true;
-            if (IsXidExcluded(cp))
-                return false;
-            switch (CategoryOf(cp))
-            {
-                case System.Globalization.UnicodeCategory.UppercaseLetter:
-                case System.Globalization.UnicodeCategory.LowercaseLetter:
-                case System.Globalization.UnicodeCategory.TitlecaseLetter:
-                case System.Globalization.UnicodeCategory.ModifierLetter:
-                case System.Globalization.UnicodeCategory.OtherLetter:
-                case System.Globalization.UnicodeCategory.LetterNumber:
-                    return true;
-                default:
-                    return false;
-            }
-        }
-
-        internal static bool IsXidContinue(int cp)
-        {
-            if (cp < 0x80)
-                return (cp >= 'a' && cp <= 'z') || (cp >= 'A' && cp <= 'Z') || (cp >= '0' && cp <= '9') || cp == '_';
-            if (IsXidStart(cp) || cp is 0x00B7 or 0x0387 or 0x19DA or 0x0E33 or 0x0EB3 or 0xFF9E or 0xFF9F || (cp >= 0x1369 && cp <= 0x1371))
-                return true;
-            switch (CategoryOf(cp))
-            {
-                case System.Globalization.UnicodeCategory.NonSpacingMark:
-                case System.Globalization.UnicodeCategory.SpacingCombiningMark:
-                case System.Globalization.UnicodeCategory.DecimalDigitNumber:
-                case System.Globalization.UnicodeCategory.ConnectorPunctuation:
-                    return true;
-                default:
-                    return false;
-            }
-        }
+        // _PyUnicode_IsXidStart and _PyUnicode_IsXidContinue
+        internal static bool IsXidStart(int cp) => UnicodeType.IsXidStart(cp);
+        internal static bool IsXidContinue(int cp) => UnicodeType.IsXidContinue(cp);
 
         // _PyUnicode_ScanIdentifier, whether the whole string is scanned
         internal static bool ScanIdentifier(string s)
@@ -1904,39 +1814,9 @@ namespace SharpPy
             return true;
         }
 
-        // CPython's whitespace set is exactly these code points (the IS_SPACE line of
-        // Objects/unicodetype_db.h): Zs plus U+0085 and the ASCII control whitespace.
-        internal static bool IsWhiteSpaceCp(int cp) =>
-            (cp >= 0x09 && cp <= 0x0D) || (cp >= 0x1C && cp <= 0x1F) || cp == 0x20 ||
-            cp == 0x85 || cp == 0xA0 || cp == 0x1680 || (cp >= 0x2000 && cp <= 0x200A) ||
-            cp == 0x2028 || cp == 0x2029 || cp == 0x3000;
-
-        /// <summary>
-        /// CPython Objects/unicodeobject.c unicode_isprintable_impl rejects Cc, Cf, Cs, Co, Cn, Zl,
-        /// Zp and Zs, and allows nothing else but U+0020 out of the separators. \n, \r and \t are
-        /// control characters, so they are not printable; a hand-written rule that carved them out
-        /// said True where CPython says False.
-        /// </summary>
-        internal static bool IsPrintableCp(int cp)
-        {
-            if (cp == 0x20)
-                return true;
-            switch (CategoryOf(cp))
-            {
-                case System.Globalization.UnicodeCategory.Control:
-                case System.Globalization.UnicodeCategory.Format:
-                case System.Globalization.UnicodeCategory.Surrogate:
-                case System.Globalization.UnicodeCategory.PrivateUse:
-                case System.Globalization.UnicodeCategory.LineSeparator:
-                case System.Globalization.UnicodeCategory.ParagraphSeparator:
-                case System.Globalization.UnicodeCategory.SpaceSeparator:
-                    // CPython also rejects Cn (unassigned). .NET exposes no unassigned category, so
-                    // that half of the rule is a table gap recorded in docs/known_gaps.md.
-                    return false;
-                default:
-                    return true;
-            }
-        }
+        // Py_UNICODE_ISSPACE and Py_UNICODE_ISPRINTABLE
+        internal static bool IsWhiteSpaceCp(int cp) => UnicodeType.IsSpace(cp);
+        internal static bool IsPrintableCp(int cp) => UnicodeType.IsPrintable(cp);
 
         /// <summary>The characters of this value, one per Python character.</summary>
         internal System.Collections.Generic.IEnumerable<int> CodePoints()
@@ -1959,6 +1839,42 @@ namespace SharpPy
             for (int i = 0; i < text.Length; i += PairWidth(text, i))
                 items[n++] = PyString.From(text.Substring(i, PairWidth(text, i)));
             return items;
+        }
+
+        /// <summary>
+        /// _PyUnicode_TransformDecimalAndSpaceToASCII: what int() and float() parse. Below 127 a
+        /// character stays, whitespace is ' ', a decimal digit its ASCII digit, and anything else
+        /// is '?' that ends the result.
+        /// </summary>
+        internal static string TransformDecimalAndSpaceToAscii(string unicode)
+        {
+            bool ascii = true;
+            foreach (char c in unicode)
+                if (c >= 128) { ascii = false; break; }
+            // If the string is already ASCII, just return the same string
+            if (ascii)
+                return unicode;
+            var output = new StringBuilder(unicode.Length);
+            for (int i = 0; i < unicode.Length;)
+            {
+                int ch = CodePointAt(unicode, i, out int width);
+                i += width;
+                if (ch < 127)
+                    output.Append((char)ch);
+                else if (UnicodeType.IsSpace(ch))
+                    output.Append(' ');
+                else
+                {
+                    int decimalValue = UnicodeType.ToDecimalDigit(ch);
+                    if (decimalValue < 0)
+                    {
+                        output.Append('?');
+                        break;
+                    }
+                    output.Append((char)('0' + decimalValue));
+                }
+            }
+            return output.ToString();
         }
 
         #endregion

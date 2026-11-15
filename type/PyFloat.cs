@@ -975,30 +975,7 @@ namespace SharpPy
         internal static readonly double QuietNaN = BitConverter.Int64BitsToDouble(0x7FF8000000000000);
 
         // _PyUnicode_TransformDecimalAndSpaceToASCII
-        internal static string TransformDecimalAndSpace(string text)
-        {
-            bool ascii = true;
-            foreach (char c in text)
-                if (c >= 127) { ascii = false; break; }
-            if (ascii) return text;
-            var output = new System.Text.StringBuilder(text.Length);
-            foreach (var rune in text.EnumerateRunes())
-            {
-                if (rune.Value < 127) output.Append((char)rune.Value);
-                else if (System.Text.Rune.IsWhiteSpace(rune)) output.Append(' ');
-                else
-                {
-                    int digit = (int)System.Text.Rune.GetNumericValue(rune);
-                    if (System.Text.Rune.GetUnicodeCategory(rune) != System.Globalization.UnicodeCategory.DecimalDigitNumber)
-                    {
-                        output.Append('?');
-                        break;
-                    }
-                    output.Append((char)('0' + digit));
-                }
-            }
-            return output.ToString();
-        }
+        internal static string TransformDecimalAndSpace(string text) => PyString.TransformDecimalAndSpaceToAscii(text);
 
         internal static bool IsCSpace(char c) => c == ' ' || (c >= 9 && c <= 13);
 

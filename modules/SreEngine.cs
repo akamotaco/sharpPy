@@ -165,39 +165,14 @@ namespace SharpPy.Modules
         // SRE_IS_LINEBREAK (Modules/_sre/sre.c): '\n' alone, for ANY, AT_*_LINE and the ASCII category.
         private static bool IsSreLinebreak(int c) => c == '\n';
 
-        // SRE_UNI_IS_LINEBREAK, Py_UNICODE_ISLINEBREAK: the unicode categories' line breaks.
-        private static bool IsLinebreak(int c) => c == 0x0A || c == 0x0B || c == 0x0C || c == 0x0D || c == 0x1C || c == 0x1D || c == 0x1E || c == 0x85 || c == 0x2028 || c == 0x2029;
+        // SRE_UNI_IS_LINEBREAK, SRE_UNI_IS_DIGIT, SRE_UNI_IS_SPACE: Py_UNICODE_ISLINEBREAK,
+        // Py_UNICODE_ISDECIMAL and Py_UNICODE_ISSPACE.
+        private static bool IsLinebreak(int c) => UnicodeType.IsLinebreak(c);
+        private static bool IsUniDigit(int c) => UnicodeType.IsDecimalDigit(c);
+        private static bool IsUniSpace(int c) => UnicodeType.IsSpace(c);
 
-        private static bool IsUniDigit(int c)
-        {
-            if (!Rune.IsValid(c)) return false;
-            return Rune.GetUnicodeCategory(new Rune(c)) == UnicodeCategory.DecimalDigitNumber;
-        }
-
-        private static bool IsUniSpace(int c)
-        {
-            if (c == 0x1C || c == 0x1D || c == 0x1E || c == 0x1F || c == 0x85) return true;
-            if (!Rune.IsValid(c)) return false;
-            var cat = Rune.GetUnicodeCategory(new Rune(c));
-            return cat == UnicodeCategory.SpaceSeparator ||
-                   cat == UnicodeCategory.LineSeparator ||
-                   cat == UnicodeCategory.ParagraphSeparator ||
-                   cat == UnicodeCategory.Control;
-        }
-
-        private static bool IsUniAlnum(int c)
-        {
-            if (!Rune.IsValid(c)) return false;
-            var cat = Rune.GetUnicodeCategory(new Rune(c));
-            return cat == UnicodeCategory.UppercaseLetter ||
-                   cat == UnicodeCategory.LowercaseLetter ||
-                   cat == UnicodeCategory.TitlecaseLetter ||
-                   cat == UnicodeCategory.ModifierLetter ||
-                   cat == UnicodeCategory.OtherLetter ||
-                   cat == UnicodeCategory.DecimalDigitNumber ||
-                   cat == UnicodeCategory.LetterNumber ||
-                   cat == UnicodeCategory.OtherNumber;
-        }
+        // SRE_UNI_IS_ALNUM: Py_UNICODE_ISALNUM
+        private static bool IsUniAlnum(int c) => UnicodeType.IsAlnum(c);
 
         private static bool IsUniWord(int c) => IsUniAlnum(c) || c == '_';
 
@@ -243,8 +218,8 @@ namespace SharpPy.Modules
         private static int SreUpperLocale(int c) => SreUpperAscii(c);
 
         // sre_lower_unicode and sre_upper_unicode: Py_UNICODE_TOLOWER and Py_UNICODE_TOUPPER.
-        internal static int SreLowerUnicode(int c) => UnicodeCaseData.ToLowercase(c);
-        internal static int SreUpperUnicode(int c) => UnicodeCaseData.ToUppercase(c);
+        internal static int SreLowerUnicode(int c) => UnicodeType.ToLowercase(c);
+        internal static int SreUpperUnicode(int c) => UnicodeType.ToUppercase(c);
 
         private static bool CharLocIgnore(int chr, int c)
         {
