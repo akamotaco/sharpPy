@@ -105,10 +105,9 @@ def collect():
             raw = internal(member, value)
             if raw is not None:
                 entries[f"{key}.{member}"] = raw
-    # Native modules: "<module>.__doc__" for the module, "<module>.<name>" for what it holds.
+    # Native modules: "<module>.<name>" for what they hold; their m_doc is tools/gen_module_docs.py's.
     import _bisect, _collections, _functools, _heapq, _io, _operator, _random, _struct, _thread, _typing, array, itertools, math, nt, sys, time
     for module in (_bisect, _collections, _functools, _heapq, _io, _operator, _random, _struct, _thread, _typing, array, itertools, math, nt, sys, time):
-        entries[f"{module.__name__}.__doc__"] = module.__doc__
         for name, obj in vars(module).items():
             if isinstance(obj, type):
                 # A type of the module: "<__module__>.<name>" and its members under that.

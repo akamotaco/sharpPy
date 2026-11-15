@@ -42,13 +42,18 @@ public class PyModule : PyObject
         InitializeBuiltinAttributes(fileName != null);
     }
     
+    /// <summary>The m_doc of a natively implemented module (core/ModuleDocs.g.cs), or None.</summary>
+    internal void ApplyNativeDoc() =>
+        ModuleDict["__doc__"] = PyDocs.ModuleDocs.TryGetValue(Name, out var doc) ? PyString.From(doc) : PyNone.Instance;
+
     private void InitializeBuiltinAttributes(bool hasFile)
     {
         ModuleDict["__name__"] = PyString.From(Name);
         // A builtin module has no __file__.
         if (hasFile && !string.IsNullOrEmpty(FileName) && !FileName.StartsWith("<", StringComparison.Ordinal))
             ModuleDict["__file__"] = PyString.From(FileName);
-        ModuleDict["__doc__"] = PyString.From($"Module {Name}");
+        // module_init_dict: __doc__ is the def's m_doc, None until something sets it.
+        ModuleDict["__doc__"] = PyNone.Instance;
 
         // CPython 3.12: Set __package__
         // For packages (__init__.py): __package__ = __name__
@@ -300,6 +305,7 @@ public class PyModule : PyObject
             ["_testcapi"] = () => SharpPy.Modules._TestCapiModule.Create(),
             ["_heapq"] = () => SharpPy.Modules._HeapqModule.Create(),
             ["_bisect"] = () => SharpPy.Modules._BisectModule.Create(),
+            ["_statistics"] = () => SharpPy.Modules.StatisticsModule.Create(),
             ["_multibytecodec"] = SharpPy.Modules.Cjk.MultibyteCodecModule.Create,
             ["_codecs_kr"] = SharpPy.Modules.Cjk.CodecsKr.Create,
             ["_codecs_cn"] = SharpPy.Modules.Cjk.CodecsCn.Create,

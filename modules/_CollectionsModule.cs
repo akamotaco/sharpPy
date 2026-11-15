@@ -141,7 +141,7 @@ namespace SharpPy.Modules
     {
         public static PyModule CreateCollectionsModule()
         {
-            var module = new PyModule("_collections", "High performance container datatypes");
+            var module = new PyModule("_collections");
             module.ModuleDict["deque"] = PyDequeModule.DequeType;
             module.ModuleDict["defaultdict"] = PyDefaultDict.DefDictType;
             module.ModuleDict["OrderedDict"] = PyODict.ODictType;

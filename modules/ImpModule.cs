@@ -47,7 +47,6 @@ namespace SharpPy.Modules
         {
             var module = new PyModule("_imp");
             var d = module.ModuleDict;
-            module.ModuleDict["__doc__"] = PyString.From("(Extremely) low-level import machinery bits as used by importlib.");
             // _imp_is_builtin: 1 for a module made by the interpreter, 0 otherwise (the unicode
             // converter: no check for an embedded NUL, which no builtin's name has).
             d["is_builtin"] = PyArgs.MethO("_imp", "is_builtin", args =>

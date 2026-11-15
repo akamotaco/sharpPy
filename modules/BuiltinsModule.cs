@@ -12,7 +12,8 @@ namespace SharpPy.Modules
         public static PyModule CreateBuiltinsModule()
         {
             BuiltinSlots.Install();
-            var module = new PyModule("builtins", "<builtins module>");
+            var module = new PyModule("builtins");
+            module.ApplyNativeDoc();
 
             // Built-in types (as type objects, not constructors)
             module.ModuleDict["object"] = PyType.ObjectType;
@@ -233,7 +234,6 @@ namespace SharpPy.Modules
 
             // Python 3.12 special attributes
             module.ModuleDict["__name__"] = PyString.From("builtins");
-            module.ModuleDict["__doc__"] = PyString.From("Built-in functions, exceptions, and other objects.");
 
             PyDocs.SetTypeDocs();
             return module;

@@ -182,7 +182,6 @@ namespace SharpPy.Modules
             EnsureInitialized();
             var module = new PyModule("_ast");
             // PyModuleDef m_doc is NULL
-            module.ModuleDict["__doc__"] = PyNone.Instance;
             foreach (var name in Exported)
             {
                 module.ModuleDict[name] = name switch

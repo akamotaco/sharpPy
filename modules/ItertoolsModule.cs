@@ -21,8 +21,6 @@ namespace SharpPy.Modules
         {
             var module = new PyModule("itertools");
             var d = module.ModuleDict;
-            if (PyDocs.Lookup("itertools.__doc__") is { } doc)
-                d["__doc__"] = PyString.From(doc);
             // itertoolsmodule_exec: PyModule_AddType files each type under the name after the dot.
             foreach (var type in AllTypes)
                 d[type.Name] = type;

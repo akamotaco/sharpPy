@@ -11,7 +11,7 @@ namespace SharpPy.Modules
     {
         public static PyModule CreateFunctoolsModule()
         {
-            var module = new PyModule("_functools", "Fast C implementation of functools functions");
+            var module = new PyModule("_functools");
 
             // 기본적인 스텁 구현만 제공
             module.ModuleDict["reduce"] = new PyBuiltinFunction("reduce", PyReduce);

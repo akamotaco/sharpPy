@@ -27,8 +27,6 @@ namespace SharpPy
 
         public TimeModule() : base("time")
         {
-            if (PyDocs.Lookup("time.__doc__") is { } doc)
-                SetAttribute("__doc__", PyString.From(doc));
             Function("time", (args, kwargs) => { PyArgs.NoArgs("time.time", args, kwargs); return FloatFromPyTime(SystemTime()); });
             Function("time_ns", (args, kwargs) => { PyArgs.NoArgs("time.time_ns", args, kwargs); return PyTime.AsNanosecondsObject(SystemTime()); });
             Function("sleep", Sleep);

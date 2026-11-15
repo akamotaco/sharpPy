@@ -26,7 +26,7 @@ namespace SharpPy.Modules
                 TypeTables.InstallSre(PyPatternType, PyMatchType, ScannerType);
             }
 
-            var module = new PyModule("_sre", "<_sre C module>");
+            var module = new PyModule("_sre");
             module.ModuleDict["MAGIC"] = PyInt.From(20221023);
             module.ModuleDict["CODESIZE"] = PyInt.From(4);
             module.ModuleDict["MAXREPEAT"] = PyInt.From(4294967295);

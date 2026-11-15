@@ -27,7 +27,7 @@ namespace SharpPy.Modules
 
         internal static PyModule CreateAtexitModule()
         {
-            var module = new PyModule("atexit", "<atexit>");
+            var module = new PyModule("atexit");
 
             // register(func, /, *args, **kwargs) -> func. The return value is not a detail: it is what
             // makes @atexit.register work (atexit_register, Modules/atexitmodule.c:177, and the doc

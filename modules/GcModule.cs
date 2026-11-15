@@ -52,32 +52,10 @@ namespace SharpPy.Modules
         private static readonly PyList Garbage = new PyList();
         private static readonly PyList Callbacks = new PyList();
 
-        private const string ModuleDoc =
-            "This module provides access to the garbage collector for reference cycles.\n" +
-            "\n" +
-            "enable() -- Enable automatic garbage collection.\n" +
-            "disable() -- Disable automatic garbage collection.\n" +
-            "isenabled() -- Returns true if automatic collection is enabled.\n" +
-            "collect() -- Do a full collection right now.\n" +
-            "get_count() -- Return the current collection counts.\n" +
-            "get_stats() -- Return list of dictionaries containing per-generation stats.\n" +
-            "set_debug() -- Set debugging flags.\n" +
-            "get_debug() -- Get debugging flags.\n" +
-            "set_threshold() -- Set the collection thresholds.\n" +
-            "get_threshold() -- Return the current the collection thresholds.\n" +
-            "get_objects() -- Return a list of all objects tracked by the collector.\n" +
-            "is_tracked() -- Returns true if a given object is tracked.\n" +
-            "is_finalized() -- Returns true if a given object has been already finalized.\n" +
-            "get_referrers() -- Return the list of objects that refer to an object.\n" +
-            "get_referents() -- Return the list of objects that an object refers to.\n" +
-            "freeze() -- Freeze all tracked objects and ignore them for future collections.\n" +
-            "unfreeze() -- Unfreeze all objects in the permanent generation.\n" +
-            "get_freeze_count() -- Return the number of objects in the permanent generation.";
 
         public static PyModule CreateGcModule()
         {
             var module = new PyModule("gc");
-            module.ModuleDict["__doc__"] = PyString.From(ModuleDoc);
 
             module.ModuleDict["enable"] = new PyBuiltinFunction("enable", a =>
             {

@@ -14,7 +14,7 @@ namespace SharpPy.Modules
         public static PyModule CreateAbcModule()
         {
             WeakrefModule.RegisterWeakRefType();
-            var module = new PyModule("_abc", "Module contains faster C# implementation of abc.ABCMeta");
+            var module = new PyModule("_abc");
             void Function(string name, int count, Func<PyObject[], PyObject> body) =>
                 module.ModuleDict[name] = new PyBuiltinFunction(name, args =>
                 {

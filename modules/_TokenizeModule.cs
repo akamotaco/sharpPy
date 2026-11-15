@@ -8,7 +8,7 @@ namespace SharpPy.Modules
     {
         public static PyModule Create()
         {
-            var module = new PyModule("_tokenize", "");
+            var module = new PyModule("_tokenize");
             module.ModuleDict["TokenizerIter"] = new PyBuiltinFunction("TokenizerIter", (args, kwargs) =>
             {
                 var readline = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "source");

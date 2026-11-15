@@ -36,7 +36,6 @@ namespace SharpPy.Modules
         {
             Install();
             var module = new PyModule("_typing");
-            module.ModuleDict["__doc__"] = PyString.From("Accelerators for the typing module.\n");
             // _typing._idfunc: METH_O, x itself.
             module.ModuleDict["_idfunc"] = PyArgs.MethO("_typing", "_idfunc", args => args[0]);
             module.ModuleDict["TypeVar"] = TypeVarType;

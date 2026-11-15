@@ -89,6 +89,7 @@ namespace SharpPy
             if (OtherPlatform(name) || !_builtinModules.TryGetValue(name, out var factory))
                 return null;
             var module = factory();
+            module.ApplyNativeDoc();
             PyDocs.SetTypeDocs();
             foreach (var value in module.ModuleDict.Values)
                 if (value is PyBuiltinFunction function)

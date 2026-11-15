@@ -16,7 +16,7 @@ namespace SharpPy.Modules
 
         public static PyModule CreateCodecsModule()
         {
-            var module = new PyModule("_codecs", "Fast C implementation of codecs functions");
+            var module = new PyModule("_codecs");
 
             // CPython 3.12: Modules/_codecsmodule.c:1077-1127
             module.ModuleDict["register"] = new PyBuiltinFunction("register", PyRegister);

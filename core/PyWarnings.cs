@@ -438,7 +438,6 @@ namespace SharpPy
         internal static PyModule CreateModule()
         {
             var module = new PyModule("_warnings");
-            module.ModuleDict["__doc__"] = PyString.From("_warnings provides basic warning filtering support.\nIt is a helper module to speed up interpreter start-up.");
             module.ModuleDict["filters"] = Filters;
             module.ModuleDict["_onceregistry"] = _onceRegistry;
             module.ModuleDict["_defaultaction"] = _defaultAction;

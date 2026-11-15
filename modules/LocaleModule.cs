@@ -27,7 +27,6 @@ namespace SharpPy.Modules
         internal static PyModule Create()
         {
             var module = new PyModule("_locale");
-            module.ModuleDict["__doc__"] = PyString.From("Support for POSIX locales.");
             // PyErr_NewException("locale.Error", NULL, NULL)
             _error ??= (PyType)PyType.TypeType.Call(new PyObject[]
             {

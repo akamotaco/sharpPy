@@ -588,7 +588,7 @@ namespace SharpPy
         // binascii_module_methods, then binascii_exec's Error and Incomplete.
         public static PyModule CreateBinasciiModule()
         {
-            var module = new PyModule("binascii", "Conversion between binary data and ASCII");
+            var module = new PyModule("binascii");
             var d = module.ModuleDict;
             d["a2b_uu"] = PyArgs.MethO("binascii", "a2b_uu", a => A2bUu(AsciiBuffer(a[0])));
             d["b2a_uu"] = new PyBuiltinFunction("b2a_uu", (a, kw) =>

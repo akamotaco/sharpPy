@@ -11,7 +11,7 @@ namespace SharpPy.Modules
     {
         public static PyModule CreateOperatorModule()
         {
-            var module = new PyModule("_operator", "<_operator C module>");
+            var module = new PyModule("_operator");
 
             // Modules/_operator.c has no __all__: "from _operator import *" in Lib/operator.py takes
             // every public name this module defines over the pure-Python ones.

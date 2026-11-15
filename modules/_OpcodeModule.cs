@@ -5,7 +5,7 @@ namespace SharpPy.Modules
     {
         public static PyModule Create()
         {
-            var module = new PyModule("_opcode", "Opcode support module.");
+            var module = new PyModule("_opcode");
             module.ModuleDict["stack_effect"] = new PyBuiltinFunction("stack_effect", StackEffect);
             return module;
         }

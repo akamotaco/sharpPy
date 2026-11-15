@@ -998,8 +998,6 @@ namespace SharpPy.Modules
         {
             var module = new PyModule("_struct");
             var d = module.ModuleDict;
-            if (PyDocs.Lookup("_struct.__doc__") is { } doc)
-                d["__doc__"] = PyString.From(doc);
             d["_clearcache"] = new PyBuiltinFunction("_clearcache", (args, kwargs) =>
             {
                 PyArgs.NoArgs("_clearcache", args, kwargs);

@@ -324,18 +324,6 @@ namespace SharpPy.Modules
         internal static PyModule CreateZlibModule()
         {
             var module = new PyModule("zlib");
-            module.ModuleDict["__doc__"] = PyString.From(
-                "The functions in this module allow compression and decompression using the\n" +
-                "zlib library, which is based on GNU zip.\n\n" +
-                "adler32(string[, start]) -- Compute an Adler-32 checksum.\n" +
-                "compress(data[, level]) -- Compress data, with compression level 0-9 or -1.\n" +
-                "compressobj([level[, ...]]) -- Return a compressor object.\n" +
-                "crc32(string[, start]) -- Compute a CRC-32 checksum.\n" +
-                "decompress(string,[wbits],[bufsize]) -- Decompresses a compressed string.\n" +
-                "decompressobj([wbits[, zdict]]) -- Return a decompressor object.\n\n" +
-                "'wbits' is window buffer size and container format.\n" +
-                "Compressor objects support compress() and flush() methods; decompressor\n" +
-                "objects support decompress() and flush().");
             var d = module.ModuleDict;
             d["adler32"] = PyArgs.FastCall("zlib", "adler32", 1, 2, args =>
             {

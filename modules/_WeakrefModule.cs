@@ -17,7 +17,7 @@ namespace SharpPy.Modules
     {
         internal static PyModule CreateWeakrefModule()
         {
-            var module = new PyModule("_weakref", "<_weakref>");
+            var module = new PyModule("_weakref");
             RegisterWeakRefType();
 
             module.ModuleDict["ref"] = PyType.WeakRefType;

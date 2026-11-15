@@ -113,7 +113,8 @@ namespace SharpPy.Modules
         {
             // CPython 3.12: sys is a builtin module implemented in C (Python/sysmodule.c)
             // SharpPy: implemented in C# as builtin module (no .py file)
-            var module = new PyModule("sys", "<builtin sys module>");
+            var module = new PyModule("sys");
+            module.ApplyNativeDoc();
 
             // sys.path - 모듈 검색 경로 리스트
             var sysPath = CreateSysPath();
