@@ -444,6 +444,9 @@ namespace SharpPy.Modules
             return PyBytes.From(buffer.Finish());
         }
 
+        /// <summary>zlib.decompress(data): the module's own inflate, for SharpPy's compressed tables.</summary>
+        internal static byte[] Inflate(byte[] data) => ((PyBytes)Decompress(data, MAX_WBITS, DEF_BUF_SIZE)).Value;
+
         // zlib_decompress_impl
         private static PyObject Decompress(byte[] data, int wbits, long bufsize)
         {

@@ -85,51 +85,8 @@ namespace SharpPy
                 "utf-32" or "utf32" or "u32" => "utf-32",
                 "utf-32le" or "utf-32-le" => "utf-32-le",
                 "utf-32be" or "utf-32-be" => "utf-32-be",
-                "big5" or "big5-tw" or "csbig5" => "big5",
-                "gbk" or "936" => "gbk",
-                "shift_jis" or "shift-jis" or "sjis" or "csshiftjis" => "shift_jis",
-                "koi8-r" or "koi8" => "koi8-r",
-                "cp1250" or "windows-1250" => "cp1250",
-                "cp1251" or "windows-1251" => "cp1251",
-                "cp1252" or "windows-1252" => "cp1252",
-                "idna" => "idna",
                 _ => lowered,
             };
-        }
-
-        internal static System.Text.Encoding ResolveCodecPublic(string name) => ResolveCodec(name);
-
-        private static System.Text.Encoding ResolveCodec(string name)
-        {
-            switch (NormalizeCodecName(name))
-            {
-                case "utf-8": return new System.Text.UTF8Encoding(false);
-                case "latin-1": return System.Text.Encoding.Latin1;
-                case "ascii": return new System.Text.ASCIIEncoding();
-                // BOM codecs: little-endian with a detectable preamble, which is CPython's "utf-16".
-                // (UnicodeEncoding's first argument is big-endian, not "emit a BOM"; passing true here
-                // decoded BOM-less b'a\x00b\x00' as big-endian and left the BOM in the result.)
-                case "utf-16": return new System.Text.UnicodeEncoding(false, true);
-                case "utf-16-le": return System.Text.UnicodeEncoding.Unicode;
-                case "utf-16-be": return System.Text.UnicodeEncoding.BigEndianUnicode;
-                case "utf-32": return new System.Text.UTF32Encoding(false, true);
-                case "utf-32-le": return new System.Text.UTF32Encoding(false, true);
-                case "utf-32-be": return new System.Text.UTF32Encoding(true, false);
-                default:
-                    try
-                    {
-                        return System.Text.CodePagesEncodingProvider.Instance
-                            .GetEncoding(NormalizeCodecName(name));
-                    }
-                    catch (ArgumentException)
-                    {
-                        return null;
-                    }
-                    catch (NotSupportedException)
-                    {
-                        return null;
-                    }
-            }
         }
 
         private static byte[] RawBytesOrNull(PyObject value)
@@ -143,12 +100,16 @@ namespace SharpPy
             return null;
         }
 
+        // The codecs PyUnicode_Decode and PyUnicode_AsEncodedString take without the registry.
+        internal static bool IsFastPath(string normalized) => normalized is "utf-8" or "ascii" or "latin-1"
+            or "utf-16" or "utf-16-le" or "utf-16-be" or "utf-32" or "utf-32-le" or "utf-32-be";
+
         internal static string DecodeBytes(byte[] data, string encodingName, string errorName)
         {
-            // PyUnicode_Decode
+            // PyUnicode_Decode: the fast paths, then _PyCodec_DecodeText.
             PyCodecRegistry.CheckEncodingErrors(encodingName, errorName);
-            System.Text.Encoding encoding = ResolveCodec(encodingName);
-            if (encoding == null)
+            string normalized = NormalizeCodecName(encodingName);
+            if (!IsFastPath(normalized))
             {
                 // The registry decides which of CPython's two refusals this is: a codec that exists
                 // but is not about text ('base64') is reported as such, a name nothing implements is
@@ -158,50 +119,19 @@ namespace SharpPy
                 return viaRegistry is PyString text ? text.Value
                     : throw PyTypeError.Create($"'{encodingName}' decoder returned '{viaRegistry.GetTypeName()}' instead of 'str'; use codecs.decode() to decode to arbitrary types");
             }
-
-            string normalized = NormalizeCodecName(encodingName);
-            if (normalized == "utf-8")
-                return PyBytes.DecodeUtf8Python(data, errorName ?? "strict");
-            if (normalized == "ascii")
-                return PyBytes.DecodeAsciiPython(data, errorName ?? "strict");
-
             switch (normalized)
             {
+                case "utf-8": return PyBytes.DecodeUtf8Python(data, errorName ?? "strict");
+                case "ascii": return PyBytes.DecodeAsciiPython(data, errorName ?? "strict");
                 case "utf-16": return PyBytes.DecodeUtf16Python(data, errorName ?? "strict", 0);
                 case "utf-16-le": return PyBytes.DecodeUtf16Python(data, errorName ?? "strict", -1);
                 case "utf-16-be": return PyBytes.DecodeUtf16Python(data, errorName ?? "strict", 1);
                 case "utf-32": return PyBytes.DecodeUtf32Python(data, errorName ?? "strict", 0);
                 case "utf-32-le": return PyBytes.DecodeUtf32Python(data, errorName ?? "strict", -1);
                 case "utf-32-be": return PyBytes.DecodeUtf32Python(data, errorName ?? "strict", 1);
+                // PyUnicode_DecodeLatin1: every byte is its code point.
+                default: return System.Text.Encoding.Latin1.GetString(data);
             }
-
-            bool strict = errorName == null || errorName == "strict";
-            if (!strict && errorName != "ignore" && errorName != "replace" &&
-                errorName != "surrogateescape" && errorName != "backslashreplace" && errorName != "surrogatepass")
-                throw PyLookupError.Create($"'{errorName}' is not a known error handler");
-
-            // .NET's GetString replaces invalid input silently, so strict mode needs an encoding that
-            // throws. UTF-8 has one. For other codecs .NET only offers replacement text, so an invalid
-            // byte there yields U+FFFD instead of UnicodeDecodeError; that divergence is recorded in
-            // docs/known_gaps.md rather than hidden.
-            if (strict && normalized == "utf-8")
-            {
-                try
-                {
-                    return new System.Text.UTF8Encoding(false, true).GetString(data);
-                }
-                catch (DecoderFallbackException exc)
-                {
-                    int position = exc.Index;
-                    byte bad = position >= 0 && position < data.Length ? data[position] : (byte)0;
-                    throw PyUnicodeDecodeError.Failure("utf-8", data, position, position + 1, "invalid start byte");
-                }
-            }
-
-            string decoded = encoding.GetString(data);
-            if (errorName == "ignore")
-                decoded = decoded.Replace("�", "");
-            return decoded;
         }
     }
 

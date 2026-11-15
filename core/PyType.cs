@@ -2932,11 +2932,10 @@ namespace SharpPy
 
         #region Type Attributes
 
-        // CPython type_getattro reports a missing attribute on a class as
-        // "type object '<class>' has no attribute '<name>'" (uses the class name,
-        // not the metaclass name).
+        // type_getattro: "type object '%.50s' has no attribute '%U'" with the type's tp_name - a
+        // class's own name, a static or spec type's module-qualified one; not the metaclass's.
         protected override System.Exception AttributeNotFound(string name)
-            => PyAttributeError.Create($"type object '{Name}' has no attribute '{name}'");
+            => PyAttributeError.Create($"type object '{FullName}' has no attribute '{name}'");
 
         internal override bool TpGetattroIsGeneric => false;
         protected internal override PyObject TpGetattro(PyString name) => TypeGetattro(name.Value);
