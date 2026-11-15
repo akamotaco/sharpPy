@@ -1529,8 +1529,11 @@ namespace SharpPy.Generated
 
     public class GeneratedPyConstantString : GeneratedPyConstant
     {
-        public string Value { get; }
-        public GeneratedPyConstantString(string value) => Value = value;
+        // the str object (Constant.value); Value is its wchar_t text
+        public PyString Str { get; }
+        public string Value => Str.Value;
+        public GeneratedPyConstantString(string value) => Str = PyString.From(value);
+        public GeneratedPyConstantString(PyString value) => Str = value;
     }
 
     public class GeneratedPyConstantBytes : GeneratedPyConstant

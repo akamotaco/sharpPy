@@ -803,7 +803,7 @@ namespace SharpPy
             // bytes_decode's clinic: both by the str converter.
             string encodingName = PyArgs.ClinicStr("decode", "argument 'encoding'", "str", encoding) ?? "utf-8";
             string errorName = PyArgs.ClinicStr("decode", "argument 'errors'", "str", errors) ?? "strict";
-            return PyString.From(PyStringNewArguments.DecodeBytes(Self(self), encodingName, errorName));
+            return PyStringNewArguments.DecodeBytes(Self(self), encodingName, errorName);
         }
 
         private static byte ByteValue(PyObject item, string message)

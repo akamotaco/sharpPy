@@ -1880,11 +1880,11 @@ namespace SharpPy
             : $"'{Encoding}' codec can't encode characters in position {Start}-{End - 1}: {Reason}");
 
         /// <summary>What a codec raises: the fields, from which the message follows.</summary>
-        internal static PythonException Failure(string encoding, string text, int start, int end, string reason)
-            // PyUnicodeEncodeError_Create: PyObject_CallFunction(PyExc_UnicodeEncodeError, ...).
+        internal static PythonException Failure(string encoding, PyString text, int start, int end, string reason)
+            // PyUnicodeEncodeError_Create: PyObject_CallFunction(PyExc_UnicodeEncodeError, ...), the str itself.
             => new PythonException((PyBaseException)PyType.UnicodeEncodeErrorType.Call(new PyObject[]
             {
-                PyString.From(encoding), PyString.From(text), PyInt.From(start), PyInt.From(end), PyString.From(reason),
+                PyString.From(encoding), text, PyInt.From(start), PyInt.From(end), PyString.From(reason),
             }, null));
     }
 

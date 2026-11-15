@@ -552,7 +552,7 @@ namespace SharpPy.Modules
                 return PyBool.True;
             if (!Form(form.Value, out bool nfc, out bool k))
                 throw PyValueError.Create("invalid normalization form");
-            var data = UnicodeEncoders.CodePoints(input.Value);
+            var data = input.ToCodePoints();
             var m = IsNormalizedQuickcheck(self, input.Value, data, nfc, k, false);
             if (m == Quickcheck.Maybe)
             {
@@ -570,7 +570,7 @@ namespace SharpPy.Modules
                 return input;
             if (!Form(form.Value, out bool nfc, out bool k))
                 throw PyValueError.Create("invalid normalization form");
-            var data = UnicodeEncoders.CodePoints(input.Value);
+            var data = input.ToCodePoints();
             if (IsNormalizedQuickcheck(self, input.Value, data, nfc, k, true) == Quickcheck.Yes)
                 return input;
             return PyString.From(Text(nfc ? NfcNfkc(self, data, k) : NfdNfkd(self, data, k)));

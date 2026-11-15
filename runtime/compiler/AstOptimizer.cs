@@ -37,7 +37,7 @@ namespace SharpPy
             GeneratedPyConstantBool b => b.Value ? PyBool.True : PyBool.False,
             GeneratedPyConstantInt i => PyInt.From(i.Value),
             GeneratedPyConstantFloat f => new PyFloat(f.Value),
-            GeneratedPyConstantString s => PyString.From(s.Value),
+            GeneratedPyConstantString s => s.Str,
             GeneratedPyConstantBytes bytes => PyBytes.From(bytes.Value),
             GeneratedPyConstantComplex c => new PyComplex(c.Real, c.Imag),
             GeneratedPyConstantEllipsis => PyEllipsis.Instance,

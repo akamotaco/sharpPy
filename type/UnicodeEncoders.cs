@@ -28,18 +28,6 @@ namespace SharpPy
 
         private static bool IsSurrogate(int ch) => ch >= 0xD800 && ch <= 0xDFFF;
 
-        // The code points of a str, one per index as PyUnicode_READ reads them.
-        internal static int[] CodePoints(string text)
-        {
-            var points = new int[PyString.CodePointCount(text)];
-            for (int i = 0, n = 0; i < text.Length; n++)
-            {
-                points[n] = PyString.CodePointAt(text, i, out int width);
-                i += width;
-            }
-            return points;
-        }
-
         private static bool IsAscii(string text)
         {
             foreach (char c in text)
@@ -83,15 +71,15 @@ namespace SharpPy
                     str.Add((byte)c);
         }
 
-        private static PythonException EncodeException(string encoding, string unicode, int start, int end, string reason) =>
+        private static PythonException EncodeException(string encoding, PyString unicode, int start, int end, string reason) =>
             PyUnicodeEncodeError.Failure(encoding, unicode, start, end, reason);
 
         /// <summary>unicode_encode_ucs1: limit is 128 (ascii) or 256 (latin-1).</summary>
-        internal static byte[] EncodeUcs1(string unicode, string errors, int limit)
+        internal static byte[] EncodeUcs1(PyString unicode, string errors, int limit)
         {
             string encoding = limit == 256 ? "latin-1" : "ascii";
             string reason = limit == 256 ? "ordinal not in range(256)" : "ordinal not in range(128)";
-            var data = CodePoints(unicode);
+            var data = unicode.ToCodePoints();
             int size = data.Length;
             var str = new List<byte>(size);
             Handler? errorHandler = null;
@@ -175,11 +163,11 @@ namespace SharpPy
         }
 
         /// <summary>unicode_encode_utf8: stringlib's utf8_encoder; only surrogates fail.</summary>
-        internal static byte[] EncodeUtf8(string unicode, string errors)
+        internal static byte[] EncodeUtf8(PyString unicode, string errors)
         {
-            var data = CodePoints(unicode);
+            var data = unicode.ToCodePoints();
             int size = data.Length;
-            var p = new List<byte>(unicode.Length * 2);
+            var p = new List<byte>(data.Length * 2);
             Handler? errorHandler = null;
             for (int i = 0; i < size;)
             {
@@ -297,10 +285,10 @@ namespace SharpPy
         /// handler, always through unicode_encode_call_errorhandler; its bytes must fill whole
         /// units and its str must be ASCII.
         /// </summary>
-        internal static byte[] EncodeUtf16Or32(string str, string errors, int byteorder, int width)
+        internal static byte[] EncodeUtf16Or32(PyString str, string errors, int byteorder, int width)
         {
             bool bigEndian = byteorder > 0;
-            var data = CodePoints(str);
+            var data = str.ToCodePoints();
             int len = data.Length;
             var o = new List<byte>((len + 1) * width);
             if (byteorder == 0)

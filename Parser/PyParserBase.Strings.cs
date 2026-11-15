@@ -70,7 +70,7 @@ namespace SharpPy.Generated
 
         // decode_unicode_with_escapes: what is not ASCII goes through as \UXXXXXXXX, so the
         // positions of a decoding error are those of this buffer and not of the source.
-        private string DecodeUnicodeWithEscapes(string s, GeneratedTokenInfo t)
+        private PyString DecodeUnicodeWithEscapes(string s, GeneratedTokenInfo t)
         {
             var buffer = new StringBuilder(s.Length * 2);
             int index = 0;
@@ -100,7 +100,7 @@ namespace SharpPy.Generated
             }
 
             string escaped = buffer.ToString();
-            string decoded = DecodeUnicodeEscape(escaped, out int firstInvalidEscape);
+            PyString decoded = DecodeUnicodeEscape(escaped, out int firstInvalidEscape);
             if (firstInvalidEscape >= 0 && t != null)
                 WarnInvalidEscapeSequence(escaped, firstInvalidEscape, t);
             return decoded;
@@ -128,7 +128,7 @@ namespace SharpPy.Generated
         }
 
         // _PyUnicode_DecodeUnicodeEscapeInternal2(s, len, NULL, NULL, ...)
-        private string DecodeUnicodeEscape(string s, out int firstInvalidEscape)
+        private PyString DecodeUnicodeEscape(string s, out int firstInvalidEscape)
         {
             try
             {
@@ -196,10 +196,11 @@ namespace SharpPy.Generated
         }
 
         // _PyPegen_decode_string
-        private string DecodeString(bool raw, string s, GeneratedTokenInfo t)
+        private PyString DecodeString(bool raw, string s, GeneratedTokenInfo t)
         {
             CheckUtf8(s);
-            return raw ? s : DecodeUnicodeWithEscapes(s, t);
+            // the source is wchar_t text: a raw part is PyUnicode_FromWideChar of it
+            return raw ? PyString.From(s) : DecodeUnicodeWithEscapes(s, t);
         }
 
         // _PyPegen_ensure_imaginary

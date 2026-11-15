@@ -265,28 +265,29 @@ namespace SharpPy
                 buf.Isdst = -1;
             else if (buf.Isdst > 1)
                 buf.Isdst = 1;
-            string format = formatArg.Value;
-            var writer = new StringBuilder();
+            // the str is read a character at a time (PyUnicode_READ_CHAR), so lone surrogates stay apart
+            var writer = new PyUnicodeWriter();
+            int format_size = formatArg.CodePointLength();
             int i = 0;
-            while (i < format.Length)
+            while (i < format_size)
             {
                 int start = i;
-                for (; i < format.Length; i++)
+                for (; i < format_size; i++)
                 {
-                    char c = format[i];
+                    int c = formatArg.ReadChar(i);
                     if (c == 0 || c > 127)
                         break;
                 }
                 if (i > start)
-                    writer.Append(StrFTime1(format.Substring(start, i - start), buf));
+                    writer.WriteStr(PyString.From(StrFTime1(formatArg.Substring(start, i).Value, buf)));
                 start = i;
-                for (; i < format.Length; i++)
-                    if (format[i] == '%')
+                for (; i < format_size; i++)
+                    if (formatArg.ReadChar(i) == '%')
                         break;
                 if (start < i)
-                    writer.Append(format, start, i - start);
+                    writer.WriteSubstring(formatArg, start, i);
             }
-            return PyString.From(writer.ToString());
+            return writer.Finish();
         }
 
         // time_strptime: _strptime._strptime_time(*args)

@@ -384,8 +384,11 @@ public class AstGenerator
             }
             else if (ct == "String")
             {
-                WriteLine("public string Value { get; }");
-                WriteLine("public GeneratedPyConstantString(string value) => Value = value;");
+                WriteLine("// the str object (Constant.value); Value is its wchar_t text");
+                WriteLine("public PyString Str { get; }");
+                WriteLine("public string Value => Str.Value;");
+                WriteLine("public GeneratedPyConstantString(string value) => Str = PyString.From(value);");
+                WriteLine("public GeneratedPyConstantString(PyString value) => Str = value;");
             }
             else if (ct == "Bytes")
             {

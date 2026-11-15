@@ -193,7 +193,10 @@ namespace SharpPy
                     return "c" + BitConverter.DoubleToInt64Bits(complex.Real).ToString("x") + "," +
                         BitConverter.DoubleToInt64Bits(complex.Imag).ToString("x");
                 case PyString text:
-                    return "s" + text.Value.Length + ":" + text.Value;
+                    // the characters: the wchar_t text of two strs can be the same
+                    return text.IsUcs4
+                        ? "s4:" + string.Join(",", text.Ucs4)
+                        : "s" + text.Ucs2.Length + ":" + text.Ucs2;
                 case PyBytes bytes:
                     return "y" + Convert.ToHexString(bytes.Value);
                 case PyTuple tuple:

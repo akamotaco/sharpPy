@@ -108,19 +108,20 @@ namespace SharpPy
         }
 
         /// <summary>decode_code_page_stateful: consumed null is final (PyUnicode_DecodeCodePageStateful).</summary>
-        internal static string Decode(int codePage, byte[] input, string errors, bool final, out int consumed)
+        internal static PyString Decode(int codePage, byte[] input, string errors, bool final, out int consumed)
         {
             if (codePage < 0)
                 throw PyValueError.Create("invalid code page number");
             consumed = 0;
             if (input.Length == 0)
-                return "";
+                return PyString.Empty;
             var encoding = Strict(codePage);
             // decode_code_page_strict
             if (TryDecode(encoding, input, 0, input.Length, out var whole) && !HasUndefinedSingleByte(encoding, input, whole))
             {
                 consumed = input.Length;
-                return whole;
+                // MultiByteToWideChar's wchar_t text, then PyUnicode_FromWideChar
+                return PyString.From(whole);
             }
             // decode_code_page_errors
             string name = CodePageName(codePage);
@@ -130,7 +131,7 @@ namespace SharpPy
                 throw new PythonException((PyBaseException)PyType.UnicodeDecodeErrorType.Call(new PyObject[]
                     { PyString.From(name), PyBytes.From(input), PyInt.From(0), PyInt.From(0), PyString.From(DecodeReason) }, null));
             }
-            var output = new StringBuilder();
+            var output = new PyUnicodeWriter();
             int position = 0;
             while (position < input.Length)
             {
@@ -149,12 +150,12 @@ namespace SharpPy
                 }
                 else
                 {
-                    output.Append(decoded);
+                    output.WriteWideChar(decoded);
                     position += size;
                 }
             }
             consumed = position;
-            return output.ToString();
+            return output.Finish();
         }
 
         private static bool IsUndefinedSingleByte(Encoding encoding, byte b)
@@ -203,8 +204,10 @@ namespace SharpPy
         }
 
         /// <summary>encode_code_page</summary>
-        internal static byte[] Encode(int codePage, string text, string errors)
+        internal static byte[] Encode(int codePage, PyString str, string errors)
         {
+            // the wchar_t text is what WideCharToMultiByte reads
+            string text = str.Value;
             if (codePage < 0)
                 throw PyValueError.Create("invalid code page number");
             if (text.Length == 0)
@@ -222,21 +225,11 @@ namespace SharpPy
             string name = CodePageName(codePage);
             if (errors == null || errors == "strict")
                 throw new PythonException((PyBaseException)PyType.UnicodeEncodeErrorType.Call(new PyObject[]
-                    { PyString.From(name), PyString.From(text), PyInt.From(0), PyInt.From(0), PyString.From(EncodeReason) }, null));
+                    { PyString.From(name), str, PyInt.From(0), PyInt.From(0), PyString.From(EncodeReason) }, null));
             var output = new System.IO.MemoryStream();
             // the code points, which the handler's positions count
-            var points = new System.Collections.Generic.List<int>(text.Length);
-            for (int unit = 0; unit < text.Length; unit++)
-            {
-                if (char.IsHighSurrogate(text[unit]) && unit + 1 < text.Length && char.IsLowSurrogate(text[unit + 1]))
-                {
-                    points.Add(char.ConvertToUtf32(text[unit], text[unit + 1]));
-                    unit++;
-                }
-                else
-                    points.Add(text[unit]);
-            }
-            int length = points.Count;
+            var points = str.ToCodePoints();
+            int length = points.Length;
             var bestFit = errors == "replace" ? BestFit(codePage) : null;
             int position = 0;
             while (position < length)
@@ -260,7 +253,7 @@ namespace SharpPy
                     position++;
                     continue;
                 }
-                var replacement = PyCodecErrors.CallEncode(errors, name, EncodeReason, text, position, position + 1, length, out int newPosition);
+                var replacement = PyCodecErrors.CallEncode(errors, name, EncodeReason, str, position, position + 1, length, out int newPosition);
                 if (replacement is PyBytes raw)
                     output.Write(raw.Value, 0, raw.Value.Length);
                 else
@@ -270,7 +263,7 @@ namespace SharpPy
                         if (c > 127)
                             throw new PythonException((PyBaseException)PyType.UnicodeEncodeErrorType.Call(new PyObject[]
                             {
-                                PyString.From(name), PyString.From(text), PyInt.From(position), PyInt.From(position + 1),
+                                PyString.From(name), str, PyInt.From(position), PyInt.From(position + 1),
                                 PyString.From("unable to encode error handler result to ASCII"),
                             }, null));
                         output.WriteByte((byte)c);

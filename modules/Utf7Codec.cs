@@ -44,26 +44,20 @@ namespace SharpPy.Modules
             c < 128 && c > 0 &&
             (Utf7Category[c] == 0 || (directWS && Utf7Category[c] == 2) || (directO && Utf7Category[c] == 1));
 
-        private static void WriteChar(StringBuilder writer, int ch)
-        {
-            if (ch < 0x10000) writer.Append((char)ch);
-            else writer.Append(char.ConvertFromUtf32(ch));
-        }
-
         /// <summary>
         /// PyUnicode_DecodeUTF7Stateful. The only state kept is the read position, so a call that
         /// ends in a shift sequence backs off the read position and the output to its start.
         /// consumed is null for a final decode.
         /// </summary>
-        internal static string Decode(byte[] s, string errors, int[] consumed)
+        internal static PyString Decode(byte[] s, string errors, int[] consumed)
         {
             int size = s.Length;
             if (size == 0)
             {
                 if (consumed != null) consumed[0] = 0;
-                return "";
+                return PyString.Empty;
             }
-            var writer = new StringBuilder(size);
+            var writer = new PyUnicodeWriter();
             string errmsg;
             bool inShift = false;
             int shiftOutStart = 0;
@@ -102,17 +96,17 @@ namespace SharpPy.Modules
                                     // expecting a second surrogate
                                     if (outCh >= 0xDC00 && outCh <= 0xDFFF)
                                     {
-                                        WriteChar(writer, 0x10000 + ((surrogate - 0xD800) << 10) + (outCh - 0xDC00));
+                                        writer.WriteChar(0x10000 + ((surrogate - 0xD800) << 10) + (outCh - 0xDC00));
                                         surrogate = 0;
                                         continue;
                                     }
-                                    WriteChar(writer, surrogate);
+                                    writer.WriteChar(surrogate);
                                     surrogate = 0;
                                 }
                                 if (outCh >= 0xD800 && outCh <= 0xDBFF)
                                     surrogate = outCh;  // first surrogate
                                 else
-                                    WriteChar(writer, outCh);
+                                    writer.WriteChar(outCh);
                             }
                             continue;
                         }
@@ -137,7 +131,7 @@ namespace SharpPy.Modules
                             }
                         }
                         if (surrogate != 0 && DecodeDirect(ch))
-                            WriteChar(writer, surrogate);
+                            writer.WriteChar(surrogate);
                         surrogate = 0;
                         // '-' is absorbed; other terminating characters are preserved
                         if (ch == '-')
@@ -152,7 +146,7 @@ namespace SharpPy.Modules
                         {
                             // '+-' encodes '+'
                             p++;
-                            writer.Append('+');
+                            writer.WriteChar('+');
                         }
                         else if (p < e && !IsBase64(s[p]))
                         {
@@ -175,7 +169,7 @@ namespace SharpPy.Modules
                     {
                         // character decodes as itself
                         p++;
-                        writer.Append((char)ch);
+                        writer.WriteChar(ch);
                         continue;
                     }
                     startinpos = p;
@@ -211,12 +205,12 @@ namespace SharpPy.Modules
                 if (inShift)
                 {
                     consumed[0] = startinpos;
-                    writer.Length = shiftOutStart;  // back off output
+                    writer.Truncate(shiftOutStart);  // back off output
                 }
                 else
                     consumed[0] = p;
             }
-            return writer.ToString();
+            return writer.Finish();
         }
 
         /// <summary>_PyUnicode_EncodeUTF7</summary>

@@ -37,8 +37,8 @@ namespace SharpPy.Modules
                 var data = BufferArgument(args, "utf_8_decode");
                 string errors = ErrorsArgument("utf_8_decode", args, 1);
                 var consumed = Final(args, 2) ? null : new[] { data.Length };
-                string decoded = UnicodeDecoders.DecodeUtf8(data, errors, consumed);
-                return Result(PyString.From(decoded), consumed?[0] ?? data.Length);
+                PyString decoded = UnicodeDecoders.DecodeUtf8(data, errors, consumed);
+                return Result(decoded, consumed?[0] ?? data.Length);
             });
             UtfDecodeFunction(module, "utf_16_decode", 0, 2);
             UtfDecodeFunction(module, "utf_16_le_decode", -1, 2);
@@ -53,13 +53,13 @@ namespace SharpPy.Modules
             {
                 var data = BufferArgument(args, "ascii_decode");
                 string errors = ErrorsArgument("ascii_decode", args, 1);
-                return Result(PyString.From(UnicodeDecoders.DecodeAscii(data, errors)), data.Length);
+                return Result((UnicodeDecoders.DecodeAscii(data, errors)), data.Length);
             });
             module.ModuleDict["latin_1_decode"] = PyArgs.FastCall("_codecs", "latin_1_decode", 1, 2, args =>
             {
                 var data = BufferArgument(args, "latin_1_decode");
                 ErrorsArgument("latin_1_decode", args, 1);
-                return Result(PyString.From(UnicodeDecoders.DecodeLatin1(data)), data.Length);
+                return Result((UnicodeDecoders.DecodeLatin1(data)), data.Length);
             });
 
             // _codecs_*_encode_impl: codec_tuple(the encoder's bytes, PyUnicode_GET_LENGTH(str)).
@@ -86,8 +86,8 @@ namespace SharpPy.Modules
                 string errors = ErrorsArgument("utf_7_decode", args, 1);
                 bool final = args.Length > 2 && args[2].IsTrue();
                 var consumed = final ? null : new[] { data.Length };
-                string decoded = Utf7Codec.Decode(data, errors, consumed);
-                return Result(PyString.From(decoded), consumed?[0] ?? data.Length);
+                PyString decoded = Utf7Codec.Decode(data, errors, consumed);
+                return Result(decoded, consumed?[0] ?? data.Length);
             });
 
             // Encoding functions - UTF-16
@@ -258,30 +258,31 @@ namespace SharpPy.Modules
 
         // The clinic of _codecs_*_encode: (str: unicode, errors: str(accept={str, NoneType}) = None, /)
         // and, for utf_16_encode and utf_32_encode, byteorder: int = 0.
-        private static void EncodeFunction(PyModule module, string name, int max, Func<string, string, PyObject[], byte[]> encoder) =>
+        private static void EncodeFunction(PyModule module, string name, int max, Func<PyString, string, PyObject[], byte[]> encoder) =>
             module.ModuleDict[name] = PyArgs.FastCall("_codecs", name, 1, max, args =>
             {
-                string text = TextOf(args[0], name);
+                TextOf(args[0], name);
+                var text = (PyString)args[0];
                 string errors = ErrorsArgument(name, args, 1);
                 return Result(PyBytes.From(encoder(text, errors, args)), ((PyString)args[0]).CodePointLength());
             });
 
-        private static void EscapeDecodeFunction(PyModule module, string name, Func<byte[], string, int[], string> decoder) =>
+        private static void EscapeDecodeFunction(PyModule module, string name, Func<byte[], string, int[], PyString> decoder) =>
             module.ModuleDict[name] = PyArgs.FastCall("_codecs", name, 1, 3, args =>
             {
                 var data = BytesMethods.StrOrBuffer(args[0]);
                 string errors = ErrorsArgument(name, args, 1);
                 bool final = args.Length <= 2 || args[2].IsTrue();
                 var consumed = final ? null : new[] { data.Length };
-                string decoded = decoder(data, errors, consumed);
-                return Result(PyString.From(decoded), consumed?[0] ?? data.Length);
+                PyString decoded = decoder(data, errors, consumed);
+                return Result(decoded, consumed?[0] ?? data.Length);
             });
 
         // final: bool = False
         private static bool Final(PyObject[] args, int index) => args.Length > index && args[index].IsTrue();
 
         // PyUnicode_DecodeUTF16Stateful or PyUnicode_DecodeUTF32Stateful by the unit width.
-        private static string DecodeUtfWide(byte[] data, string errors, ref int byteorder, int[] consumed, int width) =>
+        private static PyString DecodeUtfWide(byte[] data, string errors, ref int byteorder, int[] consumed, int width) =>
             width == 2
                 ? UnicodeDecoders.DecodeUtf16(data, errors, ref byteorder, consumed)
                 : UnicodeDecoders.DecodeUtf32(data, errors, ref byteorder, consumed);
@@ -293,8 +294,8 @@ namespace SharpPy.Modules
                 string errors = ErrorsArgument(name, args, 1);
                 var consumed = Final(args, 2) ? null : new[] { data.Length };
                 int order = byteorder;
-                string decoded = DecodeUtfWide(data, errors, ref order, consumed, width);
-                return Result(PyString.From(decoded), consumed?[0] ?? data.Length);
+                PyString decoded = DecodeUtfWide(data, errors, ref order, consumed, width);
+                return Result(decoded, consumed?[0] ?? data.Length);
             });
 
         // _codecs_utf_16_ex_decode_impl: (data, errors=None, byteorder: int = 0, final: bool = False, /)
@@ -306,8 +307,8 @@ namespace SharpPy.Modules
                 string errors = ErrorsArgument(name, args, 1);
                 int order = ByteOrder(args);
                 var consumed = Final(args, 3) ? null : new[] { data.Length };
-                string decoded = DecodeUtfWide(data, errors, ref order, consumed, width);
-                return PyTuple.From(new PyObject[] { PyString.From(decoded), PyInt.From(consumed?[0] ?? data.Length), PyInt.From(order) });
+                PyString decoded = DecodeUtfWide(data, errors, ref order, consumed, width);
+                return PyTuple.From(new PyObject[] { decoded, PyInt.From(consumed?[0] ?? data.Length), PyInt.From(order) });
             });
 
         // byteorder: int = 0
@@ -331,9 +332,9 @@ namespace SharpPy.Modules
         // _codecs_code_page_encode_impl and the mbcs/oem ones: (bytes, len(str)).
         private static PyObject CodePageEncode(string name, int codePage, PyObject[] args, int first)
         {
-            string text = args[first] is PyString str ? str.Value : throw PyArgs.BadArgument(name, $"argument {first + 1}", "str", args[first]);
+            var text = args[first] as PyString ?? throw PyArgs.BadArgument(name, $"argument {first + 1}", "str", args[first]);
             var bytes = PyCodePage.Encode(codePage, text, ErrorsArgument(name, args, first + 1));
-            return Result(PyBytes.From(bytes), (int)((PyString)args[first]).Length());
+            return Result(PyBytes.From(bytes), text.CodePointLength());
         }
 
         // _codecs_code_page_decode_impl: final is PyUnicode_DecodeCodePageStateful's consumed == NULL.
@@ -342,8 +343,8 @@ namespace SharpPy.Modules
             var data = BytesMethods.RequireBuffer(args[first]);
             string errors = ErrorsArgument(name, args, first + 1);
             bool final = args.Length > first + 2 && args[first + 2].IsTrue();
-            string text = PyCodePage.Decode(codePage, data, errors, final, out int consumed);
-            return Result(PyString.From(text), final ? data.Length : consumed);
+            var text = PyCodePage.Decode(codePage, data, errors, final, out int consumed);
+            return Result(text, final ? data.Length : consumed);
         }
 
         // Charmap encoding - stub implementations
@@ -363,7 +364,7 @@ namespace SharpPy.Modules
             var data = BufferArgument(args, "charmap_decode");
             string errors = ErrorsArgument("charmap_decode", args, 1);
             PyObject mapping = args.Length > 2 && args[2] is not PyNone ? args[2] : null;
-            return Result(PyString.From(CharmapCodec.Decode(data, mapping, errors)), data.Length);
+            return Result(CharmapCodec.Decode(data, mapping, errors), data.Length);
         }
 
         // _codecs_charmap_encode_impl: a None mapping is Latin-1 (unicode_encode_ucs1).
@@ -372,7 +373,7 @@ namespace SharpPy.Modules
             var str = args[0] as PyString ?? throw PyArgs.BadArgument("charmap_encode", "argument 1", "str", args[0]);
             string errors = ErrorsArgument("charmap_encode", args, 1);
             PyObject mapping = args.Length > 2 && args[2] is not PyNone ? args[2] : null;
-            var encoded = mapping == null ? str.Encode("latin-1", errors) : PyBytes.From(CharmapCodec.Encode(str.Value, mapping, errors));
+            var encoded = mapping == null ? str.Encode("latin-1", errors) : PyBytes.From(CharmapCodec.Encode(str, mapping, errors));
             return Result(encoded, str.CodePointLength());
         }
 

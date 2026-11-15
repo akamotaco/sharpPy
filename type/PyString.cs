@@ -53,7 +53,7 @@ namespace SharpPy
                 throw PyTypeError.Create(
                     $"decoding to str: need a bytes-like object, {objectArg.GetTypeName()} found");
 
-            return PyString.From(DecodeBytes(data, encodingName, errorName));
+            return DecodeBytes(data, encodingName, errorName);
         }
 
         /// <summary>The codecs PyUnicode_Decode and PyUnicode_AsEncodedString take without the registry.</summary>
@@ -121,11 +121,11 @@ namespace SharpPy
         /// PyUnicode_Decode: nothing to decode is the empty string before any lookup, a null
         /// encoding is UTF-8, then the shortcuts, then _PyCodec_DecodeText over a memoryview.
         /// </summary>
-        internal static string DecodeBytes(byte[] data, string encodingName, string errorName)
+        internal static PyString DecodeBytes(byte[] data, string encodingName, string errorName)
         {
             PyCodecRegistry.CheckEncodingErrors(encodingName, errorName);
             if (data.Length == 0)
-                return "";
+                return PyString.Empty;
             if (encodingName == null)
                 return UnicodeDecoders.DecodeUtf8(data, errorName, null);
             int byteorder = 0;
@@ -140,12 +140,12 @@ namespace SharpPy
             }
             // Decode via the codec registry (PyMemoryView_FromBuffer)
             var unicode = PyCodecRegistry.DecodeText(new PyMemoryView(data, readOnly: true), encodingName, errorName);
-            return unicode is PyString text ? text.Value
+            return unicode is PyString text ? text
                 : throw PyTypeError.Create($"'{encodingName}' decoder returned '{unicode.GetPyType().FullName}' instead of 'str'; use codecs.decode() to decode to arbitrary types");
         }
     }
 
-    public class PyString : PyObject
+    public partial class PyString : PyObject
     {
         static PyString()
         {
@@ -1296,7 +1296,7 @@ namespace SharpPy
                         {
                             // CPython: line 14744 - self = type->tp_alloc(type, 0);
                             // line 14751-14764 - copy unicode data from original
-                            return new PyStrSubclass(classObj, value);
+                            return new PyStrSubclass(classObj, text);
                         }
                         else
                         {
@@ -1315,10 +1315,6 @@ namespace SharpPy
 
         #region Core Properties
 
-        public string Value { get; }
-
-        public PyString(string value) => Value = value ?? "";
-
         public override PyType GetPyType() => _customType ?? PyType.StrType;
 
         // PyX_CheckExact
@@ -1333,91 +1329,49 @@ namespace SharpPy
         #region String Representation
 
         // Python str() - PyString은 이미 문자열이므로 자신을 반환
-        protected internal override PyString Str() => IsExactly(PyType.StrType) ? this : PyString.From(Value);
+        protected internal override PyString Str() => ResultUnchanged();
 
+        // unicode_repr: the quote is ' unless the text has ' and no ", and each character is itself,
+        // an escape (\\ \t \n \r and the quote), or \xhh, \uhhhh, \Uhhhhhhhh when it is not printable.
         protected internal override PyString Repr()
         {
-            // CPython-compatible repr() implementation
-            bool hasSingleQuote = Value.Contains('\'');
-            bool hasDoubleQuote = Value.Contains('"');
-
-            char quoteChar;
-            if (hasSingleQuote && !hasDoubleQuote)
+            bool hasSingleQuote = false, hasDoubleQuote = false;
+            foreach (int cp in CodePoints())
             {
-                // Contains single quotes but no double quotes -> use double quotes
-                quoteChar = '"';
+                if (cp == '\'') hasSingleQuote = true;
+                else if (cp == '"') hasDoubleQuote = true;
             }
-            else
+            char quote = hasSingleQuote && !hasDoubleQuote ? '"' : '\'';
+
+            var writer = new PyUnicodeWriter();
+            writer.WriteChar(quote);
+            foreach (int cp in CodePoints())
             {
-                // Default to single quotes (covers: no quotes, only double quotes, or both)
-                quoteChar = '\'';
+                if (cp == quote || cp == '\\')
+                {
+                    writer.WriteChar('\\');
+                    writer.WriteChar(cp);
+                }
+                else if (cp == '\t') writer.WriteUnits("\\t");
+                else if (cp == '\n') writer.WriteUnits("\\n");
+                else if (cp == '\r') writer.WriteUnits("\\r");
+                else if (cp < ' ' || cp == 0x7F) writer.WriteUnits($"\\x{cp:x2}");
+                else if (cp < 0x7F) writer.WriteChar(cp);
+                else if (UnicodeType.IsPrintable(cp)) writer.WriteChar(cp);
+                else if (cp <= 0xFF) writer.WriteUnits($"\\x{cp:x2}");
+                else if (cp <= 0xFFFF) writer.WriteUnits($"\\u{cp:x4}");
+                else writer.WriteUnits($"\\U{cp:x8}");
             }
-
-            // Efficient single-pass escape processing with StringBuilder
-            var result = new System.Text.StringBuilder(Value.Length + 10); // Pre-allocate with some extra space
-            result.Append(quoteChar);
-
-            for (int index = 0; index < Value.Length; index++)
-            {
-                char c = Value[index];
-                if (char.IsHighSurrogate(c) && char.IsSurrogatePair(Value, index))
-                {
-                    int code = char.ConvertToUtf32(Value, index);
-                    if (UnicodeType.IsPrintable(code)) result.Append(Value, index, 2);
-                    else result.Append($"\\U{code:x8}");
-                    index++;
-                    continue;
-                }
-                // Handle special characters based on CPython patterns
-                if (c == '\\')
-                {
-                    result.Append("\\\\");
-                }
-                else if (c == '\n')
-                {
-                    result.Append("\\n");
-                }
-                else if (c == '\t')
-                {
-                    result.Append("\\t");
-                }
-                else if (c == '\r')
-                {
-                    result.Append("\\r");
-                }
-                else if (c == '\'' && quoteChar == '\'')
-                {
-                    result.Append("\\'");  // Escape single quote only when using single quotes
-                }
-                else if (c == '"' && quoteChar == '"')
-                {
-                    result.Append("\\\""); // Escape double quote only when using double quotes
-                }
-                else if (!IsPrintableForRepr(c))
-                {
-                    // Non-printable characters → hex format (following CPython's isprintable() logic)
-                    result.Append(c <= 0xff ? $"\\x{(int)c:x2}" : $"\\u{(int)c:x4}");
-                }
-                else
-                {
-                    // Printable ASCII characters (32-126) → as-is
-                    result.Append(c);
-                }
-            }
-
-            result.Append(quoteChar);
-            return PyString.From(result.ToString());
+            writer.WriteChar(quote);
+            return writer.Finish();
         }
-
-        // unicode_repr: below 128 only ' '..'~' stand for themselves; above, Py_UNICODE_ISPRINTABLE.
-        private static bool IsPrintableForRepr(char c) => c < 128 ? c >= ' ' && c != 127 : UnicodeType.IsPrintable(c);
 
         #endregion
 
         #region Hash and Equality
 
         // unicode_hash
-        protected internal override long Hash() => PyHash.Text(Value);
+        protected internal override long Hash() => HashCodePoints();
 
         public override int ToHash() => Value.GetHashCode();
 
@@ -1425,7 +1379,7 @@ namespace SharpPy
         {
             return other switch
             {
-                PyString otherStr => PyBool.FromBool(Value == otherStr.Value),
+                PyString otherStr => PyBool.FromBool(ContentEquals(otherStr)),
                 // CPython unicode_richcompare: content comparison also for str subclasses.
                 _ => PyNotImplemented.Instance
             };
@@ -1475,20 +1429,6 @@ namespace SharpPy
             return false;
         }
 
-        // Decided on first use and kept, because ordinary and BMP text is the overwhelming
-        // majority: for it a code point index *is* a unit index and every conversion below is a
-        // comparison. Only text containing a pair pays a scan.
-        private sbyte _pairState;
-
-        private bool HasPairs
-        {
-            get
-            {
-                if (_pairState == 0)
-                    _pairState = (sbyte)(HasSurrogatePairs(Value) ? 2 : 1);
-                return _pairState == 2;
-            }
-        }
 
         /// <summary>The length Python reports: one per character, not one per code unit.</summary>
         internal static int CodePointCount(string text)
@@ -1544,45 +1484,24 @@ namespace SharpPy
         /// step here advances by characters too, and stays O(n) by moving one character at a time
         /// instead of re-converting from the front.
         /// </summary>
-        private string StepCodePoints(int start, int stop, int step)
+        private PyString Slice(int start, int stop, int step)
         {
             int count = PySlice.GetLength(start, stop, step);
             if (count <= 0)
-                return string.Empty;
-
-            var sb = new StringBuilder(count);
-            int unit = CodePointToUnit(Value, start);
-            int cp = start;
-            for (int n = 0; n < count; n++)
+                return Empty;
+            if (step == 1)
+                return Substring(start, start + count);
+            if (IsUcs4)
             {
-                if (unit >= Value.Length)
-                    break;
-                int width = PairWidth(Value, unit);
-                sb.Append(Value, unit, width);
-                // The last character needs no walk to the place after it.
-                if (n == count - 1)
-                    break;
-
-                int next = cp + step;
-                if (next == cp)
-                    break;
-                if (next > cp)
-                {
-                    for (int k = cp; k < next && unit < Value.Length; k++)
-                        unit += PairWidth(Value, unit);
-                }
-                else
-                {
-                    for (int k = cp; k > next; k--)
-                    {
-                        unit--;
-                        if (IsContinuation(Value, unit))
-                            unit--;
-                    }
-                }
-                cp = next;
+                var points = new int[count];
+                for (int n = 0, i = start; n < count; n++, i += step)
+                    points[n] = Ucs4[i];
+                return FromCodePoints(points);
             }
-            return sb.ToString();
+            var units = new char[count];
+            for (int n = 0, i = start; n < count; n++, i += step)
+                units[n] = Ucs2[i];
+            return FromUnits(new string(units));
         }
 
         /// <summary>
@@ -1804,12 +1723,6 @@ namespace SharpPy
         internal static bool IsWhiteSpaceCp(int cp) => UnicodeType.IsSpace(cp);
         internal static bool IsPrintableCp(int cp) => UnicodeType.IsPrintable(cp);
 
-        /// <summary>The characters of this value, one per Python character.</summary>
-        internal System.Collections.Generic.IEnumerable<int> CodePoints()
-        {
-            for (int i = 0; i < Value.Length; i += PairWidth(Value, i))
-                yield return CodePointAtUnit(Value, i);
-        }
 
         /// <summary>
         /// The characters of text as one-character str objects. Four places needed this and each had
@@ -1818,12 +1731,11 @@ namespace SharpPy
         /// yields characters in CPython (Objects/unicodeobject.c unicode_iterator), so list(),
         /// set(), (*s) and ExceptionGroup('m', s) all disagreed for astral text.
         /// </summary>
-        internal static PyObject[] Characters(string text)
+        internal PyObject[] Characters()
         {
-            var items = new PyObject[CodePointCount(text)];
-            int n = 0;
-            for (int i = 0; i < text.Length; i += PairWidth(text, i))
-                items[n++] = PyString.From(text.Substring(i, PairWidth(text, i)));
+            var items = new PyObject[CodePointLength()];
+            for (int i = 0; i < items.Length; i++)
+                items[i] = FromCodePoint(ReadChar(i));
             return items;
         }
 
@@ -1913,13 +1825,12 @@ namespace SharpPy
         /// The value of the character at a Python index, for ord() and anything else that wants a
         /// code point. CodePointToUnit keeps this correct for astral text.
         /// </summary>
-        internal int CodePointAt(int index) => CodePointAtUnit(Value, CodePointToUnit(Value, index));
 
         protected override PyObject PyLess(PyObject other)
         {
             return other switch
             {
-                PyString otherStr => PyBool.FromBool(CompareText(Value, otherStr.Value) < 0),
+                PyString otherStr => PyBool.FromBool(CompareCodePoints(otherStr) < 0),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -1928,7 +1839,7 @@ namespace SharpPy
         {
             return other switch
             {
-                PyString otherStr => PyBool.FromBool(CompareText(Value, otherStr.Value) <= 0),
+                PyString otherStr => PyBool.FromBool(CompareCodePoints(otherStr) <= 0),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -1937,7 +1848,7 @@ namespace SharpPy
         {
             return other switch
             {
-                PyString otherStr => PyBool.FromBool(CompareText(Value, otherStr.Value) > 0),
+                PyString otherStr => PyBool.FromBool(CompareCodePoints(otherStr) > 0),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -1946,7 +1857,7 @@ namespace SharpPy
         {
             return other switch
             {
-                PyString otherStr => PyBool.FromBool(CompareText(Value, otherStr.Value) >= 0),
+                PyString otherStr => PyBool.FromBool(CompareCodePoints(otherStr) >= 0),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -1973,7 +1884,7 @@ namespace SharpPy
             // of the other (itself when exact, an exact copy of a subclass).
             if (IsEmptySingleton) return otherStr.ResultUnchanged();
             if (otherStr.IsEmptySingleton) return ResultUnchanged();
-            return PyString.From(Value + otherStr.Value);
+            return Concat(this, otherStr);
         }
 
         // --- Shared primitives for CPython-exact string operations ---
@@ -2098,16 +2009,19 @@ namespace SharpPy
             // unicode_repeat: "repeated string is too long" past Py_ssize_t, then PyUnicode_New.
             PyAllocation.Product(CodePointLength(), times, "repeated string is too long");
             PyAllocation.StringLength(PyAllocation.Product(Value.Length, times, "repeated string is too long"));
-            if (Value.Length == 0)
-                return PyString.From("");
-
-            // Performance: Eliminated LINQ (Enumerable.Repeat) - manual string repetition
-            var sb = new StringBuilder(Value.Length * (int)times);
-            for (long i = 0; i < times; i++)
+            if (CodePointLength() == 0)
+                return Empty;
+            if (!IsUcs4)
             {
-                sb.Append(Value);
+                var sb = new StringBuilder(Value.Length * (int)times);
+                for (long i = 0; i < times; i++)
+                    sb.Append(Ucs2);
+                return FromUnits(sb.ToString());
             }
-            return PyString.From(sb.ToString());
+            var points = new int[CodePointLength() * (int)times];
+            for (int i = 0; i < (int)times; i++)
+                Array.Copy(Ucs4, 0, points, i * Ucs4.Length, Ucs4.Length);
+            return FromCodePoints(points);
         }
 
         /// <summary>
@@ -2500,8 +2414,7 @@ namespace SharpPy
             if (index < 0 || index >= chars)
                 throw PyIndexError.Create("string index out of range");
 
-            int unit = CodePointToUnit(Value, index);
-            return PyString.From(Value.Substring(unit, PairWidth(Value, unit)));
+            return FromCodePoint(ReadChar(index));
         }
         
         /// <summary>
@@ -2519,7 +2432,7 @@ namespace SharpPy
                 // CPython: unicode_subscript -> PySlice_GetIndicesEx on the character length,
                 // then a character at a time. StepCodePoints is the one implementation of that walk.
                 var (start, stop, step) = slice.StorageIndices(CodePointLength());
-                return PyString.From(StepCodePoints(start, stop, step));
+                return Slice(start, stop, step);
             }
             else
             {
@@ -2599,7 +2512,7 @@ namespace SharpPy
         // unicode_get_empty: every exact empty str is the one singleton in CPython.
         private bool IsEmptySingleton => Value.Length == 0 && IsExact;
 
-        internal PyString ResultUnchanged() => IsExact ? this : PyString.From(Value);
+        internal PyString ResultUnchanged() => IsExact ? this : Copy();
 
         // replace (Objects/unicodeobject.c): the text is walked once, what was put in is not searched.
         public PyString Replace(string old, string newStr, long count = -1)
@@ -2739,20 +2652,7 @@ namespace SharpPy
         {
             // stringlib join: PySequence_Fast consumes the iterable before checking element types.
             PyObject[] values = PyList.SequenceFast(iterable, "can only join an iterable");
-            if (values.Length == 0) return PyString.From("");
-            if (values.Length == 1 && values[0].IsExactly(PyType.StrType)) return (PyString)values[0];
-            var strings = new string[values.Length];
-            for (int i = 0; i < values.Length; i++)
-            {
-                if (values[i] is not PyString item)
-                    throw PyTypeError.Create($"sequence item {i}: expected str instance, {values[i].GetTypeName()} found");
-                strings[i] = item.Value;
-            }
-            // _PyUnicode_JoinArray: the size first, then one allocation.
-            long size = (long)Value.Length * (strings.Length - 1);
-            foreach (var piece in strings) size += piece.Length;
-            PyAllocation.StringLength(size);
-            return PyString.Fresh(string.Join(Value, strings));
+            return JoinArray(this, values);
         }
 
         #endregion
@@ -2761,7 +2661,7 @@ namespace SharpPy
 
         // CPython: PyUnicode_GET_LENGTH counts characters. Everything above this line that needs a
         // unit offset converts through CodePointToUnit.
-        protected internal override long Len() => HasPairs ? CodePointCount(Value) : Value.Length;
+        protected internal override long Len() => CodePointLength();
         
         
         /// <summary>
@@ -2774,7 +2674,7 @@ namespace SharpPy
         protected internal override PyBool ContainsItem(PyObject item)
         {
             if (item is PyString pyStr)
-                return PyBool.FromBool(Value.Contains(pyStr.Value));
+                return PyBool.FromBool(FindCodePoints(this, pyStr, 0, CodePointLength()) >= 0);
 
             throw PyTypeError.Create($"'in <string>' requires string as left operand, not {item.GetTypeName()}");
         }
@@ -2827,21 +2727,21 @@ namespace SharpPy
             // PyUnicode_AsEncodedString
             PyCodecRegistry.CheckEncodingErrors(encoding, errors);
             if (encoding == null)
-                return PyBytes.From(UnicodeEncoders.EncodeUtf8(Value, errors));
+                return PyBytes.From(UnicodeEncoders.EncodeUtf8(this, errors));
             switch (PyStringNewArguments.ShortcutOf(encoding))
             {
                 case PyStringNewArguments.Shortcut.Utf8:
-                    return PyBytes.From(UnicodeEncoders.EncodeUtf8(Value, errors));
+                    return PyBytes.From(UnicodeEncoders.EncodeUtf8(this, errors));
                 case PyStringNewArguments.Shortcut.Utf16:
-                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, 0, 2));
+                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(this, errors, 0, 2));
                 case PyStringNewArguments.Shortcut.Utf32:
-                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(Value, errors, 0, 4));
+                    return PyBytes.From(UnicodeEncoders.EncodeUtf16Or32(this, errors, 0, 4));
                 case PyStringNewArguments.Shortcut.Ascii:
-                    return PyBytes.From(UnicodeEncoders.EncodeUcs1(Value, errors, 128));
+                    return PyBytes.From(UnicodeEncoders.EncodeUcs1(this, errors, 128));
                 case PyStringNewArguments.Shortcut.Mbcs:
-                    return PyBytes.From(PyCodePage.Encode(PyCodePage.CP_ACP, Value, errors));
+                    return PyBytes.From(PyCodePage.Encode(PyCodePage.CP_ACP, this, errors));
                 case PyStringNewArguments.Shortcut.Latin1:
-                    return PyBytes.From(UnicodeEncoders.EncodeUcs1(Value, errors, 256));
+                    return PyBytes.From(UnicodeEncoders.EncodeUcs1(this, errors, 256));
                 default:
                     // Encode via the codec registry
                     PyObject v = PyCodecRegistry.EncodeText(this, encoding, errors);
@@ -2859,12 +2759,6 @@ namespace SharpPy
                         $"'{encoding}' encoder returned '{v.GetPyType().FullName}' instead of 'bytes'; use codecs.encode() to encode to arbitrary types");
             }
         }
-
-        /// <summary>
-        /// PyUnicode_GET_LENGTH: the text's length in code points, which a subclass's __len__ does
-        /// not change (that is PyObject_Size, Length()).
-        /// </summary>
-        internal int CodePointLength() => (int)Len();
 
         #endregion
 

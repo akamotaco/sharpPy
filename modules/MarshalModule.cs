@@ -89,13 +89,11 @@ namespace SharpPy.Modules
         }
 
 
-        private static byte[] Utf8(string text) =>
-            ((PyBytes)PyString.From(text).GetAttribute("encode")
-                .Call(new PyObject[] { PyString.From("utf8"), PyString.From("surrogatepass") }, null)).Value;
+        // w_object's PyUnicode_AsEncodedString(v, "utf8", "surrogatepass")
+        private static byte[] Utf8(PyString text) => UnicodeEncoders.EncodeUtf8(text, "surrogatepass");
 
-        private static string FromUtf8(byte[] data) =>
-            ((PyString)PyBytes.From(data).GetAttribute("decode")
-                .Call(new PyObject[] { PyString.From("utf8"), PyString.From("surrogatepass") }, null)).Value;
+        // r_object's PyUnicode_DecodeUTF8(buffer, n, "surrogatepass")
+        private static PyString FromUtf8(byte[] data) => UnicodeDecoders.DecodeUtf8(data, "surrogatepass", null);
 
         private static bool IsAscii(string text)
         {
@@ -358,7 +356,7 @@ namespace SharpPy.Modules
                 else
                 {
                     Type(interned ? 't' : 'u', flag);
-                    PString(Utf8(text));
+                    PString(Utf8(value));
                 }
             }
 
@@ -507,13 +505,11 @@ namespace SharpPy.Modules
             private PyObject Required(string container) =>
                 Item() ?? throw PyTypeError.Create($"NULL object in marshal data for {container}");
 
-            private static PyString Intern(string text) => PySysFunction.Intern(PyString.From(text));
-
             private PyObject Text(int size, bool ascii, bool interned, bool flagged)
             {
                 var data = Take(size);
-                string text = ascii ? Encoding.Latin1.GetString(data) : FromUtf8(data);
-                return Keep(interned ? Intern(text) : PyString.From(text), flagged);
+                PyString text = ascii ? PyString.FromUnits(Encoding.Latin1.GetString(data)) : FromUtf8(data);
+                return Keep(interned ? PySysFunction.Intern(text) : text, flagged);
             }
 
             // read_object

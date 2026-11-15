@@ -461,7 +461,7 @@ namespace SharpPy.Generated
         // What is not UTF-8 stays in the text as U+DC80..U+DCFF, for the place that decodes it to say so:
         // PyUnicode_DecodeUTF8 with surrogateescape.
         private static string DecodeUtf8(byte[] s, int from) =>
-            UnicodeDecoders.DecodeUtf8(from == 0 ? s : s.AsSpan(from).ToArray(), "surrogateescape", null);
+            UnicodeDecoders.DecodeUtf8(from == 0 ? s : s.AsSpan(from).ToArray(), "surrogateescape", null).Value;
 
         /// <summary>decode_str: the text of a source given as bytes, by its BOM and its coding cookie.</summary>
         public static string DecodeStr(byte[] input, bool single, string filename) =>

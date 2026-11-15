@@ -382,56 +382,38 @@ namespace SharpPy
     /// </summary>
     public class PyStringIterator : PyIterator
     {
-        private readonly string _string;
+        // unicodeiterobject: it_seq and it_index, a character index.
+        private readonly PyString _string;
         private int _index;
         private readonly string _name;
 
-        // Positions are characters to Python and code units here.
-        private long Characters(int to)
-        {
-            long count = 0;
-            for (int i = 0; i < to; i += PyString.PairWidth(_string, i))
-                count++;
-            return count;
-        }
-
-        internal override PyObject RemainingHint() => PyInt.From(Characters(_string.Length) - Characters(_index));
+        internal override PyObject RemainingHint() => PyInt.From(_string.CodePointLength() - _index);
 
         internal override PyObject Reduce() =>
-            _index < _string.Length ? ReduceIter(PyString.From(_string), Characters(_index)) : ReduceExhausted(PyString.From(""));
+            _index < _string.CodePointLength() ? ReduceIter(_string, _index) : ReduceExhausted(PyString.Empty);
 
         internal override void SetState(PyObject state)
         {
-            if (_index >= _string.Length)
+            if (_index >= _string.CodePointLength())
                 return;
-            long target = ClippedIndex(state, Characters(_string.Length));
-            _index = 0;
-            for (long i = 0; i < target; i++)
-                _index += PyString.PairWidth(_string, _index);
+            _index = (int)ClippedIndex(state, _string.CodePointLength());
         }
 
         public PyStringIterator(PyString pyString)
         {
-            _string = pyString?.Value ?? throw new ArgumentNullException(nameof(pyString));
+            _string = pyString ?? throw new ArgumentNullException(nameof(pyString));
             _index = 0;
             // unicode_iter: PyUnicode_IS_COMPACT_ASCII picks str_ascii_iterator. A subclass
             // instance is never compact (unicode_subtype_new), so it has str_iterator.
-            bool ascii = pyString.IsExactly(PyType.StrType);
-            foreach (var ch in _string) { if (ch > 127) { ascii = false; break; } }
-            _name = ascii ? "str_ascii_iterator" : "str_iterator";
+            _name = pyString.IsExactly(PyType.StrType) && pyString.MaxChar() < 128 ? "str_ascii_iterator" : "str_iterator";
         }
 
-        // CPython iter(str) yields characters (Objects/unicodeobject.c unicode_iterator next with
-        // PyUnicode_READ), so an astral character comes out whole instead of as two halves.
+        // unicodeiter_next: unicode_char(PyUnicode_READ(kind, data, it_index++)).
         protected internal override PyObject IterNext()
         {
-            if (_index >= _string.Length)
+            if (_index >= _string.CodePointLength())
                 throw PyStopIteration.Create();
-
-            int width = PyString.PairWidth(_string, _index);
-            var ch = PyString.From(_string.Substring(_index, width));
-            _index += width;
-            return ch;
+            return PyString.FromCodePoint(_string.ReadChar(_index++));
         }
 
         protected override string IteratorName => _name;

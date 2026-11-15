@@ -1403,7 +1403,7 @@ namespace SharpPy
             int codepoint = PyArgs.Int(args[0]);
             if (codepoint < 0 || codepoint > 0x10FFFF)
                 throw PyValueError.Create("chr() arg not in range(0x110000)");
-            return PyString.From(codepoint <= 0xffff ? new string((char)codepoint, 1) : char.ConvertFromUtf32(codepoint));
+            return PyString.FromCodePoint(codepoint);
         }
 
         // Built-in function은 항상 호출 가능

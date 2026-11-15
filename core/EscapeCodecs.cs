@@ -17,12 +17,6 @@ namespace SharpPy
         private const string Hexdigits = "0123456789abcdef";
 
         // WRITE_CHAR
-        private static void WriteChar(StringBuilder writer, int ch)
-        {
-            if (ch < 0x10000) writer.Append((char)ch);
-            else writer.Append(char.ConvertFromUtf32(ch));
-        }
-
         private static int HexValue(int c) =>
             c >= '0' && c <= '9' ? c - '0'
             : c >= 'a' && c <= 'f' ? c - ('a' - 10)
@@ -34,7 +28,7 @@ namespace SharpPy
         /// character (an octal value above 0o377 is the value) and its position in s, which is -1
         /// once an error handler has replaced the input.
         /// </summary>
-        internal static string DecodeUnicodeEscapeInternal2(byte[] s, string errors, int[] consumed,
+        internal static PyString DecodeUnicodeEscapeInternal2(byte[] s, string errors, int[] consumed,
             out int firstInvalidEscapeChar, out int firstInvalidEscapePos)
         {
             var initialStarts = s;
@@ -46,9 +40,9 @@ namespace SharpPy
             {
                 if (consumed != null)
                     consumed[0] = 0;
-                return "";
+                return PyString.Empty;
             }
-            var writer = new StringBuilder(s.Length);
+            var writer = new PyUnicodeWriter();
             int end = s.Length;
             int p = 0;
             while (p < end)
@@ -61,7 +55,7 @@ namespace SharpPy
                 // Non-escape characters are interpreted as Unicode ordinals
                 if (c != '\\')
                 {
-                    WriteChar(writer, c);
+                    writer.WriteChar(c);
                     continue;
                 }
 
@@ -77,16 +71,16 @@ namespace SharpPy
                 switch (c)
                 {
                     case '\n': continue;
-                    case '\\': writer.Append('\\'); continue;
-                    case '\'': writer.Append('\''); continue;
-                    case '"': writer.Append('"'); continue;
-                    case 'b': writer.Append('\b'); continue;
-                    case 'f': writer.Append('\f'); continue;
-                    case 't': writer.Append('\t'); continue;
-                    case 'n': writer.Append('\n'); continue;
-                    case 'r': writer.Append('\r'); continue;
-                    case 'v': writer.Append('\v'); continue;
-                    case 'a': writer.Append('\a'); continue;
+                    case '\\': writer.WriteChar('\\'); continue;
+                    case '\'': writer.WriteChar('\''); continue;
+                    case '"': writer.WriteChar('"'); continue;
+                    case 'b': writer.WriteChar('\b'); continue;
+                    case 'f': writer.WriteChar('\f'); continue;
+                    case 't': writer.WriteChar('\t'); continue;
+                    case 'n': writer.WriteChar('\n'); continue;
+                    case 'r': writer.WriteChar('\r'); continue;
+                    case 'v': writer.WriteChar('\v'); continue;
+                    case 'a': writer.WriteChar('\a'); continue;
 
                     // \OOO (octal) escapes
                     case >= '0' and <= '7':
@@ -104,7 +98,7 @@ namespace SharpPy
                                 // Back up 3 chars, since we've already incremented s.
                                 firstInvalidEscapePos = p - 3;
                         }
-                        WriteChar(writer, ch);
+                        writer.WriteChar(ch);
                         continue;
 
                     // hex escapes
@@ -137,7 +131,7 @@ namespace SharpPy
                                 message = "illegal Unicode character";
                                 goto error;
                             }
-                            WriteChar(writer, (int)value);
+                            writer.WriteChar((int)value);
                             continue;
                         }
 
@@ -177,7 +171,7 @@ namespace SharpPy
                                 int named = UnicodeNames.Lookup(Encoding.Latin1.GetString(s, start, namelen));
                                 if (named >= 0)
                                 {
-                                    WriteChar(writer, named);
+                                    writer.WriteChar(named);
                                     continue;
                                 }
                                 message = "unknown Unicode character name";
@@ -193,8 +187,8 @@ namespace SharpPy
                                 // Back up one char, since we've already incremented s.
                                 firstInvalidEscapePos = p - 1;
                         }
-                        writer.Append('\\');
-                        WriteChar(writer, c);
+                        writer.WriteChar('\\');
+                        writer.WriteChar(c);
                         continue;
                 }
 
@@ -209,7 +203,7 @@ namespace SharpPy
                 p = PyCodecErrors.CallDecode(errors, "unicodeescape", message, ref s, startinpos, endinpos, writer);
                 end = s.Length;
             }
-            return writer.ToString();
+            return writer.Finish();
         }
 
         // The DeprecationWarning of _PyUnicode_DecodeUnicodeEscapeStateful and PyBytes_DecodeEscape.
@@ -224,23 +218,23 @@ namespace SharpPy
         }
 
         /// <summary>_PyUnicode_DecodeUnicodeEscapeStateful</summary>
-        internal static string DecodeUnicodeEscapeStateful(byte[] s, string errors, int[] consumed)
+        internal static PyString DecodeUnicodeEscapeStateful(byte[] s, string errors, int[] consumed)
         {
-            string result = DecodeUnicodeEscapeInternal2(s, errors, consumed, out int firstInvalidEscapeChar, out _);
+            PyString result = DecodeUnicodeEscapeInternal2(s, errors, consumed, out int firstInvalidEscapeChar, out _);
             WarnInvalidEscape(firstInvalidEscapeChar);
             return result;
         }
 
         /// <summary>_PyUnicode_DecodeRawUnicodeEscapeStateful</summary>
-        internal static string DecodeRawUnicodeEscapeStateful(byte[] s, string errors, int[] consumed)
+        internal static PyString DecodeRawUnicodeEscapeStateful(byte[] s, string errors, int[] consumed)
         {
             if (s.Length == 0)
             {
                 if (consumed != null)
                     consumed[0] = 0;
-                return "";
+                return PyString.Empty;
             }
-            var writer = new StringBuilder(s.Length);
+            var writer = new PyUnicodeWriter();
             int end = s.Length;
             int p = 0;
             while (p < end)
@@ -252,7 +246,7 @@ namespace SharpPy
                 // Non-escape characters are interpreted as Unicode ordinals
                 if (c != '\\' || (p >= end && consumed == null))
                 {
-                    WriteChar(writer, c);
+                    writer.WriteChar(c);
                     continue;
                 }
 
@@ -277,8 +271,8 @@ namespace SharpPy
                 }
                 else
                 {
-                    writer.Append('\\');
-                    WriteChar(writer, c);
+                    writer.WriteChar('\\');
+                    writer.WriteChar(c);
                     continue;
                 }
 
@@ -299,7 +293,7 @@ namespace SharpPy
                         message = "\\Uxxxxxxxx out of range";
                         goto error;
                     }
-                    WriteChar(writer, (int)ch);
+                    writer.WriteChar((int)ch);
                     continue;
                 }
 
@@ -314,14 +308,14 @@ namespace SharpPy
                 p = PyCodecErrors.CallDecode(errors, "rawunicodeescape", message, ref s, startinpos, endinpos, writer);
                 end = s.Length;
             }
-            return writer.ToString();
+            return writer.Finish();
         }
 
         /// <summary>PyUnicode_AsUnicodeEscapeString</summary>
-        internal static byte[] AsUnicodeEscapeString(string unicode)
+        internal static byte[] AsUnicodeEscapeString(PyString unicode)
         {
-            var p = new List<byte>(unicode.Length);
-            foreach (int ch in UnicodeEncoders.CodePoints(unicode))
+            var p = new List<byte>(unicode.CodePointLength());
+            foreach (int ch in unicode.CodePoints())
             {
                 // U+0000-U+00ff range
                 if (ch < 0x100)
@@ -370,10 +364,10 @@ namespace SharpPy
         }
 
         /// <summary>PyUnicode_AsRawUnicodeEscapeString</summary>
-        internal static byte[] AsRawUnicodeEscapeString(string unicode)
+        internal static byte[] AsRawUnicodeEscapeString(PyString unicode)
         {
-            var p = new List<byte>(unicode.Length);
-            foreach (int ch in UnicodeEncoders.CodePoints(unicode))
+            var p = new List<byte>(unicode.CodePointLength());
+            foreach (int ch in unicode.CodePoints())
             {
                 // U+0000-U+00ff range: Copy 8-bit characters as-is
                 if (ch < 0x100)

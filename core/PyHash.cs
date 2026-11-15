@@ -81,46 +81,31 @@ namespace SharpPy
             return v0 ^ v1 ^ v2 ^ v3;
         }
 
-        // unicode_hash: the bytes of the compact form, one, two or four to a character.
-        internal static long Text(string text)
+        // unicode_hash: _Py_HashBytes over the kind's data, one byte per character for kind 1 and
+        // two (little-endian) for kind 2.
+        internal static long Ucs2(string units)
         {
-            int width = 1;
-            for (int i = 0; i < text.Length; i++)
-            {
-                char c = text[i];
-                if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
-                {
-                    width = 4;
-                    break;
-                }
-                if (c > 0xFF)
-                    width = 2;
-            }
-            if (text.Length == 0)
+            if (units.Length == 0)
                 return 0;
-            byte[] data;
-            if (width == 4)
+            int width = 1;
+            foreach (char c in units)
+                if (c > 0xFF) { width = 2; break; }
+            var data = new byte[units.Length * width];
+            for (int i = 0; i < units.Length; i++)
             {
-                var points = new System.Collections.Generic.List<byte>(text.Length * 4);
-                for (int i = 0; i < text.Length; i++)
-                {
-                    int point = text[i];
-                    if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
-                        point = char.ConvertToUtf32(text[i], text[++i]);
-                    points.AddRange(BitConverter.GetBytes(point));
-                }
-                data = points.ToArray();
+                data[i * width] = (byte)units[i];
+                if (width == 2)
+                    data[i * 2 + 1] = (byte)(units[i] >> 8);
             }
-            else
-            {
-                data = new byte[text.Length * width];
-                for (int i = 0; i < text.Length; i++)
-                {
-                    data[i * width] = (byte)text[i];
-                    if (width == 2)
-                        data[i * 2 + 1] = (byte)(text[i] >> 8);
-                }
-            }
+            return Bytes(data);
+        }
+
+        // unicode_hash for kind 4: four little-endian bytes per character.
+        internal static long Ucs4(int[] points)
+        {
+            var data = new byte[points.Length * 4];
+            for (int i = 0; i < points.Length; i++)
+                BitConverter.TryWriteBytes(data.AsSpan(i * 4), points[i]);
             return Bytes(data);
         }
     }

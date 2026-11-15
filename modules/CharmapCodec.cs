@@ -27,31 +27,25 @@ namespace SharpPy.Modules
             return points;
         }
 
-        private static void WriteChar(StringBuilder writer, int ch)
-        {
-            if (ch < 0x10000) writer.Append((char)ch);
-            else writer.Append(char.ConvertFromUtf32(ch));
-        }
-
         /// <summary>PyUnicode_DecodeCharmap</summary>
-        internal static string Decode(byte[] s, PyObject mapping, string errors)
+        internal static PyString Decode(byte[] s, PyObject mapping, string errors)
         {
             // Default to Latin-1
             if (mapping == null)
                 return PyStringNewArguments.DecodeBytes(s, "iso8859-1", errors);
             if (s.Length == 0)
-                return "";
-            var writer = new StringBuilder(s.Length);
+                return PyString.Empty;
+            var writer = new PyUnicodeWriter();
             if (mapping is PyString table && mapping.IsExactly(PyType.StrType))
                 DecodeString(s, CodePoints(table.Value), errors, writer);
             else
                 DecodeMapping(s, mapping, errors, writer);
-            return writer.ToString();
+            return writer.Finish();
         }
 
         // charmap_decode_string: the str's character at each byte's index; U+FFFE and an index past
         // its end are undefined.
-        private static void DecodeString(byte[] s, int[] map, string errors, StringBuilder writer)
+        private static void DecodeString(byte[] s, int[] map, string errors, PyUnicodeWriter writer)
         {
             int p = 0;
             while (p < s.Length)
@@ -64,13 +58,13 @@ namespace SharpPy.Modules
                     p = PyCodecErrors.CallDecode(errors, "charmap", Reason, ref s, p, p + 1, writer);
                     continue;
                 }
-                WriteChar(writer, x);
+                writer.WriteChar(x);
                 ++p;
             }
         }
 
         // charmap_decode_mapping: mapping[byte] is an int, a str or None.
-        private static void DecodeMapping(byte[] s, PyObject mapping, string errors, StringBuilder writer)
+        private static void DecodeMapping(byte[] s, PyObject mapping, string errors, PyUnicodeWriter writer)
         {
             int p = 0;
             while (p < s.Length)
@@ -96,7 +90,7 @@ namespace SharpPy.Modules
                         {
                             if (value < 0 || value > MAX_UNICODE)
                                 throw PyTypeError.Create($"character mapping must be in range(0x{MAX_UNICODE + 1:x})");
-                            WriteChar(writer, (int)value);
+                            writer.WriteChar((int)value);
                             ++p;
                             continue;
                         }
@@ -105,7 +99,7 @@ namespace SharpPy.Modules
                     {
                         if (text.CodePointLength() != 1 || PyString.CodePointAt(text.Value, 0, out _) != 0xFFFE)
                         {
-                            writer.Append(text.Value);
+                            writer.WriteStr(text);
                             ++p;
                             continue;
                         }
@@ -301,9 +295,9 @@ namespace SharpPy.Modules
                 : EncodeLookup(c, mapping) is PyNone;
 
         /// <summary>_PyUnicode_EncodeCharmap; the null mapping (Latin-1) is the caller's.</summary>
-        internal static byte[] Encode(string unicode, PyObject mapping, string errors)
+        internal static byte[] Encode(PyString unicode, PyObject mapping, string errors)
         {
-            var data = CodePoints(unicode);
+            var data = unicode.ToCodePoints();
             int size = data.Length;
             var res = new List<byte>(size);
             int inpos = 0;
@@ -321,7 +315,7 @@ namespace SharpPy.Modules
         }
 
         // charmap_encoding_error: the run of unencodable characters from inpos, handled.
-        private static int EncodingError(string unicode, int[] data, int inpos, PyObject mapping, string errors, List<byte> res)
+        private static int EncodingError(PyString unicode, int[] data, int inpos, PyObject mapping, string errors, List<byte> res)
         {
             int size = data.Length;
             // startpos for collecting unencodable chars
@@ -361,7 +355,7 @@ namespace SharpPy.Modules
                         return newpos;
                     }
                     // generate replacement
-                    foreach (int repch in CodePoints(((PyString)repunicode).Value))
+                    foreach (int repch in ((PyString)repunicode).CodePoints())
                         if (!Output(repch, mapping, res))
                             throw Raise();
                     return newpos;

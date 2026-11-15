@@ -3553,14 +3553,14 @@ namespace SharpPy
                     // CPython 3.12: BUILD_STRING joins already-formatted PyString values
                     // Performance: Use array with reverse index instead of Insert(0, ...) which is O(n²)
                     var stringCount = argument;
-                    var stringParts = new string[stringCount];
+                    // _PyUnicode_JoinArray(&_Py_STR(empty), pieces, oparg)
+                    var stringParts = new PyObject[stringCount];
                     for (int i = stringCount - 1; i >= 0; i--)
                     {
                         var part = frame.ValueStack.Pop();
-                        stringParts[i] = (part is PyString pyStr) ? pyStr.Value : part.ToStr().Value;
+                        stringParts[i] = part is PyString ? part : part.ToStr();
                     }
-                    var concatenatedString = PyString.From(string.Concat(stringParts));
-                    frame.ValueStack.Push(concatenatedString);
+                    frame.ValueStack.Push(PyString.JoinArray(PyString.Empty, stringParts));
                     break;
 
                 case ByteCodeOp.UNPACK_SEQUENCE:
@@ -3679,7 +3679,7 @@ namespace SharpPy
                     {
                         // Unpacking a str yields characters (Objects/abstract.c unpack_iterable goes
                         // through PyObject_GetIter), so this uses the one coordinate-aware splitter.
-                        itemsToUnpack = PyString.Characters(unpackExStr.Value);
+                        itemsToUnpack = unpackExStr.Characters();
                     }
                     else
                     {

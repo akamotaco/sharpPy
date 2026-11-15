@@ -152,7 +152,7 @@ namespace SharpPy
             null or PyNone => GeneratedPyConstant.None,
             PyBool truth => truth.Value ? GeneratedPyConstant.True : GeneratedPyConstant.False,
             PyEllipsis => GeneratedPyConstant.Ellipsis,
-            PyString text => new GeneratedPyConstantString(text.Value),
+            PyString text => new GeneratedPyConstantString(text),
             _ => new GeneratedPyConstantObject(value),
         };
 

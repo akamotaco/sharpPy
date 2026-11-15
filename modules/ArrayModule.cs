@@ -774,7 +774,7 @@ namespace SharpPy.Modules
                 {
                     // PyUnicode_DecodeUTF16 / PyUnicode_DecodeUTF32, strict
                     string codec = (code <= 19 ? "utf-16-" : "utf-32-") + (bigEndian ? "be" : "le");
-                    converted = PyString.From(PyStringNewArguments.DecodeBytes(data, codec, "strict"));
+                    converted = PyStringNewArguments.DecodeBytes(data, codec, "strict");
                 }
                 else
                 {

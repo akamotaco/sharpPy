@@ -56,7 +56,7 @@ namespace SharpPy
         /// decoding continues at.
         /// </summary>
         internal static int CallDecode(string errors, string encoding, string reason, ref byte[] input,
-            int start, int end, StringBuilder output)
+            int start, int end, PyUnicodeWriter output)
         {
             var handler = LookupError(errors);
             var exc = PyType.UnicodeDecodeErrorType.Call(new PyObject[]
@@ -70,7 +70,7 @@ namespace SharpPy
             input = exc.GetAttribute("object") is PyBytes changed
                 ? changed.Value
                 : throw PyTypeError.Create("exception attribute object must be bytes");
-            output.Append(replacement.Value);
+            output.WriteStr(replacement);
             return NewPosition(pair.Items[1], input.Length);
         }
 
@@ -78,13 +78,13 @@ namespace SharpPy
         /// unicode_encode_call_errorhandler: the handler gets a UnicodeEncodeError for the characters
         /// [start, end) of text and must answer (str or bytes, int). Positions are characters.
         /// </summary>
-        internal static PyObject CallEncode(string errors, string encoding, string reason, string text,
+        internal static PyObject CallEncode(string errors, string encoding, string reason, PyString text,
             int start, int end, int length, out int newPosition)
         {
             var handler = LookupError(errors);
             var exc = PyType.UnicodeEncodeErrorType.Call(new PyObject[]
             {
-                PyString.From(encoding), PyString.From(text), PyInt.From(start), PyInt.From(end), PyString.From(reason),
+                PyString.From(encoding), text, PyInt.From(start), PyInt.From(end), PyString.From(reason),
             }, null);
             var answer = handler.Call(new[] { exc }, null);
             if (answer is not PyTuple { Items.Length: 2 } pair || pair.Items[0] is not (PyString or PyBytes) ||
@@ -133,7 +133,7 @@ namespace SharpPy
         private static PyObject Answer(string replacement, long end) => Answer(PyString.From(replacement), end);
 
         // PyUnicode_READ_CHAR over the exception's str object.
-        private static int[] Chars(PyObject exc) => UnicodeEncoders.CodePoints(((PyString)Error(exc).GetObject(false)).Value);
+        private static int[] Chars(PyObject exc) => ((PyString)Error(exc).GetObject(false)).ToCodePoints();
 
         private const string Hexdigits = "0123456789abcdef";
 

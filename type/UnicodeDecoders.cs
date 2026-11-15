@@ -25,18 +25,12 @@ namespace SharpPy
 
         private static bool IsContinuationByte(int ch) => ch >= 0x80 && ch < 0xC0;
 
-        private static void WriteChar(StringBuilder writer, int ch)
-        {
-            if (ch < 0x10000) writer.Append((char)ch);
-            else writer.Append(char.ConvertFromUtf32(ch));
-        }
-
         /// <summary>
         /// stringlib utf8_decode (ucs4lib): decodes from s[q] while it can, then answers 0 at the end
         /// or in an incomplete sequence, 1 for an invalid start byte, 2, 3 or 4 for an invalid
         /// continuation byte at offset 1, 2 or 3.
         /// </summary>
-        private static int Utf8Decode(byte[] s, ref int q, int end, StringBuilder p)
+        private static int Utf8Decode(byte[] s, ref int q, int end, PyUnicodeWriter p)
         {
             while (q < end)
             {
@@ -44,7 +38,7 @@ namespace SharpPy
                 if (ch < 0x80)
                 {
                     q++;
-                    p.Append((char)ch);
+                    p.WriteChar(ch);
                     continue;
                 }
                 if (ch < 0xE0)
@@ -61,7 +55,7 @@ namespace SharpPy
                         return 2;
                     ch = (ch << 6) + ch2 - ((0xC0 << 6) + 0x80);
                     q += 2;
-                    p.Append((char)ch);
+                    p.WriteChar(ch);
                     continue;
                 }
                 if (ch < 0xF0)
@@ -92,7 +86,7 @@ namespace SharpPy
                         return 3;
                     ch = (ch << 12) + (ch2 << 6) + ch3 - ((0xE0 << 12) + (0x80 << 6) + 0x80);
                     q += 3;
-                    p.Append((char)ch);
+                    p.WriteChar(ch);
                     continue;
                 }
                 if (ch < 0xF5)
@@ -129,7 +123,7 @@ namespace SharpPy
                         return 4;
                     ch = (ch << 18) + (ch2 << 12) + (ch3 << 6) + ch4 - ((0xF0 << 18) + (0x80 << 12) + (0x80 << 6) + 0x80);
                     q += 4;
-                    p.Append(char.ConvertFromUtf32(ch));
+                    p.WriteChar(ch);
                     continue;
                 }
                 return 1;
@@ -138,16 +132,16 @@ namespace SharpPy
         }
 
         /// <summary>unicode_decode_utf8 (PyUnicode_DecodeUTF8Stateful)</summary>
-        internal static string DecodeUtf8(byte[] s, string errors, int[] consumed)
+        internal static PyString DecodeUtf8(byte[] s, string errors, int[] consumed)
         {
             int size = s.Length;
             if (size == 0)
             {
                 if (consumed != null)
                     consumed[0] = 0;
-                return "";
+                return PyString.Empty;
             }
-            var writer = new StringBuilder(size);
+            var writer = new PyUnicodeWriter();
             int end = size;
             int q = 0;
             Handler? errorHandler = null;
@@ -187,12 +181,12 @@ namespace SharpPy
                         q += endinpos - startinpos;
                         break;
                     case Handler.Replace:
-                        writer.Append('�');
+                        writer.WriteChar(0xFFFD);
                         q += endinpos - startinpos;
                         break;
                     case Handler.SurrogateEscape:
                         for (int i = startinpos; i < endinpos; i++)
-                            writer.Append((char)(s[i] + 0xdc00));
+                            writer.WriteChar(s[i] + 0xdc00);
                         q += endinpos - startinpos;
                         break;
                     default:
@@ -204,14 +198,14 @@ namespace SharpPy
         End:
             if (consumed != null)
                 consumed[0] = q;
-            return writer.ToString();
+            return writer.Finish();
         }
 
         /// <summary>
         /// PyUnicode_DecodeUTF16Stateful: byteorder -1 little, 1 big, 0 native (little) after an
         /// optional BOM, which sets it.
         /// </summary>
-        internal static string DecodeUtf16(byte[] s, string errors, ref int byteorder, int[] consumed)
+        internal static PyString DecodeUtf16(byte[] s, string errors, ref int byteorder, int[] consumed)
         {
             int size = s.Length;
             int q = 0, e = size;
@@ -237,12 +231,12 @@ namespace SharpPy
             {
                 if (consumed != null)
                     consumed[0] = size;
-                return "";
+                return PyString.Empty;
             }
             bool little = bo <= 0;
             string encoding = little ? "utf-16-le" : "utf-16-be";
             int Unit(int at) => little ? (s[at + 1] << 8) | s[at] : (s[at] << 8) | s[at + 1];
-            var writer = new StringBuilder((e - q + 1) / 2);
+            var writer = new PyUnicodeWriter();
 
             while (true)
             {
@@ -258,7 +252,7 @@ namespace SharpPy
                         q += 2;
                         if (c < 0xD800 || c > 0xDFFF)
                         {
-                            writer.Append((char)c);
+                            writer.WriteChar(c);
                             continue;
                         }
                         // UTF-16 code pair:
@@ -279,7 +273,8 @@ namespace SharpPy
                             ch = 3;
                             break;
                         }
-                        writer.Append((char)c).Append((char)c2);
+                        // Py_UNICODE_JOIN_SURROGATES
+                        writer.WriteChar(0x10000 + (((c & 0x3FF) << 10) | (c2 & 0x3FF)));
                     }
                 }
                 string errmsg;
@@ -320,11 +315,11 @@ namespace SharpPy
         End:
             if (consumed != null)
                 consumed[0] = q;
-            return writer.ToString();
+            return writer.Finish();
         }
 
         /// <summary>PyUnicode_DecodeUTF32Stateful, with the byte orders of DecodeUtf16.</summary>
-        internal static string DecodeUtf32(byte[] s, string errors, ref int byteorder, int[] consumed)
+        internal static PyString DecodeUtf32(byte[] s, string errors, ref int byteorder, int[] consumed)
         {
             int size = s.Length;
             int q = 0, e = size;
@@ -348,11 +343,11 @@ namespace SharpPy
             {
                 if (consumed != null)
                     consumed[0] = size;
-                return "";
+                return PyString.Empty;
             }
             bool le = bo <= 0;
             string encoding = le ? "utf-32-le" : "utf-32-be";
-            var writer = new StringBuilder((e - q + 3) / 4);
+            var writer = new PyUnicodeWriter();
 
             while (true)
             {
@@ -369,7 +364,7 @@ namespace SharpPy
                             : ((long)s[q] << 24) | ((long)s[q + 1] << 16) | ((long)s[q + 2] << 8) | s[q + 3];
                         if (ch > 0x10FFFF || (ch >= 0xD800 && ch <= 0xDFFF))
                             break;
-                        WriteChar(writer, (int)ch);
+                        writer.WriteChar((int)ch);
                         q += 4;
                     } while (q <= last);
                 }
@@ -400,13 +395,13 @@ namespace SharpPy
             }
             if (consumed != null)
                 consumed[0] = q;
-            return writer.ToString();
+            return writer.Finish();
         }
 
         /// <summary>PyUnicode_DecodeASCII</summary>
-        internal static string DecodeAscii(byte[] s, string errors)
+        internal static PyString DecodeAscii(byte[] s, string errors)
         {
-            var writer = new StringBuilder(s.Length);
+            var writer = new PyUnicodeWriter();
             int e = s.Length;
             int q = 0;
             Handler? errorHandler = null;
@@ -415,7 +410,7 @@ namespace SharpPy
                 int c = s[q];
                 if (c < 128)
                 {
-                    writer.Append((char)c);
+                    writer.WriteChar(c);
                     ++q;
                     continue;
                 }
@@ -426,7 +421,7 @@ namespace SharpPy
                     case Handler.Replace:
                     case Handler.SurrogateEscape:
                         // Fast-path: the error handler only writes one character
-                        writer.Append(errorHandler == Handler.Replace ? '�' : (char)(c + 0xdc00));
+                        writer.WriteChar(errorHandler == Handler.Replace ? 0xFFFD : c + 0xdc00);
                         ++q;
                         break;
                     case Handler.Ignore:
@@ -438,16 +433,16 @@ namespace SharpPy
                         break;
                 }
             }
-            return writer.ToString();
+            return writer.Finish();
         }
 
         /// <summary>PyUnicode_DecodeLatin1: latin-1 is equivalent to the first 256 ordinals.</summary>
-        internal static string DecodeLatin1(byte[] s)
+        internal static PyString DecodeLatin1(byte[] s)
         {
             var chars = new char[s.Length];
             for (int i = 0; i < s.Length; i++)
                 chars[i] = (char)s[i];
-            return new string(chars);
+            return PyString.FromUnits(new string(chars));
         }
     }
 }

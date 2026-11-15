@@ -700,8 +700,7 @@ namespace SharpPy.Modules.Cjk
                 var statebytes = AsByteArray(statelong.Value, 1 + MAXENCPENDING * 4 + 8);
                 if (statebytes[0] > MAXENCPENDING * 4)
                     throw PyExceptionSlots.Raise(PyType.UnicodeErrorType, "pending buffer too large");
-                var pending = UnicodeDecoders.DecodeUtf8(statebytes.AsSpan(1, statebytes[0]).ToArray(), null, null);
-                self.Pending = PyString.From(pending);
+                self.Pending = UnicodeDecoders.DecodeUtf8(statebytes.AsSpan(1, statebytes[0]).ToArray(), null, null);
                 Array.Copy(statebytes, 1 + statebytes[0], self.State.C, 0, 8);
                 return PyNone.Instance;
             });

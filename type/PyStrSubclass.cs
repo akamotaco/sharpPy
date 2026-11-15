@@ -19,7 +19,7 @@ namespace SharpPy
         // unicode_subtype_new copies the data of the exact str it made first.
         public PyStrSubclass(PyClass cls, string value) : base(value) => SetCustomType(cls);
 
-        public PyStrSubclass(PyClass cls, PyString strValue) : this(cls, strValue.Value) { }
+        public PyStrSubclass(PyClass cls, PyString strValue) : base(strValue) => SetCustomType(cls);
 
         // Every slot is str's, inherited: a str whose ob_type is the subclass.
     }

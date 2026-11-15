@@ -1584,13 +1584,14 @@ namespace SharpPy.Generated
                         sb.Clear();
 
                         GeneratedConstant lastElem = constant;
+                        var writer = new PyUnicodeWriter();
                         int j = i;
                         for (; j < flattened.Count; j++)
                         {
                             if (flattened[j] is GeneratedConstant currentConst &&
                                 currentConst.Value is GeneratedPyConstantString currentStr)
                             {
-                                sb.Append(currentStr.Value);
+                                writer.WriteStr(currentStr.Str);
                                 lastElem = currentConst;
                             }
                             else
@@ -1600,8 +1601,7 @@ namespace SharpPy.Generated
                         }
                         i = j - 1;
 
-                        var concatenatedStr = sb.ToString();
-                        elem = PyAst.Constant(new GeneratedPyConstantString(concatenatedStr), kind,
+                        elem = PyAst.Constant(new GeneratedPyConstantString(writer.Finish()), kind,
                                               firstElem.LineNo, firstElem.ColOffset,
                                               lastElem.EndLineNo, lastElem.EndColOffset) as GeneratedExpr;
                     }
@@ -1626,17 +1626,17 @@ namespace SharpPy.Generated
                     return values[0] as GeneratedExpr ?? PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
                 }
                 // Fallback: concatenate all string values
-                sb.Clear();
+                var all = new PyUnicodeWriter();
                 string? finalKind = null;
                 foreach (var v in values)
                 {
                     if (v is GeneratedConstant c && c.Value is GeneratedPyConstantString s)
                     {
-                        sb.Append(s.Value);
+                        all.WriteStr(s.Str);
                         if (finalKind == null) finalKind = c.Kind;
                     }
                 }
-                return PyAst.Constant(new GeneratedPyConstantString(sb.ToString()), finalKind, lineno, col_offset, end_lineno, end_col_offset);
+                return PyAst.Constant(new GeneratedPyConstantString(all.Finish()), finalKind, lineno, col_offset, end_lineno, end_col_offset);
             }
 
             // CPython: Return JoinedStr for f-strings
