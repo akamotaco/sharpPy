@@ -469,12 +469,7 @@ namespace SharpPy.Modules
 
         // PyDict_Copy of an OrderedDict: a dict made through dict_merge, which reads keys() since
         // the type's tp_iter is not dict_iter.
-        private static PyDict CopyAsDict(PyODict od)
-        {
-            var copy = new PyDict();
-            UpdateCommon(copy, od);
-            return copy;
-        }
+        private static PyDict CopyAsDict(PyODict od) => DictCopy(od);
 
         // ---- MutableMapping implementations
 

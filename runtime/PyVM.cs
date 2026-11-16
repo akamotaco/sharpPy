@@ -219,46 +219,6 @@ namespace SharpPy
             return codeName;
         }
 
-        // Display name used in call protocol TypeErrors ("takes N positional ...").
-        internal static string GetCallDisplayName(PyObject f)
-        {
-            string name = f switch
-            {
-                PyFunction pf when !string.IsNullOrEmpty(pf.CodeObject?.DisplayQualName) => pf.CodeObject!.DisplayQualName,
-                PyFunction pf when !string.IsNullOrEmpty(pf.Name) => pf.Name,
-                // im_func is any callable (Objects/classobject.c:219), so the name only exists when
-                // the bound function really is a function.
-                PyMethod { Function: PyFunction pf } when !string.IsNullOrEmpty(pf.CodeObject?.DisplayQualName) => pf.CodeObject!.DisplayQualName,
-                PyMethod { Function: PyFunction fn } when !string.IsNullOrEmpty(fn.Name) => fn.Name,
-                PyBuiltinFunction bf when !string.IsNullOrEmpty(bf.Name) => bf.Name,
-                _ => f.GetTypeName()
-            };
-            return name;
-        }
-
-        // Module-qualified prefix used by CPython's "got multiple values for keyword
-        // argument" error (measured: "__main__.g() ...").
-        // _PyObject_FunctionStr: str() of what has no __qualname__.
-        internal static string FunctionStr(PyObject f) => f is PyNone ? "None" : GetFuncErrPrefix(f) + "()";
-
-        internal static string GetFuncErrPrefix(PyObject f)
-        {
-            string name = GetCallDisplayName(f);
-            IDictionary<string, PyObject> globals = f switch
-            {
-                PyFunction pf => pf.GlobalsDict,
-                PyMethod pm => (pm.Function as PyFunction)?.GlobalsDict,
-                _ => null
-            };
-            if (globals != null && globals.TryGetValue("__name__", out var mod) && mod != null)
-            {
-                var modName = mod.ToStr().Value;
-                if (!string.IsNullOrEmpty(modName))
-                    return modName + "." + name;
-            }
-            return name;
-        }
-
         /// <summary>
         /// initialize_locals (Python/ceval.c): the positional arguments into their slots and the
         /// rest into *args, each keyword by its name object - the very object first, then == -
@@ -572,8 +532,8 @@ namespace SharpPy
             if (hidden == null)
                 return locals;
             var inner = new PyDict();
-            PyDict.UpdateCommon(inner, locals);
-            PyDict.UpdateCommon(inner, hidden);
+            PyDict.Merge(inner, locals, 1);
+            PyDict.Merge(inner, hidden, 1);
             return inner;
         }
 
@@ -1468,6 +1428,37 @@ namespace SharpPy
                 ?? throw NameNotDefined(name);
         }
 
+        /// <summary>
+        /// _PyObject_FunctionStr (Objects/object.c): "module.qualname()" from the callable's own
+        /// __qualname__ and __module__ ("qualname()" for builtins or no module), str(x) when it
+        /// has no __qualname__.
+        /// </summary>
+        internal static PyString FunctionStr(PyObject x)
+        {
+            var qualname = PyObject.LookupAttr(x, "__qualname__");
+            if (qualname == null)
+                return x.ToStr();
+            var module = PyObject.LookupAttr(x, "__module__");
+            if (module != null && module is not PyNone && PyObject.CompareBool(module, PyString.From("builtins"), PyObject.CompareOp.NE))
+                return PyErrFormat.FromFormat("%S.%S()", module, qualname);
+            return PyErrFormat.FromFormat("%S()", qualname);
+        }
+
+        /// <summary>
+        /// format_kwargs_error (Python/ceval.c): what _PyDict_MergeEx raised for f(**m). An
+        /// AttributeError is a mapping that is not one, a KeyError of one argument the key twice.
+        /// </summary>
+        private static Exception FormatKwargsError(PyObject func, PyObject kwargs, PythonException error)
+        {
+            if (error.PyException is PyAttributeError)
+                return PyErrFormat.Format(PyType.TypeErrorType, "%U argument after ** must be a mapping, not %.200s",
+                    FunctionStr(func), kwargs.GetTypeName());
+            if (error.PyException is PyKeyError { Args: { Length: 1 } args })
+                return PyErrFormat.Format(PyType.TypeErrorType, "%U got multiple values for keyword argument '%S'",
+                    FunctionStr(func), args[0]);
+            return error;
+        }
+
         // PyDict_DelItem of GLOBALS(): false when the name is not there.
         private static bool RemoveGlobal(PyFrame frame, PyString name)
         {
@@ -2058,20 +2049,11 @@ namespace SharpPy
                     }
                     else
                     {
-                        // CPython 3.12 CALL_FUNCTION_EX materializes any iterable
-                        // (call.c uses PyObject_GetIter for non tuple/list args).
-                        try
-                        {
-                            argsList.AddRange(argsIterable.AsTuple().Items);
-                        }
-                        // check_args_iterable: only what has neither __iter__ nor __getitem__.
-                        catch (PythonException ex) when (ex.PyException is PyTypeError &&
-                            !argsIterable.HasTypeSlot("__iter__") &&
-                            !argsIterable.HasTypeSlot("__getitem__"))
-                        {
-                            // CPython 3.12 measured wording includes the callee name.
-                            throw PyTypeError.Create($"{PyFrame.FunctionStr(functionToCall)} argument after * must be an iterable, not {argsIterable.GetTypeName()}");
-                        }
+                        // check_args_iterable, then PySequence_Tuple.
+                        if (!argsIterable.HasTypeSlot("__iter__") && !IsSequence(argsIterable))
+                            throw PyErrFormat.Format(PyType.TypeErrorType, "%U argument after * must be an iterable, not %.200s",
+                                FunctionStr(functionToCall), argsIterable.GetTypeName());
+                        argsList.AddRange(argsIterable.AsTuple().Items);
                     }
 
                     // PyObject_Call(func, callargs, kwargs): the dict DICT_MERGE built. A callable with
@@ -2084,66 +2066,20 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.DICT_MERGE:
-                    // CPython 3.12: Merge dictionaries for **kwargs unpacking
-                    // Stack before: [target_dict, source_dict]
-                    // Stack after: [merged_dict]
-                    var mergeCount = argument;
-
-                    // Get the source dictionary from stack (TOS)
-                    var sourceDict = frame.ValueStack.Pop();
-
-                    // Get the target dictionary from stack (TOS-1)
-                    var targetDict = frame.ValueStack.Pop();
-
-                    if (!(targetDict is PyDict targetPyDict))
+                {
+                    var update = frame.ValueStack.Pop();
+                    // Stack: [.., NULL, func, args, dict]
+                    var mergeTarget = (PyDict)frame.ValueStack.PeekAt(argument - 1);
+                    try
                     {
-                        throw PyTypeError.Create($"DICT_MERGE: target must be dict, got {targetDict.GetType().Name}");
+                        PyDict.Merge(mergeTarget, update, 2);
                     }
-
-                    // CPython 3.12: a **kwargs merge colliding with an existing keyword is
-                    // "got multiple values for keyword argument" naming the callee
-                    // (module-qualified); plain dict literals never reach this opcode.
-                    // Stack here (after popping source and target): [.., NULL, func, argsTuple]
-                    PyObject mergeCallee = frame.ValueStack.Count >= 2 ? frame.ValueStack.PeekAt(1) : null;
-
-                    // Merge sourceDict into targetDict
-                    if (sourceDict is not PyDict && !sourceDict.HasTypeSlot("keys"))
+                    catch (PythonException error)
                     {
-                        // CPython 3.12 measured wording for f(**non_mapping).
-                        string mapPrefix = mergeCallee != null ? PyFrame.FunctionStr(mergeCallee) + " " : "";
-                        throw PyTypeError.Create($"{mapPrefix}argument after ** must be a mapping, not {sourceDict.GetTypeName()}");
+                        throw FormatKwargsError(frame.ValueStack.PeekAt(argument + 1), update, error);
                     }
-                    // dict_merge: a mapping is read through keys(), which may repeat one.
-                    var mergedEntries = new List<KeyValuePair<PyObject, PyObject>>();
-                    if (PyDict.IterIsDictIter(sourceDict) && sourceDict is PyDict plainSource)
-                    {
-                        foreach (var entry in plainSource.InternalDict)
-                            mergedEntries.Add(new KeyValuePair<PyObject, PyObject>(entry.Key, entry.Value));
-                    }
-                    else
-                    {
-                        var keysOfSource = sourceDict.GetAttribute("keys").Call(new PyObject[0], null).GetIterator();
-                        while (true)
-                        {
-                            PyObject mergeKey;
-                            try { mergeKey = keysOfSource.Next(); }
-                            catch (PythonException done) when (done.PyException is PyStopIteration) { break; }
-                            mergedEntries.Add(new KeyValuePair<PyObject, PyObject>(mergeKey, PyAbstract.GetItem(sourceDict, mergeKey)));
-                        }
-                    }
-                    foreach (var kvp in mergedEntries)
-                    {
-                        // format_kwargs_error: %S of the key, in quotes.
-                        if (mergeCallee != null && targetPyDict.Contains(kvp.Key).ToBool() && kvp.Key is not PyString)
-                            throw PyTypeError.Create($"{PyFrame.GetFuncErrPrefix(mergeCallee)}() got multiple values for keyword argument '{kvp.Key.AsString().Value}'");
-                        if (mergeCallee != null && targetPyDict.Contains(kvp.Key).ToBool())
-                            throw PyTypeError.Create($"{PyFrame.GetFuncErrPrefix(mergeCallee)}() got multiple values for keyword argument {kvp.Key.ToRepr().Value}");
-                        targetPyDict.SetItem(kvp.Key, kvp.Value);
-                    }
-
-                    // Push the merged dictionary back onto the stack
-                    frame.ValueStack.Push(targetPyDict);
                     break;
+                }
 
                 case ByteCodeOp.RESUME:
                     // Python 3.12: every code object starts here. It is also CPython's safe point:
@@ -2787,9 +2723,15 @@ namespace SharpPy
                     // 주로 {**d} 딕셔너리 리터럴 언패킹에 사용됨
                     // Stack: [..., target_dict, source_dict] → [..., target_dict] (target_dict 수정됨)
                     var dictUpdateSource = frame.ValueStack.Pop();
-                    if (dictUpdateSource is not PyDict && !dictUpdateSource.HasTypeSlot("keys"))
-                        throw PyTypeError.Create($"'{dictUpdateSource.GetTypeName()}' object is not a mapping");
-                    PyDict.UpdateCommon((PyDict)frame.ValueStack.PeekAt(argument - 1), dictUpdateSource);
+                    try
+                    {
+                        // PyDict_Update
+                        PyDict.Merge((PyDict)frame.ValueStack.PeekAt(argument - 1), dictUpdateSource, 1);
+                    }
+                    catch (PythonException error) when (error.PyException is PyAttributeError)
+                    {
+                        throw PyErrFormat.Format(PyType.TypeErrorType, "'%.200s' object is not a mapping", dictUpdateSource.GetTypeName());
+                    }
                     break;
 
                 // CPython-style Iterator Opcodes

@@ -495,6 +495,13 @@ namespace SharpPy
             }
         }
 
+        /// <summary>_PyObject_LookupAttr: the attribute, or null where getattr raises AttributeError.</summary>
+        internal static PyObject LookupAttr(PyObject o, string name)
+        {
+            try { return o.GetAttribute(name); }
+            catch (PythonException error) when (error.PyException is PyAttributeError) { return null; }
+        }
+
         // Py_TYPE(o) when it is a heap type, a class written in Python; type itself is static.
         private SharpPy.PyClass HeapType() => GetPyType() is SharpPy.PyClass heap && heap.IsHeapType ? heap : null;
 
@@ -986,7 +993,7 @@ namespace SharpPy
         public virtual PyDict AsDict()
         {
             var created = new PyDict();
-            PyDict.UpdateCommon(created, this);
+            PyDict.UpdateArg(created, this);
             return created;
         }
 

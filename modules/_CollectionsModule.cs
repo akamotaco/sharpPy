@@ -88,7 +88,8 @@ namespace SharpPy.Modules
             var result = self.NewDefDict(left);
             if (result is not PyDict merged)
                 throw PySystemError.Create("bad internal call");
-            UpdateCommon(merged, right);
+            // PyDict_Update(new, right)
+            Merge(merged, right, 1);
             return result;
         }
 

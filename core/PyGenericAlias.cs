@@ -25,17 +25,7 @@ namespace SharpPy
         public override PyType GetPyType() => _customType ?? PyType.GenericAliasType;
 
 
-        private static PyObject LookupAttr(PyObject value, string name)
-        {
-            try
-            {
-                return value.GetAttribute(name);
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-                return null;
-            }
-        }
+        private static PyObject LookupAttr(PyObject value, string name) => PyObject.LookupAttr(value, name);
 
         internal static void Install()
         {

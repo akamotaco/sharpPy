@@ -186,9 +186,8 @@ namespace SharpPy
                 "__ior__", dictType,
                 (self, args, kwargs) => {
                     var target = (PyDict)self;
-                    // CPython dict_ior == PyDict_Update(self, other): any update argument,
-                    // returns self identity.
-                    UpdateCommon(target, args[0]);
+                    // dict_ior: dict_update_arg, then self.
+                    UpdateArg(target, args[0]);
                     return self;
                 }
             );
@@ -225,9 +224,7 @@ namespace SharpPy
             dictType.TypeDict["copy"] = new PyMethodDescriptor(
                 "copy", dictType,
                 (self, args, kwargs) => {
-                    // PyDict_Copy: an exact dict copies its table; a subclass goes through dict_merge.
-                    if (self is PyDict { IsExact: true } dict) return dict.Copy();
-                    return CopySubclass(self, ((PyDict)self));
+                    return DictCopy((PyDict)self);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -611,140 +608,150 @@ namespace SharpPy
 
 
         /// <summary>
-        /// <summary>
         /// dict_update_common (Objects/dictobject.c), dict.update's and dict.__init__'s body:
-        /// PyArg_UnpackTuple(args, methname, 0, 1), the argument merged, then the keywords once
-        /// PyArg_ValidateKeywordArguments has found every name a str.
+        /// PyArg_UnpackTuple(args, methname, 0, 1), dict_update_arg, then the keywords merged
+        /// once PyArg_ValidateKeywordArguments has found every name a str.
         /// </summary>
         internal static void UpdateCommon(PyDict target, PyObject[] args, PyDict kwargs, string methname)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"{methname} expected at most 1 argument, got {args.Length}");
             if (args.Length == 1)
-                UpdateCommon(target, args[0]);
+                UpdateArg(target, args[0]);
             if (kwargs == null || kwargs.Length() == 0)
                 return;
             foreach (var entry in kwargs.GetInternalDict())
                 if (entry.Key is not PyString)
                     throw PyTypeError.Create("keywords must be strings");
-            foreach (var entry in kwargs.GetInternalDict())
-                target.SetItemStorage(entry.Key, entry.Value);
+            Merge(target, kwargs, 1);
         }
 
-        /// CPython 3.12: Objects/dictobject.c dict_update_common dispatch:
-        ///   - dict (incl. subclass) instances merge from internal storage
-        ///   - other objects with a keys() attribute merge via keys() + __getitem__
-        ///   - remaining iterables are consumed as key/value pairs
+        /// <summary>
+        /// dict_update_arg: an exact dict, or anything with a keys attribute, is merged as a
+        /// mapping; anything else is a sequence of pairs (PyDict_MergeFromSeq2).
         /// </summary>
-        internal static void UpdateCommon(PyDict target, PyObject source)
+        internal static void UpdateArg(PyDict self, PyObject arg)
         {
-            if (ReferenceEquals(target, source))
-                return;
+            if (arg is PyDict { IsExact: true } || PyObject.LookupAttr(arg, "keys") != null)
+                Merge(self, arg, 1);
+            else
+                MergeFromSeq2(self, arg, true);
+        }
 
-            // dict_merge reads the table unless the subclass has its own __iter__.
-            if (IterIsDictIter(source))
+        /// <summary>PyDict_MergeFromSeq2: each item a sequence of two, set or set-default.</summary>
+        internal static void MergeFromSeq2(PyDict d, PyObject seq2, bool @override)
+        {
+            int i = 0;
+            foreach (var item in PyObject.IterateItems(seq2))
             {
-                target.Update(source);
-                return;
-            }
-
-            PyObject keysCallable = null;
-            try
-            {
-                keysCallable = source.GetAttribute("keys");
-            }
-            catch (PythonException ex) when (ex is PyAttributeError || ex.PyException is PyAttributeError)
-            {
-                keysCallable = null;
-            }
-
-            if (keysCallable != null)
-            {
-                // Generic mapping: for k in E.keys(): self[k] = E[k] (PyObject_GetItem values)
-                var keysObj = keysCallable.Call(new PyObject[0], null);
-                foreach (var key in PySet.IterableItems(keysObj))
-                    target.SetItemStorage(key, source.GetItem(key));
-                return;
-            }
-
-            int elementIndex = 0;
-            foreach (var element in PySet.IterableItems(source))
-            {
-                PyObject[] pair;
-                if (element is PyTuple tuple)
-                    pair = tuple.Items;
-                else
+                PyObject[] fast;
+                try { fast = PyList.SequenceFast(item, ""); }
+                catch (PythonException error) when (error.PyException is PyTypeError)
                 {
-                    try
-                    {
-                        pair = element.AsList().Items;
-                    }
-                    catch (PythonException)
-                    {
-                        throw PyTypeError.Create(
-                            $"cannot convert dictionary update sequence element #{elementIndex} to a sequence");
-                    }
+                    throw PyTypeError.Create($"cannot convert dictionary update sequence element #{i} to a sequence");
                 }
-                if (pair.Length != 2)
-                    throw PyValueError.Create(
-                        $"dictionary update sequence element #{elementIndex} has length {pair.Length}; 2 is required");
-                target.SetItemStorage(pair[0], pair[1]);
-                elementIndex++;
+                if (fast.Length != 2)
+                    throw PyValueError.Create($"dictionary update sequence element #{i} has length {fast.Length}; 2 is required");
+                if (@override)
+                    d.SetItemStorage(fast[0], fast[1]);
+                else
+                    d._dict.SetDefault(fast[0], fast[1], out _);
+                i++;
             }
         }
 
-        public virtual PyNone Update(PyObject other)
+        /// <summary>
+        /// dict_merge (Objects/dictobject.c), the one merge of a mapping into a dict: PyDict_Update
+        /// and PyDict_Merge (override 1 replaces, 0 keeps what is there) and _PyDict_MergeEx's
+        /// override 2, which raises KeyError(key) for a key already there (DICT_MERGE). A dict
+        /// iterated as a dict is read from its table; anything else through PyMapping_Keys and
+        /// PyObject_GetItem.
+        /// </summary>
+        internal static void Merge(PyDict a, PyObject b, int @override)
         {
-            // CPython 3.12: dict.update() can accept dict, mappingproxy, or any mapping-like object
-            if (other is PyDict otherDict)
+            if (IterIsDictIter(b))
             {
-                if (ReferenceEquals(this, otherDict)) return PyNone.Instance;
-                if (_dict.Count == 0 && otherDict._dict.CanCloneForMerge)
+                var other = ((PyDict)b)._dict;
+                if (ReferenceEquals(a, b) || other.Count == 0)
+                    return;
+                if (a._dict.Count == 0)
                 {
-                    _dict.CopyFrom(otherDict._dict);
-                    return PyNone.Instance;
+                    @override = 1;
+                    if (other.CanCloneForMerge)
+                    {
+                        a._dict.CopyFrom(other);
+                        return;
+                    }
                 }
-                // CPython 3.12: Objects/dictobject.c:2811-2990 (dict_merge)
-                // Line 2967: PyDict_SetItem (does NOT call __setitem__, updates storage directly)
-                // For dict subclasses, PyDict_SetItem updates internal storage directly,
-                // bypassing user-defined __setitem__
-                _dict.PrepareMerge(otherDict._dict.Count);
-                int position = 0, originalSize = otherDict._dict.EntriesUsed;
-                while (otherDict._dict.NextEntry(ref position, out var entry))
+                a._dict.PrepareMerge(other.Count);
+                int position = 0, originalSize = other.EntriesUsed;
+                while (other.NextEntry(ref position, out var entry))
                 {
-                    _dict.SetKnownHash(entry.Key, entry.Value, entry.Hash);
-                    if (originalSize != otherDict._dict.EntriesUsed)
+                    if (@override == 1 || !a._dict.TryGetKnownHash(entry.Key, entry.Hash, out _))
+                        a._dict.SetKnownHash(entry.Key, entry.Value, entry.Hash);
+                    else if (@override != 0)
+                        throw PyKeyError.Create(entry.Key);
+                    if (originalSize != other.EntriesUsed)
                         throw PyRuntimeError.Create("dict mutated during update");
                 }
+                return;
             }
-            else if (other is PyMappingProxy { TableEntries: not null } mappingProxy)
+            // PyObject_GetIter of the list: the list as it is at each step.
+            var keys = MappingKeys(b);
+            for (int i = 0; i < keys.Length(); i++)
             {
-                // CPython 3.12: Objects/dictobject.c:2811-2990 (dict_merge)
-                // Line 2961: value = PyObject_GetItem(b, key);
-                // Line 2967: PyDict_SetItem (does NOT call __setitem__, updates storage directly)
-                foreach (var tableEntry in mappingProxy.TableEntries)
+                var key = keys.Items[i];
+                if (@override != 1 && a._dict.ContainsKey(key))
                 {
-                    var pyKey = tableEntry.Key;
-                    var key = pyKey is PyString keyText ? keyText.Value : null;
-                    var value = tableEntry.Value;
-
-                    #if DEBUG
-                    // Debug: Track _generate_next_value_ updates
-                    if (key == "_generate_next_value_")
-                    {
-                        Console.WriteLine($"[PyDict.Update DEBUG] Copying '{key}' from mappingproxy");
-                        Console.WriteLine($"[PyDict.Update DEBUG]   value = {value}, type = {value.GetTypeName()}");
-                    }
-                    #endif
-
-                    // Direct storage update (bypass __setitem__)
-                    _dict.Set(pyKey, value);
+                    if (@override == 0)
+                        continue;
+                    throw PyKeyError.Create(key);
                 }
+                a.SetItemStorage(key, PyAbstract.GetItem(b, key));
             }
-            else
+        }
+
+        /// <summary>
+        /// PyMapping_Keys (Objects/abstract.c): an exact dict's keys, else what keys() returns as
+        /// a list (method_output_as_list).
+        /// </summary>
+        internal static PyList MappingKeys(PyObject o)
+        {
+            if (o is PyDict { IsExact: true } dict)
+                return dict.Keys();
+            var output = o.GetAttribute("keys").Call(Array.Empty<PyObject>(), null);
+            if (output is PyList { IsExact: true } list)
+                return list;
+            PyObject iterator;
+            try { iterator = output.GetIterator(); }
+            catch (PythonException error) when (error.PyException is PyTypeError)
             {
-                throw PyTypeError.Create($"update() argument must be dict or mapping, not '{other.GetTypeName()}'");
+                throw PyTypeError.Create($"{o.GetTypeName()}.keys() returned a non-iterable (type {output.GetTypeName()})");
             }
+            var keys = new PyList();
+            keys.InplaceAdd(iterator);
+            return keys;
+        }
+
+        /// <summary>
+        /// PyDict_Copy: an empty dict for an empty one, the table cloned when the type iterates as
+        /// a dict, else a new dict merged from it.
+        /// </summary>
+        internal static PyDict DictCopy(PyDict o)
+        {
+            if (o._dict.Count == 0)
+                return new PyDict();
+            if (IterIsDictIter(o))
+                return o.Copy();
+            var copy = new PyDict();
+            Merge(copy, o, 1);
+            return copy;
+        }
+
+        /// <summary>PyDict_Update: dict_merge with override 1.</summary>
+        public virtual PyNone Update(PyObject other)
+        {
+            Merge(this, other, 1);
             return PyNone.Instance;
         }
 
@@ -884,41 +891,6 @@ namespace SharpPy
 
         #region Copy
 
-        private static PyDict CopySubclass(PyObject source, PyDict storage)
-        {
-            // PyDict_Copy skips callbacks for empty storage. Otherwise an
-            // overridden iteration slot selects dict_merge's mapping path.
-            // ma_used, not a subclass's __len__.
-            if (storage._dict.Count == 0 || IterIsDictIter(source))
-                return storage.Copy();
-
-            var output = source.GetAttribute("keys").Call(Array.Empty<PyObject>(), null);
-            PyList keys;
-            if (output is PyList list && output.GetPyType() == PyType.ListType)
-                keys = list;
-            else
-            {
-                PyObject iterator;
-                try { iterator = output.GetIterator(); }
-                catch (PythonException ex) when (ex.PyException is PyTypeError)
-                {
-                    throw PyTypeError.Create($"{source.GetTypeName()}.keys() returned a non-iterable (type {output.GetTypeName()})");
-                }
-                // PyMapping_Keys materializes before any item lookup. Avoid
-                // AsList, which currently replaces iterator errors with TypeError.
-                keys = new PyList();
-                keys.InplaceAdd(iterator);
-            }
-
-            var copy = new PyDict();
-            for (int i = 0; i < keys.Length(); i++)
-            {
-                var key = keys.Items[i];
-                copy.SetItem(key, source.GetItem(key));
-            }
-            return copy;
-        }
-
         /// <summary>
         /// 딕셔너리의 얕은 복사본 생성
         /// Python 3.7+: 삽입 순서 보장
@@ -927,8 +899,12 @@ namespace SharpPy
         {
             if (!_dict.CanCloneForCopy)
             {
+                // The entries alone, whatever the type's iteration.
                 var compact = new PyDict();
-                compact.Update(this);
+                compact._dict.PrepareMerge(_dict.Count);
+                int position = 0;
+                while (_dict.NextEntry(ref position, out var entry))
+                    compact._dict.SetKnownHash(entry.Key, entry.Value, entry.Hash);
                 return compact;
             }
             return new PyDict(_dict);
@@ -1011,8 +987,8 @@ namespace SharpPy
             // with its own __iter__ through keys().
             if (other is not PyDict)
                 return PyNotImplemented.Instance;
-            var result = HasCustomType ? CopySubclass(this, this) : Copy();
-            UpdateCommon(result, other);
+            var result = DictCopy(this);
+            UpdateArg(result, other);
             return result;
         }
 
@@ -1023,10 +999,8 @@ namespace SharpPy
         /// </summary>
         public override PyObject? InplaceBitwiseOr(PyObject other)
         {
-            // CPython dict_ior: PyDict_Update(self, other) - accepts any update argument
-            // (mapping or key/value pairs) and propagates update errors, e.g.
-            //   {} |= 5 → TypeError: 'int' object is not iterable
-            UpdateCommon(this, other);
+            // dict_ior: dict_update_arg, then self.
+            UpdateArg(this, other);
             return this;
         }
 
