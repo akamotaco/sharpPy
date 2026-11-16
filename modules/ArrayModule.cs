@@ -68,8 +68,11 @@ namespace SharpPy.Modules
 
             if (typecode == 'u')
             {
+                // u_getitem: PyUnicode_FromOrdinal of the wchar_t (4 bytes here, one code point each)
                 int codePoint = BinaryPrimitives.ReadInt32LittleEndian(span);
-                return PyString.From(char.ConvertFromUtf32(codePoint));
+                if (codePoint < 0 || codePoint > 0x10FFFF)
+                    throw PyValueError.Create("chr() arg not in range(0x110000)");
+                return PyString.FromCodePoint(codePoint);
             }
 
             switch (info.Size)
@@ -109,9 +112,10 @@ namespace SharpPy.Modules
 
             if (typecode == 'u')
             {
-                if (value is PyString ps && ps.Value.Length == 1)
+                // u_setitem: one wchar_t, which with a 4-byte wchar_t is one character of any value
+                if (value is PyString ps && ps.CodePointLength() == 1)
                 {
-                    BinaryPrimitives.WriteInt32LittleEndian(span, char.ConvertToUtf32(ps.Value, 0));
+                    BinaryPrimitives.WriteInt32LittleEndian(span, ps.ReadChar(0));
                     return;
                 }
                 // u_setitem: PyArg_Parse(v, "U;array item must be unicode character"), then one character
@@ -669,25 +673,26 @@ namespace SharpPy.Modules
             {
                 if (_typecode != 'u')
                     throw PyValueError.Create("tounicode() may only be called on unicode type arrays");
-                var sb = new StringBuilder();
+                // PyUnicode_FromWideChar of a 4-byte wchar_t: each item is a code point, a lone
+                // surrogate included, and one past U+10FFFF is refused
+                var points = new int[_count];
                 for (int i = 0; i < _count; i++)
                 {
-                    var item = ReadItem(_buffer, i, _typecode);
-                    sb.Append(((PyString)item).Value);
+                    int cp = BinaryPrimitives.ReadInt32LittleEndian(_buffer.AsSpan(i * ItemSize, 4));
+                    if ((uint)cp > 0x10FFFF)
+                        throw PyValueError.Create($"character U+{(uint)cp:x} is not in range [U+0000; U+10ffff]");
+                    points[i] = cp;
                 }
-                return PyString.From(sb.ToString());
+                return PyString.FromCodePoints(points);
             }
 
-            internal void FromUnicode(string s)
+            // array_array_fromunicode_impl: PyUnicode_AsWideChar, one item per character
+            internal void FromUnicode(PyString s)
             {
                 if (_typecode != 'u')
                     throw PyValueError.Create("fromunicode() may only be called on unicode type arrays");
-                for (int i = 0; i < s.Length; )
-                {
-                    int cp = char.ConvertToUtf32(s, i);
-                    i += char.IsHighSurrogate(s[i]) ? 2 : 1;
-                    Append(PyString.From(char.ConvertFromUtf32(cp)));
-                }
+                foreach (int cp in s.CodePoints())
+                    Append(PyString.FromCodePoint(cp));
             }
 
             internal PyTuple BufferInfo()
@@ -835,7 +840,7 @@ namespace SharpPy.Modules
                 }
                 else if (initializer is PyString ps)
                 {
-                    FromUnicode(ps.Value);
+                    FromUnicode(ps);
                 }
                 else if (initializer is PyArray arr && arr._typecode == _typecode)
                 {
@@ -1009,7 +1014,7 @@ namespace SharpPy.Modules
             {
                 var arr = (PyArray)self;
                 if (args[0] is PyString ps)
-                    arr.FromUnicode(ps.Value);
+                    arr.FromUnicode(ps);
                 else
                     throw PyTypeError.Create($"a unicode string is required, not \"{args[0].GetTypeName()}\"");
                 return PyNone.Instance;

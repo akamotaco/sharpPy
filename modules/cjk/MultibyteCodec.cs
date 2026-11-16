@@ -26,26 +26,18 @@ namespace SharpPy.Modules.Cjk
         internal int Pos;
     }
 
-    /// <summary>_PyUnicodeWriter, for the code points a decoder writes.</summary>
+    /// <summary>The _PyUnicodeWriter a decoder writes its code points to (OUTCHAR, writer.pos).</summary>
     internal sealed class MbWriter
     {
-        internal readonly StringBuilder Text = new();
-        internal int Pos;
+        private readonly PyUnicodeWriter _writer = new();
 
-        internal void Write(int c)
-        {
-            if (c >= 0x10000)
-                Text.Append(char.ConvertFromUtf32(c));
-            else
-                Text.Append((char)c);
-            Pos++;
-        }
+        internal int Pos => _writer.Length;
 
-        internal void WriteStr(string s)
-        {
-            Text.Append(s);
-            Pos += PyString.CodePointCount(s);
-        }
+        internal void Write(int c) => _writer.WriteChar(c);
+
+        internal void WriteStr(PyString s) => _writer.WriteStr(s);
+
+        internal PyString Finish() => _writer.Finish();
     }
 
     /// <summary>
@@ -147,26 +139,6 @@ namespace SharpPy.Modules.Cjk
             module.ModuleDict["MultibyteStreamReader"] = ReaderType;
             module.ModuleDict["MultibyteStreamWriter"] = WriterType;
             return module;
-        }
-
-        // str as code points, a lone surrogate standing for itself.
-        internal static int[] CodePoints(string text)
-        {
-            var points = new int[PyString.CodePointCount(text)];
-            for (int unit = 0, i = 0; unit < text.Length; i++)
-            {
-                points[i] = PyString.CodePointAt(text, unit, out int width);
-                unit += width;
-            }
-            return points;
-        }
-
-        private static string FromCodePoints(int[] points, int start, int end)
-        {
-            var sb = new StringBuilder();
-            for (int i = start; i < end; i++)
-                sb.Append(PyString.CodePointText(points[i]));
-            return sb.ToString();
         }
 
         // ---- encoding
@@ -302,7 +274,7 @@ namespace SharpPy.Modules.Cjk
         // multibytecodec_encode
         internal static byte[] Encode(MbCodec codec, MbState state, PyString text, ref long inposT, string errors, int flags)
         {
-            var data = CodePoints(text.Value);
+            var data = text.ToCodePoints();
             long datalen = data.Length;
             if (datalen == 0 && (flags & MbCodec.MBENC_RESET) == 0)
                 return Array.Empty<byte>();
@@ -394,7 +366,7 @@ namespace SharpPy.Modules.Cjk
             var retobj = PyCodecErrors.LookupError(errors).Call(new[] { buf.ExcObj }, null);
             if (retobj is not PyTuple { Items.Length: 2 } pair || pair.Items[0] is not PyString retuni || pair.Items[1] is not PyInt)
                 throw PyTypeError.Create("decoding error handler must return (str, int) tuple");
-            buf.Writer.WriteStr(retuni.Value);
+            buf.Writer.WriteStr(retuni);
             var position = ((PyInt)pair.Items[1]).Value;
             long newpos;
             if (position < long.MinValue || position > long.MaxValue)
@@ -447,7 +419,7 @@ namespace SharpPy.Modules.Cjk
                     var converted = input.AsString();
                     text = converted as PyString ?? throw PyTypeError.Create("couldn't convert the object to unicode.");
                 }
-                long datalen = PyString.CodePointCount(text.Value);
+                long datalen = text.CodePointLength();
                 string errorcb = ErrorCallback(errors);
                 var state = new MbState();
                 if (codec.HasEncInit && codec.EncInit(state) != 0)
@@ -480,7 +452,7 @@ namespace SharpPy.Modules.Cjk
                         break;
                     DecError(codec, state, buf, errorcb, r);
                 }
-                return PyTuple.From(new PyObject[] { PyString.From(buf.Writer.Text.ToString()), PyInt.From(data.Length) });
+                return PyTuple.From(new PyObject[] { buf.Writer.Finish(), PyInt.From(data.Length) });
             }, acceptsKwargs: true);
             return type;
         }
@@ -587,13 +559,14 @@ namespace SharpPy.Modules.Cjk
             if (ctx.Pending != null)
             {
                 origpending = ctx.Pending;
-                inbuf = PyString.From(ctx.Pending.Value + text.Value);
+                // PyUnicode_Concat(ctx->pending, unistr)
+                inbuf = ctx.Pending.CodePointLength() == 0 ? text : text.CodePointLength() == 0 ? ctx.Pending : PyString.Concat(ctx.Pending, text);
                 ctx.Pending = null;
             }
             else
                 inbuf = text;
             long inpos = 0;
-            long datalen = PyString.CodePointCount(inbuf.Value);
+            long datalen = inbuf.CodePointLength();
             byte[] r;
             try
             {
@@ -609,8 +582,7 @@ namespace SharpPy.Modules.Cjk
             {
                 if (datalen - inpos > MAXENCPENDING)
                     throw PyExceptionSlots.Raise(PyType.UnicodeErrorType, "pending buffer overflow");
-                var points = CodePoints(inbuf.Value);
-                ctx.Pending = PyString.From(FromCodePoints(points, (int)inpos, (int)datalen));
+                ctx.Pending = inbuf.Substring((int)inpos, (int)datalen);
             }
             return r;
         }
@@ -681,7 +653,8 @@ namespace SharpPy.Modules.Cjk
                 var statebytes = new List<byte>();
                 if (self.Pending != null)
                 {
-                    var pending = System.Text.Encoding.UTF8.GetBytes(self.Pending.Value);
+                    // PyUnicode_AsUTF8AndSize: strict UTF-8 of the pending characters
+                    var pending = UnicodeEncoders.EncodeUtf8(self.Pending, "strict");
                     if (pending.Length > MAXENCPENDING * 4)
                         throw PyExceptionSlots.Raise(PyType.UnicodeErrorType, "pending buffer too large");
                     statebytes.Add((byte)pending.Length);
@@ -780,7 +753,7 @@ namespace SharpPy.Modules.Cjk
                 }
                 if (buf.In.Pos < buf.End)
                     AppendPending(self, buf);
-                return PyString.From(buf.Writer.Text.ToString());
+                return buf.Writer.Finish();
             }, acceptsKwargs: true);
             PyArgs.Define(type, "getstate", PyCall.NoArgs, (o, args) =>
             {
@@ -855,7 +828,7 @@ namespace SharpPy.Modules.Cjk
                     break;
                 sizehint = 1;
             }
-            return PyString.From(buf.Writer.Text.ToString());
+            return buf.Writer.Finish();
         }
 
         // read/readline/readlines' size: None, or an int.

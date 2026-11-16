@@ -16,7 +16,7 @@ namespace SharpPy.Modules
         internal readonly int[] Items;
         internal readonly bool IsBytes;
 
-        [ThreadStatic] private static string _lastString;
+        [ThreadStatic] private static PyString _lastString;
         [ThreadStatic] private static int[] _lastItems;
 
         private SreText(PyObject source, int[] items, bool isBytes)
@@ -31,7 +31,7 @@ namespace SharpPy.Modules
             switch (source)
             {
                 case PyString text:
-                    return new SreText(source, CodePoints(text.Value), false);
+                    return new SreText(source, CodePoints(text), false);
                 case PyBytes bytes:
                     return new SreText(source, Widen(bytes.Value), true);
                 case PyByteArray array:
@@ -50,21 +50,12 @@ namespace SharpPy.Modules
             return items;
         }
 
-        private static int[] CodePoints(string text)
+        // the str's characters (PyUnicode_DATA read by its kind)
+        private static int[] CodePoints(PyString text)
         {
             // A tokenizer calls match on one string many times.
             if (ReferenceEquals(text, _lastString)) return _lastItems;
-            var items = new int[text.Length];
-            int count = 0;
-            for (int i = 0; i < text.Length; i++)
-            {
-                char c = text[i];
-                if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
-                    items[count++] = char.ConvertToUtf32(c, text[++i]);
-                else
-                    items[count++] = c;
-            }
-            if (count != items.Length) Array.Resize(ref items, count);
+            var items = text.ToCodePoints();
             _lastString = text;
             _lastItems = items;
             return items;
@@ -76,7 +67,8 @@ namespace SharpPy.Modules
             if (start < 0) start = 0;
             if (end > Items.Length) end = Items.Length;
             if (end < start) end = start;
-            if (start == 0 && end == Items.Length && Source is PyString or PyBytes) return Source;
+            // getslice: an exact bytes object whole is itself; a str is PyUnicode_Substring
+            if (start == 0 && end == Items.Length && Source.IsExactly(PyType.BytesType)) return Source;
             if (IsBytes && Source is not PyBytes)
             {
                 // match_getslice_by_index's getstring: a mutable buffer is read as it is now, and the
@@ -91,17 +83,11 @@ namespace SharpPy.Modules
                 for (int i = start; i < end; i++) data[i - start] = (byte)Items[i];
                 return PyBytes.From(data);
             }
-            var builder = new StringBuilder(end - start);
-            for (int i = start; i < end; i++)
-            {
-                int item = Items[i];
-                if (item < 0x10000) builder.Append((char)item);
-                else builder.Append(char.ConvertFromUtf32(item));
-            }
-            return PyString.From(builder.ToString());
+            // PyUnicode_Substring
+            return ((PyString)Source).Substring(start, end);
         }
 
-        internal PyObject Empty() => IsBytes ? PyBytes.From(Array.Empty<byte>()) : PyString.From("");
+        internal PyObject Empty() => IsBytes ? PyBytes.From(Array.Empty<byte>()) : PyString.Empty;
     }
 
     public sealed class PySrePattern : PyObject
@@ -190,7 +176,7 @@ namespace SharpPy.Modules
             {
                 PyObject basic;
                 if (template is PyString text && !template.IsExactly(PyType.StrType))
-                    basic = PyString.From(text.Value);
+                    basic = text.Copy();
                 else if (template.SupportsBuffer() && !template.IsExactly(PyType.BytesType))
                     basic = PyBytes.From(BytesMethods.RequireBuffer(template));
                 else
@@ -332,7 +318,7 @@ namespace SharpPy.Modules
         // bytes.join and str.join are.
         private static PyObject Join(List<PyObject> pieces, SreText text) => text.IsBytes
             ? BytesMethods.Join(PyBytes.From(System.Array.Empty<byte>()), new PyList(pieces))
-            : PyString.From("").Join(new PyList(pieces));
+            : PyString.Empty.Join(new PyList(pieces));
 
         private PyObject Scanner(PyObject[] args, PyDict kwargs)
         {
@@ -567,13 +553,13 @@ namespace SharpPy.Modules
         internal PyObject Expand(PySreMatch match)
         {
             bool isBytes = _pattern.Pattern is PyBytes or PyByteArray;
-            var builder = new StringBuilder();
+            var pieces = new List<PyObject>();
             var bytes = new List<byte>();
             void Add(PyObject piece)
             {
                 if (piece is PyNone) return;
                 if (isBytes) bytes.AddRange(((PyBytes)piece).Value);
-                else builder.Append(piece.ToStr().Value);
+                else pieces.Add(piece.ToStr());
             }
 
             Add(_items[0]);
@@ -582,7 +568,8 @@ namespace SharpPy.Modules
                 Add(match.GroupOrEmpty(_items[i].ToInt()));
                 Add(_items[i + 1]);
             }
-            return isBytes ? PyBytes.From(bytes.ToArray()) : PyString.From(builder.ToString());
+            // _PyUnicode_JoinArray with an empty separator
+            return isBytes ? PyBytes.From(bytes.ToArray()) : PyString.JoinArray(PyString.Empty, pieces.ToArray());
         }
     }
 

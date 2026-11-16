@@ -105,7 +105,7 @@ namespace SharpPy.Modules
         {
             if (arg is not PyString text || text.CodePointLength() != 1)
                 throw PyArgs.BadArgument(fname, displayname, "a unicode character", arg);
-            return PyString.CodePointAt(text.Value, 0, out _);
+            return text.ReadChar(0);
         }
 
         private static PyObject Default(PyObject defaultValue, string message) =>
@@ -484,15 +484,13 @@ namespace SharpPy.Modules
         private enum Quickcheck { Yes = 0, Maybe = 1, No = 2 }
 
         // is_normalized_quickcheck
-        private static Quickcheck IsNormalizedQuickcheck(PreviousVersion self, string input, int[] data, bool nfc, bool k, bool yesOnly)
+        private static Quickcheck IsNormalizedQuickcheck(PreviousVersion self, PyString input, int[] data, bool nfc, bool k, bool yesOnly)
         {
             // UCD 3.2.0 is requested, quickchecks must be disabled.
             if (self != null)
                 return Quickcheck.Maybe;
-            bool ascii = true;
-            foreach (char c in input)
-                if (c >= 128) { ascii = false; break; }
-            if (ascii)
+            // PyUnicode_IS_ASCII
+            if (input.MaxChar() < 128)
                 return Quickcheck.Yes;
             int prevCombining = 0;
             // The two quickcheck bits at this shift have type QuickcheckResult.
@@ -526,16 +524,8 @@ namespace SharpPy.Modules
             return result;
         }
 
-        private static string Text(int[] points)
-        {
-            var sb = new StringBuilder(points.Length);
-            foreach (int cp in points)
-            {
-                if (cp < 0x10000) sb.Append((char)cp);
-                else sb.Append(char.ConvertFromUtf32(cp));
-            }
-            return sb.ToString();
-        }
+        // PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, ...)
+        private static PyString Text(int[] points) => PyString.FromCodePoints(points);
 
         private static bool Form(string form, out bool nfc, out bool k)
         {
@@ -547,17 +537,18 @@ namespace SharpPy.Modules
         // unicodedata_UCD_is_normalized_impl
         private static PyObject IsNormalized(PreviousVersion self, PyString form, PyString input)
         {
-            if (input.Value.Length == 0)
+            if (input.CodePointLength() == 0)
                 // special case empty input strings.
                 return PyBool.True;
             if (!Form(form.Value, out bool nfc, out bool k))
                 throw PyValueError.Create("invalid normalization form");
             var data = input.ToCodePoints();
-            var m = IsNormalizedQuickcheck(self, input.Value, data, nfc, k, false);
+            var m = IsNormalizedQuickcheck(self, input, data, nfc, k, false);
             if (m == Quickcheck.Maybe)
             {
                 var cmp = nfc ? NfcNfkc(self, data, k) : NfdNfkd(self, data, k);
-                return PyBool.FromBool(Text(cmp) == input.Value);
+                // PyUnicode_Compare(input, cmp) == 0
+                return PyBool.FromBool(Text(cmp).ContentEquals(input));
             }
             return PyBool.FromBool(m == Quickcheck.Yes);
         }
@@ -565,15 +556,15 @@ namespace SharpPy.Modules
         // unicodedata_UCD_normalize_impl
         private static PyObject Normalize(PreviousVersion self, PyString form, PyString input)
         {
-            if (input.Value.Length == 0)
+            if (input.CodePointLength() == 0)
                 // Special case empty input strings.
                 return input;
             if (!Form(form.Value, out bool nfc, out bool k))
                 throw PyValueError.Create("invalid normalization form");
             var data = input.ToCodePoints();
-            if (IsNormalizedQuickcheck(self, input.Value, data, nfc, k, true) == Quickcheck.Yes)
+            if (IsNormalizedQuickcheck(self, input, data, nfc, k, true) == Quickcheck.Yes)
                 return input;
-            return PyString.From(Text(nfc ? NfcNfkc(self, data, k) : NfdNfkd(self, data, k)));
+            return Text(nfc ? NfcNfkc(self, data, k) : NfdNfkd(self, data, k));
         }
 
         // unicodedata_UCD_name_impl
@@ -613,12 +604,14 @@ namespace SharpPy.Modules
             {
                 int index = code - UnicodedataDb.NamedSequencesStart;
                 var seq = UnicodedataDb.NamedSequences;
+                // PyUnicode_FromKindAndData(PyUnicode_2BYTE_KIND, ...)
                 var sb = new StringBuilder();
                 for (int i = 0; i < seq[index * 5]; i++)
                     sb.Append((char)seq[index * 5 + 1 + i]);
-                return PyString.From(sb.ToString());
+                return PyString.FromUnits(sb.ToString());
             }
-            return PyString.From(PyString.CodePointText(code));
+            // PyUnicode_FromOrdinal
+            return PyString.FromCodePoint(code);
         }
 
         private static PyString StrArgument(string fname, string displayname, PyObject arg) =>

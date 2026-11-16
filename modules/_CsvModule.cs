@@ -183,8 +183,10 @@ namespace SharpPy.Modules
             if (args.Length < 1) throw PyTypeError.Create("reader() requires an iterable argument");
             var iterable = args[0];
             if (args.Length > 2) throw PyTypeError.Create($" expected at most 2 arguments, got {args.Length}");
+            // csv_reader: PyObject_GetIter of the input first, then the dialect
+            var inputIter = iterable.GetIterator();
             var dialect = CallDialect(args.Length > 1 ? args[1] : null, kwargs);
-            return new PyReader(iterable, dialect);
+            return new PyReader(inputIter, dialect);
         }
 
 
@@ -194,11 +196,11 @@ namespace SharpPy.Modules
             if (args.Length < 1) throw PyTypeError.Create("writer() requires a file object");
             var fileobj = args[0];
             // csv_writer: PyObject_GetAttr(output_file, "write"); only its absence is this TypeError.
-            if (fileobj.LookupAttribute("write") == null)
-                throw PyTypeError.Create("argument 1 must have a \"write\" method");
+            var write = fileobj.LookupAttribute("write")
+                ?? throw PyTypeError.Create("argument 1 must have a \"write\" method");
             if (args.Length > 2) throw PyTypeError.Create($" expected at most 2 arguments, got {args.Length}");
             var dialect = CallDialect(args.Length > 1 ? args[1] : null, kwargs);
-            return new PyWriter(fileobj, dialect);
+            return new PyWriter(write, dialect);
         }
 
         // --- Dialect registry ---
@@ -268,310 +270,241 @@ namespace SharpPy.Modules
             public override PyType GetPyType() => DialectType;
         }
 
-        // --- PyReader ---
-        private enum ReaderState { START_RECORD, START_FIELD, ESCAPED, IN_FIELD, IN_QUOTED_FIELD, ESCAPE_IN_QUOTED_FIELD, QUOTE_IN_QUOTED_FIELD, EAT_CRNL, AFTER_ESCAPED_CRNL }
+        // --- PyReader (Modules/_csv.c READER) ---
+        private enum ReaderState
+        {
+            START_RECORD, START_FIELD, ESCAPED_CHAR, IN_FIELD, IN_QUOTED_FIELD, ESCAPE_IN_QUOTED_FIELD,
+            QUOTE_IN_QUOTED_FIELD, EAT_CRNL, AFTER_ESCAPED_CRNL,
+        }
+
+        // NOT_SET and EOL: values no character has.
+        private const int NotSet = -1, Eol = -2;
+        private const int QUOTE_MINIMAL = 0, QUOTE_ALL = 1, QUOTE_NONNUMERIC = 2, QUOTE_NONE = 3, QUOTE_STRINGS = 4, QUOTE_NOTNULL = 5;
+
+        // DialectObj's Py_UCS4 fields: the one character of a str, NOT_SET for None.
+        private static int CharOf(PyObject value) => value is PyString s ? s.ReadChar(0) : NotSet;
+
+        // PyErr_Format's %c: the character itself.
+        private static string Shown(int c) => PyString.FromCodePoint(c).Value;
 
         private class PyReader : PyObject
         {
-            private readonly PyObject _iterable;
+            private readonly PyObject _inputIter;
             internal readonly PyDialect _dialect;
             internal int _lineNum;
-            private bool _started;
+            private PyList _fields;
+            private readonly List<int> _field = new();
+            private ReaderState _state;
+            private bool _numericField;
 
-            public PyReader(PyObject iterable, PyDialect dialect)
+            public PyReader(PyObject inputIter, PyDialect dialect)
             {
-                _iterable = iterable;
+                _inputIter = inputIter;
                 _dialect = dialect;
-                _lineNum = 0;
-                _started = false;
             }
 
             public override PyType GetPyType() => ReaderType;
 
             protected internal override PyObject Iter() => this;
 
-            protected internal override PyObject IterNext()
+            // parse_save_field: the field as a str, a float when it was an unquoted QUOTE_NONNUMERIC one
+            private void SaveField()
             {
-                if (!_started) { _started = true; _iter = _iterable.GetIterator(); }
-                return ParseNextRecord();
+                PyObject field = PyString.FromCodePoints(_field.ToArray());
+                _field.Clear();
+                if (_numericField)
+                {
+                    _numericField = false;
+                    field = PyType.FloatType.Call(new[] { field }, null);
+                }
+                _fields.Append(field);
             }
 
-            private PyObject _iter;
-
-            private PyObject ParseNextRecord()
+            // parse_add_char
+            private void AddChar(int c)
             {
-                var state = ReaderState.START_RECORD;
-                var fields = new List<string>();
-                var fieldQuoted = new List<bool>();
-                var field = new StringBuilder();
-                bool quoted = false;
-                bool eof = false;
+                if (_field.Count >= _fieldSizeLimit)
+                    throw PyExceptionSlots.Raise(ErrorType, $"field larger than field limit ({_fieldSizeLimit})");
+                _field.Add(c);
+            }
 
-                while (true)
+            // parse_process_char
+            private void ProcessChar(int c)
+            {
+                var dialect = _dialect;
+                int delimiter = CharOf(dialect.Delimiter), quotechar = CharOf(dialect.QuoteChar), escapechar = CharOf(dialect.EscapeChar);
+                int quoting = (int)dialect.Quoting.ToInt();
+                switch (_state)
                 {
-                    string line;
+                    case ReaderState.START_RECORD:
+                        if (c == Eol)
+                            break;
+                        if (c == '\n' || c == '\r')
+                        {
+                            _state = ReaderState.EAT_CRNL;
+                            break;
+                        }
+                        _state = ReaderState.START_FIELD;
+                        goto case ReaderState.START_FIELD;
+
+                    case ReaderState.START_FIELD:
+                        if (c == '\n' || c == '\r' || c == Eol)
+                        {
+                            SaveField();
+                            _state = c == Eol ? ReaderState.START_RECORD : ReaderState.EAT_CRNL;
+                        }
+                        else if (c == quotechar && quoting != QUOTE_NONE)
+                            _state = ReaderState.IN_QUOTED_FIELD;
+                        else if (c == escapechar)
+                        {
+                            if (quoting == QUOTE_NONNUMERIC)
+                                _numericField = true;
+                            _state = ReaderState.ESCAPED_CHAR;
+                        }
+                        else if (c == ' ' && dialect.SkipInitialSpace.IsTrue())
+                        {
+                            // ignore spaces at start of field
+                        }
+                        else if (c == delimiter)
+                            SaveField();
+                        else
+                        {
+                            if (quoting == QUOTE_NONNUMERIC)
+                                _numericField = true;
+                            AddChar(c);
+                            _state = ReaderState.IN_FIELD;
+                        }
+                        break;
+
+                    case ReaderState.ESCAPED_CHAR:
+                        if (c == '\n' || c == '\r')
+                        {
+                            AddChar(c);
+                            _state = ReaderState.AFTER_ESCAPED_CRNL;
+                            break;
+                        }
+                        if (c == Eol)
+                            c = '\n';
+                        AddChar(c);
+                        _state = ReaderState.IN_FIELD;
+                        break;
+
+                    case ReaderState.AFTER_ESCAPED_CRNL:
+                        if (c == Eol)
+                            break;
+                        goto case ReaderState.IN_FIELD;
+
+                    case ReaderState.IN_FIELD:
+                        if (c == '\n' || c == '\r' || c == Eol)
+                        {
+                            SaveField();
+                            _state = c == Eol ? ReaderState.START_RECORD : ReaderState.EAT_CRNL;
+                        }
+                        else if (c == escapechar)
+                            _state = ReaderState.ESCAPED_CHAR;
+                        else if (c == delimiter)
+                        {
+                            SaveField();
+                            _state = ReaderState.START_FIELD;
+                        }
+                        else
+                            AddChar(c);
+                        break;
+
+                    case ReaderState.IN_QUOTED_FIELD:
+                        if (c == Eol)
+                        {
+                        }
+                        else if (c == escapechar)
+                            _state = ReaderState.ESCAPE_IN_QUOTED_FIELD;
+                        else if (c == quotechar && quoting != QUOTE_NONE)
+                            _state = dialect.DoubleQuote.IsTrue() ? ReaderState.QUOTE_IN_QUOTED_FIELD : ReaderState.IN_FIELD;
+                        else
+                            AddChar(c);
+                        break;
+
+                    case ReaderState.ESCAPE_IN_QUOTED_FIELD:
+                        if (c == Eol)
+                            c = '\n';
+                        AddChar(c);
+                        _state = ReaderState.IN_QUOTED_FIELD;
+                        break;
+
+                    case ReaderState.QUOTE_IN_QUOTED_FIELD:
+                        if (quoting != QUOTE_NONE && c == quotechar)
+                        {
+                            AddChar(c);
+                            _state = ReaderState.IN_QUOTED_FIELD;
+                        }
+                        else if (c == delimiter)
+                        {
+                            SaveField();
+                            _state = ReaderState.START_FIELD;
+                        }
+                        else if (c == '\n' || c == '\r' || c == Eol)
+                        {
+                            SaveField();
+                            _state = c == Eol ? ReaderState.START_RECORD : ReaderState.EAT_CRNL;
+                        }
+                        else if (!dialect.Strict.IsTrue())
+                        {
+                            AddChar(c);
+                            _state = ReaderState.IN_FIELD;
+                        }
+                        else
+                            throw PyExceptionSlots.Raise(ErrorType, $"'{Shown(delimiter)}' expected after '{Shown(quotechar)}'");
+                        break;
+
+                    case ReaderState.EAT_CRNL:
+                        if (c == '\n' || c == '\r')
+                        {
+                        }
+                        else if (c == Eol)
+                            _state = ReaderState.START_RECORD;
+                        else
+                            throw PyExceptionSlots.Raise(ErrorType,
+                                "new-line character seen in unquoted field - do you need to open the file with newline=''?");
+                        break;
+                }
+            }
+
+            // Reader_iternext: parse_reset, then one line at a time, each character and then EOL.
+            protected internal override PyObject IterNext()
+            {
+                _fields = new PyList();
+                _field.Clear();
+                _state = ReaderState.START_RECORD;
+                _numericField = false;
+                do
+                {
+                    PyObject lineobj;
                     try
                     {
-                        var item = _iter.Next();
-                        if (item is PyString ps)
-                            line = ps.Value;
-                        else
-                            throw PyExceptionSlots.Raise(ErrorType, "iterator should return strings, not " + item.GetTypeName() + " (the file should be opened in text mode)");
-                        _lineNum++;
+                        lineobj = _inputIter.Next();
                     }
                     catch (PythonException e) when (e.PyException is PyStopIteration)
                     {
-                        eof = true;
-                        line = null;
-                    }
-
-                    if (eof)
-                    {
-                        if (state == ReaderState.IN_QUOTED_FIELD)
-                            throw PyExceptionSlots.Raise(ErrorType, "unexpected end of data");
-                        if (state == ReaderState.START_RECORD && fields.Count == 0)
-                            throw PyStopIteration.Create();
-                        if (field.Length > 0 || fields.Count > 0 || state == ReaderState.IN_FIELD)
+                        if (_field.Count != 0 || _state == ReaderState.IN_QUOTED_FIELD)
                         {
-                            fields.Add(field.ToString());
- fieldQuoted.Add(quoted);
-                            return MakeResult(fields, fieldQuoted);
+                            if (_dialect.Strict.IsTrue())
+                                throw PyExceptionSlots.Raise(ErrorType, "unexpected end of data");
+                            SaveField();
+                            break;
                         }
-                        throw PyStopIteration.Create();
+                        throw;
                     }
-
-                    // An empty line in START_RECORD is an empty record.
-                    if (line.Length == 0 && state == ReaderState.START_RECORD)
-                        return new PyList();
-
-                    if (line.IndexOf('\0') >= 0)
-                        throw PyExceptionSlots.Raise(ErrorType, "line contains NUL");
-
-                    for (int i = 0; i < line.Length; i++)
-                    {
-                        char c = line[i];
-                        char delim = _dialect.Delimiter is PyString ds ? ds.Value[0] : ',';
-                        char quote = _dialect.QuoteChar is PyString qs && qs.Value.Length > 0 ? qs.Value[0] : '"';
-                        char esc = _dialect.EscapeChar is PyString es && es.Value.Length > 0 ? es.Value[0] : '\0';
-                        bool hasEsc = _dialect.EscapeChar != PyNone.Instance;
-                        bool doublequote = _dialect.DoubleQuote.IsTrue();
-                        bool skipinitialspace = _dialect.SkipInitialSpace.IsTrue();
-                        bool strict = _dialect.Strict.IsTrue();
-
-                        switch (state)
-                        {
-                            case ReaderState.START_RECORD:
-                                if (c == '\r' || c == '\n')
-                                {
-                                    if (c == '\r' && i + 1 < line.Length && line[i + 1] == '\n') i++;
-                                    if (fields.Count > 0 || field.Length > 0)
-                                    {
-                                        fields.Add(field.ToString());
- fieldQuoted.Add(quoted);
-                                        return MakeResult(fields, fieldQuoted);
-                                    }
-                                    continue;
-                                }
-                                state = ReaderState.START_FIELD;
-                                goto case ReaderState.START_FIELD;
-
-                            case ReaderState.START_FIELD:
-                                if (skipinitialspace && c == ' ') continue;
-                                if (c == quote)
-                                {
-                                    quoted = true;
-                                    state = ReaderState.IN_QUOTED_FIELD;
-                                }
-                                else if (hasEsc && c == esc)
-                                {
-                                    state = ReaderState.ESCAPED;
-                                }
-                                else if (c == delim)
-                                {
-                                    fields.Add(field.ToString());
- fieldQuoted.Add(quoted);
-                                    field.Clear();
-                                    quoted = false;
-                                }
-                                else if (c == '\r' || c == '\n')
-                                {
-                                    if (c == '\r' && i + 1 < line.Length && line[i + 1] == '\n') i++;
-                                    fields.Add(field.ToString());
- fieldQuoted.Add(quoted);
-                                    return MakeResult(fields, fieldQuoted);
-                                }
-                                else
-                                {
-                                    field.Append(c);
-                                    state = ReaderState.IN_FIELD;
-                                }
-                                break;
-
-                            case ReaderState.ESCAPED:
-                                if (c == '\r' || c == '\n')
-                                {
-                                    field.Append(c);
-                                    state = ReaderState.AFTER_ESCAPED_CRNL;
-                                }
-                                else
-                                {
-                                    field.Append(c);
-                                    state = ReaderState.IN_FIELD;
-                                }
-                                break;
-
-                            case ReaderState.IN_FIELD:
-                                if (c == delim)
-                                {
-                                    fields.Add(field.ToString());
- fieldQuoted.Add(quoted);
-                                    field.Clear();
-                                    quoted = false;
-                                    state = ReaderState.START_FIELD;
-                                }
-                                else if (hasEsc && c == esc)
-                                {
-                                    state = ReaderState.ESCAPED;
-                                }
-                                else if (c == '\r' || c == '\n')
-                                {
-                                    if (c == '\r' && i + 1 < line.Length && line[i + 1] == '\n') i++;
-                                    fields.Add(field.ToString());
- fieldQuoted.Add(quoted);
-                                    return MakeResult(fields, fieldQuoted);
-                                }
-                                else
-                                {
-                                    field.Append(c);
-                                }
-                                break;
-
-                            case ReaderState.IN_QUOTED_FIELD:
-                                if (hasEsc && c == esc)
-                                {
-                                    state = ReaderState.ESCAPE_IN_QUOTED_FIELD;
-                                }
-                                else if (c == quote)
-                                {
-                                    state = ReaderState.QUOTE_IN_QUOTED_FIELD;
-                                }
-                                else if (c == '\r' || c == '\n')
-                                {
-                                    field.Append(c);
-                                }
-                                else
-                                {
-                                    field.Append(c);
-                                }
-                                break;
-
-                            case ReaderState.ESCAPE_IN_QUOTED_FIELD:
-                                field.Append(c);
-                                state = ReaderState.IN_QUOTED_FIELD;
-                                break;
-
-                            case ReaderState.QUOTE_IN_QUOTED_FIELD:
-                                if (c == quote)
-                                {
-                                    field.Append(quote);
-                                    state = ReaderState.IN_QUOTED_FIELD;
-                                }
-                                else if (c == delim)
-                                {
-                                    fields.Add(field.ToString());
- fieldQuoted.Add(quoted);
-                                    field.Clear();
-                                    quoted = false;
-                                    state = ReaderState.START_FIELD;
-                                }
-                                else if (c == '\r' || c == '\n')
-                                {
-                                    if (c == '\r' && i + 1 < line.Length && line[i + 1] == '\n') i++;
-                                    fields.Add(field.ToString());
- fieldQuoted.Add(quoted);
-                                    return MakeResult(fields, fieldQuoted);
-                                }
-                                else
-                                {
-                                    if (strict)
-                                        throw PyExceptionSlots.Raise(ErrorType, "'" + quote + "' expected after '" + quote + "'");
-                                    field.Append(c);
-                                    state = ReaderState.IN_FIELD;
-                                }
-                                break;
-
-                            case ReaderState.EAT_CRNL:
-                                if (c != '\r' && c != '\n')
-                                {
-                                    state = ReaderState.START_RECORD;
-                                    goto case ReaderState.START_RECORD;
-                                }
-                                break;
-
-                            case ReaderState.AFTER_ESCAPED_CRNL:
-                                if (c == '\r' || c == '\n')
-                                {
-                                    field.Append(c);
-                                }
-                                else
-                                {
-                                    field.Append(c);
-                                    state = ReaderState.IN_FIELD;
-                                }
-                                break;
-                        }
-                    }
-
-                    // End of line processing
-                    if (state == ReaderState.IN_QUOTED_FIELD)
-                    {
-                        // Continue reading next line for quoted field
-                        continue;
-                    }
-                    if (state == ReaderState.IN_FIELD || state == ReaderState.START_FIELD || state == ReaderState.ESCAPED)
-                    {
-                        fields.Add(field.ToString());
- fieldQuoted.Add(quoted);
-                        return MakeResult(fields, fieldQuoted);
-                    }
-                    if (state == ReaderState.QUOTE_IN_QUOTED_FIELD)
-                    {
-                        fields.Add(field.ToString());
- fieldQuoted.Add(quoted);
-                        return MakeResult(fields, fieldQuoted);
-                    }
-                    if (state == ReaderState.START_RECORD)
-                    {
-                        if (fields.Count > 0)
-                            return MakeResult(fields, fieldQuoted);
-                        continue;
-                    }
-                    if (state == ReaderState.AFTER_ESCAPED_CRNL)
-                    {
-                        continue;
-                    }
-                }
-            }
-
-            // parse_save_field: an unquoted field may be converted, by the quoting mode.
-            private PyObject MakeResult(List<string> fields, List<bool> fieldQuoted)
-            {
-                int quoting = (int)_dialect.Quoting.ToInt();
-                var list = new PyList();
-                for (int n = 0; n < fields.Count; n++)
-                {
-                    string f = fields[n];
-                    if (f.Length > _fieldSizeLimit)
-                        throw PyExceptionSlots.Raise(ErrorType, $"field larger than field limit ({_fieldSizeLimit})");
-                    bool unquoted = !fieldQuoted[n];
-                    if (unquoted && f.Length == 0 && (quoting == 4 || quoting == 5))
-                        list.Append(PyNone.Instance);
-                    else if (unquoted && (quoting == 2 || quoting == 4))
-                        list.Append(PyType.FloatType.Call(new PyObject[] { PyString.From(f) }, null));
-                    else
-                        list.Append(PyString.From(f));
-                }
-                return list;
+                    if (lineobj is not PyString line)
+                        throw PyExceptionSlots.Raise(ErrorType,
+                            $"iterator should return strings, not {lineobj.GetTypeName()} (the file should be opened in text mode)");
+                    ++_lineNum;
+                    int linelen = line.CodePointLength();
+                    for (int pos = 0; pos < linelen; pos++)
+                        ProcessChar(line.ReadChar(pos));
+                    ProcessChar(Eol);
+                } while (_state != ReaderState.START_RECORD);
+                var fields = _fields;
+                _fields = null;
+                return fields;
             }
         }
 
@@ -587,124 +520,159 @@ namespace SharpPy.Modules
             return t;
         }
 
-        // --- PyWriter ---
+        // --- PyWriter (Modules/_csv.c WRITER) ---
         private class PyWriter : PyObject
         {
-            private readonly PyObject _fileobj;
+            private readonly PyObject _write;
             internal readonly PyDialect _dialect;
+            // rec, rec_len and num_fields
+            private readonly List<int> _rec = new();
+            private int _numFields;
 
-            public PyWriter(PyObject fileobj, PyDialect dialect)
+            public PyWriter(PyObject write, PyDialect dialect)
             {
-                _fileobj = fileobj;
+                _write = write;
                 _dialect = dialect;
             }
 
             public override PyType GetPyType() => WriterType;
 
-            public PyObject WriteRow(PyObject[] args, PyDict kwargs)
+            // join_append_data: counts (copy false) or writes (copy true) the field into the record;
+            // a character that needs it is quoted, doubled or escaped.
+            private void JoinAppendData(PyString field, ref bool quoted, bool copy)
             {
-                if (args.Length < 1) throw PyTypeError.Create("writerow() requires an iterable argument");
-                var row = args[0];
-                if (!row.HasTypeSlot("__iter__") && !row.HasTypeSlot("__getitem__"))
-                    throw PyExceptionSlots.Raise(ErrorType, $"iterable expected, not {row.GetTypeName()}");
-                var sb = new StringBuilder();
-                bool first = true;
-                char delim = _dialect.Delimiter is PyString ds ? ds.Value[0] : ',';
-
-                var it = row.GetIterator();
-                while (true)
+                var dialect = _dialect;
+                int delimiter = CharOf(dialect.Delimiter), quotechar = CharOf(dialect.QuoteChar), escapechar = CharOf(dialect.EscapeChar);
+                int quoting = (int)dialect.Quoting.ToInt();
+                var lineterminator = (PyString)dialect.LineTerminator;
+                var rec = copy ? _rec : null;
+                if (_numFields > 0)
+                    rec?.Add(delimiter);
+                if (copy && quoted)
+                    rec.Add(quotechar);
+                int fieldLen = field?.CodePointLength() ?? 0;
+                for (int i = 0; i < fieldLen; i++)
                 {
-                    PyObject item;
-                    try { item = it.Next(); }
-                    catch (PythonException e) when (e.PyException is PyStopIteration) { break; }
-
-                    if (!first) sb.Append(delim);
-                    first = false;
-                    JoinAppendData(sb, item);
-                }
-
-                // QUOTE_MINIMAL: single empty field -> quoted empty string
-                if (first && (int)_dialect.Quoting.ToInt() == 0)
-                {
-                    char quote = _dialect.QuoteChar is PyString qs && qs.Value.Length > 0 ? qs.Value[0] : '"';
-                    sb.Append(quote);
-                    sb.Append(quote);
-                }
-
-                string lt = _dialect.LineTerminator is PyString ls ? ls.Value : "\r\n";
-                sb.Append(lt);
-                _fileobj.GetAttribute("write").Call(new PyObject[] { PyString.From(sb.ToString()) }, null);
-                return PyNone.Instance;
-            }
-
-            public PyObject WriteRows(PyObject[] args, PyDict kwargs)
-            {
-                if (args.Length < 1) throw PyTypeError.Create("writerows() requires an iterable argument");
-                var rows = args[0];
-                foreach (var row in PyObject.IterateItems(rows))
-                {
-                    WriteRow(new PyObject[] { row }, null);
-                }
-                return PyNone.Instance;
-            }
-
-            private void JoinAppendData(StringBuilder sb, PyObject field)
-            {
-                int quoting = (int)_dialect.Quoting.ToInt();
-                char delim = _dialect.Delimiter is PyString ds ? ds.Value[0] : ',';
-                char quote = _dialect.QuoteChar is PyString qs && qs.Value.Length > 0 ? qs.Value[0] : '"';
-                char esc = _dialect.EscapeChar is PyString es && es.Value.Length > 0 ? es.Value[0] : '\0';
-                bool hasEsc = _dialect.EscapeChar != PyNone.Instance;
-                bool doublequote = _dialect.DoubleQuote.IsTrue();
-                string lt = _dialect.LineTerminator is PyString ls ? ls.Value : "\r\n";
-
-                // join_append_data: the mode asks for quotes, and each character may ask too or be escaped.
-                string text = field is PyNone ? "" : field is PyFloat ? field.ToRepr().Value : field.ToStr().Value;
-                bool isNumber = field is PyInt or PyBool or PyFloat or PyIntSubclass or PyFloatSubclass;
-                bool quoted = quoting switch
-                {
-                    1 => true,
-                    2 => !isNumber,
-                    4 => field is PyString,
-                    5 => field is not PyNone,
-                    _ => false,
-                };
-                var body = new StringBuilder(text.Length);
-                foreach (char c in text)
-                {
+                    int c = field.ReadChar(i);
                     bool wantEscape = false;
-                    if (c == delim || (hasEsc && c == esc) || c == quote || c == '\n' || c == '\r' || lt.IndexOf(c, StringComparison.Ordinal) >= 0)
+                    if (c == delimiter || c == escapechar || c == quotechar || c == '\n' || c == '\r' ||
+                        LineTerminatorHas(lineterminator, c))
                     {
-                        if (quoting == 3)
-                        {
+                        if (quoting == QUOTE_NONE)
                             wantEscape = true;
-                        }
                         else
                         {
-                            if (c == quote)
+                            if (c == quotechar)
                             {
-                                if (doublequote) body.Append(quote);
-                                else wantEscape = true;
+                                if (dialect.DoubleQuote.IsTrue())
+                                    rec?.Add(quotechar);
+                                else
+                                    wantEscape = true;
                             }
-                            else if (hasEsc && c == esc)
-                            {
+                            else if (c == escapechar)
                                 wantEscape = true;
-                            }
-                            if (!wantEscape) quoted = true;
+                            if (!wantEscape)
+                                quoted = true;
                         }
                         if (wantEscape)
                         {
-                            if (!hasEsc) throw PyExceptionSlots.Raise(ErrorType, "need to escape, but no escapechar set");
-                            body.Append(esc);
+                            if (escapechar == NotSet)
+                                throw PyExceptionSlots.Raise(ErrorType, "need to escape, but no escapechar set");
+                            rec?.Add(escapechar);
                         }
                     }
-                    body.Append(c);
+                    rec?.Add(c);
                 }
-                if (quoted) sb.Append(quote);
-                sb.Append(body);
-                if (quoted) sb.Append(quote);
+                if (quoted && copy)
+                    rec.Add(quotechar);
             }
 
+            // PyUnicode_FindChar over the line terminator
+            private static bool LineTerminatorHas(PyString lineterminator, int c)
+            {
+                int n = lineterminator.CodePointLength();
+                for (int i = 0; i < n; i++)
+                    if (lineterminator.ReadChar(i) == c)
+                        return true;
+                return false;
+            }
+
+            // join_append: null is a None field
+            private void JoinAppend(PyString field, bool quoted)
+            {
+                var dialect = _dialect;
+                int quoting = (int)dialect.Quoting.ToInt();
+                int fieldLen = field?.CodePointLength() ?? 0;
+                if (fieldLen == 0 && CharOf(dialect.Delimiter) == ' ' && dialect.SkipInitialSpace.IsTrue())
+                {
+                    if (quoting == QUOTE_NONE || (field == null && (quoting == QUOTE_STRINGS || quoting == QUOTE_NOTNULL)))
+                        throw PyExceptionSlots.Raise(ErrorType,
+                            "empty field must be quoted if delimiter is a space and skipinitialspace is true");
+                    quoted = true;
+                }
+                JoinAppendData(field, ref quoted, false);
+                JoinAppendData(field, ref quoted, true);
+                _numFields++;
+            }
+
+            // csv_writerow: the fields joined into one record, the line terminator, then write(line)
+            public PyObject WriteRow(PyObject seq)
+            {
+                var dialect = _dialect;
+                PyObject iter;
+                try
+                {
+                    iter = seq.GetIterator();
+                }
+                catch (PythonException e) when (e.PyException is PyTypeError)
+                {
+                    throw PyExceptionSlots.Raise(ErrorType, $"iterable expected, not {seq.GetTypeName()}");
+                }
+                _rec.Clear();
+                _numFields = 0;
+                int quoting = (int)dialect.Quoting.ToInt();
+                bool nullField = false;
+                while (true)
+                {
+                    PyObject field;
+                    try { field = iter.Next(); }
+                    catch (PythonException e) when (e.PyException is PyStopIteration) { break; }
+                    bool quoted = quoting switch
+                    {
+                        QUOTE_NONNUMERIC => !PyObject.NumberCheck(field),
+                        QUOTE_ALL => true,
+                        QUOTE_STRINGS => field is PyString,
+                        QUOTE_NOTNULL => field is not PyNone,
+                        _ => false,
+                    };
+                    nullField = field is PyNone;
+                    if (field is PyString text)
+                        JoinAppend(text, quoted);
+                    else if (nullField)
+                        JoinAppend(null, quoted);
+                    else
+                        JoinAppend(field.ToStr(), quoted);
+                }
+                if (_numFields > 0 && _rec.Count == 0)
+                {
+                    if (quoting == QUOTE_NONE || (nullField && (quoting == QUOTE_STRINGS || quoting == QUOTE_NOTNULL)))
+                        throw PyExceptionSlots.Raise(ErrorType, "single empty field record must be quoted");
+                    _numFields--;
+                    JoinAppend(null, true);
+                }
+                // join_append_lineterminator
+                _rec.AddRange(((PyString)dialect.LineTerminator).CodePoints());
+                var line = PyString.FromCodePoints(_rec.ToArray());
+                return _write.Call(new PyObject[] { line }, null);
+            }
+
+            // csv_writerows
+            public PyObject WriteRows(PyObject seqseq)
+            {
+                foreach (var row in PyObject.IterateItems(seqseq))
+                    WriteRow(row);
+                return PyNone.Instance;
+            }
         }
 
         private static readonly PyType WriterType = CreateWriterType();
@@ -712,8 +680,8 @@ namespace SharpPy.Modules
         private static PyType CreateWriterType()
         {
             var t = new PyType("writer", new[] { PyType.ObjectType }, "_csv");
-            t.TypeDict["writerow"] = new PyMethodDescriptor("writerow", t, (self, args, kwargs) => ((PyWriter)self).WriteRow(args, kwargs), 1, 1);
-            t.TypeDict["writerows"] = new PyMethodDescriptor("writerows", t, (self, args, kwargs) => ((PyWriter)self).WriteRows(args, kwargs), 1, 1);
+            t.TypeDict["writerow"] = new PyMethodDescriptor("writerow", t, (self, args, kwargs) => ((PyWriter)self).WriteRow(args[0]), 1, 1);
+            t.TypeDict["writerows"] = new PyMethodDescriptor("writerows", t, (self, args, kwargs) => ((PyWriter)self).WriteRows(args[0]), 1, 1);
             t.TypeDict["dialect"] = new PyGetSetDescriptor("dialect", t, self => ((PyWriter)self)._dialect);
             return t;
         }

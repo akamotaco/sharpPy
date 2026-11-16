@@ -28,44 +28,58 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
             throw PyValueError.Create("IncrementalNewlineDecoder.__init__() not called");
     }
 
-    internal static string CheckDecoded(PyObject decoded) => decoded is PyString text ? text.Value
-        : throw PyTypeError.Create($"decoder should return a string result, not '{decoded.GetTypeName()}'");
+    internal static PyString CheckDecoded(PyObject decoded) => decoded as PyString
+        ?? throw PyTypeError.Create($"decoder should return a string result, not '{decoded.GetTypeName()}'");
 
-    // _PyIncrementalNewlineDecoder_decode
-    internal string Decode(PyObject input, bool final)
+    // _PyIncrementalNewlineDecoder_decode: the decoder's str, read a character at a time.
+    internal PyString Decode(PyObject input, bool final)
     {
         CheckInitialized();
-        string output = Decoder is PyNone ? CheckDecoded(input)
+        PyString output = Decoder is PyNone ? CheckDecoded(input)
             : CheckDecoded(Decoder.GetAttribute("decode").Call(new[] { input, PyBool.FromBool(final) }, null));
-        if (_pendingCR && (final || output.Length > 0))
+        int len = output.CodePointLength();
+        if (_pendingCR && (final || len > 0))
         {
-            output = "\r" + output;
+            var modified = new PyUnicodeWriter();
+            modified.WriteChar('\r');
+            modified.WriteStr(output);
+            output = modified.Finish(fresh: true);
             _pendingCR = false;
+            len++;
         }
-        if (!final && output.Length > 0 && output[output.Length - 1] == '\r')
+        // retain last \r even when not translating data: then readline() is sure to get \r\n in one pass
+        if (!final && len > 0 && output.ReadChar(len - 1) == '\r')
         {
-            output = output.Substring(0, output.Length - 1);
+            output = output.Substring(0, len - 1);
             _pendingCR = true;
+            len--;
         }
-        if (output.Length == 0)
+        if (len == 0)
             return output;
         int seen = _seen;
-        bool onlyLF = (seen == SeenLF || seen == 0) && output.IndexOf('\r') < 0;
+        bool onlyLF = false;
+        if (seen == SeenLF || seen == 0)
+        {
+            onlyLF = true;
+            for (int i = 0; i < len; i++)
+                if (output.ReadChar(i) == '\r') { onlyLF = false; break; }
+        }
         if (onlyLF)
         {
-            if (seen == 0 && output.IndexOf('\n') >= 0)
-                seen |= SeenLF;
+            if (seen == 0)
+                for (int i = 0; i < len; i++)
+                    if (output.ReadChar(i) == '\n') { seen |= SeenLF; break; }
         }
         else if (!_translate)
         {
-            for (int i = 0; i < output.Length && seen != SeenAll; i++)
+            for (int i = 0; i < len && seen != SeenAll; i++)
             {
-                char c = output[i];
+                int c = output.ReadChar(i);
                 if (c == '\n')
                     seen |= SeenLF;
                 else if (c == '\r')
                 {
-                    if (i + 1 < output.Length && output[i + 1] == '\n')
+                    if (i + 1 < len && output.ReadChar(i + 1) == '\n')
                     {
                         seen |= SeenCRLF;
                         i++;
@@ -77,30 +91,30 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
         }
         else
         {
-            var translated = new StringBuilder(output.Length);
-            for (int i = 0; i < output.Length; i++)
+            var translated = new PyUnicodeWriter();
+            for (int i = 0; i < len; i++)
             {
-                char c = output[i];
+                int c = output.ReadChar(i);
                 if (c == '\n')
                 {
                     seen |= SeenLF;
-                    translated.Append('\n');
+                    translated.WriteChar('\n');
                 }
                 else if (c == '\r')
                 {
-                    if (i + 1 < output.Length && output[i + 1] == '\n')
+                    if (i + 1 < len && output.ReadChar(i + 1) == '\n')
                     {
                         i++;
                         seen |= SeenCRLF;
                     }
                     else
                         seen |= SeenCR;
-                    translated.Append('\n');
+                    translated.WriteChar('\n');
                 }
                 else
-                    translated.Append(c);
+                    translated.WriteChar(c);
             }
-            output = translated.ToString();
+            output = translated.Finish();
         }
         _seen |= seen;
         return output;
@@ -211,7 +225,7 @@ public sealed class PyNewlineDecoder : PyIOBaseInstance
             PyObject final = args.Length > 1 ? args[1] : Keyword(kwargs, "final");
             if (input == null)
                 throw PyArgs.MissingArgument("decode", "input", 1);
-            return PyString.From(((PyNewlineDecoder)self).Decode(input, final != null && final.IsTrue()));
+            return ((PyNewlineDecoder)self).Decode(input, final != null && final.IsTrue());
         }, acceptsKwargs: true);
         type.TypeDict["getstate"] = new PyMethodDescriptor("getstate", type, (self, args, kwargs) => ((PyNewlineDecoder)self).GetState());
         type.TypeDict["setstate"] = new PyMethodDescriptor("setstate", type, (self, args, kwargs) => ((PyNewlineDecoder)self).SetState(args[0]), 1, 1);
@@ -298,8 +312,9 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     private bool _seekable, _hasRead1, _telling, _finalizing, _encodingStartOfStream;
     private string _writenl;
     // decoded_chars, and how far it was read: in code points as Python counts, and in UTF-16 units.
-    private string _decoded;
-    private int _usedPoints, _usedUnits;
+    // decoded_chars and decoded_chars_used (characters)
+    private PyString _decoded;
+    private int _usedPoints;
     private List<byte[]> _pending;
     private long _pendingCount;
     private PyTuple _snapshot;
@@ -462,7 +477,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             PyFinalizer.FinalizeAfter(_buffer, null);
         _buffer = _encoding = _encoder = _decoder = _readnl = null;
         _decoded = null;
-        _usedPoints = _usedUnits = 0;
+        _usedPoints = 0;
         _pending = null;
         _pendingCount = 0;
         _snapshot = null;
@@ -588,6 +603,9 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     private static PyObject TextArgument(PyObject value, string method) => value is PyString ? value
         : throw PyArgs.BadArgument(method, "argument", "str", value);
 
+    private static PyString LineFeed => PyString.FromUnits("\n");
+    private static PyString CarriageReturn => PyString.FromUnits("\r");
+
     // _io_TextIOWrapper_write_impl
     private PyObject Write(PyObject textObject)
     {
@@ -595,18 +613,18 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         CheckClosed();
         if (_encoder == null)
             throw Unsupported("not writable");
-        string text = textObject.ToStr().Value;
-        long textLength = PyString.CodePointCount(text);
+        PyString text = textObject.ToStr();
+        long textLength = text.CodePointLength();
         bool hasLF = false, needFlush = false, textNeedFlush = false;
         if ((_writeTranslate && _writenl != null) || _lineBuffering)
-            hasLF = text.IndexOf('\n') >= 0;
+            hasLF = PyString.FindCodePoints(text, LineFeed, 0, (int)textLength) >= 0;
         if (hasLF && _writeTranslate && _writenl != null)
-            text = text.Replace("\n", _writenl);
+            text = text.Replace(LineFeed, PyString.FromUnits(_writenl));
         if (_writeThrough)
             textNeedFlush = true;
-        if (_lineBuffering && (hasLF || text.IndexOf('\r') >= 0))
+        if (_lineBuffering && (hasLF || PyString.FindCodePoints(text, CarriageReturn, 0, text.CodePointLength()) >= 0))
             needFlush = true;
-        var encoded = Call(_encoder, "encode", PyString.From(text));
+        var encoded = Call(_encoder, "encode", text);
         _encodingStartOfStream = false;
         if (encoded is not PyBytes bytes)
             throw PyTypeError.Create($"encoder should return a bytes object, not '{encoded.GetTypeName()}'");
@@ -629,36 +647,35 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         return PyInt.From(textLength);
     }
 
-    private void SetDecodedChars(string chars)
+    private void SetDecodedChars(PyString chars)
     {
         _decoded = chars;
-        _usedPoints = _usedUnits = 0;
-    }
-
-    // Moves the read position of decoded_chars by code points.
-    private int UnitsAfter(int start, int points)
-    {
-        int at = start;
-        for (int i = 0; i < points && at < _decoded.Length; i++)
-            at += char.IsHighSurrogate(_decoded[at]) && at + 1 < _decoded.Length && char.IsLowSurrogate(_decoded[at + 1]) ? 2 : 1;
-        return at;
+        _usedPoints = 0;
     }
 
     // textiowrapper_get_decoded_chars
-    private string GetDecodedChars(long n)
+    private PyString GetDecodedChars(long n)
     {
         if (_decoded == null)
-            return "";
-        int end = n < 0 ? _decoded.Length : UnitsAfter(_usedUnits, (int)Math.Min(n, int.MaxValue));
-        string chars = _decoded.Substring(_usedUnits, end - _usedUnits);
-        _usedPoints += PyString.CodePointCount(chars);
-        _usedUnits = end;
+            return PyString.Empty;
+        int length = _decoded.CodePointLength();
+        long avail = length - _usedPoints;
+        if (n < 0 || n > avail)
+            n = avail;
+        PyString chars = _usedPoints > 0 || n < length
+            ? _decoded.Substring(_usedPoints, _usedPoints + (int)n)
+            : _decoded;
+        _usedPoints += (int)n;
         return chars;
     }
 
-    private string Decode(PyObject bytes, bool eof) => _decoder is PyNewlineDecoder newline
+    private PyString Decode(PyObject bytes, bool eof) => _decoder is PyNewlineDecoder newline
         ? newline.Decode(bytes, eof)
         : PyNewlineDecoder.CheckDecoded(Call(_decoder, "decode", bytes, PyBool.FromBool(eof)));
+
+    // PyUnicode_Concat: an empty side is the other one.
+    private static PyString Concat(PyString left, PyString right) =>
+        left.CodePointLength() == 0 ? right : right.CodePointLength() == 0 ? left : PyString.Concat(left, right);
 
     // textiowrapper_read_chunk: whether there is more to read.
     private bool ReadChunk(long sizeHint)
@@ -682,9 +699,9 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             ?? throw PyTypeError.Create($"underlying {(_hasRead1 ? "read1" : "read")}() should have returned a bytes-like object, not '{input.GetTypeName()}'");
         int nbytes = inputBytes.Length;
         bool eof = nbytes == 0;
-        string decoded = Decode(input, eof);
+        PyString decoded = Decode(input, eof);
         SetDecodedChars(decoded);
-        long nchars = PyString.CodePointCount(decoded);
+        long nchars = decoded.CodePointLength();
         _b2cratio = nchars > 0 ? (double)nbytes / nchars : 0.0;
         if (nchars > 0)
             eof = false;
@@ -710,54 +727,58 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
         if (n < 0)
         {
             var bytes = Call(_buffer, "read");
-            string decoded = Decode(bytes, true);
-            string result = GetDecodedChars(-1) + decoded;
+            PyString decoded = Decode(bytes, true);
+            PyString result = Concat(GetDecodedChars(-1), decoded);
             if (_snapshot != null)
             {
                 SetDecodedChars(null);
                 _snapshot = null;
             }
-            return PyString.From(result);
+            return result;
         }
         var first = GetDecodedChars(n);
-        long remaining = n - PyString.CodePointCount(first);
+        long remaining = n - first.CodePointLength();
         if (remaining <= 0)
-            return PyString.From(first);
-        var chunks = new StringBuilder(first);
+            return first;
+        // the chunks, joined with "" (PyUnicode_Join)
+        var chunks = new List<PyObject> { first };
         while (remaining > 0)
         {
             if (!ReadChunk(remaining))
                 break;
-            string piece = GetDecodedChars(remaining);
-            chunks.Append(piece);
-            remaining -= PyString.CodePointCount(piece);
+            PyString piece = GetDecodedChars(remaining);
+            chunks.Add(piece);
+            remaining -= piece.CodePointLength();
         }
-        return PyString.From(chunks.ToString());
+        return PyString.JoinArray(PyString.Empty, chunks.ToArray());
     }
 
-    // The end of the line after start, or -1 with how much was consumed.
-    private int FindLineEnding(string text, int start, out int consumed)
+    // _PyIO_find_line_ending over the line's characters after start: the end of the line, or -1
+    // with how much was consumed.
+    private int FindLineEnding(PyString text, int start, out int consumed)
     {
-        int found = PyLineEnding.Find(text.AsSpan(start), _readTranslate, _readUniversal,
-            _readnl is PyString nl ? nl.Value.AsSpan() : default, out int taken);
+        ReadOnlySpan<char> readnl = _readnl is PyString nl ? nl.Value.AsSpan() : default;
+        int length = text.CodePointLength();
+        int taken, found = text.IsUcs4
+            ? PyLineEnding.Find<int>(text.Ucs4.AsSpan(start, length - start), _readTranslate, _readUniversal, readnl, out taken)
+            : PyLineEnding.Find<char>(text.Ucs2.AsSpan(start, length - start), _readTranslate, _readUniversal, readnl, out taken);
         consumed = start + taken;
         return found < 0 ? -1 : start + found;
     }
 
-    // _textiowrapper_readline, with limit in code points.
+    // _textiowrapper_readline, with limit in characters.
     private PyObject ReadLine(long limit)
     {
         CheckClosed();
         WriteFlush();
         long chunked = 0;
-        string line = null, remaining = null;
+        PyString line = null, remaining = null;
         int start = 0, endpos = 0, offsetToBuffer = 0;
-        var chunks = new StringBuilder();
-        bool haveChunks = false;
+        List<PyObject> chunks = null;
         while (true)
         {
             bool more = true;
-            while (_decoded == null || _decoded.Length == 0)
+            while (_decoded == null || _decoded.CodePointLength() == 0)
             {
                 more = ReadChunk(0);
                 if (!more)
@@ -774,70 +795,56 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             if (remaining == null)
             {
                 line = _decoded;
-                start = _usedUnits;
+                start = _usedPoints;
                 offsetToBuffer = 0;
             }
             else
             {
-                line = remaining + _decoded;
+                line = Concat(remaining, _decoded);
                 start = 0;
-                offsetToBuffer = remaining.Length;
+                offsetToBuffer = remaining.CodePointLength();
                 remaining = null;
             }
+            int lineLength = line.CodePointLength();
             endpos = FindLineEnding(line, start, out int consumed);
             if (endpos >= 0)
             {
-                if (limit >= 0 && CodePoints(line, start, endpos) + chunked >= limit)
-                    endpos = AdvancePoints(line, start, limit - chunked);
+                if (limit >= 0 && (endpos - start) + chunked >= limit)
+                    endpos = (int)(start + limit - chunked);
                 break;
             }
             endpos = consumed;
-            if (limit >= 0 && CodePoints(line, start, endpos) + chunked >= limit)
+            if (limit >= 0 && (endpos - start) + chunked >= limit)
             {
-                endpos = AdvancePoints(line, start, limit - chunked);
+                endpos = (int)(start + limit - chunked);
                 break;
             }
             if (endpos > start)
             {
-                string piece = line.Substring(start, endpos - start);
-                chunks.Append(piece);
-                haveChunks = true;
-                chunked += PyString.CodePointCount(piece);
+                PyString piece = line.Substring(start, endpos);
+                (chunks ??= new List<PyObject>()).Add(piece);
+                chunked += piece.CodePointLength();
             }
-            if (endpos < line.Length)
-                remaining = line.Substring(endpos);
+            if (endpos < lineLength)
+                remaining = line.Substring(endpos, lineLength);
             line = null;
             SetDecodedChars(null);
         }
         if (line != null)
         {
-            _usedUnits = endpos - offsetToBuffer;
-            _usedPoints = _decoded == null ? 0 : PyString.CodePointCount(_decoded.Substring(0, _usedUnits));
-            if (start > 0 || endpos < line.Length)
-                line = line.Substring(start, endpos - start);
+            _usedPoints = endpos - offsetToBuffer;
+            if (start > 0 || endpos < line.CodePointLength())
+                line = line.Substring(start, endpos);
         }
         if (remaining != null)
-        {
-            chunks.Append(remaining);
-            haveChunks = true;
-        }
-        if (haveChunks)
+            (chunks ??= new List<PyObject>()).Add(remaining);
+        if (chunks != null)
         {
             if (line != null)
-                chunks.Append(line);
-            line = chunks.ToString();
+                chunks.Add(line);
+            line = PyString.JoinArray(PyString.Empty, chunks.ToArray());
         }
-        return PyString.From(line ?? "");
-    }
-
-    private static long CodePoints(string text, int start, int end) => PyString.CodePointCount(text.Substring(start, end - start));
-
-    private static int AdvancePoints(string text, int start, long points)
-    {
-        int at = start;
-        for (long i = 0; i < points && at < text.Length; i++)
-            at += char.IsHighSurrogate(text[at]) && at + 1 < text.Length && char.IsLowSurrogate(text[at + 1]) ? 2 : 1;
-        return at;
+        return line ?? PyString.Empty;
     }
 
     // The cookie: start_pos (8 bytes), dec_flags, bytes_to_feed, chars_to_skip (4 each), need_eof (1),
@@ -949,12 +956,11 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             if (input is not PyBytes)
                 throw PyTypeError.Create($"underlying read() should have returned a bytes object, not '{input.GetTypeName()}'");
             _snapshot = PyTuple.From(new[] { PyInt.From(cookie.DecFlags), input });
-            string decoded = PyNewlineDecoder.CheckDecoded(Call(_decoder, "decode", input, PyBool.FromBool(cookie.NeedEof)));
+            PyString decoded = PyNewlineDecoder.CheckDecoded(Call(_decoder, "decode", input, PyBool.FromBool(cookie.NeedEof)));
             SetDecodedChars(decoded);
-            if (PyString.CodePointCount(decoded) < cookie.CharsToSkip)
+            if (decoded.CodePointLength() < cookie.CharsToSkip)
                 throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From("can't restore logical file position") }, null));
             _usedPoints = cookie.CharsToSkip;
-            _usedUnits = UnitsAfter(0, cookie.CharsToSkip);
         }
         else
             _snapshot = PyTuple.From(new PyObject[] { PyInt.From(cookie.DecFlags), PyBytes.From(Array.Empty<byte>()) });
@@ -977,7 +983,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
     {
         var part = new byte[length];
         Array.Copy(input, start, part, 0, length);
-        return PyString.CodePointCount(PyNewlineDecoder.CheckDecoded(Call(_decoder, "decode", PyBytes.From(part))));
+        return PyNewlineDecoder.CheckDecoded(Call(_decoder, "decode", PyBytes.From(part))).CodePointLength();
     }
 
     // _io_TextIOWrapper_tell_impl
@@ -1057,8 +1063,8 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
                 }
                 if (input == nextInput.Length)
                 {
-                    charsDecoded += PyString.CodePointCount(PyNewlineDecoder.CheckDecoded(
-                        Call(_decoder, "decode", PyBytes.From(Array.Empty<byte>()), PyBool.True)));
+                    charsDecoded += PyNewlineDecoder.CheckDecoded(
+                        Call(_decoder, "decode", PyBytes.From(Array.Empty<byte>()), PyBool.True)).CodePointLength();
                     cookie.NeedEof = true;
                     if (charsDecoded < charsToSkip)
                         throw new PythonException(PyOSError.FromArguments(new PyObject[] { PyString.From("can't reconstruct logical file position") }, null));

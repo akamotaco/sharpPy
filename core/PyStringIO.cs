@@ -18,7 +18,8 @@ public class PyStringIO : PyIOBaseInstance
     private long _pos;
     private int _size;
     private bool _accumulating;
-    private readonly StringBuilder _writer = new();
+    // STATE_ACCUMULATING's _PyUnicodeWriter
+    private PyUnicodeWriter _writer = new();
     private bool _ok, _closed, _readUniversal, _readTranslate;
     private PyNewlineDecoder _decoder;
     private string _readnl, _writenl;
@@ -40,32 +41,9 @@ public class PyStringIO : PyIOBaseInstance
             throw PyValueError.Create("I/O operation on closed file");
     }
 
-    private static int CodePoints(string text, Span<int> into)
-    {
-        int n = 0;
-        for (int i = 0; i < text.Length; i++)
-        {
-            char c = text[i];
-            if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
-                into[n++] = char.ConvertToUtf32(c, text[++i]);
-            else
-                into[n++] = c;
-        }
-        return n;
-    }
-
-    private static string Text(ReadOnlySpan<int> points)
-    {
-        var text = new StringBuilder(points.Length);
-        foreach (int point in points)
-        {
-            if (point > 0xFFFF)
-                text.Append(char.ConvertFromUtf32(point));
-            else
-                text.Append((char)point);
-        }
-        return text.ToString();
-    }
+    // PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, ...): the characters as a str of the narrowest kind.
+    private static PyString Text(ReadOnlySpan<int> points) =>
+        points.Length == 0 ? PyString.Empty : PyString.FromCodePoints(points.ToArray());
 
     // resize_buffer: room for size code points and the terminating one.
     // (Modules/_io/stringio.c) past PY_SSIZE_T_MAX / sizeof(Py_UCS4) is the OverflowError, checked
@@ -94,27 +72,27 @@ public class PyStringIO : PyIOBaseInstance
         if (!_accumulating)
             return;
         _accumulating = false;
-        string intermediate = _writer.ToString();
-        _writer.Clear();
-        int len = PyString.CodePointCount(intermediate);
+        PyString intermediate = _writer.Finish();
+        _writer = new PyUnicodeWriter();
+        int len = intermediate.CodePointLength();
         Resize(len);
-        CodePoints(intermediate, _buf);
+        intermediate.CopyCodePoints(_buf, 0);
     }
 
     // write_str
-    private void WriteStr(string text)
+    private void WriteStr(PyString text)
     {
-        string decoded = _decoder != null ? _decoder.Decode(PyString.From(text), true) : text;
+        PyString decoded = _decoder != null ? _decoder.Decode(text, true) : text;
         if (_writenl != null)
-            decoded = decoded.Replace("\n", _writenl);
-        int len = PyString.CodePointCount(decoded);
+            decoded = decoded.Replace(PyString.FromUnits("\n"), PyString.FromUnits(_writenl));
+        int len = decoded.CodePointLength();
         if (_pos > long.MaxValue - len)
             throw PyOverflowError.Create("new position too large");
         if (_accumulating)
         {
             if (_size == _pos)
             {
-                _writer.Append(decoded);
+                _writer.WriteStr(decoded);
                 _pos += len;
                 _size = (int)_pos;
                 return;
@@ -125,17 +103,17 @@ public class PyStringIO : PyIOBaseInstance
             Resize(_pos + len);
         if (_pos > _size)
             Array.Clear(_buf, _size, (int)(_pos - _size));
-        CodePoints(decoded, _buf.AsSpan((int)_pos));
+        decoded.CopyCodePoints(_buf, (int)_pos);
         _pos += len;
         if (_size < _pos)
             _size = (int)_pos;
     }
 
-    private string GetValue()
+    private PyString GetValue()
     {
         CheckInitialized();
         CheckClosed();
-        return _accumulating ? _writer.ToString() : Text(_buf.AsSpan(0, _size));
+        return _accumulating ? _writer.Finish() : Text(_buf.AsSpan(0, _size));
     }
 
     private PyObject Read(long size)
@@ -152,20 +130,20 @@ public class PyStringIO : PyIOBaseInstance
         if (_accumulating && _pos == 0 && size == n)
         {
             _pos = _size;
-            return PyString.From(_writer.ToString());
+            return _writer.Finish();
         }
         Realize();
         // Past the end, size is 0 and nothing is copied.
-        var output = size == 0 ? "" : Text(_buf.AsSpan((int)_pos, (int)size));
+        var output = size == 0 ? PyString.Empty : Text(_buf.AsSpan((int)_pos, (int)size));
         _pos += size;
-        return PyString.From(output);
+        return output;
     }
 
     // _stringio_readline
-    private string ReadLineRealized(long limit)
+    private PyString ReadLineRealized(long limit)
     {
         if (_pos >= _size)
-            return "";
+            return PyString.Empty;
         int start = (int)_pos;
         if (limit < 0 || limit > _size - _pos)
             limit = _size - _pos;
@@ -181,7 +159,7 @@ public class PyStringIO : PyIOBaseInstance
         CheckInitialized();
         CheckClosed();
         Realize();
-        return PyString.From(ReadLineRealized(limit));
+        return ReadLineRealized(limit);
     }
 
     // stringio_iternext
@@ -192,7 +170,7 @@ public class PyStringIO : PyIOBaseInstance
         Realize();
         PyObject line;
         if (ReferenceEquals(GetPyType(), StringType))
-            line = PyString.From(ReadLineRealized(-1));
+            line = ReadLineRealized(-1);
         else
         {
             line = GetAttribute("readline").Call(Array.Empty<PyObject>(), null);
@@ -246,8 +224,8 @@ public class PyStringIO : PyIOBaseInstance
         if (value is not PyString)
             throw PyTypeError.Create($"string argument expected, got '{value.GetTypeName()}'");
         CheckClosed();
-        string text = value.ToStr().Value;
-        int size = PyString.CodePointCount(text);
+        PyString text = value.ToStr();
+        int size = text.CodePointLength();
         if (size > 0)
             WriteStr(text);
         return PyInt.From(size);
@@ -257,7 +235,7 @@ public class PyStringIO : PyIOBaseInstance
     {
         _closed = true;
         Resize(0);
-        _writer.Clear();
+        _writer = new PyUnicodeWriter();
         _readnl = _writenl = null;
         _decoder = null;
         return PyNone.Instance;
@@ -286,7 +264,7 @@ public class PyStringIO : PyIOBaseInstance
         if (value != null && value is not PyNone && value is not PyString)
             throw PyTypeError.Create($"initial_value must be str or None, not {value.GetTypeName()}");
         _ok = false;
-        _writer.Clear();
+        _writer = new PyUnicodeWriter();
         _readnl = _writenl = null;
         _decoder = null;
         if (newline != null)
@@ -298,9 +276,9 @@ public class PyStringIO : PyIOBaseInstance
         if (_readUniversal)
             _decoder = (PyNewlineDecoder)PyNewlineDecoder.DecoderType.Call(new PyObject[] { PyNone.Instance, PyBool.FromBool(_readTranslate) }, null);
         _size = 0;
-        string initial = value != null && value is not PyNone ? value.ToStr().Value : "";
+        PyString initial = value != null && value is not PyNone ? value.ToStr() : PyString.Empty;
         Resize(0);
-        if (initial.Length > 0)
+        if (initial.CodePointLength() > 0)
         {
             _accumulating = false;
             _pos = 0;
@@ -315,7 +293,7 @@ public class PyStringIO : PyIOBaseInstance
 
     private PyObject GetState()
     {
-        var value = PyString.From(GetValue());
+        var value = GetValue();
         PyObject dict = ObjectDict(false) is { } own ? own.Copy() : PyNone.Instance;
         return PyTuple.From(new PyObject[] { value, _readnl == null ? PyNone.Instance : PyString.From(_readnl), PyInt.From(_pos), dict });
     }
@@ -333,10 +311,10 @@ public class PyStringIO : PyIOBaseInstance
         var item = tuple.Items[0];
         if (item is PyString)
         {
-            string text = item.ToStr().Value;
-            int size = PyString.CodePointCount(text);
+            PyString text = item.ToStr();
+            int size = text.CodePointLength();
             Resize(size);
-            CodePoints(text, _buf);
+            text.CopyCodePoints(_buf, 0);
             _size = size;
         }
         else
@@ -377,7 +355,7 @@ public class PyStringIO : PyIOBaseInstance
         PyObject Arg(PyObject[] args, int i) => args.Length > i ? args[i] : null;
 
         Def("close", PyCall.NoArgs, (self, args) => self.Close());
-        Def("getvalue", PyCall.NoArgs, (self, args) => PyString.From(self.GetValue()));
+        Def("getvalue", PyCall.NoArgs, (self, args) => self.GetValue());
         Def("read", PyCall.Fast, (self, args) => self.Read(PyArgs.OptionalSsize(Arg(args, 0))), 0, 1);
         Def("readline", PyCall.Fast, (self, args) => self.ReadLine(PyArgs.OptionalSsize(Arg(args, 0))), 0, 1);
         Def("tell", PyCall.NoArgs, (self, args) =>
