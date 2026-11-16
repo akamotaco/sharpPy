@@ -171,6 +171,27 @@ namespace SharpPy
             return points;
         }
 
+        // PyUnicode_KIND, worked out once: 1, 2 or 4 (0 until asked for).
+        private byte _pepKind;
+
+        /// <summary>
+        /// PyUnicode_KIND: the width CPython would store the text in, 1 up to U+00FF, 2 up to U+FFFF,
+        /// else 4. SharpPy keeps kinds 1 and 2 in one storage; where CPython compares kinds, this is
+        /// the value it compares.
+        /// </summary>
+        internal int Kind
+        {
+            get
+            {
+                if (_pepKind == 0)
+                {
+                    int max = MaxChar();
+                    _pepKind = (byte)(max < 0x100 ? 1 : max < 0x10000 ? 2 : 4);
+                }
+                return _pepKind;
+            }
+        }
+
         /// <summary>PyUnicode_MAX_CHAR_VALUE in the sense of the widest character present.</summary>
         internal int MaxChar()
         {
@@ -364,28 +385,6 @@ namespace SharpPy
                 at += item.CodePointLength();
             }
             return FromCodePoints(points, fresh: true);
-        }
-
-        /// <summary>
-        /// any_find_slice's forward search: the first character index in [start, end) where sub's
-        /// characters are, or -1. A sub of a wider kind than the text is never in it.
-        /// </summary>
-        internal static int FindCodePoints(PyString text, PyString sub, int start, int end)
-        {
-            int n = sub.CodePointLength();
-            if (end - start < n)
-                return -1;
-            if (n == 0)
-                return start;
-            if (!text.IsUcs4)
-            {
-                if (sub.IsUcs4)
-                    return -1;
-                int i = text._text.AsSpan(start, end - start).IndexOf(sub._text.AsSpan());
-                return i < 0 ? -1 : start + i;
-            }
-            int j = text._ucs4.AsSpan(start, end - start).IndexOf(sub.ToCodePoints().AsSpan());
-            return j < 0 ? -1 : start + j;
         }
 
         /// <summary>Equality of str contents for .NET dictionaries (the interned dict compares str by value).</summary>

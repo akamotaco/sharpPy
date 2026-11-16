@@ -177,7 +177,7 @@ namespace SharpPy
                 "upper", strType,
                 (self, args, kwargs) => {
                     var str = (PyString)self;
-                    return PyString.Fresh(PyUnicodeCase.Upper(str.Value));
+                    return PyUnicodeCase.Upper(str);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -186,7 +186,7 @@ namespace SharpPy
                 "lower", strType,
                 (self, args, kwargs) => {
                     var str = (PyString)self;
-                    return PyString.Fresh(PyUnicodeCase.Lower(str.Value));
+                    return PyUnicodeCase.Lower(str);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -199,14 +199,14 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    // Empty string remains empty
-                    if (str.Value.Length == 0)
-                        return str;
+                    // unicode_capitalize_impl: the empty text is unchanged
+                    if (str.CodePointLength() == 0)
+                        return str.ResultUnchanged();
 
                     // CPython 3.12: Objects/unicodeobject.c do_capitalize - the first character goes
                     // through the TITLE mapping (not upper) and the rest through the full lower
                     // mapping, which is why "ǅ".capitalize() keeps ǅ and "ß".capitalize() is "Ss".
-                    return PyString.Fresh(PyUnicodeCase.Capitalize(str.Value));
+                    return PyUnicodeCase.Capitalize(str);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -221,7 +221,7 @@ namespace SharpPy
                     // keeps the next letter uppercase: "it's a test-case 2nd".title() ->
                     // "It'S A Test-Case 2Nd". System.Globalization.TextInfo.ToTitleCase follows .NET
                     // word-breaking, so the word rule lives in PyUnicodeCase.Title (do_title).
-                    return PyString.Fresh(PyUnicodeCase.Title(str.Value));
+                    return PyUnicodeCase.Title(str);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -243,11 +243,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
                     // do_argstrip: None or nothing is whitespace, else the characters of a str.
-                    if (args.Length == 0 || args[0] is PyNone)
-                        return str.StripText(BothStrip, null);
-                    if (args[0] is not PyString chars)
-                        throw PyTypeError.Create("strip arg must be None or str");
-                    return str.StripText(BothStrip, chars.Value);
+                    return ArgStrip(str, args, BothStrip, "strip");
                 },
                 minArgs: 0, maxArgs: 1
             );
@@ -257,14 +253,11 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    var old = args[0] is PyString oldStr ? oldStr.Value : throw PyArgs.BadArgument("replace", "argument 1", "str", args[0]);
-                    var newStr = args[1] is PyString newPyStr ? newPyStr.Value : throw PyArgs.BadArgument("replace", "argument 2", "str", args[1]);
+                    var old = args[0] as PyString ?? throw PyArgs.BadArgument("replace", "argument 1", "str", args[0]);
+                    var newStr = args[1] as PyString ?? throw PyArgs.BadArgument("replace", "argument 2", "str", args[1]);
 
                     // count is "n": PyLong_AsSsize_t after _PyNumber_Index.
                     long count = args.Length == 3 ? PyArgs.Ssize(args[2]) : -1;
-                    // replace(): "if (str1 == str2) goto nothing" - the same object for old and new.
-                    if (ReferenceEquals(args[0], args[1]))
-                        return str.ResultUnchanged();
                     return str.Replace(old, newStr, count);
                 },
                 minArgs: 2, maxArgs: 3
@@ -276,27 +269,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    int width = PyArgs.Width(args[0]);
-                    string value = str.Value;
-
-                    // CPython Objects/unicodeobject.c unicode_zfill pads to the character length.
-                    int chars = str.CodePointLength();
-                    if (chars >= width)
-                        return str.ResultUnchanged();
-
-                    int fillCount = width - chars;
-
-                    // Check if string starts with '+' or '-'
-                    if (value.Length > 0 && (value[0] == '+' || value[0] == '-'))
-                    {
-                        // Move sign to beginning: sign + zeros + rest
-                        return PyString.From(value[0] + new string('0', fillCount) + value.Substring(1));
-                    }
-                    else
-                    {
-                        // Just prepend zeros
-                        return PyString.From(new string('0', fillCount) + value);
-                    }
+                    return str.ZFill(PyArgs.Width(args[0]));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -309,7 +282,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    if (str.Value.Length == 0)
+                    if (str.CodePointLength() == 0)
                         return PyBool.False;
 
                     // unicode_isdigit_impl: Py_UNICODE_ISDIGIT of each character
@@ -328,7 +301,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    if (str.Value.Length == 0)
+                    if (str.CodePointLength() == 0)
                         return PyBool.False;
 
                     foreach (int cp in str.CodePoints())
@@ -346,7 +319,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    if (str.Value.Length == 0)
+                    if (str.CodePointLength() == 0)
                         return PyBool.False;
 
                     foreach (int cp in str.CodePoints())
@@ -364,7 +337,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    if (str.Value.Length == 0)
+                    if (str.CodePointLength() == 0)
                         return PyBool.False;
 
                     foreach (int cp in str.CodePoints())
@@ -382,11 +355,11 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    if (str.Value.Length == 0)
+                    if (str.CodePointLength() == 0)
                         return PyBool.False;
 
                     // unicode_isupper_impl: no lowercase/titlecase character, at least one uppercase.
-                    return PyBool.FromBool(PyUnicodeCase.IsUpper(str.Value));
+                    return PyBool.FromBool(PyUnicodeCase.IsUpper(str));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -398,11 +371,11 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    if (str.Value.Length == 0)
+                    if (str.CodePointLength() == 0)
                         return PyBool.False;
 
                     // unicode_islower_impl: no uppercase/titlecase character, at least one lowercase.
-                    return PyBool.FromBool(PyUnicodeCase.IsLower(str.Value));
+                    return PyBool.FromBool(PyUnicodeCase.IsLower(str));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -476,7 +449,7 @@ namespace SharpPy
                 {
                     var selfStr = (PyString)self;
 
-                    return PyInt.From(selfStr.Value.Length);
+                    return PyInt.From(selfStr.CodePointLength());
                 });
 
             // CPython 3.12: str.__dict__['__str__'] is a slot wrapper; unicode_tp_str
@@ -496,8 +469,8 @@ namespace SharpPy
                 "__repr__", strType,
                 (self, args, kwargs) =>
                 {
-                    var reprSelf = (PyString)self;
-                    return PyString.From("'" + reprSelf.Value + "'");
+                    // the slot itself: unicode_repr of the str's characters, whatever a subclass defines
+                    return ((PyString)self).UnicodeRepr();
                 });
 
             // Objects/unicodeobject.c: unicode_getnewargs - pickle and copy reconstruct a str (or a
@@ -506,7 +479,8 @@ namespace SharpPy
                 "__getnewargs__", strType,
                 (self, args, kwargs) => PyTuple.From(new PyObject[]
                 {
-                    PyString.From(((PyString)self).Value)
+                    // unicode_getnewargs: _PyUnicode_Copy(self)
+                    ((PyString)self).Copy()
                 }),
                 minArgs: 0, maxArgs: 0);
 
@@ -569,37 +543,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    // CPython Objects/stringlib/count.h: the empty pattern counts the boundary
-                    // positions of the window ('abc'.count("", 1, 2) == 2, "".count("") == 1,
-                    // 'abc'.count("", 9) == 0), otherwise it is a non-overlapping scan in which a
-                    // match has to begin at a character boundary. The window is read first.
-                    TextWindow win = str.AdjustedWindow(args);
-                    if (args[0] is not PyString sub)
-                        throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
-                    if (sub.Value.Length == 0)
-                    {
-                        int boundaries = win.End - win.Start + 1;
-                        return PyInt.From(boundaries < 0 ? 0 : boundaries);
-                    }
-
-                    int count = 0;
-                    int pos = win.UnitStart;
-                    while (pos + sub.Value.Length <= win.UnitEnd)
-                    {
-                        int foundIndex = PyFastSearch.IndexOf(str.Value, sub.Value, pos, win.UnitEnd);
-                        if (foundIndex == -1)
-                            break;
-                        if (StartsCharacter(str.Value, sub.Value, foundIndex))
-                        {
-                            count++;
-                            pos = foundIndex + sub.Value.Length;
-                        }
-                        else
-                        {
-                            pos = foundIndex + 1;
-                        }
-                    }
-                    return PyInt.From(count);
+                    return CountOf(str, args[0], args);
                 },
                 minArgs: 1, maxArgs: 3
             );
@@ -611,17 +555,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    TextWindow win = str.AdjustedWindow(args);
-                    // CPython unicode_startswith accepts a str or a tuple of str.
-                    var prefixes = NormalizePrefixTuple(args[0], "startswith");
-
-                    // CPython Objects/unicodeobject.c unicode_startswith -> tailmatch with
-                    // direction 1: PyUnicode_Tailmatch normalises the window on the character
-                    // length and fails when start > end.
-                    foreach (var prefix in prefixes)
-                        if (TailMatch(str.Value, prefix, win, fromEnd: false))
-                            return PyBool.True;
-                    return PyBool.False;
+                    return StartsOrEndsWith(str, args[0], args, "startswith", fromEnd: false);
                 },
                 minArgs: 1, maxArgs: 3
             );
@@ -633,14 +567,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    TextWindow win = str.AdjustedWindow(args);
-                    // CPython unicode_endswith accepts a str or a tuple of str.
-                    var suffixes = NormalizePrefixTuple(args[0], "endswith");
-
-                    foreach (var suffix in suffixes)
-                        if (TailMatch(str.Value, suffix, win, fromEnd: true))
-                            return PyBool.True;
-                    return PyBool.False;
+                    return StartsOrEndsWith(str, args[0], args, "endswith", fromEnd: true);
                 },
                 minArgs: 1, maxArgs: 3
             );
@@ -652,11 +579,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
                     // do_argstrip: None or nothing is whitespace, else the characters of a str.
-                    if (args.Length == 0 || args[0] is PyNone)
-                        return str.StripText(LeftStrip, null);
-                    if (args[0] is not PyString chars)
-                        throw PyTypeError.Create("lstrip arg must be None or str");
-                    return str.StripText(LeftStrip, chars.Value);
+                    return ArgStrip(str, args, LeftStrip, "lstrip");
                 },
                 minArgs: 0, maxArgs: 1
             );
@@ -668,11 +591,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
                     // do_argstrip: None or nothing is whitespace, else the characters of a str.
-                    if (args.Length == 0 || args[0] is PyNone)
-                        return str.StripText(RightStrip, null);
-                    if (args[0] is not PyString chars)
-                        throw PyTypeError.Create("rstrip arg must be None or str");
-                    return str.StripText(RightStrip, chars.Value);
+                    return ArgStrip(str, args, RightStrip, "rstrip");
                 },
                 minArgs: 0, maxArgs: 1
             );
@@ -708,7 +627,7 @@ namespace SharpPy
                     bool keepends = keependsArg != null && keependsArg.ToBool();
 
                     // CPython unicode_splitlines: \n \r \r\n \v \f \x1c \x1d \x1e \x85 \u2028 \u2029
-                    return new PyList(SplitLinesCore(str.Value, keepends));
+                    return new PyList(SplitLinesCore(str, keepends));
                 },
                 minArgs: 0, maxArgs: 1
 , acceptsKwargs: true);
@@ -722,7 +641,7 @@ namespace SharpPy
 
                     // do_swapcase decides by the uppercase/lowercase PROPERTIES, and the lowercase
                     // branch needs the sigma context, so it is not a per-char ToLower/ToUpper loop.
-                    return PyString.Fresh(PyUnicodeCase.SwapCase(str.Value));
+                    return PyUnicodeCase.SwapCase(str);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -734,7 +653,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    return PyString.Fresh(PyUnicodeCase.CaseFold(str.Value));
+                    return PyUnicodeCase.CaseFold(str);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -747,24 +666,8 @@ namespace SharpPy
                     var str = (PyString)self;
 
                     int width = PyArgs.Width(args[0]);
-                    string fillchar = " ";
-
-                    if (args.Length >= 2)
-                    {
-                        fillchar = FillCharacter(args[1]);
-                    }
-
-                    int chars = str.CodePointLength();
-                    if (chars >= width)
-                        return str.ResultUnchanged();
-
-                    // CPython 3.12 Objects/stringlib/transmogrify.h:203-206:
-                    // left = marg/2 + (marg & width & 1); right = marg - left.
-                    int marg = width - chars;
-                    int leftPad = marg / 2 + (marg & width & 1);
-                    int rightPad = marg - leftPad;
-
-                    return PyString.From(Repeat(fillchar, leftPad) + str.Value + Repeat(fillchar, rightPad));
+                    int fillchar = args.Length >= 2 ? FillCharacter(args[1]) : ' ';
+                    return str.Center(width, fillchar);
                 },
                 minArgs: 1, maxArgs: 2
             );
@@ -777,18 +680,9 @@ namespace SharpPy
                     var str = (PyString)self;
 
                     int width = PyArgs.Width(args[0]);
-                    string fillchar = " ";
-
-                    if (args.Length >= 2)
-                    {
-                        fillchar = FillCharacter(args[1]);
-                    }
-
+                    int fillchar = args.Length >= 2 ? FillCharacter(args[1]) : ' ';
                     int chars = str.CodePointLength();
-                    if (chars >= width)
-                        return str.ResultUnchanged();
-
-                    return PyString.From(str.Value + Repeat(fillchar, width - chars));
+                    return chars >= width ? str.ResultUnchanged() : str.Pad(0, width - chars, fillchar);
                 },
                 minArgs: 1, maxArgs: 2
             );
@@ -801,18 +695,9 @@ namespace SharpPy
                     var str = (PyString)self;
 
                     int width = PyArgs.Width(args[0]);
-                    string fillchar = " ";
-
-                    if (args.Length >= 2)
-                    {
-                        fillchar = FillCharacter(args[1]);
-                    }
-
+                    int fillchar = args.Length >= 2 ? FillCharacter(args[1]) : ' ';
                     int chars = str.CodePointLength();
-                    if (chars >= width)
-                        return str.ResultUnchanged();
-
-                    return PyString.From(Repeat(fillchar, width - chars) + str.Value);
+                    return chars >= width ? str.ResultUnchanged() : str.Pad(width - chars, 0, fillchar);
                 },
                 minArgs: 1, maxArgs: 2
             );
@@ -824,12 +709,8 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    foreach (char c in str.Value)
-                    {
-                        if (c > 127)
-                            return PyBool.False;
-                    }
-                    return PyBool.True;
+                    // PyUnicode_IS_ASCII
+                    return PyBool.FromBool(str.MaxChar() < 128);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -841,7 +722,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    if (str.Value.Length == 0)
+                    if (str.CodePointLength() == 0)
                         return PyBool.False;
 
                     // CPython IS_DECIMAL is every Nd character, not just ASCII:
@@ -861,7 +742,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    if (str.Value.Length == 0)
+                    if (str.CodePointLength() == 0)
                         return PyBool.False;
 
                     foreach (int cp in str.CodePoints())
@@ -879,10 +760,10 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    if (str.Value.Length == 0)
+                    if (str.CodePointLength() == 0)
                         return PyBool.False;
 
-                    return ScanIdentifier(str.Value) ? PyBool.True : PyBool.False;
+                    return ScanIdentifier(str) ? PyBool.True : PyBool.False;
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -909,10 +790,10 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    if (str.Value.Length == 0)
+                    if (str.CodePointLength() == 0)
                         return PyBool.False;
 
-                    return PyBool.FromBool(PyUnicodeCase.IsTitle(str.Value));
+                    return PyBool.FromBool(PyUnicodeCase.IsTitle(str));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -924,21 +805,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    if (args[0] is not PyString sep)
-                        throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
-
-                    if (sep.Value.Length == 0)
-                        throw PyValueError.Create("empty separator");
-
-                    int index = str.Value.IndexOf(sep.Value, StringComparison.Ordinal);
-                    if (index == -1)
-                        return PyTuple.From(new PyObject[] { str, PyString.From(""), PyString.From("") });
-
-                    return PyTuple.From(new PyObject[] {
-                        PyString.From(str.Value.Substring(0, index)),
-                        sep,
-                        PyString.From(str.Value.Substring(index + sep.Value.Length))
-                    });
+                    return Partition(str, args[0], fromRight: false);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -950,21 +817,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    if (args[0] is not PyString sep)
-                        throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
-
-                    if (sep.Value.Length == 0)
-                        throw PyValueError.Create("empty separator");
-
-                    int index = str.Value.LastIndexOf(sep.Value, StringComparison.Ordinal);
-                    if (index == -1)
-                        return PyTuple.From(new PyObject[] { PyString.From(""), PyString.From(""), str });
-
-                    return PyTuple.From(new PyObject[] {
-                        PyString.From(str.Value.Substring(0, index)),
-                        sep,
-                        PyString.From(str.Value.Substring(index + sep.Value.Length))
-                    });
+                    return Partition(str, args[0], fromRight: true);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -979,10 +832,7 @@ namespace SharpPy
                     if (args[0] is not PyString prefix)
                         throw PyArgs.BadArgument("removeprefix", "argument", "str", args[0]);
 
-                    if (str.Value.StartsWith(prefix.Value, StringComparison.Ordinal))
-                        return PyString.From(str.Value.Substring(prefix.Value.Length));
-
-                    return str.ResultUnchanged();
+                    return str.RemoveAffix(prefix, suffix: false);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -997,10 +847,7 @@ namespace SharpPy
                     if (args[0] is not PyString suffix)
                         throw PyArgs.BadArgument("removesuffix", "argument", "str", args[0]);
 
-                    if (str.Value.EndsWith(suffix.Value, StringComparison.Ordinal))
-                        return PyString.From(str.Value.Substring(0, str.Value.Length - suffix.Value.Length));
-
-                    return str.ResultUnchanged();
+                    return str.RemoveAffix(suffix, suffix: true);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -1018,54 +865,7 @@ namespace SharpPy
                     PyObject[] paTab = ProjectKeywordSlots(args, kwargs, "tabsize");
                     if (paTab.Length >= 1 && paTab[0] != null)
                         tabsize = PyArgs.Int(paTab[0]);
-                    string text = str.Value;
-                    if (text.IndexOf('\t') < 0)
-                        return str.ResultUnchanged();
-                    // First pass: the size of the result ("new string is too long" past Py_ssize_t),
-                    // allocated once; nothing is built before it is known to fit.
-                    long size = 0;
-                    long column = 0;
-                    for (int u = 0; u < text.Length; u += PairWidth(text, u))
-                    {
-                        char c = text[u];
-                        if (c == '\t')
-                        {
-                            if (tabsize > 0)
-                            {
-                                long incr = tabsize - column % tabsize;
-                                if (size > long.MaxValue - incr)
-                                    throw PyOverflowError.Create("new string is too long");
-                                size += incr;
-                                column += incr;
-                            }
-                        }
-                        else
-                        {
-                            size += PairWidth(text, u);
-                            column = c == '\n' || c == '\r' ? 0 : column + 1;
-                        }
-                    }
-                    var result = new System.Text.StringBuilder(PyAllocation.StringLength(size));
-                    column = 0;
-                    for (int u = 0; u < text.Length; u += PairWidth(text, u))
-                    {
-                        char c = text[u];
-                        if (c == '\t')
-                        {
-                            if (tabsize > 0)
-                            {
-                                int spaces = (int)(tabsize - column % tabsize);
-                                result.Append(' ', spaces);
-                                column += spaces;
-                            }
-                        }
-                        else
-                        {
-                            result.Append(text, u, PairWidth(text, u));
-                            column = c == '\n' || c == '\r' ? 0 : column + 1;
-                        }
-                    }
-                    return PyString.From(result.ToString());
+                    return str.ExpandTabs(tabsize);
                 },
                 minArgs: 0, maxArgs: 1
 , acceptsKwargs: true);
@@ -1127,73 +927,7 @@ namespace SharpPy
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create($"maketrans() takes 1 to 3 positional arguments but {args.Length} were given");
 
-                    PyDict table = new PyDict();
-
-                    if (args.Length == 1)
-                    {
-                        // Single dict argument
-                        if (args[0] is not PyDict dict)
-                            throw PyTypeError.Create("if you give only one argument to maketrans it must be a dict");
-
-                        // Copy entries, converting string keys to int keys
-                        var items = dict.Items();
-                        foreach (PyObject item in items.Items)
-                        {
-                            if (item is not PyTuple pair || pair.Items.Length != 2)
-                                continue;
-
-                            var key = pair.Items[0];
-                            var value = pair.Items[1];
-
-                            if (key is PyString keyStr)
-                            {
-                                if (keyStr.Value.Length != 1)
-                                    throw PyValueError.Create("string keys in translate table must be of length 1");
-
-                                int codepoint = keyStr.Value[0];
-                                table.SetItem(PyInt.From(codepoint), value);
-                            }
-                            else if (key is PyInt)
-                            {
-                                table.SetItem(key, value);
-                            }
-                            else
-                            {
-                                throw PyTypeError.Create("keys in translate table must be strings or integers");
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Two or three arguments: x, y, [z]
-                        if (args[0] is not PyString x || args[1] is not PyString y)
-                            throw PyTypeError.Create("first maketrans argument must be a string if there is a second argument");
-
-                        if (x.Value.Length != y.Value.Length)
-                            throw PyValueError.Create("the first two maketrans arguments must have equal length");
-
-                        // Create mapping from x to y
-                        for (int i = 0; i < x.Value.Length; i++)
-                        {
-                            int fromChar = x.Value[i];
-                            int toChar = y.Value[i];
-                            table.SetItem(PyInt.From(fromChar), PyInt.From(toChar));
-                        }
-
-                        // If z is provided, map those characters to None (delete)
-                        if (args.Length >= 3)
-                        {
-                            if (args[2] is not PyString z)
-                                throw PyTypeError.Create("third maketrans argument must be a string");
-
-                            foreach (char c in z.Value)
-                            {
-                                table.SetItem(PyInt.From(c), PyNone.Instance);
-                            }
-                        }
-                    }
-
-                    return table;
+                    return MakeTrans(args);
                 },
                 minArgs: 1, maxArgs: 3
             );
@@ -1210,40 +944,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     var str = (PyString)self;
 
-                    // _PyUnicode_TranslateCharmap: each code point is looked up in the table by
-                    // charmaptranslate_lookup (PyObject_GetItem); a LookupError keeps it.
-                    var table = args[0];
-                    var result = new System.Text.StringBuilder(str.Value.Length);
-                    foreach (int cp in str.CodePoints())
-                    {
-                        PyObject value;
-                        try
-                        {
-                            value = table.GetItem(PyInt.From(cp));
-                        }
-                        catch (PythonException error) when (error.PyException is PyLookupError)
-                        {
-                            AppendCodePoint(result, cp);
-                            continue;
-                        }
-                        if (value is PyNone)
-                            continue;
-                        if (PyInt.LongCheck(value))
-                        {
-                            // PyLong_AS_LONG: an int past a C long reads as -1, out of range too.
-                            var big = PyObject.IndexOrThrow(value).Value;
-                            long mapped = big < 0 || big > 0x10FFFF ? -1 : (long)big;
-                            if (mapped < 0)
-                                throw PyValueError.Create("character mapping must be in range(0x110000)");
-                            AppendCodePoint(result, (int)mapped);
-                        }
-                        else if (value is PyString text)
-                            result.Append(text.Value);
-                        else
-                            throw PyTypeError.Create("character mapping must return integer, None or str");
-                    }
-
-                    return PyString.From(result.ToString());
+                    return str.Translate(args[0]);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -1322,7 +1023,7 @@ namespace SharpPy
 
         // CPython 3.12: Objects/unicodeobject.c - unicode_bool
         // Optimized: Direct length check, no MRO traversal
-        protected internal override bool Bool() => Value.Length > 0;
+        protected internal override bool Bool() => CodePointLength() > 0;
 
         #endregion
 
@@ -1333,7 +1034,10 @@ namespace SharpPy
 
         // unicode_repr: the quote is ' unless the text has ' and no ", and each character is itself,
         // an escape (\\ \t \n \r and the quote), or \xhh, \uhhhh, \Uhhhhhhhh when it is not printable.
-        protected internal override PyString Repr()
+        protected internal override PyString Repr() => UnicodeRepr();
+
+        // unicode_repr
+        internal PyString UnicodeRepr()
         {
             bool hasSingleQuote = false, hasDoubleQuote = false;
             foreach (int cp in CodePoints())
@@ -1504,161 +1208,6 @@ namespace SharpPy
             return FromUnits(new string(units));
         }
 
-        /// <summary>
-        /// The (start, end) pair a method's optional arguments describe, in both coordinate
-        /// systems. CPython normalises once with ADJUST_INDICES (Objects/unicodeobject.c:9091) on a
-        /// length that is already in code points: end is clamped to the length and to zero, a
-        /// negative start is shifted, and start is deliberately *not* clamped down to end. That last
-        /// detail is observable: 'abc'.find('', 4) is -1 while 'abc'.find('', 3) is 3.
-        /// </summary>
-        internal readonly struct TextWindow
-        {
-            internal readonly int Chars;
-            internal readonly int Start;
-            internal readonly int End;
-            internal readonly int UnitStart;
-            internal readonly int UnitEnd;
-
-            internal TextWindow(int chars, int start, int end, string text)
-            {
-                Chars = chars;
-                Start = start;
-                End = end;
-                UnitStart = CodePointToUnit(text, start);
-                UnitEnd = CodePointToUnit(text, end);
-            }
-
-            internal bool IsEmpty => End <= Start;
-        }
-
-        /// <summary>
-        /// tailmatch (Objects/unicodeobject.c): after ADJUST_INDICES, end -= len(sub); end &lt; start
-        /// fails, an empty sub then matches, else the code points at start (or ending at end) are
-        /// compared. The match has to begin and end on a character boundary of the text.
-        /// </summary>
-        private static bool TailMatch(string text, string sub, TextWindow win, bool fromEnd)
-        {
-            if (win.End - CodePointCount(sub) < win.Start)
-                return false;
-            if (sub.Length == 0)
-                return true;
-            int at = fromEnd ? win.UnitEnd - sub.Length : win.UnitStart;
-            if (at < win.UnitStart || at + sub.Length > win.UnitEnd)
-                return false;
-            return string.CompareOrdinal(text, at, sub, 0, sub.Length) == 0
-                && StartsCharacter(text, sub, at)
-                && (at + sub.Length == text.Length || !IsContinuation(text, at + sub.Length));
-        }
-
-        internal TextWindow AdjustedWindow(PyObject[] args)
-        {
-            // ADJUST_INDICES on PyUnicode_GET_LENGTH, not a subclass's __len__.
-            int chars = CodePointLength();
-            ParseStrStartStop(args, chars, out int start, out int end);
-            if (end > chars)
-                end = chars;
-            else if (end < 0)
-            {
-                end += chars;
-                if (end < 0)
-                    end = 0;
-            }
-            if (start < 0)
-            {
-                start += chars;
-                if (start < 0)
-                    start = 0;
-            }
-            return new TextWindow(chars, start, end, Value);
-        }
-
-        /// <summary>
-        /// One implementation behind find, index, rfind and rindex. CPython has four entry points
-        /// (Objects/unicodeobject.c:11348 unicode_find and friends) that all funnel into
-        /// any_find_slice (Objects/unicodeobject.c:9106); SharpPy had four copies of the same index
-        /// arithmetic. Coordinates in and out are code points, the search runs on .NET's unit index
-        /// and is converted at both edges.
-        /// </summary>
-        // stringlib_parse_args_finds and parse_args_finds_unicode: start and end are slice indices,
-        // read before the substring, which must then be a str (ensure_unicode).
-        private static PyObject FindIndexOf(PyString str, PyObject sub, PyObject[] args,
-                                            bool backward, bool raiseWhenMissing)
-        {
-            TextWindow win = str.AdjustedWindow(args);
-            string pattern = sub is PyString needle ? needle.Value : throw PyTypeError.Create("must be str, not " + sub.GetTypeName());
-            string text = str.Value;
-
-            // any_find_slice: if (end - start < len2) return -1;
-            if (win.End - win.Start < CodePointCount(pattern))
-                return NotFound(raiseWhenMissing);
-
-            if (pattern.Length == 0)
-            {
-                // The empty pattern matches at the first position of the window going forward and
-                // at the last one going backward ('abc'.find('', 1) -> 1, 'abc'.rfind('', 0, 2) -> 2).
-                return PyInt.From(backward ? UnitToCodePoint(text, win.UnitEnd)
-                                          : UnitToCodePoint(text, win.UnitStart));
-            }
-
-            int found;
-            if (!backward)
-            {
-                found = PyFastSearch.IndexOf(text, pattern, win.UnitStart, win.UnitEnd);
-                while (found != -1 && !StartsCharacter(text, pattern, found))
-                {
-                    int from = found + 1;
-                    found = from < win.UnitEnd ? PyFastSearch.IndexOf(text, pattern, from, win.UnitEnd) : -1;
-                }
-            }
-            else
-            {
-                found = win.UnitEnd == 0
-                    ? -1
-                    : text.LastIndexOf(pattern, win.UnitEnd - 1, win.UnitEnd - win.UnitStart, StringComparison.Ordinal);
-                while (found != -1 && !StartsCharacter(text, pattern, found))
-                {
-                    found = found > win.UnitStart + 1
-                        ? text.LastIndexOf(pattern, found - 1, found - 1 - win.UnitStart, StringComparison.Ordinal)
-                        : -1;
-                }
-            }
-
-            return found == -1 ? NotFound(raiseWhenMissing) : PyInt.From(UnitToCodePoint(text, found));
-        }
-
-        /// <summary>
-        /// A UTF-16 search can match inside a surrogate pair, which is not a match for CPython
-        /// because it compares code points (Objects/stringlib/codecs.h). Reject a candidate that
-        /// begins in the middle of a pair, or whose pair width disagrees with the pattern's first
-        /// character: S.find(chr(0xDC00)) is -1 for exactly this reason.
-        /// </summary>
-        private static bool StartsCharacter(string text, string pattern, int found) =>
-            !IsContinuation(text, found) && PairWidth(text, found) == PairWidth(pattern, 0);
-
-        private static PyObject NotFound(bool raiseWhenMissing)
-        {
-            if (raiseWhenMissing)
-                throw PyValueError.Create("substring not found");
-            return PyInt.From(-1);
-        }
-
-        /// <summary>
-        /// The fill of ljust/rjust/center is one character, which may be astral, so it is stored as
-        /// a string and repeated as a unit. CPython's wording is not method specific.
-        /// </summary>
-        // CPython distinguishes the two refusals (Objects/unicodeobject.c:get_string_or_char style):
-        // a non-str argument is "must be a unicode character, not int", a str of the wrong length is
-        // "must be exactly one character long".
-        private static string FillCharacter(PyObject fillArg)
-        {
-            if (fillArg is not PyString fill)
-                throw PyTypeError.Create(
-                    $"The fill character must be a unicode character, not {fillArg.GetTypeName()}");
-            if (CodePointCount(fill.Value) != 1)
-                throw PyTypeError.Create("The fill character must be exactly one character long");
-            return fill.Value;
-        }
-
         private static string Repeat(string unit, int count)
         {
             if (count <= 0 || unit.Length == 0)
@@ -1702,20 +1251,18 @@ namespace SharpPy
         internal static bool IsXidContinue(int cp) => UnicodeType.IsXidContinue(cp);
 
         // _PyUnicode_ScanIdentifier, whether the whole string is scanned
-        internal static bool ScanIdentifier(string s)
+        // _PyUnicode_ScanIdentifier over the characters: XID_Start or '_' first, then XID_Continue.
+        internal static bool ScanIdentifier(PyString s)
         {
-            if (s.Length == 0)
+            int length = s.CodePointLength();
+            if (length == 0)
                 return false;
-            int index = 0;
-            bool first = true;
-            while (index < s.Length)
-            {
-                int cp = CodePointAt(s, index, out int width);
-                if (first ? !(IsXidStart(cp) || cp == '_') : !IsXidContinue(cp))
+            int first = s.ReadChar(0);
+            if (!(IsXidStart(first) || first == '_'))
+                return false;
+            for (int i = 1; i < length; i++)
+                if (!IsXidContinue(s.ReadChar(i)))
                     return false;
-                first = false;
-                index += width;
-            }
             return true;
         }
 
@@ -1889,52 +1436,6 @@ namespace SharpPy
 
         // --- Shared primitives for CPython-exact string operations ---
 
-        // CPython unicode_startswith/endswith: str or tuple-of-str; a non-str member
-        // raises the combined message.
-        private static System.Collections.Generic.List<string> NormalizePrefixTuple(PyObject arg, string what)
-        {
-            var list = new System.Collections.Generic.List<string>();
-            if (arg is PyString single)
-            {
-                list.Add(single.Value);
-                return list;
-            }
-            if (arg is PyTuple tuple)
-            {
-                foreach (var item in tuple.Items)
-                {
-                    if (item is not PyString part)
-                        throw PyTypeError.Create($"tuple for {what} must only contain str, not {item.GetTypeName()}");
-                    list.Add(part.Value);
-                }
-                return list;
-            }
-            throw PyTypeError.Create($"{what} first arg must be str or a tuple of str, not {arg.GetTypeName()}");
-        }
-
-        private static bool IsLineBreak(char c) =>
-            c == '\n' || c == '\r' || c == '\v' || c == '\f' ||
-            c == '\x1c' || c == '\x1d' || c == '\x1e' || c == '\x85' ||
-            c == '\u2028' || c == '\u2029';
-
-        internal static System.Collections.Generic.List<PyObject> SplitLinesCore(string s, bool keepends)
-        {
-            var items = new System.Collections.Generic.List<PyObject>();
-            int start = 0;
-            for (int i = 0; i < s.Length; i++)
-            {
-                if (!IsLineBreak(s[i]))
-                    continue;
-                int brkLen = s[i] == '\r' && i + 1 < s.Length && s[i + 1] == '\n' ? 2 : 1;
-                items.Add(PyString.From(keepends ? s.Substring(start, i + brkLen - start) : s.Substring(start, i - start)));
-                i += brkLen - 1;
-                start = i + 1;
-            }
-            if (start < s.Length)
-                items.Add(PyString.From(s.Substring(start)));
-            return items;
-        }
-
         // Receiver resolution for str descriptors: exact str or the content storage of a
         // str subclass instance (CPython looks through the subclass via the unicode type).
         /// <summary>
@@ -1983,13 +1484,6 @@ namespace SharpPy
         }
 
         // A code point as the UTF-16 text holds it: a lone surrogate stays one unit.
-        private static void AppendCodePoint(System.Text.StringBuilder text, int cp)
-        {
-            if (cp < 0x10000) text.Append((char)cp);
-            else text.Append(char.ConvertFromUtf32(cp));
-        }
-
-
         /// <summary>
         /// CPython 3.12: str.__mul__ and str.__rmul__ - String repetition
         /// CPython: Objects/unicodeobject.c:unicode_repeat (lines ~10500-10570)
@@ -2007,13 +1501,12 @@ namespace SharpPy
             if (times == 1)
                 return ResultUnchanged();
             // unicode_repeat: "repeated string is too long" past Py_ssize_t, then PyUnicode_New.
-            PyAllocation.Product(CodePointLength(), times, "repeated string is too long");
-            PyAllocation.StringLength(PyAllocation.Product(Value.Length, times, "repeated string is too long"));
+            PyAllocation.StringLength(PyAllocation.Product(CodePointLength(), times, "repeated string is too long"));
             if (CodePointLength() == 0)
                 return Empty;
             if (!IsUcs4)
             {
-                var sb = new StringBuilder(Value.Length * (int)times);
+                var sb = new StringBuilder(Ucs2.Length * (int)times);
                 for (long i = 0; i < times; i++)
                     sb.Append(Ucs2);
                 return FromUnits(sb.ToString());
@@ -2234,7 +1727,7 @@ namespace SharpPy
                             body = body.Substring(0, precision);
                         break;
                     case 'a':
-                        body = AsciiEscape(value.ToRepr().Value);
+                        body = AsciiOf(value).Value;
                         if (hasPrecision && body.Length > precision)
                             body = body.Substring(0, precision);
                         break;
@@ -2386,21 +1879,6 @@ namespace SharpPy
             return new string(chars.ToArray());
         }
 
-        internal static string AsciiEscape(string s)
-        {
-            var sb = new StringBuilder(s.Length);
-            foreach (var ch in s)
-            {
-                if (ch < 128)
-                    sb.Append(ch);
-                else if (ch < 256)
-                    sb.Append($"\\x{(int)ch:x2}");
-                else
-                    sb.Append($"\\u{(int)ch:x4}");
-            }
-            return sb.ToString();
-        }
-
         /// <summary>
         /// 인덱스 접근 str[i]
         /// </summary>
@@ -2451,202 +1929,14 @@ namespace SharpPy
 
         // unicode_split's clinic: sep is any object and maxsplit a Py_ssize_t, both converted
         // before the body asks sep to be str or None.
-        private static (string, long) SplitArguments(PyObject[] arguments)
-        {
-            long limit = -1;
-            if (arguments.Length >= 2 && arguments[1] != null)
-                limit = PyArgs.Ssize(arguments[1]);
-            string separator = null;
-            if (arguments.Length >= 1 && arguments[0] != null && arguments[0] is not PyNone)
-            {
-                separator = arguments[0] switch
-                {
-                    PyString text => text.Value,
-                    var other => throw PyTypeError.Create($"must be str or None, not {other.GetTypeName()}"),
-                };
-                if (separator.Length == 0)
-                    throw PyValueError.Create("empty separator");
-            }
-            return (separator, limit);
-        }
-
-        internal const int LeftStrip = 0, RightStrip = 1, BothStrip = 2;
-
-        public PyString Strip(string chars = null) => StripText(BothStrip, chars);
-
-        /// <summary>
-        /// do_strip and _PyUnicode_XStrip (Objects/unicodeobject.c): whole code points are stripped,
-        /// Py_UNICODE_ISSPACE ones when chars is null, else those of chars; the result is
-        /// PyUnicode_Substring, the text unchanged (unicode_result_unchanged) when nothing went.
-        /// </summary>
-        internal PyString StripText(int striptype, string chars)
-        {
-            string text = Value;
-            HashSet<int> set = null;
-            if (chars != null)
-            {
-                set = new HashSet<int>();
-                for (int u = 0; u < chars.Length; u += PairWidth(chars, u))
-                    set.Add(CodePointAtUnit(chars, u));
-            }
-            bool Stripped(int cp) => set == null ? IsWhiteSpaceCp(cp) : set.Contains(cp);
-            int i = 0, j = text.Length;
-            if (striptype != RightStrip)
-                while (i < j && Stripped(CodePointAtUnit(text, i)))
-                    i += PairWidth(text, i);
-            if (striptype != LeftStrip)
-                while (j > i)
-                {
-                    int k = j - 1;
-                    if (IsContinuation(text, k)) k--;
-                    if (!Stripped(CodePointAtUnit(text, k))) break;
-                    j = k;
-                }
-            return i == 0 && j == text.Length ? ResultUnchanged() : PyString.From(text.Substring(i, j - i));
-        }
-
         /// <summary>
         /// unicode_result_unchanged (Objects/unicodeobject.c): an exact str is its own result, a
         /// subclass instance gives an exact copy.
         /// </summary>
         // unicode_get_empty: every exact empty str is the one singleton in CPython.
-        private bool IsEmptySingleton => Value.Length == 0 && IsExact;
+        private bool IsEmptySingleton => CodePointLength() == 0 && IsExact;
 
         internal PyString ResultUnchanged() => IsExact ? this : Copy();
-
-        // replace (Objects/unicodeobject.c): the text is walked once, what was put in is not searched.
-        public PyString Replace(string old, string newStr, long count = -1)
-        {
-            if (count < 0) count = long.MaxValue;
-            if (count == 0) return ResultUnchanged();
-            // replace(): the matches are counted first, then the new size is checked
-            // ("replace string is too long" past Py_ssize_t) and allocated once.
-            long matches = 0;
-            if (old.Length == 0)
-                matches = Math.Min(count, (long)CodePointLength() + 1);
-            else
-                for (int at = Value.IndexOf(old, StringComparison.Ordinal); at >= 0 && matches < count;
-                     at = Value.IndexOf(old, at + old.Length, StringComparison.Ordinal))
-                    matches++;
-            if (matches == 0) return ResultUnchanged();
-            // replace(): only a growing replacement can pass PY_SSIZE_T_MAX.
-            long growth = newStr.Length > old.Length
-                ? PyAllocation.Product(newStr.Length - old.Length, matches, "replace string is too long")
-                : (long)(newStr.Length - old.Length) * matches;
-            var output = new StringBuilder(PyAllocation.StringLength(Value.Length + growth));
-            int position = 0;
-            if (old.Length == 0)
-            {
-                // Before every character, and after the last one.
-                long inserted = 0;
-                while (true)
-                {
-                    if (inserted < count)
-                    {
-                        output.Append(newStr);
-                        inserted++;
-                    }
-                    if (position >= Value.Length) break;
-                    int width = PairWidth(Value, position);
-                    output.Append(Value, position, width);
-                    position += width;
-                    if (inserted >= count)
-                    {
-                        output.Append(Value, position, Value.Length - position);
-                        break;
-                    }
-                }
-                return PyString.Fresh(output.ToString());
-            }
-            for (long done = 0; done < count; done++)
-            {
-                int index = Value.IndexOf(old, position, StringComparison.Ordinal);
-                if (index < 0) break;
-                output.Append(Value, position, index - position).Append(newStr);
-                position = index + old.Length;
-            }
-            if (position == 0) return ResultUnchanged();
-            output.Append(Value, position, Value.Length - position);
-            return PyString.Fresh(output.ToString());
-        }
-
-        /// <summary>
-        /// str.split and str.rsplit: Objects/stringlib/split.h (split_whitespace, split,
-        /// rsplit_whitespace, rsplit), a negative maxcount being PY_SSIZE_T_MAX. The whitespace test
-        /// is Py_UNICODE_ISSPACE, which no surrogate passes, so the walk can be over code units.
-        /// When nothing was split an exact str is its own only element.
-        /// </summary>
-        public PyList Split(string sep, long maxcount, bool fromRight = false)
-        {
-            string text = Value;
-            int len = text.Length;
-            if (maxcount < 0) maxcount = long.MaxValue;
-            var parts = new List<PyObject>();
-            PyObject Piece(int start, int end) =>
-                start == 0 && end == len && IsExact ? this : PyString.From(text.Substring(start, end - start));
-            if (sep == null && !fromRight)
-            {
-                int i = 0, j;
-                while (maxcount-- > 0)
-                {
-                    while (i < len && IsWhiteSpaceCp(text[i])) i++;
-                    if (i == len) break;
-                    j = i; i++;
-                    while (i < len && !IsWhiteSpaceCp(text[i])) i++;
-                    parts.Add(Piece(j, i));
-                }
-                if (i < len)
-                {
-                    // only when maxcount was reached: the rest, without its leading whitespace
-                    while (i < len && IsWhiteSpaceCp(text[i])) i++;
-                    if (i != len) parts.Add(Piece(i, len));
-                }
-            }
-            else if (sep == null)
-            {
-                int i = len - 1, j;
-                while (maxcount-- > 0)
-                {
-                    while (i >= 0 && IsWhiteSpaceCp(text[i])) i--;
-                    if (i < 0) break;
-                    j = i; i--;
-                    while (i >= 0 && !IsWhiteSpaceCp(text[i])) i--;
-                    parts.Add(Piece(i + 1, j + 1));
-                }
-                if (i >= 0)
-                {
-                    while (i >= 0 && IsWhiteSpaceCp(text[i])) i--;
-                    if (i >= 0) parts.Add(Piece(0, i + 1));
-                }
-                parts.Reverse();
-            }
-            else if (!fromRight)
-            {
-                int i = 0;
-                while (maxcount-- > 0)
-                {
-                    int pos = text.IndexOf(sep, i, StringComparison.Ordinal);
-                    if (pos < 0) break;
-                    parts.Add(Piece(i, pos));
-                    i = pos + sep.Length;
-                }
-                parts.Add(Piece(i, len));
-            }
-            else
-            {
-                int j = len;
-                while (maxcount-- > 0)
-                {
-                    int pos = j < sep.Length ? -1 : text.LastIndexOf(sep, j - 1, j, StringComparison.Ordinal);
-                    if (pos < 0) break;
-                    parts.Add(Piece(pos + sep.Length, j));
-                    j = pos;
-                }
-                parts.Add(Piece(0, j));
-                parts.Reverse();
-            }
-            return new PyList(parts);
-        }
 
         public PyString Join(PyObject iterable)
         {
@@ -2711,7 +2001,7 @@ namespace SharpPy
         /// </summary>
         public override PyBool AsBool()
         {
-            return PyBool.FromBool(Value.Length > 0);
+            return PyBool.FromBool(CodePointLength() > 0);
         }
         
         #endregion
@@ -2806,7 +2096,7 @@ namespace SharpPy
 
         internal PyObject IsIdentifier(PyObject[] args)
         {
-            return ScanIdentifier(Value) ? PyBool.True : PyBool.False;
+            return ScanIdentifier(this) ? PyBool.True : PyBool.False;
         }
 
         #endregion

@@ -3529,7 +3529,7 @@ namespace SharpPy
                         {
                             1 => formatValue.ToStr(), // !s
                             2 => formatValue.ToRepr(), // !r
-                            3 => PyString.From(PyString.AsciiEscape(formatValue.ToRepr().Value)), // !a
+                            3 => PyString.AsciiOf(formatValue), // !a
                             _ => formatValue // No conversion, use original value
                         };
                         formattedString = ApplyFormatting(converted, formatSpec.ToStr().Value);
@@ -3541,7 +3541,7 @@ namespace SharpPy
                         {
                             1 => formatValue.ToStr(), // !s
                             2 => formatValue.ToRepr(), // !r
-                            3 => PyString.From(PyString.AsciiEscape(formatValue.ToRepr().Value)), // !a
+                            3 => PyString.AsciiOf(formatValue), // !a
                             _ => formatValue.Format(PyString.From(""))
                         };
                     }

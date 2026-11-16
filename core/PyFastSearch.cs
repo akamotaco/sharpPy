@@ -5,35 +5,38 @@ namespace SharpPy
     /// <summary>
     /// FASTSEARCH (Objects/stringlib/fastsearch.h of CPython v3.12.15) for a forward search: the
     /// default scan for small problems, the Crochemore-Perrin two-way algorithm for large ones, so a
-    /// find or count is O(n + m) where a plain scan is O(n * m). Indexes are UTF-16 units.
+    /// find or count is O(n + m) where a plain scan is O(n * m). It is one template over the
+    /// character width, as stringlib is: char for str kinds 1 and 2, int for kind 4.
     /// </summary>
     internal static class PyFastSearch
     {
-        /// <summary>The first index of pattern in text[start, end), or -1.</summary>
-        internal static int IndexOf(string text, string pattern, int start, int end)
+        /// <summary>The first index of pattern in text, or -1.</summary>
+        internal static int IndexOf<T>(ReadOnlySpan<T> text, ReadOnlySpan<T> pattern)
+            where T : IEquatable<T>, IComparable<T>
         {
-            int n = end - start, m = pattern.Length;
+            int n = text.Length, m = pattern.Length;
             if (n < m)
                 return -1;
             if (n < 2500 || (m < 100 && n < 30000) || m < 6)
-                return text.IndexOf(pattern, start, n, StringComparison.Ordinal);
-            return TwoWay(text.AsSpan(start, n), pattern.AsSpan()) is var found && found >= 0 ? found + start : -1;
+                return text.IndexOf(pattern);
+            return TwoWay(text, pattern);
         }
 
         // _lex_search: the maximal suffix of the needle under one order, and its period.
-        private static (int Suffix, int Period) MaximalSuffix(ReadOnlySpan<char> needle, bool inverted)
+        private static (int Suffix, int Period) MaximalSuffix<T>(ReadOnlySpan<T> needle, bool inverted)
+            where T : IEquatable<T>, IComparable<T>
         {
             int suffix = -1, j = 0, k = 1, period = 1;
             while (j + k < needle.Length)
             {
-                char a = needle[j + k], b = needle[suffix + k];
-                if (inverted ? a > b : a < b)
+                int order = needle[j + k].CompareTo(needle[suffix + k]);
+                if (inverted ? order > 0 : order < 0)
                 {
                     j += k;
                     k = 1;
                     period = j - suffix;
                 }
-                else if (a == b)
+                else if (order == 0)
                 {
                     if (k != period)
                         k++;
@@ -54,7 +57,8 @@ namespace SharpPy
         }
 
         // _factorize, _preprocess and _two_way.
-        private static int TwoWay(ReadOnlySpan<char> haystack, ReadOnlySpan<char> needle)
+        private static int TwoWay<T>(ReadOnlySpan<T> haystack, ReadOnlySpan<T> needle)
+            where T : IEquatable<T>, IComparable<T>
         {
             int n = haystack.Length, m = needle.Length;
             var (s1, p1) = MaximalSuffix(needle, false);
@@ -69,7 +73,7 @@ namespace SharpPy
                 for (int j = 0; j <= n - m;)
                 {
                     int i = Math.Max(cut, memory) + 1;
-                    while (i < m && needle[i] == haystack[i + j])
+                    while (i < m && needle[i].Equals(haystack[i + j]))
                         i++;
                     if (i < m)
                     {
@@ -78,7 +82,7 @@ namespace SharpPy
                         continue;
                     }
                     i = cut;
-                    while (i > memory && needle[i] == haystack[i + j])
+                    while (i > memory && needle[i].Equals(haystack[i + j]))
                         i--;
                     if (i <= memory)
                         return j;
@@ -92,7 +96,7 @@ namespace SharpPy
             for (int j = 0; j <= n - m;)
             {
                 int i = cut + 1;
-                while (i < m && needle[i] == haystack[i + j])
+                while (i < m && needle[i].Equals(haystack[i + j]))
                     i++;
                 if (i < m)
                 {
@@ -100,7 +104,7 @@ namespace SharpPy
                     continue;
                 }
                 i = cut;
-                while (i >= 0 && needle[i] == haystack[i + j])
+                while (i >= 0 && needle[i].Equals(haystack[i + j]))
                     i--;
                 if (i < 0)
                     return j;

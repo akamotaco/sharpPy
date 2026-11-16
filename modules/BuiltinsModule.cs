@@ -522,37 +522,8 @@ namespace SharpPy.Modules
         private static PyObject Ascii(PyObject[] args)
         {
 
-            var obj = args[0];
-
-            var pyStr = obj.ToRepr();
-
-            // Escape non-ASCII characters. CPython escapes one *code point* at a time
-            // (Python/run.c repr with the ASCII flag), so an astral character becomes a single
-            // \UXXXXXXXX and not two \uXXXX halves.
-            var result = new System.Text.StringBuilder();
-            string text = pyStr.Value;
-            for (int i = 0; i < text.Length; i += PyString.PairWidth(text, i))
-            {
-                int c = PyString.CodePointAtUnit(text, i);
-                if (c < 128)
-                {
-                    result.Append((char)c);
-                }
-                else if (c <= 0xFF)
-                {
-                    result.Append($"\\x{c:x2}");
-                }
-                else if (c <= 0xFFFF)
-                {
-                    result.Append($"\\u{c:x4}");
-                }
-                else
-                {
-                    result.Append($"\\U{c:x8}");
-                }
-            }
-
-            return PyString.From(result.ToString());
+            // builtin_ascii: PyObject_ASCII
+            return PyString.AsciiOf(args[0]);
         }
 
         // CPython 3.12: Python/bltinmodule.c:3079 builtin_vars.

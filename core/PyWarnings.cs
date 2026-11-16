@@ -395,7 +395,7 @@ namespace SharpPy
             // PyUnicode_Splitlines: the str's own lines, whatever a subclass's splitlines says.
             if (source is not PyString text)
                 throw PyTypeError.Create($"must be str, not {source.GetPyType().FullName}");
-            var lines = PyString.SplitLinesCore(text.Value, false);
+            var lines = PyString.SplitLinesCore(text, false);
             // PyList_GetItem: an index out of range is an IndexError.
             if (lineno - 1 < 0 || lineno - 1 >= lines.Count)
                 throw PyIndexError.Create("list index out of range");

@@ -24,28 +24,11 @@ namespace SharpPy
     internal static class PyUnicodeCase
     {
 
-        /// <summary>
-        /// Decode into the caller's span and report how many code points were written. An unpaired
-        /// surrogate keeps its own value, which is what CPython stores too.
-        /// </summary>
-        private static int FillCodePoints(string s, int[] dst)
+        // The characters of the str into the caller's buffer (PyUnicode_READ over the str).
+        private static int FillCodePoints(PyString s, int[] dst)
         {
-            int n = 0;
-            for (int i = 0; i < s.Length;)
-            {
-                char c = s[i];
-                if (char.IsHighSurrogate(c) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
-                {
-                    dst[n++] = char.ConvertToUtf32(c, s[i + 1]);
-                    i += 2;
-                }
-                else
-                {
-                    dst[n++] = c;
-                    i += 1;
-                }
-            }
-            return n;
+            s.CopyCodePoints(dst, 0);
+            return s.CodePointLength();
         }
 
         /// <summary>
@@ -92,20 +75,20 @@ namespace SharpPy
         private delegate int FullMapping(int ch, Span<int> res);
 
         // The _PyUnicode_To*Full mapping of cp appended; true when it is not cp itself.
-        private static bool AppendFull(FullMapping mapping, StringBuilder sb, int cp)
+        private static bool AppendFull(FullMapping mapping, PyUnicodeWriter sb, int cp)
         {
             Span<int> mapped = stackalloc int[3];
             int n = mapping(cp, mapped);
             for (int k = 0; k < n; k++)
-                AppendCp(sb, mapped[k]);
+                sb.WriteChar(mapped[k]);
             return n != 1 || mapped[0] != cp;
         }
 
-        private static void AppendCp(StringBuilder sb, int cp)
-        {
-            if (cp <= 0xFFFF) sb.Append((char)cp);
-            else sb.Append(char.ConvertFromUtf32(cp));
-        }
+        private static void AppendCp(PyUnicodeWriter sb, int cp) => sb.WriteChar(cp);
+
+        // case_operation's result: a new str, a copy of the characters when nothing moved.
+        private static PyString Result(PyUnicodeWriter sb, bool changed, PyString s) =>
+            changed ? sb.Finish(fresh: true) : s.Copy();
 
         /// <summary>
         /// ascii_upper_or_lower in one pass: the ASCII decision and the first character that has
@@ -124,55 +107,53 @@ namespace SharpPy
         /// takes over from there. For a verified ASCII string ToUpperInvariant/ToLowerInvariant IS
         /// CPython's ASCII mapping - A-Z and a-z only, culture cannot enter - and it is vectorised.
         /// </summary>
-        private static bool TryAsciiMap(string s, bool toUpper, out string result)
+        private static bool TryAsciiMap(PyString s, bool toUpper, out PyString result)
         {
-            for (int i = 0; i < s.Length; i++)
+            if (s.IsUcs4 || s.MaxChar() >= 0x80)
             {
-                if (s[i] >= 0x80)
-                {
-                    result = null;
-                    return false;
-                }
+                result = null;
+                return false;
             }
-            result = toUpper ? s.ToUpperInvariant() : s.ToLowerInvariant();
+            string units = s.Ucs2;
+            result = PyString.FreshUnits(toUpper ? units.ToUpperInvariant() : units.ToLowerInvariant());
             return true;
         }
 
-        internal static string Upper(string s)
+        internal static PyString Upper(PyString s)
         {
-            if (TryAsciiMap(s, true, out string asciiResult)) return asciiResult;
-            int[] cps = Scratch(s.Length);
+            if (TryAsciiMap(s, true, out PyString asciiResult)) return asciiResult;
+            int[] cps = Scratch(s.CodePointLength());
             int n = FillCodePoints(s, cps);
-            var sb = new StringBuilder(n + 2);
+            var sb = new PyUnicodeWriter();
             bool changed = false;
             for (int i = 0; i < n; i++) changed |= AppendFull(UnicodeType.ToUpperFull, sb, cps[i]);
-            return changed ? sb.ToString() : s;
+            return Result(sb, changed, s);
         }
 
-        internal static string Lower(string s)
+        internal static PyString Lower(PyString s)
         {
-            if (TryAsciiMap(s, false, out string asciiResult)) return asciiResult;
-            int[] cps = Scratch(s.Length);
+            if (TryAsciiMap(s, false, out PyString asciiResult)) return asciiResult;
+            int[] cps = Scratch(s.CodePointLength());
             int n = FillCodePoints(s, cps);
-            var sb = new StringBuilder(n + 2);
+            var sb = new PyUnicodeWriter();
             bool changed = false;
             for (int i = 0; i < n; i++)
             {
                 if (cps[i] == 0x3A3) { AppendCp(sb, HandleCapitalSigma(cps, i, n)); changed = true; }
                 else changed |= AppendFull(UnicodeType.ToLowerFull, sb, cps[i]);
             }
-            return changed ? sb.ToString() : s;
+            return Result(sb, changed, s);
         }
 
         /// <summary>
         /// do_title: title-case a character when the preceding character was not cased, lower-case
         /// it otherwise. previous_is_cased reads the ORIGINAL string, so "ǅungla".title() keeps ǅ.
         /// </summary>
-        internal static string Title(string s)
+        internal static PyString Title(PyString s)
         {
-            int[] cps = Scratch(s.Length);
+            int[] cps = Scratch(s.CodePointLength());
             int n = FillCodePoints(s, cps);
-            var sb = new StringBuilder(n + 2);
+            var sb = new PyUnicodeWriter();
             bool changed = false;
             bool previousIsCased = false;
             for (int i = 0; i < n; i++)
@@ -189,31 +170,31 @@ namespace SharpPy
                 }
                 previousIsCased = UnicodeType.IsCased(cp);
             }
-            return changed ? sb.ToString() : s;
+            return Result(sb, changed, s);
         }
 
         /// <summary>do_capitalize: first character through the TITLE mapping, the rest lowered.</summary>
-        internal static string Capitalize(string s)
+        internal static PyString Capitalize(PyString s)
         {
-            if (s.Length == 0) return s;
-            int[] cps = Scratch(s.Length);
+            if (s.CodePointLength() == 0) return PyString.Empty;
+            int[] cps = Scratch(s.CodePointLength());
             int n = FillCodePoints(s, cps);
-            var sb = new StringBuilder(n + 2);
+            var sb = new PyUnicodeWriter();
             AppendFull(UnicodeType.ToTitleFull, sb, cps[0]);
             for (int i = 1; i < n; i++)
             {
                 if (cps[i] == 0x3A3) AppendCp(sb, HandleCapitalSigma(cps, i, n));
                 else AppendFull(UnicodeType.ToLowerFull, sb, cps[i]);
             }
-            return sb.ToString();
+            return sb.Finish(fresh: true);
         }
 
         /// <summary>do_swapcase: uppercase lowers, lowercase uppercases, everything else stays.</summary>
-        internal static string SwapCase(string s)
+        internal static PyString SwapCase(PyString s)
         {
-            int[] cps = Scratch(s.Length);
+            int[] cps = Scratch(s.CodePointLength());
             int n = FillCodePoints(s, cps);
-            var sb = new StringBuilder(n + 2);
+            var sb = new PyUnicodeWriter();
             bool changed = false;
             for (int i = 0; i < n; i++)
             {
@@ -232,29 +213,29 @@ namespace SharpPy
                     AppendCp(sb, cp);
                 }
             }
-            return changed ? sb.ToString() : s;
+            return Result(sb, changed, s);
         }
 
         /// <summary>do_casefold: the full case-folding mapping, multi-code-point included.</summary>
-        internal static string CaseFold(string s)
+        internal static PyString CaseFold(PyString s)
         {
-            if (TryAsciiMap(s, false, out string asciiResult)) return asciiResult;
-            int[] cps = Scratch(s.Length);
+            if (TryAsciiMap(s, false, out PyString asciiResult)) return asciiResult;
+            int[] cps = Scratch(s.CodePointLength());
             int n = FillCodePoints(s, cps);
-            var sb = new StringBuilder(n + 2);
+            var sb = new PyUnicodeWriter();
             bool changed = false;
             for (int i = 0; i < n; i++) changed |= AppendFull(UnicodeType.ToFoldedFull, sb, cps[i]);
-            return changed ? sb.ToString() : s;
+            return Result(sb, changed, s);
         }
 
         /// <summary>unicode_isupper_impl.</summary>
-        internal static bool IsUpper(string s)
+        internal static bool IsUpper(PyString s)
         {
             bool cased = false;
-            for (int i = 0; i < s.Length; i++)
+            int length = s.CodePointLength();
+            for (int i = 0; i < length; i++)
             {
-                int cp = CodePointAt(s, i, out int width);
-                i += width - 1;
+                int cp = s.ReadChar(i);
                 if (UnicodeType.IsLowercase(cp) || UnicodeType.IsTitlecase(cp)) return false;
                 if (!cased && UnicodeType.IsUppercase(cp)) cased = true;
             }
@@ -262,13 +243,13 @@ namespace SharpPy
         }
 
         /// <summary>unicode_islower_impl.</summary>
-        internal static bool IsLower(string s)
+        internal static bool IsLower(PyString s)
         {
             bool cased = false;
-            for (int i = 0; i < s.Length; i++)
+            int length = s.CodePointLength();
+            for (int i = 0; i < length; i++)
             {
-                int cp = CodePointAt(s, i, out int width);
-                i += width - 1;
+                int cp = s.ReadChar(i);
                 if (UnicodeType.IsUppercase(cp) || UnicodeType.IsTitlecase(cp)) return false;
                 if (!cased && UnicodeType.IsLowercase(cp)) cased = true;
             }
@@ -276,14 +257,14 @@ namespace SharpPy
         }
 
         /// <summary>unicode_istitle_impl.</summary>
-        internal static bool IsTitle(string s)
+        internal static bool IsTitle(PyString s)
         {
             bool cased = false;
             bool previousIsCased = false;
-            for (int i = 0; i < s.Length; i++)
+            int length = s.CodePointLength();
+            for (int i = 0; i < length; i++)
             {
-                int cp = CodePointAt(s, i, out int width);
-                i += width - 1;
+                int cp = s.ReadChar(i);
                 if (UnicodeType.IsUppercase(cp) || UnicodeType.IsTitlecase(cp))
                 {
                     if (previousIsCased) return false;
@@ -302,19 +283,6 @@ namespace SharpPy
                 }
             }
             return cased;
-        }
-
-        private static int CodePointAt(string s, int i, out int width)
-        {
-            char c = s[i];
-            if (c < 0x80) { width = 1; return c; }
-            if (char.IsHighSurrogate(c) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
-            {
-                width = 2;
-                return char.ConvertToUtf32(c, s[i + 1]);
-            }
-            width = 1;
-            return c;
         }
     }
 }
