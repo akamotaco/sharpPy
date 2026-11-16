@@ -708,7 +708,6 @@ namespace SharpPy.Modules
         // CPython 3.12: Python/sysmodule.c sys.getrecursionlimit / sys.setrecursionlimit.
         private static int RecursionLimitValue = 1000;
         internal static int RecursionLimit => RecursionLimitValue;
-        private static readonly Dictionary<PyString, PyString> InternTable = new(PyString.ContentComparer);
 
         // sys.excepthook(type, value, traceback) prints the report on sys.stderr.
         // sys_breakpointhook: $PYTHONBREAKPOINT names the hook, and what cannot be imported is ignored with a warning.
@@ -780,26 +779,9 @@ namespace SharpPy.Modules
             return Intern(s);
         }
 
-        // PyUnicode_InternInPlace
-        internal static PyString Intern(PyString text)
-        {
-            lock (InternTable)
-            {
-                if (!InternTable.TryGetValue(text, out var canon))
-                {
-                    canon = text;
-                    InternTable[text] = canon;
-                }
-                return canon;
-            }
-        }
+        internal static PyString Intern(PyString text) => PyString.Intern(text);
 
-        // PyUnicode_CHECK_INTERNED
-        internal static bool IsInterned(PyString text)
-        {
-            lock (InternTable)
-                return InternTable.TryGetValue(text, out var canon) && ReferenceEquals(canon, text);
-        }
+        internal static bool IsInterned(PyString text) => PyString.IsInterned(text);
 
         /// <summary>
         /// CPython 3.12: sys._getframe(depth=0)

@@ -990,6 +990,7 @@ namespace SharpPy
             // An exact str is the key; a str subclass's copy is (_PyUnicode_Copy, then interned).
             if (!nameObject.IsExactly(StrType))
                 nameObject = nameObject.Copy();
+            nameObject = PyString.Intern(nameObject);
             string name = nameObject.Value;
             if (HasFeature(PyTypeFlags.ImmutableType))
             {

@@ -140,16 +140,10 @@ if (args.Length > 0 && args[0] == "--dict-copy-probe")
 
 if (args.Length > 0 && args[0] == "--globals-observation-probe")
 {
-    var observedBindings = new Dictionary<string, PyObject>();
+    var observedBindings = new PyNamespace();
     var observedValue = new PyInt(7);
     for (int i = 0; i < 100; i++) observedBindings["seed_" + i] = observedValue;
-    PyDict observedGlobals = new PyGlobalsDict(observedBindings);
-    if (args.Contains("--owned"))
-    {
-        var owned = new PyNamespace();
-        foreach (var pair in observedBindings) owned[pair.Key] = pair.Value;
-        observedGlobals = owned.PythonDictionary;
-    }
+    PyDict observedGlobals = observedBindings.PythonDictionary;
     var observationResults = new List<object>();
     foreach (string operation in args.Length > 1 ? new[] { args[1] } : new[] { "length", "copy", "construct" })
     {
@@ -165,7 +159,7 @@ if (args.Length > 0 && args[0] == "--globals-observation-probe")
                 {
                     if (observedGlobals.Length() != 100) throw new InvalidOperationException("length probe failed");
                 }
-                else last = operation == "copy" ? observedGlobals.Copy() : new PyGlobalsDict(observedBindings);
+                else last = operation == "copy" ? observedGlobals.Copy() : new PyNamespace(observedGlobals.Copy()).PythonDictionary;
             }
             if (last.Length() != 100) throw new InvalidOperationException("observation probe failed");
             GC.KeepAlive(last);
@@ -192,10 +186,10 @@ if (args.Length > 0 && args[0] == "--globals-observation-probe")
 
 if (args.Length > 0 && args[0] == "--globals-read-probe")
 {
-    var readBindings = new Dictionary<string, PyObject>();
+    var readBindings = new PyNamespace();
     var readValue = new PyInt(7);
     for (int i = 0; i < 100; i++) readBindings["seed_" + i] = readValue;
-    var readGlobals = new PyGlobalsDict(readBindings);
+    var readGlobals = readBindings.PythonDictionary;
     var readKey = new PyString("seed_50");
     void ReadGlobals()
     {
@@ -225,10 +219,10 @@ if (args.Length > 0 && args[0] == "--globals-read-probe")
 
 if (args.Length > 0 && args[0] == "--globals-update-probe")
 {
-    var moduleBindings = new Dictionary<string, PyObject>();
+    var moduleBindings = new PyNamespace();
     var probeValue = new PyInt(7);
     for (int i = 0; i < 100; i++) moduleBindings["seed_" + i] = probeValue;
-    var globals = new PyGlobalsDict(moduleBindings);
+    var globals = moduleBindings.PythonDictionary;
     var changes = new PyDict();
     changes.SetItem(new PyString("updated"), probeValue);
     void UpdateGlobals()
@@ -249,7 +243,7 @@ if (args.Length > 0 && args[0] == "--globals-update-probe")
         globalsAllocations[i] = GC.GetAllocatedBytesForCurrentThread() - allocated;
     }
     Console.WriteLine(JsonSerializer.Serialize(new { iterations = 10000, initial_namespace_size = 100,
-        source_keys = 1, warmups = 10, scope = "Native PyGlobalsDict.Update; excludes Python VM",
+        source_keys = 1, warmups = 10, scope = "Native dict Update of a namespace's dict; excludes Python VM",
         milliseconds = globalsTimes, allocated_bytes = globalsAllocations }));
     return;
 }

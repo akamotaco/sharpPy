@@ -4,8 +4,9 @@ internal static class HostNamespaceProbe
 {
     public static object Run()
     {
-        var source = new Dictionary<string, PyObject> { ["value"] = new PyInt(1) };
-        var view = new PyGlobalsDict(source);
+        // The host's namespace and the dict it is a view of: one store.
+        var source = new PyNamespace { ["value"] = new PyInt(1) };
+        var view = source.PythonDictionary;
         var key = new PyString("value");
         var rows = new List<object>();
         void Check(string name, long expected, PyObject actual) => rows.Add(new {
@@ -25,7 +26,6 @@ internal static class HostNamespaceProbe
         Check("direct host deletion reaches membership", 0, new PyInt(view.ContainsKey(key) ? 1 : 0));
         Check("direct host deletion reaches copied membership", 0, new PyInt(view.Copy().ContainsKey(key) ? 1 : 0));
         source["value"] = new PyInt(5);
-        view.SynchronizeFromHost();
         Check("explicit synchronization reaches values", 5, view.Values().Items[1]);
         var nonString = new PyInt(99);
         view.SetItem(nonString, new PyInt(6));
@@ -59,6 +59,6 @@ internal static class HostNamespaceProbe
         Check("host clear updates retained key collection", 0, new PyInt(retainedKeys.Count));
         mapping.Clear();
         Check("Python clear reaches host", 0, new PyInt(host.Count));
-        return new { scope = "Legacy snapshots and tracked module host writes", cases = rows };
+        return new { scope = "Host namespace views and module host writes", cases = rows };
     }
 }

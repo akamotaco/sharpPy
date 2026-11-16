@@ -73,6 +73,6 @@ internal static class ComparisonCacheProbe
     {
         internal readonly PyObject Result = new PyString("host comparison");
         internal HostNumber(PyClass cls, PyInt value) : base(cls, value) { }
-        protected internal override PyObject TpRichCompare(PyObject other, CompareOp op) => Result;
+        protected override PyObject TpRichCompare(PyObject other, CompareOp op) => Result;
     }
 }

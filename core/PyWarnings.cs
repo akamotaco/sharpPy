@@ -335,7 +335,7 @@ namespace SharpPy
             }
             else
             {
-                globals = PyGlobalsDict.DictOf(frame.Globals);
+                globals = frame.Globals.Dict;
                 filename = PyString.From(frame.Code.FileName);
                 lineno = frame.CurrentLineNumber;
             }

@@ -154,9 +154,9 @@ namespace SharpPy
                 // _PyRun_SimpleFileObject: __file__ and __cached__ = None, then set_main_loader(d,
                 // filename, "SourceFileLoader").
                 var main = _globalScope.GlobalScope.Variables;
-                PyGlobalsDict.Store(main, "__file__", PyString.From(fileName));
-                PyGlobalsDict.Store(main, "__cached__", PyNone.Instance);
-                PyGlobalsDict.Store(main, "__loader__", PyImportSystem.MainLoader(fileName));
+                main["__file__"] = PyString.From(fileName);
+                main["__cached__"] = PyNone.Instance;
+                main["__loader__"] = PyImportSystem.MainLoader(fileName);
             }
             // Fix: Handle all line ending types correctly (\r\n, \r, \n)
             

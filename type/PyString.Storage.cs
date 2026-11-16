@@ -427,14 +427,50 @@ namespace SharpPy
         private sealed class ContentEquality : IEqualityComparer<PyString>
         {
             public bool Equals(PyString x, PyString y) => x.ContentEquals(y);
-            public int GetHashCode(PyString obj) => StringComparer.Ordinal.GetHashCode(obj.Value);
+            public int GetHashCode(PyString obj) => obj.HashCodePoints().GetHashCode();
         }
 
-        /// <summary>unicode_hash: the bytes of the kind's data.</summary>
+        // interned strings: each text's one object.
+        private static readonly Dictionary<PyString, PyString> InternTable = new(ContentComparer);
+
+        /// <summary>
+        /// PyUnicode_InternInPlace: the one object of this text, which is this exact str when the
+        /// text was not interned before. Names are interned (code objects' names, the keys
+        /// PyDict_SetItemString and type_setattro store), so their lookups meet the same object.
+        /// </summary>
+        internal static PyString Intern(PyString text)
+        {
+            lock (InternTable)
+            {
+                if (!InternTable.TryGetValue(text, out var canon))
+                {
+                    canon = text;
+                    InternTable[text] = canon;
+                }
+                return canon;
+            }
+        }
+
+        /// <summary>PyUnicode_InternFromString: the interned str of a .NET text.</summary>
+        internal static PyString InternFrom(string text) => Intern(From(text));
+
+        /// <summary>PyUnicode_CHECK_INTERNED</summary>
+        internal static bool IsInterned(PyString text)
+        {
+            lock (InternTable)
+                return InternTable.TryGetValue(text, out var canon) && ReferenceEquals(canon, text);
+        }
+
+        // ob_shash: the hash once worked out (-1, which no hash is, until then).
+        private long _hash = -1;
+
+        /// <summary>unicode_hash: the bytes of the kind's data, kept in the object (ob_shash).</summary>
         private long HashCodePoints()
         {
+            if (_hash != -1)
+                return _hash;
             Resolve();
-            return _kind == 4 ? PyHash.Ucs4(_ucs4) : PyHash.Ucs2(_text);
+            return _hash = _kind == 4 ? PyHash.Ucs4(_ucs4) : PyHash.Ucs2(_text);
         }
     }
 

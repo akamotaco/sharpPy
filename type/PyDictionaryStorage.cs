@@ -134,12 +134,19 @@ namespace SharpPy
                         if (ReferenceEquals(entry.Key, key)) { slot = position; return index; }
                         if (entry.Hash == hash)
                         {
+                            // unicode_eq: two exact str compare their characters, no callback.
+                            if (entry.Key is PyString stored && key is PyString probe && stored.IsExact && probe.IsExact)
+                            {
+                                if (stored.ContentEquals(probe)) { slot = position; return index; }
+                                goto next;
+                            }
                             bool equal = PyObject.CompareBool(entry.Key, key, PyObject.CompareOp.EQ);
                             // A callback may clear, resize or remove the candidate.
                             if (!ReferenceEquals(table, indices) || !ReferenceEquals(entries[index].Key, entry.Key)) break;
                             if (equal) { slot = position; return index; }
                         }
                     }
+                next:
                     perturb >>= 5;
                     position = (int)(((uint)position * 5 + perturb + 1) & (uint)mask);
                 }

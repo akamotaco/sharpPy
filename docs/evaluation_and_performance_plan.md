@@ -12,7 +12,7 @@
 동일할 수 없는 관측량 / 결과는 같게 만들어야 하는 자원 상태" 구분을 담고 있으므로, 이 계열을
 다루기 전에 먼저 읽는다.
 
-현재 우선 작업은 **namespace의 중복 저장·동기화 경로 정리** 하나다.
+**namespace의 중복 저장·동기화 경로 정리**는 2026-11-16에 끝났다(아래 표 2번). 아래 단락은 그 작업의 기준으로 남긴다.
 CPython의 진입점·호출 경로, 기존 실패 재현, 실제 호스트 호출자를 먼저 대응시킨다.
 PyNamespace/PyGlobalsDict/cache/legacy adapter의 역할과 제거할 경로를 정하고,
 기존 호출자 이전까지 포함해 수정한다. 새 경로를 추가하는 것으로 해결을 대신하지 않는다.
@@ -24,7 +24,7 @@ PyNamespace/PyGlobalsDict/cache/legacy adapter의 역할과 제거할 경로를 
 | 원래 항목 | 현재 판정 | 남은 문제 |
 | --- | --- | --- |
 | 1. 자원 수명 | 부분 수정 | GC 수거 후 누수는 수정. 마지막 Python 참조 삭제 직후 해제는 미해결. mutable view 정리 비용 약 2.4% 증가. |
-| 2. 호스트 mapping | 부분 수정·현재 우선 작업 | 새 namespace와 기존 adapter/cache의 중복 경로, raw 변경 이력 제한, VM read 약 1.8% 지연. |
+| 2. 호스트 mapping | 정리됨 (2026-11-16) | 저장소는 dict 하나다: 모듈의 md_dict, 프레임의 f_globals, 함수의 func_globals가 `PyDict`이고 `PyNamespace`는 그 위의 상태 없는 문자열 키 뷰다. `PyGlobalsDict`(문자열 캐시 동기화와 raw `Dictionary` legacy 모드)와 `PyDictVariables`는 지웠다(−409줄). LOAD_GLOBAL은 `_PyDict_LoadGlobal`처럼 코드의 이름 객체로 찾는다. 이름은 intern된다(`intern_strings`, `PyDict_SetItemString`, `type_setattro`), str은 해시를 지닌다(ob_shash), dict는 정확한 str 두 개를 문자로 비교한다(`unicode_eq`). 같은 스크립트 전후(최소 5회): 전역 읽기 146.7→144.2ms, 쓰기 34.2→27.8, builtins 75.4→81.2(+7%), 모듈 속성 152.6→144.2, exec 58.3→55.9, globals() 68.3→60.3. |
 | 3. set/비교 비용 | 부분 최적화 | 저장소당 8B 감소. 기존 기준 대비 작은 set 잔여 +216B/회 및 비교 dispatch 비용. |
 | 4. API 경계 | 부분 수정 | str subclass payload, async hooks/최종화, 전체 set 재진입 감사. |
 | 5. 포맷 | 부분 수정 | 공통·중첩 필드는 수정. 변경 가능한 locale와 CLR 크기 한계. |

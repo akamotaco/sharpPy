@@ -71,28 +71,32 @@ namespace SharpPy
     }
 
     /// <summary>
-    /// A globals namespace: a module's dict (md_dict) or the dict exec and eval were given, read
-    /// and written as PyGlobalsDict keeps the Python dict and the host view in step.
+    /// A globals namespace: a module's dict (md_dict) or the dict exec and eval were given; the
+    /// host reads and writes it through its PyNamespace view.
     /// </summary>
     public class PyScope
     {
-        public IDictionary<string, PyObject> Variables { get; }
+        /// <summary>The namespace: a view over the globals dict, Dict.</summary>
+        public PyNamespace Variables { get; }
+
+        /// <summary>f_globals: the dict itself.</summary>
+        internal PyDict Dict => Variables.Dict;
         public string Name { get; }
         // CPython 3.12: frame->f_globals references module->md_dict; globals() returns its dict.
         public PyModule Module { get; }
 
         public PyScope(string name) : this(null, name) { }
 
-        public PyScope(IDictionary<string, PyObject> existingVariables, string name, PyModule module = null)
+        public PyScope(PyNamespace existingVariables, string name, PyModule module = null)
         {
             Variables = existingVariables ?? new PyNamespace();
             Name = name;
             Module = module;
         }
 
-        public void SetVariable(string name, PyObject value) => PyGlobalsDict.Store(Variables, name, value);
+        public void SetVariable(string name, PyObject value) => Variables[name] = value;
 
-        public bool DeleteVariable(string name) => PyGlobalsDict.Delete(Variables, name);
+        public bool DeleteVariable(string name) => Variables.Remove(name);
 
         public PyObject GetVariable(string name) => Variables.TryGetValue(name, out PyObject value) ? value : null;
 
@@ -119,11 +123,11 @@ namespace SharpPy
         }
 
         // CPython 3.12: frame->f_globals references module->md_dict.
-        public PyScopeChain(IDictionary<string, PyObject> moduleDict, string moduleName, PyModule module = null)
+        public PyScopeChain(PyNamespace moduleDict, string moduleName, PyModule module = null)
         {
             GlobalScope = new PyScope(moduleDict, moduleName, module);
             // exec_code_in_module: only __main__ holds the module, other modules hold its dict.
-            if (moduleDict is not PyDictVariables && !moduleDict.ContainsKey("__builtins__"))
+            if (module != null && !moduleDict.ContainsKey("__builtins__"))
                 GlobalScope.SetVariable("__builtins__", moduleName == "__main__" ? BuiltinModule : BuiltinModule.GetAttribute("__dict__"));
         }
 

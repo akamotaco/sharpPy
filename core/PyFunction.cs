@@ -30,8 +30,8 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     public PyCodeObject? CodeObject { get; set; }           // 함수의 코드 객체
 
     // func_globals; setting it is PyFunction_New's moment, which also fixes func_builtins.
-    private IDictionary<string, PyObject>? _globals;
-    public IDictionary<string, PyObject>? GlobalsDict
+    private PyNamespace? _globals;
+    public PyNamespace? GlobalsDict
     {
         get => _globals;
         set { _globals = value; Builtins = PyFrame.BuiltinsFromGlobals(value); }
@@ -47,7 +47,6 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     private PyDict? _dict;
     public PyDict ObjectDict(bool create) => create ? _dict ??= new PyDict() : _dict;
     public void SetObjectDict(PyDict dict) => _dict = dict;
-    private PyDict? _globalsCache = null;
     private PyObject? _module;
     private PyTuple? _closureTuple;
     private PyCell[]? _closureSource;
@@ -124,8 +123,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
                 throw PyTypeError.Create($"arg 5 (closure) expected cell, found {cells[i].GetTypeName()}");
 
         var function = new PyFunction(name is PyString text ? text.Value : code.Name, null, null, null, closureCells, code);
-        function.GlobalsDict = PyVM.ScopeOver(globals).GlobalScope.Variables;
-        function._globalsCache = globals;
+        function.GlobalsDict = new PyNamespace(globals);
         if (defaults is not PyNone)
             function.SetAttribute("__defaults__", defaults);
         return function;
@@ -276,15 +274,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             funcType,
             getter: self => {
                 var func = (PyFunction)self;
-                if (func.GlobalsDict == null)
-                    return PyNone.Instance;
-
-                // Lazy-initialize and cache the globals dict wrapper
-                if (func._globalsCache == null)
-                {
-                    func._globalsCache = PyGlobalsDict.For(func.GlobalsDict);
-                }
-                return func._globalsCache;
+                return func.GlobalsDict?.Dict ?? (PyObject)PyNone.Instance;
             }
         );
 

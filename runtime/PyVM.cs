@@ -29,7 +29,7 @@ namespace SharpPy
         public PyFrame? ParentFrame { get; set; }     // 부모 프레임 (call stack)
 
         // CPython 3.12: f_globals - Reference to module's __dict__ for import resolution
-        public IDictionary<string, PyObject> Globals { get; private set; }
+        public PyNamespace Globals { get; private set; }
 
         private bool _builtinsResolved;
         private PyObject _ownBuiltins;
@@ -56,16 +56,16 @@ namespace SharpPy
         /// stands for its dict), else the current frame's (_PyEval_GetBuiltins). null is the
         /// builtins module itself, kept apart so its lookups stay the module's own.
         /// </summary>
-        internal static PyObject BuiltinsFromGlobals(IDictionary<string, PyObject> globals)
+        internal static PyObject BuiltinsFromGlobals(PyNamespace globals)
         {
-            if (globals == null || !globals.TryGetValue("__builtins__", out var found))
+            if (globals == null || !globals.Dict.TryGetStoredValue(BuiltinsName, out var found))
                 return PyVM.CurrentFrame?.OwnBuiltins;
-            if (ReferenceEquals(found, PyBuiltinsModule.Instance))
-                return null;
-            if (found is PyGlobalsDict live && ReferenceEquals(live.Variables, PyBuiltinsModule.Instance.ModuleDict))
+            if (ReferenceEquals(found, PyBuiltinsModule.Instance) || ReferenceEquals(found, PyBuiltinsModule.Instance.DictObject))
                 return null;
             return found;
         }
+
+        private static PyString BuiltinsName => PyString.From("__builtins__");
 
         /// <summary>The dict of builtins as PyEval_GetBuiltins and func.__builtins__ give it.</summary>
         internal static PyObject BuiltinsDict(PyObject builtins) => builtins switch
@@ -191,7 +191,7 @@ namespace SharpPy
             ParentFrame = parentFrame;
 
             // CPython 3.12: Initialize f_globals from ScopeChain.GlobalScope
-            Globals = ScopeChain.GlobalScope?.Variables ?? new Dictionary<string, PyObject>();
+            Globals = ScopeChain.GlobalScope?.Variables ?? new PyNamespace();
 
             // Initialize filename from code object
 
@@ -526,7 +526,7 @@ namespace SharpPy
                 "f_locals" => BuildLocalsDict(),
 
                 // f_globals: global namespace dictionary
-                "f_globals" => PyGlobalsDict.DictOf(Globals),
+                "f_globals" => Globals.Dict,
 
                 // f_builtins: built-in namespace dictionary (CPython returns the
                 // builtins module dict, which is iterable; the module object is not)
@@ -556,7 +556,7 @@ namespace SharpPy
 
             // A frame without a mapping of its own has its globals as its locals (module code,
             // exec in the globals): f_locals is that very dict.
-            var locals = ClassLocalsDict ?? PyGlobalsDict.DictOf(Globals);
+            var locals = ClassLocalsDict ?? Globals.Dict;
 
             // _PyFrame_GetLocals(frame, include_hidden=1): the fast locals of a comprehension
             // inlined in module or class code (CO_FAST_HIDDEN) are seen while it runs, in a copy
@@ -797,7 +797,7 @@ namespace SharpPy
         /// <summary>The scope of exec and eval: the given dict is the global scope itself.</summary>
         internal static PyScopeChain ScopeOver(PyDict globals)
         {
-            IDictionary<string, PyObject> variables = globals is PyGlobalsDict live ? live.Variables : new PyDictVariables(globals);
+            var variables = new PyNamespace(globals);
             string name = variables.TryGetValue("__name__", out var moduleName) && moduleName is PyString text ? text.Value : "builtins";
             return new PyScopeChain(variables, name, null);
         }
@@ -1434,28 +1434,40 @@ namespace SharpPy
         /// _PyDict_LoadGlobal; otherwise PyObject_GetItem of GLOBALS() then of BUILTINS(), so a dict
         /// subclass's __missing__ answers, a KeyError of both being the NameError.
         /// </summary>
-        private static PyObject LoadGlobal(PyFrame frame, string name)
+        private static PyObject LoadGlobal(PyFrame frame, PyString name)
         {
-            var globals = frame.ScopeChain.GlobalScope?.Variables;
-            var builtins = frame.OwnBuiltins;
-            bool exact = !(globals is PyDictVariables given && !given.Dict.IsExactly(PyType.DictType))
-                && (builtins == null || builtins is PyModule || builtins.IsExactly(PyType.DictType));
-            if (exact)
+            var globals = frame.Globals.Dict;
+            var builtins = PyFrame.BuiltinsDict(frame.OwnBuiltins);
+            if (globals.IsExactly(PyType.DictType) && builtins is PyDict { IsExact: true })
                 return GlobalOrBuiltin(frame, name);
-            var key = PyString.From(name);
-            try { return PyAbstract.GetItem(PyGlobalsDict.DictOf(globals), key); }
+            try { return PyAbstract.GetItem(globals, name); }
             catch (PythonException error) when (error.PyException is PyKeyError) { }
-            try { return PyAbstract.GetItem(PyFrame.BuiltinsDict(builtins), key); }
+            try { return PyAbstract.GetItem(builtins, name); }
             catch (PythonException error) when (error.PyException is PyKeyError)
             {
-                throw CreateNameErrorWithSuggestion(name, frame);
+                throw CreateNameErrorWithSuggestion(name.Value, frame);
             }
         }
 
-        // GLOBALS() then BUILTINS(): the tail of LOAD_NAME, and LOAD_GLOBAL over exact dicts; NameError past both.
-        private static PyObject GlobalOrBuiltin(PyFrame frame, string name) =>
-            frame.ScopeChain.GlobalScope?.GetVariable(name) ?? frame.Builtin(name)
-            ?? throw CreateNameErrorWithSuggestion(name, frame);
+        // _PyDict_LoadGlobal: GLOBALS() then BUILTINS(), the dicts' own tables; the tail of
+        // LOAD_NAME too. NameError past both.
+        private static PyObject GlobalOrBuiltin(PyFrame frame, PyString name)
+        {
+            if (frame.Globals.Dict.InternalDict.TryGetValue(name, out var value))
+                return value;
+            return LookupNamespaceMapping(PyFrame.BuiltinsDict(frame.OwnBuiltins), name)
+                ?? throw CreateNameErrorWithSuggestion(name.Value, frame);
+        }
+
+        // PyDict_DelItem of GLOBALS(): false when the name is not there.
+        private static bool RemoveGlobal(PyFrame frame, PyString name)
+        {
+            var globals = frame.Globals.Dict;
+            if (!globals.InternalDict.TryGetValue(name, out _))
+                return false;
+            globals.DictDelSub(name);
+            return true;
+        }
 
         private static PyObject LookupNamespaceMapping(PyObject mapping, PyString key)
         {
@@ -1733,7 +1745,7 @@ namespace SharpPy
                     // CPython 3.12: Python/generated_cases.c.h lines 1708-1770
                     // LOAD_NAME checks LOCALS() first (which is ClassLocalsDict in class body),
                     // then GLOBALS(), then BUILTINS()
-                    var name = frame.Code.Names[argument];
+                    var name = frame.Code.NameObjects[argument];
                     PyObject? value = null;
 
                     #if DEBUG_LOG
@@ -1748,7 +1760,7 @@ namespace SharpPy
                         Console.WriteLine($"🔍 LOAD_NAME({name}): Checking ClassLocalsDict first");
                         #endif
 
-                        value = LookupNamespaceMapping(frame.ClassLocalsDict, PyString.From(name));
+                        value = LookupNamespaceMapping(frame.ClassLocalsDict, name);
                     }
 
                     // GLOBALS(), then BUILTINS() (lines 1736-1767). Without a mapping of its own the
@@ -1855,7 +1867,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.STORE_NAME:
-                    var storeName = frame.Code.Names[argument];
+                    var storeName = frame.Code.NameObjects[argument];
                     var storeValue = frame.ValueStack.Pop();
 
                     // CPython 3.12: If executing class body with __prepare__ dict subclass,
@@ -1865,12 +1877,12 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"📝 STORE_NAME to ClassLocalsDict: {storeName} = {storeValue?.GetType().Name}");
                         #endif
-                        frame.ClassLocalsDict.SetItem(PyString.From(storeName), storeValue);
+                        frame.ClassLocalsDict.SetItem(storeName, storeValue);
                     }
                     else
                     {
-                        // The frame's locals are its globals.
-                        frame.ScopeChain.GlobalScope.SetVariable(storeName, storeValue);
+                        // The frame's locals are its globals: PyDict_SetItem.
+                        frame.Globals.Dict.DictAssSub(storeName, storeValue);
                     }
                     break;
 
@@ -1881,8 +1893,8 @@ namespace SharpPy
                         DeleteNamespaceName(frame, deleteName);
                         break;
                     }
-                    // The frame's locals are its globals.
-                    if (frame.ScopeChain.GlobalScope?.DeleteVariable(deleteName) == true)
+                    // The frame's locals are its globals: PyDict_DelItem.
+                    if (RemoveGlobal(frame, frame.Code.NameObjects[argument]))
                         break;
                     throw CreateNameErrorWithSuggestion(deleteName, frame);
 
@@ -1892,7 +1904,7 @@ namespace SharpPy
                     bool pushNull = (globalOparg & 1) == 1;
                     int globalNameIndex = globalOparg >> 1;
 
-                    var globalName = frame.Code.Names[globalNameIndex];
+                    var globalName = frame.Code.NameObjects[globalNameIndex];
 
                     // CPython 3.12: Push NULL first if flag is set
                     if (pushNull)
@@ -1930,10 +1942,10 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.STORE_GLOBAL:
-                    var storeGlobalName = frame.Code.Names[argument];
+                    var storeGlobalName = frame.Code.NameObjects[argument];
                     var storeGlobalValue = frame.ValueStack.Pop();
-                    // STORE_GLOBAL must always store to GlobalScope, not CurrentScope
-                    frame.ScopeChain.GlobalScope.SetVariable(storeGlobalName, storeGlobalValue);
+                    // PyDict_SetItem(GLOBALS(), name, v)
+                    frame.Globals.Dict.DictAssSub(storeGlobalName, storeGlobalValue);
 #if DEBUG_LOG
                     Console.WriteLine($"📝 STORE_GLOBAL: {storeGlobalName} = {storeGlobalValue}");
 #endif
@@ -1942,7 +1954,7 @@ namespace SharpPy
                 case ByteCodeOp.DELETE_GLOBAL:
                     // CPython 3.12: Delete global variable
                     var deleteGlobalName = frame.Code.Names[argument];
-                    if (frame.ScopeChain.GlobalScope?.DeleteVariable(deleteGlobalName) == true)
+                    if (RemoveGlobal(frame, frame.Code.NameObjects[argument]))
                     {
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 DELETE_GLOBAL: deleted global variable '{deleteGlobalName}'");
@@ -1968,9 +1980,9 @@ namespace SharpPy
                     else
                     {
                         // LOCALS() of module code is its globals.
-                        var targetScope = frame.ScopeChain.GlobalScope;
-                        if (targetScope.GetVariable(annotationsKey.Value) == null)
-                            targetScope.SetVariable(annotationsKey.Value, new PyDict());
+                        var globalsDict = frame.Globals.Dict;
+                        if (!globalsDict.InternalDict.TryGetValue(annotationsKey, out _))
+                            globalsDict.DictAssSub(annotationsKey, new PyDict());
                     }
                     break;
 
@@ -3666,7 +3678,7 @@ namespace SharpPy
                     var level = frame.ValueStack.Pop();
                     var moduleName = frame.Code.NameObjects[argument];
                     var importer = frame.Builtin("__import__") ?? throw PyImportError.Create("__import__ not found");
-                    var globalsDict = PyGlobalsDict.DictOf(frame.Globals);
+                    var globalsDict = frame.Globals.Dict;
                     if (!ReferenceEquals(importer, PyImportSystem.DefaultImportFunc))
                     {
                         var locals = frame.ClassLocalsDict ?? ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
@@ -3870,9 +3882,9 @@ namespace SharpPy
 
                 case ByteCodeOp.LOAD_FROM_DICT_OR_GLOBALS:
                     var globalsMapping = frame.ValueStack.Pop();
-                    var mappedName = frame.Code.Names[argument];
+                    var mappedName = frame.Code.NameObjects[argument];
                     // bytecodes.c: the mapping, then what LOAD_GLOBAL would answer.
-                    frame.ValueStack.Push(LookupNamespaceMapping(globalsMapping, PyString.From(mappedName))
+                    frame.ValueStack.Push(LookupNamespaceMapping(globalsMapping, mappedName)
                         ?? LoadGlobal(frame, mappedName));
                     break;
 

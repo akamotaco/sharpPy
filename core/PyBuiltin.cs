@@ -949,7 +949,7 @@ namespace SharpPy
                 if (currentFrame != null)
                 {
                     // Convert frame's globals to PyDict
-                    globals = PyGlobalsDict.For(currentFrame.Globals);
+                    globals = currentFrame.Globals.Dict;
 
                     // Convert frame's local scope to PyDict
                     if (locals == null && localsMapping == null)
@@ -1185,7 +1185,7 @@ namespace SharpPy
                 if (currentFrame != null)
                 {
                     // Convert frame's globals to PyDict
-                    globals = PyGlobalsDict.For(currentFrame.Globals);
+                    globals = currentFrame.Globals.Dict;
 
                     // Convert frame's local scope to PyDict
                     if (locals == null && localsMapping == null)
@@ -1709,32 +1709,9 @@ namespace SharpPy
                 throw PyTypeError.Create($"globals() takes no arguments ({args.Length} given)");
             }
 
-            // Get the current global scope from the VM
+            // PyEval_GetGlobals: the current frame's f_globals, None with no frame.
             var currentFrame = PyVM.CurrentFrame;
-            if (currentFrame == null)
-            {
-                return new PyDict(); // Return empty dict if no frame
-            }
-
-            // Get the global scope from the current frame's scope chain
-            var globalScope = currentFrame.ScopeChain?.GlobalScope;
-            if (globalScope == null)
-            {
-                return new PyDict(); // Return empty dict if no global scope
-            }
-
-            // CPython 3.12: Python/ceval.c:2392 - return current_frame->f_globals
-            // f_globals is the same as module->md_dict
-            // In SharpPy: GlobalScope.Module references the PyModule, return its __dict__
-            if (globalScope.Module != null)
-            {
-                // Return the module's __dict__ - same object every time
-                // This ensures globals() is module.__dict__ (same object)
-                return globalScope.Module.GetAttribute("__dict__");
-            }
-
-            // Fallback: Use PyGlobalsDict which synchronizes with globalScope.Variables
-            return PyGlobalsDict.DictOf(globalScope.Variables);
+            return currentFrame?.Globals?.Dict ?? (PyObject)PyNone.Instance;
         }
 
         /// <summary>

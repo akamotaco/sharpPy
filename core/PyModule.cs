@@ -15,7 +15,8 @@ public class PyModule : PyObject
 {
     public string Name { get; private set; }
     public string FileName { get; }
-    public IDictionary<string, PyObject> ModuleDict { get; }  // __dict__ (Variable == Attribute)
+    /// <summary>md_dict as the host reads it: string keys over DictObject.</summary>
+    public PyNamespace ModuleDict { get; }
     public List<string> All { get; set; }  // __all__
     public bool IsInitialized { get; private set; }
     // True only for modules loaded from a real source file (via LoadModuleFromFile).
@@ -25,12 +26,8 @@ public class PyModule : PyObject
     // The bundle this module came from: its submodules are looked up there.
     internal PyBundle Bundle { get; set; }
 
-    // CPython 3.12 requirement: module.__dict__ is module.__dict__ must be True
-    // Cache the PyDict wrapper to ensure identity consistency
-    private PyDict _cachedDict;
-
     // md_dict, the one dict object of the module (frame->f_globals of its code).
-    internal PyDict DictObject => _cachedDict ??= PyGlobalsDict.For(ModuleDict);
+    internal PyDict DictObject => ModuleDict.Dict;
 
     public PyModule(string name, string fileName = null)
     {
@@ -184,7 +181,7 @@ public class PyModule : PyObject
             PyClassInstance.CallDescriptorSet(descriptor, this, value);
             return;
         }
-        PyGlobalsDict.Store(ModuleDict, nameObject, value);
+        DictObject.DictAssSub(nameObject, value);
     }
     
     // Variable 접근 (LEGB의 G 스코프)
@@ -193,10 +190,7 @@ public class PyModule : PyObject
         return ModuleDict.TryGetValue(name, out PyObject value) ? value : null;
     }
     
-    public void SetVariable(string name, PyObject value)
-    {
-        PyGlobalsDict.Store(ModuleDict, name, value);
-    }
+    public void SetVariable(string name, PyObject value) => ModuleDict[name] = value;
 
     
     // module_setattro with NULL: the name goes from the module's dict.
