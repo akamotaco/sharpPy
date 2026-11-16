@@ -84,11 +84,7 @@ namespace SharpPy
 
         // gi_name / cr_name: the object it was given, the same one at every read.
         private PyObject _name;
-        public string Name
-        {
-            get => ((PyString)NameObject).Value;
-            set => _name = PyString.From(value);
-        }
+        public string Name => ((PyString)NameObject).Value;
         internal PyObject NameObject
         {
             get => _name ??= PyString.Empty;
@@ -113,17 +109,16 @@ namespace SharpPy
             ? PyRuntimeError.Create("cannot reuse already awaited coroutine")
             : PyStopIteration.Create();
 
-        public PyGenerator(PyFrame frame, PyVM vm, string name = "<generator>") : this(frame, vm, name, GenKind.Generator) { }
-
-        internal PyGenerator(PyFrame frame, PyVM vm, string name, GenKind kind)
+        // make_gen: gi_name and gi_qualname are func_name and func_qualname.
+        internal PyGenerator(PyFrame frame, PyVM vm, PyString name, PyString qualname, GenKind kind = GenKind.Generator)
         {
             Kind = kind;
             _frame = frame ?? throw new ArgumentNullException(nameof(frame));
             _vm = vm ?? throw new ArgumentNullException(nameof(vm));
             _finished = false;
             _frame.OwnerGenerator = this;
-            Name = name;
-            Qualname = PyString.From(frame.Code.QualName ?? name);
+            _name = name;
+            Qualname = qualname;
             
             // 제너레이터 플래그 설정
             _frame.IsGenerator = true;
@@ -147,7 +142,8 @@ namespace SharpPy
 
         #region String Representation
 
-        protected internal override PyString Repr() => PyString.From($"<generator object {((PyString)Qualname).Value} at {PyObjectId.Pointer(this)}>");
+        // gen_repr
+        protected internal override PyString Repr() => PyErrFormat.FromFormat("<generator object %S at %p>", Qualname, this);
 
         #endregion
 

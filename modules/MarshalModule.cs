@@ -255,8 +255,8 @@ namespace SharpPy.Modules
                 Object(PyTuple.From(Array.ConvertAll(code.LocalsPlusNames, name => (PyObject)name)));
                 Object(PyBytes.From((byte[])kinds.Clone()));
                 Object(PySysFunction.Intern((PyString)code.GetAttribute("co_filename")));
-                Object(PySysFunction.Intern((PyString)code.GetAttribute("co_name")));
-                Object(PySysFunction.Intern((PyString)code.GetAttribute("co_qualname")));
+                Object(code.CoName);
+                Object(code.CoQualName);
                 Long(code.GetFirstLineNo());
                 Object(PyBytes.From(code.Tables.LineTable));
                 Object(PyBytes.From(code.Tables.ExceptionTable));
@@ -650,8 +650,8 @@ namespace SharpPy.Modules
                 var localNames = Names(Field(typeof(PyTuple)));
                 var kinds = ((PyBytes)Field(typeof(PyBytes))).Value;
                 string fileName = ((PyString)Field(typeof(PyString))).Value;
-                string name = ((PyString)Field(typeof(PyString))).Value;
-                string qualName = ((PyString)Field(typeof(PyString))).Value;
+                var name = (PyString)Field(typeof(PyString));
+                var qualName = (PyString)Field(typeof(PyString));
                 int firstLineNo = Long();
                 var lineTable = (PyBytes)Field(typeof(PyBytes));
                 var exceptionTable = (PyBytes)Field(typeof(PyBytes));

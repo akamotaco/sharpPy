@@ -95,16 +95,15 @@ namespace SharpPy.Core
         // coroutine: its errors say "coroutine" and a finished one cannot be reused.
         internal readonly PyGenerator Core;
 
-        public string Name { get => Core.Name; set => Core.Name = value; }
+        public string Name => Core.Name;
         internal PyObject NameObject { get => Core.NameObject; set => Core.NameObject = value; }
         public PyObject Qualname { get => Core.Qualname; set => Core.Qualname = value; }
         public bool IsFinished => Core.IsFinished;
         internal PyFrame Frame => Core.Frame;
 
-        public PyCoroutine(PyFrame frame, PyVM vm, string name, string qualname = null)
+        internal PyCoroutine(PyFrame frame, PyVM vm, PyString name, PyString qualname)
         {
-            Core = new PyGenerator(frame ?? throw new ArgumentNullException(nameof(frame)), vm, name, PyGenerator.GenKind.Coroutine);
-            Core.Qualname = PyString.From(qualname ?? frame.Code.QualName ?? name);
+            Core = new PyGenerator(frame ?? throw new ArgumentNullException(nameof(frame)), vm, name, qualname, PyGenerator.GenKind.Coroutine);
             frame.OwnerGenerator = this;
             frame.IsCoroutine = true;
             if (OriginDepth > 0)

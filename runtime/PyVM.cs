@@ -151,7 +151,8 @@ namespace SharpPy
         /// CPython reference: Python/ceval.c:1621-1658
         /// </summary>
         public static PyFrame CreateWithKwargs(PyCodeObject code, PyObject[] args, PyDict kwargs,
-            PyScopeChain parentScope = null, PyCell[] closure = null, PyTuple defaults = null, PyDict kwdefaults = null, PyFrame parentFrame = null)
+            PyScopeChain parentScope = null, PyCell[] closure = null, PyTuple defaults = null, PyDict kwdefaults = null, PyFrame parentFrame = null,
+            PyString funcQualname = null)
         {
             // CPython 3.12: Line 1628 - _PyStack_UnpackDict converts kwargs dict to (args + kwnames) format
             var names = new PyObject[kwargs.InternalDict.Count];
@@ -165,10 +166,11 @@ namespace SharpPy
             }
             // kwnames is call metadata, not a Python frame. In particular, creating
             // a holder frame must not push an artificial local scope into parentScope.
-            return new PyFrame(code, finalArgs, parentScope, closure, parentFrame, defaults, kwdefaults, PyTuple.From(names));
+            return new PyFrame(code, finalArgs, parentScope, closure, parentFrame, defaults, kwdefaults, PyTuple.From(names), funcQualname);
         }
 
-        public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null, PyDict kwdefaults = null, PyTuple keywordNames = null)
+        public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null, PyDict kwdefaults = null, PyTuple keywordNames = null,
+            PyString funcQualname = null)
         {
 #if DEBUG_LOG
             Console.WriteLine($"🆕 PyFrame 생성: {code.Name}, args={args.Length}개");
@@ -201,23 +203,15 @@ namespace SharpPy
             // A function's locals are its localsplus slots, a class body's and exec's are its
             // mapping; neither is a scope pushed on the chain, which holds the globals.
 
-            // CPython 3.12 호환: 매개변수 바인딩 (키워드 인수 지원)
+            // initialize_locals(func, ...): its errors name func_qualname; code run without a
+            // function of its own has the one PyEval_EvalCode makes, whose fc_qualname is co_name.
+            _callName = funcQualname ?? code.CoName;
             InitializeLocals(args, code, defaults, kwdefaults, keywordNames);
         }
 
+        private readonly PyString _callName;
 
-        /// <summary>The name argument errors use. CPython reports func_qualname, which an assignment to
-        /// __qualname__ moves away from the code object; dataclasses does that for every method it builds.</summary>
-        [ThreadStatic] internal static string CallingQualName;
 
-        private static string CallName(PyCodeObject code) => CallingQualName ?? BindErrorName(code.DisplayQualName);
-
-        internal static string BindErrorName(string codeName)
-        {
-            if (string.IsNullOrEmpty(codeName))
-                return "<lambda>";
-            return codeName;
-        }
 
         /// <summary>
         /// initialize_locals (Python/ceval.c): the positional arguments into their slots and the
@@ -254,7 +248,7 @@ namespace SharpPy
                 var keyword = kwnames.Items[i];
                 var value = args[argcount + i];
                 if (keyword is not PyString)
-                    throw PyErrFormat.Format(PyType.TypeErrorType, "%s() keywords must be strings", CallName(code));
+                    throw PyErrFormat.Format(PyType.TypeErrorType, "%U() keywords must be strings", _callName);
                 int j = FindKeyword(names, code.PosonlyArgCount, totalArgs, keyword);
                 if (j < 0)
                 {
@@ -262,13 +256,13 @@ namespace SharpPy
                     {
                         if (code.PosonlyArgCount != 0)
                             PositionalOnlyPassedAsKeyword(code, kwnames);
-                        throw PyErrFormat.Format(PyType.TypeErrorType, "%s() got an unexpected keyword argument '%S'", CallName(code), keyword);
+                        throw PyErrFormat.Format(PyType.TypeErrorType, "%U() got an unexpected keyword argument '%S'", _callName, keyword);
                     }
                     kwdict.SetItem(keyword, value);
                     continue;
                 }
                 if (!IsNull(localsplus[j]))
-                    throw PyErrFormat.Format(PyType.TypeErrorType, "%s() got multiple values for argument '%S'", CallName(code), keyword);
+                    throw PyErrFormat.Format(PyType.TypeErrorType, "%U() got multiple values for argument '%S'", _callName, keyword);
                 localsplus[j] = value;
             }
 
@@ -331,7 +325,7 @@ namespace SharpPy
         }
 
         // positional_only_passed_as_keyword
-        private static void PositionalOnlyPassedAsKeyword(PyCodeObject code, PyTuple kwnames)
+        private void PositionalOnlyPassedAsKeyword(PyCodeObject code, PyTuple kwnames)
         {
             var conflicts = new System.Collections.Generic.List<PyObject>();
             for (int k = 0; k < code.PosonlyArgCount; k++)
@@ -343,8 +337,8 @@ namespace SharpPy
             }
             if (conflicts.Count != 0)
                 throw PyErrFormat.Format(PyType.TypeErrorType,
-                    "%s() got some positional-only arguments passed as keyword arguments: '%U'",
-                    CallName(code), PyString.JoinArray(PyString.From(", "), conflicts.ToArray()));
+                    "%U() got some positional-only arguments passed as keyword arguments: '%U'",
+                    _callName, PyString.JoinArray(PyString.From(", "), conflicts.ToArray()));
         }
 
         // too_many_positional
@@ -371,8 +365,8 @@ namespace SharpPy
             string kwonlySig = kwonlyGiven != 0
                 ? $" positional argument{(given != 1 ? "s" : "")} (and {kwonlyGiven} keyword-only argument{(kwonlyGiven != 1 ? "s" : "")})"
                 : "";
-            throw PyErrFormat.Format(PyType.TypeErrorType, "%s() takes %s positional argument%s but %d%s %s given",
-                CallName(code), sig, plural ? "s" : "", given, kwonlySig, given == 1 && kwonlyGiven == 0 ? "was" : "were");
+            throw PyErrFormat.Format(PyType.TypeErrorType, "%U() takes %s positional argument%s but %d%s %s given",
+                _callName, sig, plural ? "s" : "", given, kwonlySig, given == 1 && kwonlyGiven == 0 ? "was" : "were");
         }
 
         // missing_arguments and format_missing: the reprs of the names of the empty slots.
@@ -395,8 +389,8 @@ namespace SharpPy
                     PyString.JoinArray(PyString.From(", "), missingNames.GetRange(0, len - 2).ToArray()),
                     PyErrFormat.FromFormat(", %U, and %U", missingNames[len - 2], missingNames[len - 1])),
             };
-            throw PyErrFormat.Format(PyType.TypeErrorType, "%s() missing %i required %s argument%s: %U",
-                CallName(code), len, positional ? "positional" : "keyword-only", len == 1 ? "" : "s", nameStr);
+            throw PyErrFormat.Format(PyType.TypeErrorType, "%U() missing %i required %s argument%s: %U",
+                _callName, len, positional ? "positional" : "keyword-only", len == 1 ? "" : "s", nameStr);
         }
 
 
@@ -918,7 +912,6 @@ namespace SharpPy
         public PyObject ExecuteFrame(PyFrame frame)
         {
             EnterHostFrame();
-            PyFrame.CallingQualName = null;
             var entryFrame = frame;
             var outerDepth = _frameStack.Count;
             // f_back: a frame made by a host call has no caller yet; the running frame is it.
@@ -1628,7 +1621,7 @@ namespace SharpPy
             PyDict kwdefaults = (flags & 2) != 0 ? frame.ValueStack.Pop() as PyDict ?? new PyDict() : null;
             PyTuple defaults = (flags & 1) != 0 ? frame.ValueStack.Pop() as PyTuple ?? PyTuple.From(Array.Empty<PyObject>()) : null;
 
-            var function = new PyFunction(code.Name, null, null, null, closure, code);
+            var function = new PyFunction(code, closure);
             function.GlobalsDict = frame.ScopeChain.GlobalScope?.Variables;
             if (defaults != null)
                 function.SetAttribute("__defaults__", defaults);

@@ -55,9 +55,10 @@ namespace SharpPy.Core
         private readonly PyGenerator _generator;
         internal bool Running;
         private bool _finished;
-        public string Name { get; }
-        public PyObject Qualname { get; private set; }
-        private PyObject NameValue;
+        // ag_name and ag_qualname are the generator engine's.
+        public string Name => _generator.Name;
+        public PyObject Qualname { get => _generator.Qualname; private set => _generator.Qualname = value; }
+        private PyObject NameValue { get => _generator.NameObject; set => _generator.NameObject = value; }
 
         static PyAsyncGenerator()
         {
@@ -90,17 +91,15 @@ namespace SharpPy.Core
             type.TypeDict["__class_getitem__"] = PyClassMethodDescriptor.GenericAliasGetItem(type);
         }
 
-        public PyAsyncGenerator(PyFrame frame, PyVM vm, string name = "<async_generator>", string qualname = null)
+        internal PyAsyncGenerator(PyFrame frame, PyVM vm, PyString name, PyString qualname)
         {
             _frame = frame;
-            _generator = new PyGenerator(frame, vm, name);
+            _generator = new PyGenerator(frame, vm, name, qualname);
             frame.OwnerGenerator = this;
-            Name = name;
-            NameValue = PyString.From(name);
-            Qualname = PyString.From(qualname ?? frame.Code.QualName ?? name);
         }
         public override PyType GetPyType() => PyType.AsyncGeneratorType;
-        protected internal override PyString Repr() => PyString.From($"<async_generator object {Name}>");
+        // async_gen_repr
+        protected internal override PyString Repr() => PyErrFormat.FromFormat("<async_generator object %S at %p>", Qualname, this);
         public PyObject ANext() => ASend(PyNone.Instance);
         public PyObject ASend(PyObject value)
         {

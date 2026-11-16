@@ -371,11 +371,12 @@ namespace SharpPy
         public const int CO_COROUTINE = 0x80;      // 네이티브 코루틴 (async def)
         public const int CO_ASYNC_GENERATOR = 0x200; // 비동기 제너레이터 (async def + yield)
         
-        public string Name { get; }
+        /// <summary>co_name and co_qualname, the str objects (Name is co_name's text for the host).</summary>
+        internal PyString CoName { get; }
+        internal PyString CoQualName { get; }
+        public string Name => CoName.Value;
         // CPython co_qualname: nesting-aware definition name (C.meth,
         // outer.<locals>.inner, f.<locals>.<lambda>). Falls back to co_name.
-        public string? QualName { get; set; }
-        public string DisplayQualName => string.IsNullOrEmpty(QualName) ? Name : QualName!;
         public List<ByteCodeInstruction> Instructions { get; }
         public List<PyObject> Constants { get; }      // co_consts
 
@@ -424,12 +425,13 @@ namespace SharpPy
         /// _PyCode_New and init_code: the names are interned (intern_strings), and the counts of
         /// locals, cells and free variables come from the kinds (get_localsplus_counts).
         /// </summary>
-        internal PyCodeObject(string name, List<ByteCodeInstruction> instructions, List<PyObject> constants,
+        internal PyCodeObject(PyString name, PyString qualName, List<ByteCodeInstruction> instructions, List<PyObject> constants,
             PyString[] names, PyString[] localsPlusNames, byte[] localsPlusKinds, int argCount, int posonlyArgCount,
             int kwonlyArgCount, int flags, string fileName, List<string> sourceLines,
             List<ExceptionTableEntry> exceptionTable = null)
         {
-            Name = name;
+            CoName = name;
+            CoQualName = qualName;
             Instructions = instructions;
             Constants = constants != null ? new List<PyObject>(constants) : new List<PyObject>();
             Names = InternStrings(names);
@@ -538,7 +540,7 @@ namespace SharpPy
         /// </summary>
         internal static PyCodeObject FromTables(int argCount, int posonlyArgCount, int kwonlyArgCount, int stackSize,
             int flags, byte[] code, List<PyObject> constants, PyString[] names, PyString[] localsPlusNames,
-            byte[] localsPlusKinds, string fileName, string name, string qualName, int firstLineNo, byte[] lineTable,
+            byte[] localsPlusKinds, string fileName, PyString name, PyString qualName, int firstLineNo, byte[] lineTable,
             byte[] exceptionTable, List<string> sourceLines = null)
         {
             Validate(argCount, posonlyArgCount, kwonlyArgCount, stackSize, flags, code, localsPlusNames, localsPlusKinds);
@@ -564,14 +566,13 @@ namespace SharpPy
 
         private static PyCodeObject New(int argCount, int posonlyArgCount, int kwonlyArgCount, int stackSize,
             int flags, byte[] code, List<PyObject> constants, PyString[] names, PyString[] localsPlusNames,
-            byte[] localsPlusKinds, string fileName, string name, string qualName, int firstLineNo, byte[] lineTable,
+            byte[] localsPlusKinds, string fileName, PyString name, PyString qualName, int firstLineNo, byte[] lineTable,
             byte[] exceptionTable, List<string> sourceLines)
         {
-            var result = new PyCodeObject(name, LocationTable.ReadInstructions(code, lineTable, firstLineNo), constants,
+            var result = new PyCodeObject(name, qualName, LocationTable.ReadInstructions(code, lineTable, firstLineNo), constants,
                 names, localsPlusNames, localsPlusKinds, argCount + kwonlyArgCount, posonlyArgCount, kwonlyArgCount,
                 flags, fileName, sourceLines, LocationTable.ReadExceptionTable(exceptionTable))
             {
-                QualName = qualName,
                 FirstLineNo = firstLineNo,
                 StackSize = stackSize,
                 Tables = new AssembledTables { Code = code, LineTable = lineTable, ExceptionTable = exceptionTable },
@@ -593,8 +594,8 @@ namespace SharpPy
         /// </summary>
         internal static PyCodeObject NewWithPosOnlyArgs(int argCount, int posonlyArgCount, int kwonlyArgCount,
             int nlocals, int stackSize, int flags, byte[] code, List<PyObject> constants, PyString[] names,
-            PyString[] varNames, PyString[] freeVars, PyString[] cellVars, string fileName, string name,
-            string qualName, int firstLineNo, byte[] lineTable, byte[] exceptionTable, List<string> sourceLines = null)
+            PyString[] varNames, PyString[] freeVars, PyString[] cellVars, string fileName, PyString name,
+            PyString qualName, int firstLineNo, byte[] lineTable, byte[] exceptionTable, List<string> sourceLines = null)
         {
             var localsPlusNames = new List<PyString>(varNames.Length + cellVars.Length + freeVars.Length);
             var localsPlusKinds = new List<byte>(localsPlusNames.Capacity);
@@ -817,7 +818,8 @@ namespace SharpPy
             var exceptionTable = Tables.ExceptionTable;
             var constants = Constants;
             PyTuple names = NamesTuple, varNames = VarNames, freeVars = FreeVars, cellVars = CellVars;
-            string fileName = FileName, name = Name, qualName = QualName;
+            string fileName = FileName;
+            PyString name = CoName, qualName = CoQualName;
             int nlocals = NLocals;
             if (kwargs != null)
             {
@@ -844,9 +846,9 @@ namespace SharpPy
                         case "co_varnames": varNames = TupleField(value, field); break;
                         case "co_freevars": freeVars = TupleField(value, field); break;
                         case "co_cellvars": cellVars = TupleField(value, field); break;
-                        case "co_filename": fileName = ((PyString)value).Value; break;
-                        case "co_name": name = ((PyString)value).Value; break;
-                        case "co_qualname": qualName = ((PyString)value).Value; break;
+                        case "co_filename": fileName = StrField(value, field).Value; break;
+                        case "co_name": name = StrField(value, field); break;
+                        case "co_qualname": qualName = StrField(value, field); break;
                         default: throw PyArgs.InvalidKeyword("replace", PyString.From(field));
                     }
                 }
@@ -861,6 +863,9 @@ namespace SharpPy
                 qualName, firstLineNo, lineTable, exceptionTable, SourceLines);
         }
 
+        private static PyString StrField(PyObject value, string field) =>
+            value as PyString ?? throw PyArgs.BadArgument("replace", $"argument '{field}'", "str", value);
+
         private static PyTuple TupleField(PyObject value, string field) =>
             value as PyTuple ?? throw PyArgs.BadArgument("replace", $"argument '{field}'", "tuple", value);
 
@@ -871,6 +876,8 @@ namespace SharpPy
                 throw PyTypeError.Create("code() takes no keyword arguments");
             if (args.Length < 16 || args.Length > 18)
                 throw PyTypeError.Create($"code expected at least 16 arguments, got {args.Length}");
+            PyString Str(int index) =>
+                args[index] as PyString ?? throw PyArgs.BadArgument("code", $"argument {index + 1}", "str", args[index]);
             PyTuple NameTuple(int index) =>
                 args[index] as PyTuple ?? throw PyArgs.BadArgument("code", $"argument {index + 1}", "tuple", args[index]);
             int argCount = args[0].ToInt(), posonly = args[1].ToInt(), kwonly = args[2].ToInt(), nlocals = args[3].ToInt();
@@ -885,7 +892,7 @@ namespace SharpPy
             return NewWithPosOnlyArgs(argCount, posonly, kwonly, nlocals, args[4].ToInt(), args[5].ToInt(),
                 BytesField(args[6], "code"), new List<PyObject>(((PyTuple)args[7]).Items), ValidateAndCopyTuple(names),
                 ValidateAndCopyTuple(varNames), ValidateAndCopyTuple(freeVars), ValidateAndCopyTuple(cellVars),
-                ((PyString)args[10]).Value, ((PyString)args[11]).Value, ((PyString)args[12]).Value, args[13].ToInt(),
+                Str(10).Value, Str(11), Str(12), args[13].ToInt(),
                 BytesField(args[14], "linetable"), BytesField(args[15], "exceptiontable"));
         }
 
@@ -894,10 +901,8 @@ namespace SharpPy
             return name switch
             {
                 "co_flags" => PyInt.From(Flags),
-                // SharpPy keeps unique internal lambda names (<lambda_N>) for the
-                // call-error mapping; CPython's co_name is the bare "<lambda>".
-                "co_name" => PyString.From(PyFrame.BindErrorName(Name)),
-                "co_qualname" => PyString.From(PyFrame.BindErrorName(DisplayQualName)),
+                "co_name" => CoName,
+                "co_qualname" => CoQualName,
                 // CPython co_argcount counts positional-only + positional-or-keyword
                 // only; SharpPy stores non-variadic totals, so subtract kwonly.
                 "co_argcount" => PyInt.From(Math.Max(0, ArgCount - KwonlyArgCount)),
@@ -1094,9 +1099,9 @@ namespace SharpPy
         public override string ToString() => $"<code object {Name}>";
 
         // code_repr
-        protected internal override PyString Repr() => PyString.From(FileName != null
-            ? $"<code object {PyFrame.BindErrorName(Name)} at {PyObjectId.Pointer(this)}, file \"{FileName}\", line {GetFirstLineNo()}>"
-            : $"<code object {PyFrame.BindErrorName(Name)} at {PyObjectId.Pointer(this)}, file ???, line {GetFirstLineNo()}>");
+        protected internal override PyString Repr() => FileName != null
+            ? PyErrFormat.FromFormat("<code object %U at %p, file \"%s\", line %d>", CoName, this, FileName, GetFirstLineNo())
+            : PyErrFormat.FromFormat("<code object %U at %p, file ???, line %d>", CoName, this, GetFirstLineNo());
         
         /// <summary>
         /// Test the synchronous generator flag determined by scope analysis.

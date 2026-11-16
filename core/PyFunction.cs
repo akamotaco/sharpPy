@@ -9,15 +9,12 @@ namespace SharpPy
 // Python의 function 타입
 public partial class PyFunction : PyObject, IDescriptor, IObjectDict
 {
-    public string Name { get; private set; }
-    // func_qualname (Objects/funcobject.c:705). It starts as co_qualname and moves independently of
-    // __name__ once something assigns it, which is what functools.wraps relies on.
-    private string _qualName;
-    public string QualName => _qualName ?? PyFrame.BindErrorName(CodeObject?.DisplayQualName ?? Name);
-    internal void SetQualName(string value) => _qualName = value;
-    private PyString _qualNameObject;
-    private PyString _nameObject;
-    internal string AssignedQualName => _qualName;
+    // func_name and func_qualname (Objects/funcobject.c): the str objects, co_name and co_qualname
+    // to begin with, each set on its own after. Name and QualName are their text for the host.
+    private PyString _name;
+    private PyString _qualname;
+    public string Name => _name.Value;
+    public string QualName => _qualname.Value;
     // func_annotations (Objects/funcobject.c): reading creates the dict, so it is never an AttributeError.
     private PyObject _annotations;
     public Func<PyObject[], PyObject> Implementation { get; }
@@ -56,17 +53,25 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     private PyObject? _doc;
     private bool _docWasSet;
 
+    /// <summary>PyFunction_New: func_name and func_qualname are the code's co_name and co_qualname.</summary>
+    internal PyFunction(PyCodeObject code, PyCell[] closure) : this(code.CoName, code.CoQualName, null, closure, code) { }
+
     public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null, PyCell[] closure = null, PyCodeObject codeObject = null)
+        : this(PyString.From(name), null, implementation, closure, codeObject)
     {
-        Name = name;
-        Implementation = implementation ?? DefaultImplementation;
         DefiningModule = definingModule;
         TypeParams = typeParams;
-        Closure = closure ?? new PyCell[0];
-        CodeObject = codeObject;
-
         if (TypeParams != null && TypeParams.Count > 0)
             _typeParams = PyTuple.From(TypeParams.ToArray());
+    }
+
+    private PyFunction(PyString name, PyString qualname, Func<PyObject[], PyObject> implementation, PyCell[] closure, PyCodeObject codeObject)
+    {
+        _name = name;
+        _qualname = qualname ?? codeObject?.CoQualName ?? name;
+        Implementation = implementation ?? DefaultImplementation;
+        Closure = closure ?? new PyCell[0];
+        CodeObject = codeObject;
 
         // CPython 호환: function type descriptor 초기화
         InitializeFunctionDescriptors();
@@ -122,7 +127,10 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             closureCells[i] = cells[i] as PyCell ??
                 throw PyTypeError.Create($"arg 5 (closure) expected cell, found {cells[i].GetTypeName()}");
 
-        var function = new PyFunction(name is PyString text ? text.Value : code.Name, null, null, null, closureCells, code);
+        // func_new_impl: PyFunction_New, then func_name = name when one is given.
+        var function = new PyFunction(code, closureCells);
+        if (name is PyString text)
+            function._name = text;
         function.GlobalsDict = new PyNamespace(globals);
         if (defaults is not PyNone)
             function.SetAttribute("__defaults__", defaults);
@@ -139,15 +147,11 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         funcType.TypeDict["__name__"] = new PyGetSetDescriptor(
             "__name__",
             funcType,
-            getter: self => {
-                var func = (PyFunction)self;
-                return func._nameObject ??= PyString.From(func.Name);
-            },
+            getter: self => ((PyFunction)self)._name,
             setter: (self, value) => {
                 if (value is not PyString text)
                     throw PyTypeError.Create("__name__ must be set to a string object");
-                ((PyFunction)self).Name = text.Value;
-                ((PyFunction)self)._nameObject = text;
+                ((PyFunction)self)._name = text;
             },
             deleter: self => throw PyTypeError.Create("__name__ must be set to a string object")
         );
@@ -158,16 +162,11 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         funcType.TypeDict["__qualname__"] = new PyGetSetDescriptor(
             "__qualname__",
             funcType,
-            getter: self => {
-                var func = (PyFunction)self;
-                return func._qualNameObject ??= PyString.From(func.QualName);
-            },
+            getter: self => ((PyFunction)self)._qualname,
             setter: (self, value) => {
-                var func = (PyFunction)self;
-                if (!(value is PyString text))
+                if (value is not PyString text)
                     throw PyTypeError.Create("__qualname__ must be set to a string object");
-                func.SetQualName(text.Value);
-                func._qualNameObject = text;
+                ((PyFunction)self)._qualname = text;
             },
             deleter: self => {
                 throw PyTypeError.Create("__qualname__ must be set to a string object");
@@ -373,17 +372,17 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         if (CodeObject.IsAsyncGenerator())
         {
             frame.IsGenerator = true;
-            return new SharpPy.Core.PyAsyncGenerator(frame, PyVM.Instance, Name, QualName);
+            return new SharpPy.Core.PyAsyncGenerator(frame, PyVM.Instance, _name, _qualname);
         }
         if (CodeObject.IsCoroutine())
         {
             frame.IsCoroutine = true;
-            return new SharpPy.Core.PyCoroutine(frame, PyVM.Instance, Name, QualName);
+            return new SharpPy.Core.PyCoroutine(frame, PyVM.Instance, _name, _qualname);
         }
         if (CodeObject.IsGenerator())
         {
             frame.IsGenerator = true;
-            return new PyGenerator(frame, PyVM.Instance, Name) { Qualname = PyString.From(QualName) };
+            return new PyGenerator(frame, PyVM.Instance, _name, _qualname);
         }
         return PyVM.Instance.ExecuteFrame(frame);
     }
@@ -397,19 +396,11 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
     internal PyFrame NewFrame(PyObject[] args, PyDict kwargs, PyTuple kwNames = null, PyFrame parent = null)
     {
         var scope = GlobalsDict != null ? new PyScopeChain(GlobalsDict, CodeObject.Name) : new PyScopeChain();
-        PyFrame.CallingQualName = _qualName;
-        try
-        {
-            var frame = kwargs != null && kwargs.InternalDict.Count > 0
-                ? PyFrame.CreateWithKwargs(CodeObject, args, kwargs, scope, Closure, GetDefaults(), GetKeywordDefaults(), parent)
-                : new PyFrame(CodeObject, args, scope, Closure, parent, GetDefaults(), GetKeywordDefaults(), kwNames);
-            frame.UseBuiltins(Builtins);
-            return frame;
-        }
-        finally
-        {
-            PyFrame.CallingQualName = null;
-        }
+        var frame = kwargs != null && kwargs.InternalDict.Count > 0
+            ? PyFrame.CreateWithKwargs(CodeObject, args, kwargs, scope, Closure, GetDefaults(), GetKeywordDefaults(), parent, _qualname)
+            : new PyFrame(CodeObject, args, scope, Closure, parent, GetDefaults(), GetKeywordDefaults(), kwNames, _qualname);
+        frame.UseBuiltins(Builtins);
+        return frame;
     }
     
     /// <summary>

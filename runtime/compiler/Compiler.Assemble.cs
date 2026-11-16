@@ -181,11 +181,13 @@ namespace SharpPy
             var assembled = PyAssemble.Assemble(cfg, _filename);
 
             ComputeLocalsplusInfo(u, varnames, cellvars, freevars, out var localsPlusNames, out var localsPlusKinds);
-            var code = new PyCodeObject(u.Name, assembled.Instructions, u.Consts,
+            // compiler_set_qualname: a qualname that is the name is the name object itself.
+            var nameObject = PyString.InternFrom(u.Name);
+            var qualNameObject = string.IsNullOrEmpty(u.QualName) || u.QualName == u.Name ? nameObject : PyString.From(u.QualName);
+            var code = new PyCodeObject(nameObject, qualNameObject, assembled.Instructions, u.Consts,
                 InOrder(u.Names).ConvertAll(PyString.From).ToArray(), localsPlusNames, localsPlusKinds,
                 u.ArgCount + u.PosonlyArgCount + u.KwonlyArgCount, u.PosonlyArgCount, u.KwonlyArgCount,
                 codeFlags, _filename, _sourceLines);
-            code.QualName = u.QualName;
             code.FirstLineNo = u.FirstLineNo;
             code.ExceptionTable.AddRange(assembled.ExceptionTable);
             code.StackSize = maxDepth;
