@@ -1258,7 +1258,7 @@ namespace SharpPy
         // The text forms of long_new_impl and PyNumber_Long: a str, bytes or bytearray.
         private static PyInt ParseText(PyObject value, int baseValue) => value switch
         {
-            PyString text => FromString(text.Value, baseValue),
+            PyString text => FromString(text.Value, baseValue, true, text),
             PyBytes bytes => FromString(System.Text.Encoding.Latin1.GetString(bytes.Value), baseValue, false, value),
             PyByteArray buffer => FromString(System.Text.Encoding.Latin1.GetString(buffer.BufferSpan), baseValue, false, value),
             _ => null,
@@ -1412,10 +1412,14 @@ namespace SharpPy
         private static bool IsIntegerSpace(char c) => c == ' ' || (c >= '\t' && c <= '\r');
         private static int IntegerDigit(char c) => c >= '0' && c <= '9' ? c - '0' :
             c >= 'a' && c <= 'z' ? c - 'a' + 10 : c >= 'A' && c <= 'Z' ? c - 'A' + 10 : -1;
+        // PyLong_FromUnicodeObject and _PyLong_FromBytes: "%.200R" of the str itself, or of the first
+        // 200 bytes; PyLong_FromString's own text when there is no object.
         private static Exception InvalidIntegerLiteral(string text, int radix, PyObject literal = null)
         {
             if (literal is PyByteArray buffer) literal = PyBytes.From(buffer.BufferSpan.ToArray());
-            return PyValueError.Create($"invalid literal for int() with base {radix}: {(literal ?? PyString.From(text)).ToRepr().Value}");
+            if (literal is PyBytes bytes && bytes.Value.Length > 200) literal = PyBytes.From(bytes.Value.AsSpan(0, 200).ToArray());
+            literal ??= PyString.From(text.Length > 200 ? text.Substring(0, 200) : text);
+            return PyErrFormat.Format(PyType.ValueErrorType, "invalid literal for int() with base %d: %.200R", radix, literal);
         }
 
         public static PyInt FromNumber(PyObject obj)

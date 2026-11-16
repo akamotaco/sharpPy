@@ -473,18 +473,18 @@ public class PyModule : PyObject
                 throw PyTypeError.Create("module name must be a string");
             if (level < 0)
                 throw PyValueError.Create("level must be >= 0");
-            string absName;
+            PyString absName;
             if (level > 0)
-                absName = ResolveName(name.Value, globals, level);
+                absName = PyString.From(ResolveName(name.Value, globals, level));
             else
             {
-                if (name.Value.Length == 0)
+                if (name.CodePointLength() == 0)
                     throw PyValueError.Create("Empty module name");
-                absName = name.Value;
+                absName = name;
             }
 
             // import_get_module: whatever sys.modules holds, a module or not; None means "load".
-            PyObject mod = SysModules.InternalDict.TryGetValue(PyString.From(absName), out var found) ? found : null;
+            PyObject mod = SysModules.InternalDict.TryGetValue(absName, out var found) ? found : null;
             if (mod != null && mod is not PyNone)
                 ImportEnsureInitialized(mod, absName);
             else
@@ -493,19 +493,23 @@ public class PyModule : PyObject
             bool hasFrom = fromlist != null && fromlist is not PyNone && fromlist.IsTrue();
             if (!hasFrom)
             {
-                int length = name.Value.Length;
+                int length = name.CodePointLength();
                 if (level == 0 || length > 0)
                 {
-                    int dot = name.Value.IndexOf('.');
+                    // PyUnicode_FindChar(name, '.'): a character index.
+                    int dot = -1;
+                    for (int i = 0; i < length && dot < 0; i++)
+                        if (name.ReadChar(i) == '.')
+                            dot = i;
                     if (dot == -1)
                         return mod;
                     if (level == 0)
-                        return ImportModuleLevel(PyString.From(name.Value.Substring(0, dot)), null, null, 0);
+                        return ImportModuleLevel(name.Substring(0, dot), null, null, 0);
                     int cutOff = length - dot;
-                    string toReturn = absName.Substring(0, absName.Length - cutOff);
-                    return SysModules.InternalDict.TryGetValue(PyString.From(toReturn), out var top)
+                    var toReturn = absName.Substring(0, absName.CodePointLength() - cutOff);
+                    return SysModules.InternalDict.TryGetValue(toReturn, out var top)
                         ? top
-                        : throw PyKeyError.Create(PyString.From($"{Repr(toReturn)} not in sys.modules as expected"));
+                        : throw PyErrFormat.Format(PyType.KeyErrorType, "%R not in sys.modules as expected", toReturn);
                 }
                 return mod;
             }
@@ -516,24 +520,24 @@ public class PyModule : PyObject
 
         // import_ensure_initialized: a module whose spec is still initializing is waited for
         // (_bootstrap._lock_unlock_module), so another thread never sees it half made.
-        private static void ImportEnsureInitialized(PyObject mod, string name)
+        private static void ImportEnsureInitialized(PyObject mod, PyString name)
         {
             if (Bootstrap == null)
                 return;
             // import_ensure_initialized: _PyModuleSpec_IsInitializing of the module's spec.
             if (PyModule.SpecIsInitializing(mod.LookupAttribute("__spec__")))
-                Bootstrap.GetAttribute("_lock_unlock_module").Call(new PyObject[] { PyString.From(name) }, null);
+                Bootstrap.GetAttribute("_lock_unlock_module").Call(new PyObject[] { name }, null);
         }
 
         // import_find_and_load: _bootstrap._find_and_load(abs_name, __import__); before
         // _frozen_importlib exists, the interpreter's own modules only.
-        private static PyObject ImportFindAndLoad(string absName)
+        private static PyObject ImportFindAndLoad(PyString absName)
         {
             EnsureBootstrapped();
             if (Bootstrap == null)
-                return LoadBeforeBootstrap(absName)
-                    ?? throw PyModuleNotFoundError.Create($"No module named {Repr(absName)}", absName);
-            return Bootstrap.GetAttribute("_find_and_load").Call(new[] { PyString.From(absName), DefaultImportFunc }, null);
+                return LoadBeforeBootstrap(absName.Value)
+                    ?? throw PyModuleNotFoundError.Create($"No module named {Repr(absName.Value)}", absName.Value);
+            return Bootstrap.GetAttribute("_find_and_load").Call(new PyObject[] { absName, DefaultImportFunc }, null);
         }
 
         /// <summary>
