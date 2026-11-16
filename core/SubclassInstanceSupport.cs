@@ -63,8 +63,8 @@ namespace SharpPy
         /// value of the type. Null when the name is in none of them: the AttributeError, or what a
         /// builtin's own tp_getattro answers beyond its dict, is the caller's.
         /// </summary>
-        internal static PyObject GenericGetAttrWithDict(PyObject self, PyType type, string name,
-            Dictionary<string, PyObject> dict, IInstanceDictAccessor accessor)
+        internal static PyObject GenericGetAttrWithDict(PyObject self, PyType type, PyString name,
+            PyDict dict, IInstanceDictAccessor accessor)
             => GenericGetAttrWithDict(self, type, name, dict, accessor, false, out _);
 
         /// <summary>
@@ -72,8 +72,8 @@ namespace SharpPy
         /// type (Py_TPFLAGS_METHOD_DESCRIPTOR: a function, a method or slot wrapper descriptor) that
         /// no data descriptor or instance dict entry shadows comes back unbound, unbound set.
         /// </summary>
-        internal static PyObject GenericGetAttrWithDict(PyObject self, PyType type, string name,
-            Dictionary<string, PyObject> dict, IInstanceDictAccessor accessor, bool method, out bool unbound)
+        internal static PyObject GenericGetAttrWithDict(PyObject self, PyType type, PyString name,
+            PyDict dict, IInstanceDictAccessor accessor, bool method, out bool unbound)
         {
             unbound = false;
             var attribute = type.FindNameInMro(name);
@@ -82,7 +82,7 @@ namespace SharpPy
                     ? new PyDescriptorWrapper(attribute) : null);
             if (descriptor != null && descriptor.IsDataDescriptor())
                 return descriptor.Get(self, type);
-            if (dict != null ? dict.TryGetValue(name, out PyObject instanceValue)
+            if (dict != null ? dict.TryGetStoredValue(name, out PyObject instanceValue)
                 : accessor != null && accessor.TryGetInstanceAttribute(name, out instanceValue))
                 return instanceValue;
             if (attribute == null)
@@ -121,12 +121,12 @@ namespace SharpPy
         /// ldict), used whatever the type declares, rather than the store that stands for a dictptr.
         /// </summary>
         internal static void GenericSetAttrWithDict(PyObject self, PyType type, PyString nameObject, PyObject value,
-            Dictionary<string, PyObject> dict, IInstanceDictStore store, bool given = false)
+            PyDict dict, IInstanceDictStore store, bool given = false)
         {
             string name = nameObject.Value;
             if (name == "__class__" && value == null)
                 throw PyTypeError.Create("can't delete __class__ attribute");
-            var descriptor = PyClassInstance.FindDataDescriptorInMro(type, name);
+            var descriptor = PyClassInstance.FindDataDescriptorInMro(type, nameObject);
             if (descriptor != null)
             {
                 if (value == null) PyClassInstance.CallDescriptorDelete(descriptor, self);
@@ -136,14 +136,22 @@ namespace SharpPy
             bool hasDict = given || (type is PyClass heap ? heap.InstancesHaveDict() : dict != null || store != null);
             if (value == null)
             {
-                if (dict != null ? PyGlobalsDict.Delete(dict, name) : store != null && store.RemoveInstanceAttribute(nameObject))
+                if (dict != null ? RemoveEntry(dict, nameObject) : store != null && store.RemoveInstanceAttribute(nameObject))
                     return;
                 throw NoAttribute(self, type, name, hasDict);
             }
             if (!hasDict && !(type is PyClass slotted && slotted.IsSlottedAttributeName(name)))
                 throw NoAttribute(self, type, name, hasDict);
-            if (dict != null) PyGlobalsDict.Store(dict, nameObject, value);
+            if (dict != null) dict.SetItem(nameObject, value);
             else store.SetInstanceAttribute(nameObject, value);
+        }
+
+        // _PyObjectDict_SetItem with no value: false when the dict has no such key.
+        private static bool RemoveEntry(PyDict dict, PyString name)
+        {
+            if (!dict.ContainsKey(name)) return false;
+            dict.DelItem(name);
+            return true;
         }
 
         // _PyObject_GenericSetAttrWithDict's refusals, named by tp_name; unlike a failed lookup they
@@ -156,19 +164,9 @@ namespace SharpPy
 
         /// <summary>The generic set over the dict kept beside a builtin's value; value null to delete.</summary>
         internal static void GenericSetAttribute(PyObject self, PyClass instanceType,
-            Dictionary<string, PyObject> instanceDict, PyString name, PyObject value)
+            PyDict instanceDict, PyString name, PyObject value)
         {
             GenericSetAttrWithDict(self, instanceType, name, value, instanceDict, null);
-        }
-
-        // PyObject_GenericSetDict over a dict kept beside the value: its contents become the new dict's.
-        private static void ReplaceDict(Dictionary<string, PyObject> instanceDict, PyObject value)
-        {
-            var replacement = (value as PyDict)
-                ?? throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
-            var copy = new List<KeyValuePair<PyObject, PyObject>>(replacement.InternalDict);
-            PyGlobalsDict.Clear(instanceDict);
-            foreach (var entry in copy) PyGlobalsDict.Store(instanceDict, ((PyString)entry.Key).Value, entry.Value);
         }
 
         /// <summary>
@@ -178,9 +176,9 @@ namespace SharpPy
         /// </summary>
         internal static PyObject GenericGetDict(PyObject self) => self switch
         {
-            PyClassInstance instance => instance.GetAttributeGeneric("__dict__"),
+            PyClassInstance instance => instance.GetAttributeGeneric(PyString.From("__dict__")),
             IObjectDict holder => holder.ObjectDict(true),
-            _ => PyGlobalsDict.For(self.HeapDict),
+            _ => self.HeapDict,
         };
 
         /// <summary>PyObject_GenericSetDict: a dict, which becomes the object's.</summary>
@@ -196,7 +194,9 @@ namespace SharpPy
                         $"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'"));
                     break;
                 default:
-                    ReplaceDict(self.HeapDict, value);
+                    // PyObject_GenericSetDict: the dict itself is the object's from now on.
+                    self.SetHeapDict(value as PyDict ?? throw PyTypeError.Create(
+                        $"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'"));
                     break;
             }
         }

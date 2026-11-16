@@ -11,7 +11,9 @@ namespace SharpPy
     /// A CLR Dictionary enumerates in insertion order only until something is removed: the freed
     /// entry is reused by the next insertion. A removal here compacts the table, so a later key comes
     /// last (`del C.x; C.y = 1` lists y at the end). The entries without a str key, and the one order
-    /// of both kinds, are kept only once such a key appears.
+    /// of both kinds, are kept only once such a key appears. A str whose wchar_t text would read back
+    /// as another str (a high surrogate before a low one, PyString.WideCharRoundTrips) is such a key
+    /// too: the text table cannot tell it from the character the pair would be.
     /// </summary>
     public sealed class PyTypeDictionary : Dictionary<string, PyObject>
     {
@@ -85,7 +87,7 @@ namespace SharpPy
         /// <summary>PyDict_SetItem with a key object: a str keeps the object it came with.</summary>
         internal void SetItem(PyObject key, PyObject value)
         {
-            if (key is PyString text)
+            if (IsTextKey(key, out var text))
             {
                 bool added = !ContainsKey(text.Value);
                 this[text.Value] = value;
@@ -122,10 +124,29 @@ namespace SharpPy
 
         internal bool TryGetItem(PyObject key, out PyObject value)
         {
-            if (key is PyString text)
+            if (IsTextKey(key, out var text))
                 return TryGetValue(text.Value, out value);
             value = null;
             return _others != null && _others.TryGetStoredValue(key, out value);
+        }
+
+        /// <summary>PyDict_DelItem with a key object; false when there is no such key.</summary>
+        internal bool RemoveItem(PyObject key)
+        {
+            if (IsTextKey(key, out var text))
+                return Remove(text.Value);
+            if (_others == null || !_others.ContainsKey(key))
+                return false;
+            _others.DelItem(key);
+            _order.RemoveAll(k => !IsTextKey(k, out _) && !_others.ContainsKey(k));
+            return true;
+        }
+
+        // A key the text table holds: a str whose wchar_t text is the key itself.
+        private static bool IsTextKey(PyObject key, out PyString text)
+        {
+            text = key as PyString;
+            return text != null && text.WideCharRoundTrips;
         }
 
         internal int EntryCount => Count + (_others?.InternalDict.Count ?? 0);
@@ -142,7 +163,7 @@ namespace SharpPy
             var seen = new HashSet<string>();
             foreach (var key in _order.ToArray())
             {
-                if (key is PyString text)
+                if (IsTextKey(key, out var text))
                 {
                     if (TryGetValue(text.Value, out var value) && seen.Add(text.Value))
                         yield return new KeyValuePair<PyObject, PyObject>(text, value);

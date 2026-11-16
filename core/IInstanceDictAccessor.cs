@@ -8,8 +8,9 @@ namespace SharpPy
     /// </summary>
     public interface IInstanceDictAccessor
     {
-        bool TryGetInstanceAttribute(string name, out PyObject value);
-        IEnumerable<KeyValuePair<string, PyObject>> InstanceAttributes { get; }
+        /// <summary>The instance dict's entry for the name object (a str key, compared as str).</summary>
+        bool TryGetInstanceAttribute(PyString name, out PyObject value);
+        IEnumerable<KeyValuePair<PyObject, PyObject>> InstanceAttributes { get; }
     }
 
     /// <summary>
@@ -36,21 +37,14 @@ namespace SharpPy
         /// <summary>PyObject_GenericSetDict: the dict replaces the one the object had.</summary>
         void SetObjectDict(PyDict dict);
 
-        bool IInstanceDictAccessor.TryGetInstanceAttribute(string name, out PyObject value)
+        bool IInstanceDictAccessor.TryGetInstanceAttribute(PyString name, out PyObject value)
         {
             value = null;
-            return ObjectDict(false) is { } dict && dict.TryGetStoredValue(PyString.From(name), out value);
+            return ObjectDict(false) is { } dict && dict.TryGetStoredValue(name, out value);
         }
 
-        IEnumerable<KeyValuePair<string, PyObject>> IInstanceDictAccessor.InstanceAttributes
-        {
-            get
-            {
-                if (ObjectDict(false) is not { } dict) yield break;
-                foreach (var entry in dict.InternalDict)
-                    if (entry.Key is PyString key) yield return new KeyValuePair<string, PyObject>(key.Value, entry.Value);
-            }
-        }
+        IEnumerable<KeyValuePair<PyObject, PyObject>> IInstanceDictAccessor.InstanceAttributes =>
+            ObjectDict(false) is { } dict ? dict.InternalDict : System.Linq.Enumerable.Empty<KeyValuePair<PyObject, PyObject>>();
 
         void IInstanceDictStore.SetInstanceAttribute(PyString name, PyObject value) => ObjectDict(true).SetItem(name, value);
 

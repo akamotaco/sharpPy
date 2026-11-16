@@ -476,6 +476,9 @@ namespace SharpPy
         {
             // _PyExc_InitTypes makes ExceptionGroup with PyErr_NewException: a heap type, mutable.
             ExceptionGroupType.MarkHeapType();
+            // The exception types can be raised from here on (PyErr_Format calls the type): the
+            // class constructors below already raise and catch AttributeError.
+            InstallExceptionAllocators();
             static void Init<T>() =>
                 System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(T).TypeHandle);
 
@@ -964,13 +967,13 @@ namespace SharpPy
         // type_setattro is the slot of every type; a metaclass's __setattr__/__delattr__ is its
         // own slot in PyObject_SetAttr.
         // type_setattro copies a str subclass to an exact str before it touches tp_dict.
-        protected internal override void TpSetattro(PyString name, PyObject value) => TypeSetAttribute(name.Value, value);
+        protected internal override void TpSetattro(PyString name, PyObject value) => TypeSetAttribute(name, value);
 
-        protected internal override void TpDelattro(PyString name) => TypeSetAttribute(name.Value, null);
+        protected internal override void TpDelattro(PyString name) => TypeSetAttribute(name, null);
 
-        protected override void PySetAttribute(PyString name, PyObject value) => TypeSetAttribute(name.Value, value);
+        protected override void PySetAttribute(PyString name, PyObject value) => TypeSetAttribute(name, value);
 
-        protected override void PyDelAttribute(PyString name) => TypeSetAttribute(name.Value, null);
+        protected override void PyDelAttribute(PyString name) => TypeSetAttribute(name, null);
 
         internal void TypeDeleteAttribute(string name) => TypeSetAttribute(name, null);
 
@@ -979,14 +982,21 @@ namespace SharpPy
         /// deletions alike; then _PyObject_GenericSetAttrWithDict(type, name, value, NULL), a data
         /// descriptor of the metatype before tp_dict; then PyType_Modified. value null deletes.
         /// </summary>
-        internal void TypeSetAttribute(string name, PyObject value)
+        internal void TypeSetAttribute(string name, PyObject value) => TypeSetAttribute(PyString.From(name), value);
+
+        // type_setattro: the name object is the key the type's dict keeps.
+        internal void TypeSetAttribute(PyString nameObject, PyObject value)
         {
+            // An exact str is the key; a str subclass's copy is (_PyUnicode_Copy, then interned).
+            if (!nameObject.IsExactly(StrType))
+                nameObject = nameObject.Copy();
+            string name = nameObject.Value;
             if (HasFeature(PyTypeFlags.ImmutableType))
             {
                 throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{FullName}'");
             }
             // _PyType_Lookup(Py_TYPE(type), name): a data descriptor of the metatype sets.
-            if (PyClassInstance.FindDataDescriptorInMro(GetPyType(), name) is { } descriptor)
+            if (PyClassInstance.FindDataDescriptorInMro(GetPyType(), nameObject) is { } descriptor)
             {
                 if (value == null)
                     PyClassInstance.CallDescriptorDelete(descriptor, this);
@@ -996,13 +1006,12 @@ namespace SharpPy
             }
             if (value == null)
             {
-                if (!TypeDict.ContainsKey(name))
+                if (!TypeDict.RemoveItem(nameObject))
                     throw PyAttributeError.Create($"type object '{FullName}' has no attribute '{name}'");
-                TypeDict.Remove(name);
             }
             else
             {
-                TypeDict[name] = value;
+                TypeDict.SetItem(nameObject, value);
             }
             // __del__ may be assigned to a class after instances of it already exist. C decides
             // tp_finalize at type creation (Objects/typeobject.c:9499); SharpPy's cached answer is
@@ -1285,6 +1294,26 @@ namespace SharpPy
         /// find_name_in_mro (Objects/typeobject.c): each base's own dict in MRO order. A class's
         /// namespace is its ClassDict, then the TypeDict that carries what a builtin base installs.
         /// </summary>
+        internal PyObject FindNameInMro(PyString name, out bool written)
+        {
+            if (name.WideCharRoundTrips)
+                return FindNameInMro(name.Value, out written);
+            foreach (var mroType in MRO)
+            {
+                written = false;
+                if (mroType.TypeDict != null && mroType.TypeDict.TryGetItem(name, out var value))
+                {
+                    written = mroType.MadeByTypeNew;
+                    return value;
+                }
+            }
+            written = false;
+            return null;
+        }
+
+        /// <summary>_PyType_Lookup by the name object.</summary>
+        internal PyObject FindNameInMro(PyString name) => FindNameInMro(name, out _);
+
         internal PyObject FindNameInMro(string name, out bool written)
         {
             foreach (var mroType in MRO)
@@ -1828,7 +1857,7 @@ namespace SharpPy
 
                     // PyObject_GenericGetAttr, without the hook of the instance's Python class; its
                     // AttributeError carries the name object (set_attribute_error_context).
-                    try { return self.GenericGetAttr(nameStr.Value); }
+                    try { return self.GenericGetAttr(nameStr); }
                     catch (PythonException error) when (error.PyException is PyAttributeError missing)
                     {
                         missing.SetContextIfUnset(nameStr, self);
@@ -2286,7 +2315,7 @@ namespace SharpPy
                     PyObject.AttributeName(args[0]);
                     var nameStr = (PyString)args[0];
 
-                    ((PyType)self).TypeSetAttribute(nameStr.Value, args[1]);
+                    ((PyType)self).TypeSetAttribute(nameStr, args[1]);
                     return PyNone.Instance;
                 },
                 minArgs: 2,
@@ -2947,31 +2976,32 @@ namespace SharpPy
 
         // type_getattro: "type object '%.50s' has no attribute '%U'" with the type's tp_name - a
         // class's own name, a static or spec type's module-qualified one; not the metaclass's.
-        protected override System.Exception AttributeNotFound(string name)
-            => PyAttributeError.Create($"type object '{FullName}' has no attribute '{name}'");
+        protected override System.Exception AttributeNotFound(PyString name)
+            => PyErrFormat.Format(PyType.AttributeErrorType, "type object '%.50s' has no attribute '%U'", FullName, name);
 
         internal override bool TpGetattroIsGeneric => false;
-        protected internal override PyObject TpGetattro(PyString name) => TypeGetattro(name.Value);
+        protected internal override PyObject TpGetattro(PyString name) => TypeGetattro(name);
 
         /// <summary>
         /// _Py_type_getattro_impl (Objects/typeobject.c): a data descriptor of the metatype; then
         /// _PyType_Lookup of the type itself, through tp_descr_get(attribute, NULL, type); then what
         /// the metatype holds, a non-data descriptor bound to the type or a plain value.
         /// </summary>
-        internal PyObject TypeGetattro(string name)
+        internal PyObject TypeGetattro(PyString nameObject)
         {
+            string name = nameObject.Value;
             var metatype = GetPyType();
-            var metaAttribute = metatype.FindNameInMro(name);
+            var metaAttribute = metatype.FindNameInMro(nameObject);
             bool metaDescriptor = metaAttribute != null && SharpPy.PyClassInstance.IsDescriptor(metaAttribute);
             if (metaDescriptor && SharpPy.PyClassInstance.IsDataDescriptor(metaAttribute))
                 return SharpPy.PyClassInstance.CallDescriptorGet(metaAttribute, this, metatype);
-            var attribute = FindNameInMro(name);
+            var attribute = FindNameInMro(nameObject);
             if (attribute != null)
                 return SharpPy.PyClassInstance.IsDescriptor(attribute)
                     ? SharpPy.PyClassInstance.CallDescriptorGet(attribute, null, this) : attribute;
             if (metaAttribute != null)
                 return metaDescriptor ? SharpPy.PyClassInstance.CallDescriptorGet(metaAttribute, this, metatype) : metaAttribute;
-            throw AttributeNotFound(name);
+            throw AttributeNotFound(nameObject);
         }
 
         /// <summary>

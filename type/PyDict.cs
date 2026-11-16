@@ -1125,6 +1125,7 @@ namespace SharpPy
         /// </summary>
         internal static void Store(IDictionary<string, PyObject> variables, PyString name, PyObject value)
         {
+            if (variables is PyNamespace owned) { owned.Mapping.SetItem(name, value); return; }
             if (name.IsExactly(PyType.StrType) || variables.ContainsKey(name.Value)) Store(variables, name.Value, value);
             else For(variables).SetItem(name, value);
         }
@@ -1186,9 +1187,9 @@ namespace SharpPy
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        private bool CanUseHostLookup(PyObject key) => key is PyString &&
+        private bool CanUseHostLookup(PyObject key) => key is PyString name &&
             (_globalScopeVariables is not PyNamespace owned ||
-             (!owned.GenericKeys && key.IsExactly(PyType.StrType)));
+             (!owned.GenericKeys && key.IsExactly(PyType.StrType))) && name.WideCharRoundTrips;
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         private bool TryGetHostValue(string name, out PyObject value) => _globalScopeVariables is PyNamespace owned

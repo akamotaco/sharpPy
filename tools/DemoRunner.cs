@@ -93,7 +93,7 @@ namespace SharpPy.Tools
             var nameGetter = new PyFunction("get_name", args => 
             {
                 var self = (PyClassInstance)args[0];
-                return self.TryGetInstanceAttribute("_name", out var stored) ? stored : new PyString("Unknown");
+                return self.TryGetInstanceAttribute(PyString.From("_name"), out var stored) ? stored : new PyString("Unknown");
             });
             var nameSetter = new PyFunction("set_name", args =>
             {

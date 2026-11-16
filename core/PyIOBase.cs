@@ -47,8 +47,8 @@ public class PyIOBaseInstance : PyObject, IObjectDict
     /// (measured). _IOBase really has no read/write, which is why read(), readline(),
     /// readlines(), next() and writelines() all surface that AttributeError.
     /// </summary>
-    protected override System.Exception AttributeNotFound(string name)
-        => PyAttributeError.Create($"'{GetPyType().FullName}' object has no attribute '{name}'");
+    protected override System.Exception AttributeNotFound(PyString name)
+        => PyErrFormat.Format(PyType.AttributeErrorType, "'%.100s' object has no attribute '%U'", GetPyType().FullName, name);
 
     /// <summary>
     /// CPython drives io iteration through tp_iter / tp_iternext (iobase_iter returns self and

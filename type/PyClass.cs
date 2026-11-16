@@ -71,10 +71,10 @@ namespace SharpPy
             var hook = _getattr;
             var method = _getattribute;
             if (hook == null)
-                return method == null ? self.InheritedGetattro(name.Value) : CallGetattrMethod(self, method, name);
+                return method == null ? self.InheritedGetattro(name) : CallGetattrMethod(self, method, name);
             try
             {
-                return method == null ? self.InheritedGetattro(name.Value) : CallGetattrMethod(self, method, name);
+                return method == null ? self.InheritedGetattro(name) : CallGetattrMethod(self, method, name);
             }
             catch (PythonException error) when (error.PyException is PyAttributeError)
             {
@@ -605,11 +605,10 @@ namespace SharpPy
 
         // --- Attribute-store API (CPython 3.12: _PyObject_MaterializeManagedDict pattern) ---
 
-        public bool TryGetInstanceAttribute(string name, out PyObject value)
+        public bool TryGetInstanceAttribute(PyString name, out PyObject value)
         {
-            if (_materialized != null)
-                return _materialized.TryGetStoredValue(PyString.From(name), out value);
-            return _attrs.TryGetValue(name, out value);
+            value = null;
+            return _dict != null && _dict.TryGetStoredValue(name, out value);
         }
 
         // The slots of __slots__ are storage of the instance beside its __dict__.
@@ -625,91 +624,40 @@ namespace SharpPy
 
         internal bool RemoveSlot(string name) => _slots != null && _slots.Remove(name);
 
-        public void SetInstanceAttribute(PyString name, PyObject value)
-        {
-            if (_materialized != null)
-                _materialized.SetItem(name, value);
-            // The string table holds exact str keys; a str subclass is a new key only the dict keeps
-            // (an equal key already there stays, as insertdict replaces the value alone).
-            else if (name.IsExactly(PyType.StrType) || _attrs.ContainsKey(name.Value))
-                _attrs[name.Value] = value;
-            else
-                Materialize().SetItem(name, value);
-        }
+        // _PyObjectDict_SetItem: the name object is the key a new entry keeps (an equal key already
+        // there stays, as insertdict replaces the value alone).
+        public void SetInstanceAttribute(PyString name, PyObject value) => Dict.SetItem(name, value);
 
         public bool RemoveInstanceAttribute(PyString key)
         {
-            // Dictionary reuses a freed slot, which would reorder __dict__; the dict keeps insertion order.
-            if (_materialized == null && !_attrs.ContainsKey(key.Value)) return false;
-            var dict = Materialize();
-            if (!dict.ContainsKey(key)) return false;
-            dict.DelItem(key);
+            if (_dict == null || !_dict.ContainsKey(key)) return false;
+            _dict.DelItem(key);
             return true;
         }
 
-        // What was assigned to __dict__ when it is more than a dict: x.__dict__ is x.
-        private PyObject _assignedDict;
-
-        // PyObject_GenericSetDict: the dict replaces the store itself, a subclass's table included.
+        // PyObject_GenericSetDict: the dict (a dict subclass too) is the instance's from now on.
         internal void SetDict(PyObject value)
         {
-            _materialized = (value as PyDict) ?? throw PyTypeError.Create(
+            _dict = (value as PyDict) ?? throw PyTypeError.Create(
                 $"__dict__ must be set to a dictionary, not a '{value.GetPyType().Name}'");
-            _assignedDict = value;
-            _attrs = null;
         }
 
         // subtype_setdict with NULL: the reference goes, a new dict comes on the next use.
-        internal void DropDict()
-        {
-            _materialized = null;
-            _assignedDict = null;
-            _attrs = new Dictionary<string, PyObject>();
-        }
+        internal void DropDict() => _dict = null;
 
-        // _PyObject_MaterializeManagedDict: the compact store moves into the dict once and for all.
-        private PyDict Materialize()
-        {
-            if (_materialized == null)
-            {
-                var dict = new PyDict();
-                foreach (var entry in _attrs)
-                    dict.SetItem(PyString.From(entry.Key), entry.Value);
-                _materialized = dict;
-                _attrs = null;
-            }
-            return _materialized;
-        }
+        // _PyObject_GetDictPtr with the dict made on first use (PyObject_GenericGetDict).
+        private PyDict Dict => _dict ??= new PyDict();
 
-        public IEnumerable<KeyValuePair<string, PyObject>> InstanceAttributes
-        {
-            get
-            {
-                if (_materialized != null)
-                {
-                    var keys = _materialized.GetStorageKeyEnumerator();
-                    while (keys.MoveNext())
-                    {
-                        if (keys.Current.Key is PyString ps)
-                            yield return new KeyValuePair<string, PyObject>(ps.Value, keys.Current.Value);
-                    }
-                }
-                else
-                {
-                    foreach (var entry in _attrs)
-                        yield return new KeyValuePair<string, PyObject>(entry.Key, entry.Value);
-                }
-            }
-        }
+        public IEnumerable<KeyValuePair<PyObject, PyObject>> InstanceAttributes =>
+            _dict != null ? _dict.InternalDict : System.Linq.Enumerable.Empty<KeyValuePair<PyObject, PyObject>>();
 
-        // CPython 3.12: _PyObject_MaterializeManagedDict — exactly one of _attrs / _materialized is live.
-        private Dictionary<string, PyObject> _attrs;
-        private PyDict _materialized;
+        // The instance dict, keyed by the str objects that were set (the dict of a heap type
+        // instance); null until something is stored or __dict__ is asked for.
+        private PyDict _dict;
 
         public PyClassInstance(PyClass instanceType)
         {
             InstanceType = instanceType;
-            _attrs = new Dictionary<string, PyObject>();
         }
 
         public override string ToString()
@@ -734,7 +682,7 @@ namespace SharpPy
         private PyObject CallMagicMethod(string methodName, params PyObject[] args)
         {
             // Check instance dict first
-            if (TryGetInstanceAttribute(methodName, out var ownMethod))
+            if (TryGetInstanceAttribute(PyString.From(methodName), out var ownMethod))
             {
                 return ownMethod.Call(args, null);
             }
@@ -959,13 +907,13 @@ namespace SharpPy
             return false;
         }
 
-        internal override PyObject GenericGetAttr(string name) => GetAttributeGeneric(name);
+        internal override PyObject GenericGetAttr(PyString name) => GetAttributeGeneric(name);
 
-        internal override PyObject GenericGetMethod(string name, out bool unbound) => GetAttributeGeneric(name, true, out unbound);
+        internal override PyObject GenericGetMethod(PyString name, out bool unbound) => GetAttributeGeneric(name, true, out unbound);
 
-        internal PyObject GetAttributeGeneric(string name) => GetAttributeGeneric(name, false, out _);
+        internal PyObject GetAttributeGeneric(PyString name) => GetAttributeGeneric(name, false, out _);
 
-        private PyObject GetAttributeGeneric(string name, bool method, out bool unbound)
+        private PyObject GetAttributeGeneric(PyString name, bool method, out bool unbound)
         {
             unbound = false;
             #if DEBUG_LOG
@@ -974,17 +922,17 @@ namespace SharpPy
 
             // 특별한 속성들 먼저 처리
             // object.__class__ is a getset on object: a class of the MRO may shadow it.
-            if (name == "__class__" && !IsShadowedInClass(name))
+            if (name.Value == "__class__" && !IsShadowedInClass("__class__"))
             {
                 return InstanceType;
             }
-            if (name == "__dict__" && !DictIsReplaced())
+            if (name.Value == "__dict__" && !DictIsReplaced())
             {
                 // CPython 3.12: Return cached wrapper for identity consistency
                 // obj.__dict__ is obj.__dict__ must be True
                 if (InstanceType.InstancesHaveDict())
                 {
-                    return _assignedDict ?? Materialize();
+                    return Dict;
                 }
                 // __slots__ class without '__dict__': fall through to the normal
                 // MRO lookup, which ends in AttributeError like CPython.
@@ -992,7 +940,7 @@ namespace SharpPy
 
             // _PyObject_GenericGetAttrWithDict over the instance's own store; what a builtin base
             // holds, and the AttributeError, are object's generic lookup.
-            return SubclassInstanceSupport.GenericGetAttrWithDict(this, InstanceType, name, null, this, method, out unbound) ?? base.TpGetattro(PyString.From(name));
+            return SubclassInstanceSupport.GenericGetAttrWithDict(this, InstanceType, name, null, this, method, out unbound) ?? base.TpGetattro(name);
         }
 
         // PyObject_GenericSetAttr: __class__ is object's data descriptor, object_set_class.
@@ -1017,6 +965,9 @@ namespace SharpPy
         // which counts when it is a data descriptor.
         // _PyType_Lookup, and whether what it found has tp_descr_set.
         internal static PyObject FindDataDescriptorInMro(PyType type, string name) =>
+            type.FindNameInMro(name) is { } found && IsDataDescriptor(found) ? found : null;
+
+        internal static PyObject FindDataDescriptorInMro(PyType type, PyString name) =>
             type.FindNameInMro(name) is { } found && IsDataDescriptor(found) ? found : null;
 
         /// <summary>

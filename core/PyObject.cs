@@ -499,7 +499,7 @@ namespace SharpPy
         private SharpPy.PyClass HeapType() => GetPyType() is SharpPy.PyClass heap && heap.IsHeapType ? heap : null;
 
         /// <summary>tp_getattro of the CLR type: the builtin's own, PyObject_GenericGetAttr by default.</summary>
-        protected internal virtual PyObject TpGetattro(PyString name) => GenericGetattro(name.Value, false, out _);
+        protected internal virtual PyObject TpGetattro(PyString name) => GenericGetattro(name, false, out _);
 
         /// <summary>
         /// Whether tp_getattro is PyObject_GenericGetAttr: false for a CLR type that overrides
@@ -509,16 +509,16 @@ namespace SharpPy
         internal virtual bool TpGetattroIsGeneric => true;
 
         // PyObject_GenericGetAttr, and with method _PyObject_GetMethod's lookup.
-        private PyObject GenericGetattro(string name, bool method, out bool unbound)
+        private PyObject GenericGetattro(PyString name, bool method, out bool unbound)
         {
             // A Python subclass of a builtin with no storage of its own for attributes.
             if (_customType is PyClass heap && !HasOwnDict)
             {
                 var attributes = HeapAttributes.GetOrCreateValue(this);
-                if (name == "__dict__" && heap.InstancesHaveDict())
+                if (name.Value == "__dict__" && heap.InstancesHaveDict())
                 {
                     unbound = false;
-                    return PyGlobalsDict.For(attributes);
+                    return attributes;
                 }
                 return SubclassInstanceSupport.GenericGetAttrWithDict(this, heap, name, attributes, null, method, out unbound) ?? PyGetAttribute(name);
             }
@@ -540,8 +540,8 @@ namespace SharpPy
             try
             {
                 if (HeapType() is { } heap)
-                    return heap.GetattroIsInherited() && TpGetattroIsGeneric ? GenericGetMethod(name.Value, out unbound) : heap.GetattroSlot(this, name);
-                return TpGetattroIsGeneric ? GenericGetMethod(name.Value, out unbound) : TpGetattro(name);
+                    return heap.GetattroIsInherited() && TpGetattroIsGeneric ? GenericGetMethod(name, out unbound) : heap.GetattroSlot(this, name);
+                return TpGetattroIsGeneric ? GenericGetMethod(name, out unbound) : TpGetattro(name);
             }
             catch (PythonException error) when (error.PyException is PyAttributeError missing)
             {
@@ -552,7 +552,7 @@ namespace SharpPy
         }
 
         // The generic lookup of GetMethod: the CLR type's PyObject_GenericGetAttr.
-        internal virtual PyObject GenericGetMethod(string name, out bool unbound) => GenericGetattro(name, true, out unbound);
+        internal virtual PyObject GenericGetMethod(PyString name, out bool unbound) => GenericGetattro(name, true, out unbound);
 
         /// <summary>
         /// PyObject_GenericGetAttr for this object, which object.__getattribute__ is: tp_getattro
@@ -563,12 +563,9 @@ namespace SharpPy
         /// The tp_getattro a Python class inherits from its builtin base when it writes neither
         /// __getattribute__ nor __getattr__: PyObject_GenericGetAttr unless the base has its own.
         /// </summary>
-        internal virtual PyObject InheritedGetattro(string name) => GenericGetAttr(name);
+        internal virtual PyObject InheritedGetattro(PyString name) => GenericGetAttr(name);
 
-        internal virtual PyObject GenericGetAttr(string name)
-        {
-            return TpGetattro(PyString.From(name));
-        }
+        internal virtual PyObject GenericGetAttr(PyString name) => TpGetattro(name);
 
         /// <summary>
         /// PyObject_SetAttr: the type's tp_setattro. A class written in Python has slot_tp_setattro,
@@ -620,7 +617,10 @@ namespace SharpPy
         internal virtual void GenericDelAttr(PyString name) => TpDelattro(name);
 
         /// <summary>The instance dict of a Python class over a builtin with no store of its own.</summary>
-        internal Dictionary<string, PyObject> HeapDict => HeapAttributes.GetOrCreateValue(this);
+        internal PyDict HeapDict => HeapAttributes.GetOrCreateValue(this);
+
+        /// <summary>PyObject_GenericSetDict over that dict: the given dict is the object's.</summary>
+        internal void SetHeapDict(PyDict dict) => HeapAttributes.AddOrUpdate(this, dict);
 
         // tp_dictoffset of the builtin itself (function, BaseException, classmethod, the io objects,
         // SimpleNamespace): a heap subclass uses that dict, there is no second one beside it.
@@ -636,24 +636,28 @@ namespace SharpPy
         protected internal virtual void TpSetattro(PyString name, PyObject value)
         {
             if (_customType is PyClass heap && !HasOwnDict)
-                SubclassInstanceSupport.GenericSetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, value);
+                SubclassInstanceSupport.GenericSetAttribute(this, heap, HeapDict, name, value);
             else
                 PySetAttribute(name, value);
         }
 
-        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PyObject, Dictionary<string, PyObject>> HeapAttributes = new();
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PyObject, PyDict> HeapAttributes = new();
 
         /// <summary>tp_setattro of the CLR type asked to delete.</summary>
         protected internal virtual void TpDelattro(PyString name)
         {
             if (!HasOwnDict && _customType is SharpPy.PyClass &&
-                HeapAttributes.TryGetValue(this, out var attributes) && PyGlobalsDict.Delete(attributes, name.Value)) return;
+                HeapAttributes.TryGetValue(this, out var attributes) && attributes.ContainsKey(name))
+            {
+                attributes.DelItem(name);
+                return;
+            }
             PyDelAttribute(name);
         }
 
 
         // 내부 attribute 처리 메서드들 (MRO 기반)
-        protected virtual PyObject PyGetAttribute(string name)
+        protected virtual PyObject PyGetAttribute(PyString name)
         {
             // CPython 3.12 호환: GenericGetAttribute 사용
             return GenericGetAttribute(name);
@@ -806,7 +810,7 @@ namespace SharpPy
         /// CPython PyObject_GenericGetAttr 호환: 제네릭 속성 접근
         /// MRO 기반 descriptor 프로토콜 구현
         /// </summary>
-        protected virtual PyObject GenericGetAttribute(string name)
+        protected virtual PyObject GenericGetAttribute(PyString name)
         {
             // _PyObject_GenericGetAttrWithDict over the object's own store; the type's dict holds
             // the slot wrappers too, as tp_dict does.
@@ -817,9 +821,9 @@ namespace SharpPy
         // CPython distinguishes attribute errors on a class object
         // (type_getattro: "type object 'X' has no attribute 'Y'") from those on
         // an instance ("'X' object has no attribute 'Y'"). PyType overrides this.
-        protected virtual System.Exception AttributeNotFound(string name)
+        protected virtual System.Exception AttributeNotFound(PyString name)
             // name and obj are set_attribute_error_context's, by the caller holding the name object.
-            => PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
+            => PyErrFormat.Format(PyType.AttributeErrorType, "'%.100s' object has no attribute '%U'", GetTypeName(), name);
 
         protected virtual void PySetAttribute(PyString name, PyObject value) => GenericSetOrDelete(name, value);
 
@@ -833,7 +837,6 @@ namespace SharpPy
             SubclassInstanceSupport.GenericSetAttrWithDict(this, GetPyType(), name, value, null, this as IInstanceDictStore);
         }
 
-        internal System.Exception NoSuchAttribute(string name) => AttributeNotFound(name);
 
         #endregion
 

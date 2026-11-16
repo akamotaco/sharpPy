@@ -210,6 +210,40 @@ namespace SharpPy
             return max;
         }
 
+        // 0 not worked out, 1 yes, 2 no.
+        private byte _wideRoundTrip;
+
+        /// <summary>
+        /// Whether PyUnicode_FromWideChar(PyUnicode_AsWideChar(s)) gives s back: false when a high
+        /// surrogate character is followed by a low one, which the wchar_t text (<see cref="Value"/>)
+        /// cannot tell from the one character the pair would be. A table keyed by .NET strings holds
+        /// only names for which this is true.
+        /// </summary>
+        internal bool WideCharRoundTrips
+        {
+            get
+            {
+                if (_wideRoundTrip == 0)
+                {
+                    Resolve();
+                    bool kept = true;
+                    if (_kind == 4)
+                    {
+                        for (int i = 0; i + 1 < _ucs4.Length; i++)
+                            if (_ucs4[i] is >= 0xD800 and <= 0xDBFF && _ucs4[i + 1] is >= 0xDC00 and <= 0xDFFF)
+                            {
+                                kept = false;
+                                break;
+                            }
+                    }
+                    else
+                        kept = !HasSurrogatePairs(_text);
+                    _wideRoundTrip = kept ? (byte)1 : (byte)2;
+                }
+                return _wideRoundTrip == 1;
+            }
+        }
+
         // ---- constructors that keep characters apart ----
 
         /// <summary>

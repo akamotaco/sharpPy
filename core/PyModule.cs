@@ -111,23 +111,64 @@ public class PyModule : PyObject
         // __annotations__ are the module type's member and getset, found below like any other.
         // PyObject_GenericGetAttr over the module's type: a data descriptor (object's __class__)
         // comes before md_dict.
-        var declared = GetPyType().FindNameInMro(name);
+        var declared = GetPyType().FindNameInMro(nameObject);
         if (declared != null && PyClassInstance.IsDescriptor(declared) && PyClassInstance.IsDataDescriptor(declared))
             return BindSpecialMethod(declared);
 
-        if (ModuleDict.TryGetValue(name, out PyObject value))
+        if (DictObject.TryGetStoredValue(nameObject, out PyObject value))
             return value;
 
         // The rest of _PyObject_GenericGetAttrWithDict: a non-data descriptor or plain value of
         // the type; then module_getattro's own __getattr__ (PEP 562).
         if (declared != null)
             return BindSpecialMethod(declared);
-        if (ModuleDict.TryGetValue("__getattr__", out var hook))
+        if (DictObject.TryGetStoredValue(PyString.From("__getattr__"), out var hook))
             return hook.Call(new PyObject[] { nameObject }, null);
 
-        throw PyAttributeError.Create(ModuleDict.ContainsKey("__name__")
-            ? $"module '{Name}' has no attribute '{name}'"
-            : $"module has no attribute '{name}'");
+        // The error names the module by its __name__ when that is a str, and says why when its
+        // spec is still initializing or the name is a submodule not imported yet.
+        if (DictObject.TryGetStoredValue(PyString.From("__name__"), out var moduleName) && moduleName is PyString)
+        {
+            DictObject.TryGetStoredValue(PyString.From("__spec__"), out var spec);
+            if (SpecIsInitializing(spec))
+                throw PyErrFormat.Format(PyType.AttributeErrorType,
+                    "partially initialized module '%U' has no attribute '%U' (most likely due to a circular import)", moduleName, nameObject);
+            if (SpecIsUninitializedSubmodule(spec, nameObject))
+                throw PyErrFormat.Format(PyType.AttributeErrorType,
+                    "cannot access submodule '%U' of module '%U' (most likely due to a circular import)", nameObject, moduleName);
+            throw PyErrFormat.Format(PyType.AttributeErrorType, "module '%U' has no attribute '%U'", moduleName, nameObject);
+        }
+        throw PyErrFormat.Format(PyType.AttributeErrorType, "module has no attribute '%U'", nameObject);
+    }
+
+    // _PyModuleSpec_IsInitializing: spec._initializing is true; any error counts as no.
+    internal static bool SpecIsInitializing(PyObject spec)
+    {
+        if (spec == null || spec is PyNone)
+            return false;
+        try
+        {
+            return spec.LookupAttribute("_initializing") is { } value && value.IsTrue();
+        }
+        catch (PythonException)
+        {
+            return false;
+        }
+    }
+
+    // _PyModuleSpec_IsUninitializedSubmodule: name is in spec._uninitialized_submodules.
+    private static bool SpecIsUninitializedSubmodule(PyObject spec, PyString name)
+    {
+        if (spec == null)
+            return false;
+        try
+        {
+            return spec.GetAttribute("_uninitialized_submodules").Contains(name).Value;
+        }
+        catch (PythonException)
+        {
+            return false;
+        }
     }
     
     // module_setattro; a module subclass's __setattr__ is its type's slot.
@@ -138,7 +179,7 @@ public class PyModule : PyObject
         string name = nameObject.Value;
         // _PyObject_GenericSetAttrWithDict: a data descriptor of the type (the READONLY __dict__,
         // the __annotations__ getset, a subclass's own) first, then md_dict.
-        if (PyClassInstance.FindDataDescriptorInMro(GetPyType(), name) is { } descriptor)
+        if (PyClassInstance.FindDataDescriptorInMro(GetPyType(), nameObject) is { } descriptor)
         {
             PyClassInstance.CallDescriptorSet(descriptor, this, value);
             return;
@@ -159,10 +200,11 @@ public class PyModule : PyObject
 
     
     // module_setattro with NULL: the name goes from the module's dict.
-    protected internal override void TpDelattro(PyString name) => ModuleDelAttro(name.Value);
+    protected internal override void TpDelattro(PyString name) => ModuleDelAttro(name);
 
-    internal void ModuleDelAttro(string name)
+    internal void ModuleDelAttro(PyString nameObject)
     {
+        string name = nameObject.Value;
         // _PyObject_GenericSetAttrWithDict over md_dict: __dict__ is a READONLY member, __class__
         // object's getset, a data descriptor of a subclass deletes.
         if (PyClassInstance.FindDataDescriptorInMro(GetPyType(), name) is { } descriptor)
@@ -170,7 +212,9 @@ public class PyModule : PyObject
             PyClassInstance.CallDescriptorDelete(descriptor, this);
             return;
         }
-        if (!ModuleDict.Remove(name))
+        if (DictObject.ContainsKey(nameObject))
+            DictObject.DelItem(nameObject);
+        else
             throw PyAttributeError.Create($"'{(_customType is PyClass owner ? owner.Name : "module")}' object has no attribute '{name}'");
     }
 
@@ -476,10 +520,8 @@ public class PyModule : PyObject
         {
             if (Bootstrap == null)
                 return;
-            var spec = mod.LookupAttribute("__spec__");
-            if (spec == null || spec is PyNone)
-                return;
-            if (spec.LookupAttribute("_initializing") is { } initializing && initializing.IsTrue())
+            // import_ensure_initialized: _PyModuleSpec_IsInitializing of the module's spec.
+            if (PyModule.SpecIsInitializing(mod.LookupAttribute("__spec__")))
                 Bootstrap.GetAttribute("_lock_unlock_module").Call(new PyObject[] { PyString.From(name) }, null);
         }
 

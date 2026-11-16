@@ -56,7 +56,6 @@ namespace SharpPy
                 }, 0, int.MaxValue, acceptsKwargs: true);
             }
             PyCell.InstallNew();
-            PyType.InstallExceptionAllocators();
             PyUnicodeError.InstallNew();
             // ellipsis_reduce, notimplemented_reduce
             Method(PyType.EllipsisType, "__reduce__", (self, args) => PyString.From("Ellipsis"));

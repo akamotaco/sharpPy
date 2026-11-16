@@ -20,7 +20,7 @@ namespace SharpPy.Modules
         // self->key: what each thread state's dict files this object's dummy under.
         private readonly long _key = Interlocked.Increment(ref _lastKey);
         // self->dummies: weakref(dummy) -> ldict.
-        private readonly Dictionary<Dummy, Dictionary<string, PyObject>> _dicts = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<Dummy, PyDict> _dicts = new(ReferenceEqualityComparer.Instance);
         private static long _lastKey;
 
         /// <summary>
@@ -60,10 +60,10 @@ namespace SharpPy.Modules
             PyVM.Instance.BoundState ?? throw PySystemError.Create("Couldn't get thread-state dictionary");
 
         // _local_create_dummy
-        private Dictionary<string, PyObject> CreateDummy()
+        private PyDict CreateDummy()
         {
             var dummy = new Dummy(this);
-            var dict = new Dictionary<string, PyObject>();
+            var dict = new PyDict();
             lock (_dicts)
                 _dicts[dummy] = dict;
             ThreadState().AddLocalDummy(_key, dummy);
@@ -87,7 +87,7 @@ namespace SharpPy.Modules
         }
 
         // _ldict: this thread's dict, made and initialized by tp_init on first use.
-        private Dictionary<string, PyObject> LocalDict()
+        private PyDict LocalDict()
         {
             var state = ThreadState();
             if (state.LocalDummies.TryGetValue(_key, out var found))
@@ -124,12 +124,12 @@ namespace SharpPy.Modules
         {
             var dict = LocalDict();
             if (name.Value == "__dict__")
-                return PyGlobalsDict.For(dict);
+                return dict;
             var type = GetPyType();
-            if (ReferenceEquals(type, LocalType) && dict.TryGetValue(name.Value, out var value))
+            if (ReferenceEquals(type, LocalType) && dict.TryGetStoredValue(name, out var value))
                 return value;
-            return SubclassInstanceSupport.GenericGetAttrWithDict(this, type, name.Value, dict, null)
-                ?? throw AttributeNotFound(name.Value);
+            return SubclassInstanceSupport.GenericGetAttrWithDict(this, type, name, dict, null)
+                ?? throw AttributeNotFound(name);
         }
 
         // local_setattro

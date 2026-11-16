@@ -135,7 +135,7 @@ namespace SharpPy
             {
                 PyObject.AttributeName(args[0]);
                     var name = (PyString)args[0];
-                return ((PyType)self).TypeGetattro(name.Value);
+                return ((PyType)self).TypeGetattro(name);
             });
 
             // type_call behind tp_call.
@@ -525,7 +525,7 @@ namespace SharpPy
                         if (self.GetPyType().IsSubclassOf(PyType.BaseExceptionType))
                             throw PyTypeError.Create("cannot delete __dict__");
                         if (self is PyClassInstance instance) instance.DropDict();
-                        else PyGlobalsDict.Clear(self.HeapDict);
+                        else self.HeapDict.Clear();
                     });
             if (parent.WeakOffset == 0 && own.WeakOffset != 0)
                 created.ClassDict["__weakref__"] = new PyGetSetDescriptor("__weakref__", created,

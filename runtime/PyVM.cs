@@ -202,7 +202,7 @@ namespace SharpPy
             // mapping; neither is a scope pushed on the chain, which holds the globals.
 
             // CPython 3.12 호환: 매개변수 바인딩 (키워드 인수 지원)
-            BindArgumentsToParametersCPython312(args, code, parentFrame, defaults, kwdefaults, keywordNames);
+            InitializeLocals(args, code, defaults, kwdefaults, keywordNames);
         }
 
 
@@ -260,296 +260,183 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12 호환: 키워드 인수를 지원하는 매개변수 바인딩
+        /// initialize_locals (Python/ceval.c): the positional arguments into their slots and the
+        /// rest into *args, each keyword by its name object - the very object first, then == -
+        /// into its slot or **kwargs, then the defaults. The errors are CPython's, in its order.
         /// </summary>
-        private void BindArgumentsToParametersCPython312(PyObject[] args, PyCodeObject code, PyFrame parentFrame, PyTuple runtimeDefaults = null, PyDict kwdefaults = null, PyTuple keywordNames = null)
+        private void InitializeLocals(PyObject[] args, PyCodeObject code, PyTuple defaults, PyDict kwdefaults, PyTuple kwnames)
         {
-            #if DEBUG_VM_LOG
-            Console.WriteLine($"[BIND ARGS] BindArgumentsToParametersCPython312 for {code.Name}:");
-            Console.WriteLine($"  runtimeDefaults is null: {runtimeDefaults == null}");
-            if (runtimeDefaults != null)
+            var localsplus = LocalsPlus;
+            var names = code.LocalsPlusKeys;
+            int coArgcount = CoArgcount(code);
+            int totalArgs = coArgcount + code.KwonlyArgCount;
+            int kwcount = kwnames?.Items.Length ?? 0;
+            int argcount = args.Length - kwcount;
+            bool varargs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
+
+            // A dictionary for keyword parameters (**kwargs).
+            PyDict kwdict = null;
+            if ((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)
             {
-                Console.WriteLine($"  runtimeDefaults.Items.Length: {runtimeDefaults.Items.Length}");
-                for (int i = 0; i < runtimeDefaults.Items.Length; i++)
-                {
-                    Console.WriteLine($"  runtimeDefaults[{i}]: {runtimeDefaults.Items[i]}");
-                }
+                kwdict = new PyDict();
+                localsplus[totalArgs + (varargs ? 1 : 0)] = kwdict;
             }
-            #endif
 
-            // CPython 3.12: Check for keyword arguments from parent frame
-            PyTuple kwNames = keywordNames;
-            Dictionary<string, PyObject> keywordArgs = null;
-            PyObject[] positionalArgs = args;
+            // All positional arguments into local variables, the others into *args.
+            int n = Math.Min(argcount, coArgcount);
+            for (int j = 0; j < n; j++)
+                localsplus[j] = args[j];
+            if (varargs)
+                localsplus[totalArgs] = argcount == n ? PyTuple.Empty : PyTuple.From(args[n..argcount]);
 
-            if (kwNames != null && kwNames.Items.Length > 0)
+            for (int i = 0; i < kwcount; i++)
             {
-                // Performance: Eliminated LINQ - manual array conversion
-                var kwNamesList = new string[kwNames.Items.Length];
-                for (int i = 0; i < kwNames.Items.Length; i++)
+                var keyword = kwnames.Items[i];
+                var value = args[argcount + i];
+                if (keyword is not PyString)
+                    throw PyErrFormat.Format(PyType.TypeErrorType, "%s() keywords must be strings", CallName(code));
+                int j = FindKeyword(names, code.PosonlyArgCount, totalArgs, keyword);
+                if (j < 0)
                 {
-                    kwNamesList[i] = ((PyString)kwNames.Items[i]).Value;
+                    if (kwdict == null)
+                    {
+                        if (code.PosonlyArgCount != 0)
+                            PositionalOnlyPassedAsKeyword(code, kwnames);
+                        throw PyErrFormat.Format(PyType.TypeErrorType, "%s() got an unexpected keyword argument '%S'", CallName(code), keyword);
+                    }
+                    kwdict.SetItem(keyword, value);
+                    continue;
                 }
-                var numKwArgs = kwNamesList.Length;
-                var numPosArgs = args.Length - numKwArgs;
+                if (!IsNull(localsplus[j]))
+                    throw PyErrFormat.Format(PyType.TypeErrorType, "%s() got multiple values for argument '%S'", CallName(code), keyword);
+                localsplus[j] = value;
+            }
 
-                // Split positional and keyword arguments (CPython 3.12 way)
-                positionalArgs = new PyObject[numPosArgs];
-                keywordArgs = new Dictionary<string, PyObject>();
+            // The number of positional arguments.
+            if (argcount > coArgcount && !varargs)
+                TooManyPositional(code, argcount, defaults);
 
-                Array.Copy(args, 0, positionalArgs, 0, numPosArgs);
+            // Missing positional arguments: the defaults (func_defaults).
+            if (argcount < coArgcount)
+            {
+                int defcount = defaults?.Items.Length ?? 0;
+                int m = coArgcount - defcount;
+                int missing = 0;
+                for (int i = argcount; i < m; i++)
+                    if (IsNull(localsplus[i]))
+                        missing++;
+                if (missing != 0)
+                    MissingArguments(code, missing, defcount);
+                for (int i = n > m ? n - m : 0; i < defcount; i++)
+                    if (IsNull(localsplus[m + i]))
+                        localsplus[m + i] = defaults.Items[i];
+            }
 
-                for (int i = 0; i < numKwArgs; i++)
+            // Missing keyword-only arguments: the kwdefaults (func_kwdefaults).
+            if (code.KwonlyArgCount > 0)
+            {
+                int missing = 0;
+                for (int i = coArgcount; i < totalArgs; i++)
                 {
-                    keywordArgs[kwNamesList[i]] = args[numPosArgs + i];
+                    if (!IsNull(localsplus[i]))
+                        continue;
+                    if (kwdefaults != null && kwdefaults.TryGetStoredValue(names[i], out var found))
+                    {
+                        localsplus[i] = found;
+                        continue;
+                    }
+                    missing++;
                 }
+                if (missing != 0)
+                    MissingArguments(code, missing, -1);
+            }
+        }
 
-#if DEBUG_LOG
-                Console.WriteLine($"🔗 키워드 인수 매개변수 바인딩: {positionalArgs.Length}개 위치 인수, {keywordArgs.Count}개 키워드 인수, {code.ArgCount}개 매개변수");
-                Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
-#endif
+        // co_argcount: SharpPy's ArgCount counts the keyword-only parameters too.
+        private static int CoArgcount(PyCodeObject code) => code.ArgCount - code.KwonlyArgCount;
 
-                // Clear keyword names to prevent reuse
+        private static bool IsNull(PyObject slot) => slot == null || ReferenceEquals(slot, PyNull.Instance);
+
+        // The slot of the parameter a keyword names: raw pointer compares first, as names are
+        // normally interned, then PyObject_RichCompareBool. -1 when no parameter has that name.
+        private static int FindKeyword(PyString[] names, int first, int end, PyObject keyword)
+        {
+            for (int j = first; j < end; j++)
+                if (ReferenceEquals(names[j], keyword))
+                    return j;
+            for (int j = first; j < end; j++)
+                if (PyObject.CompareBool(keyword, names[j], PyObject.CompareOp.EQ))
+                    return j;
+            return -1;
+        }
+
+        // positional_only_passed_as_keyword
+        private static void PositionalOnlyPassedAsKeyword(PyCodeObject code, PyTuple kwnames)
+        {
+            var conflicts = new System.Collections.Generic.List<PyObject>();
+            for (int k = 0; k < code.PosonlyArgCount; k++)
+            {
+                var posonly = code.LocalsPlusKeys[k];
+                foreach (var kwname in kwnames.Items)
+                    if (ReferenceEquals(kwname, posonly) || PyObject.CompareBool(posonly, kwname, PyObject.CompareOp.EQ))
+                        conflicts.Add(kwname);
+            }
+            if (conflicts.Count != 0)
+                throw PyErrFormat.Format(PyType.TypeErrorType,
+                    "%s() got some positional-only arguments passed as keyword arguments: '%U'",
+                    CallName(code), PyString.JoinArray(PyString.From(", "), conflicts.ToArray()));
+        }
+
+        // too_many_positional
+        private void TooManyPositional(PyCodeObject code, int given, PyTuple defaults)
+        {
+            int coArgcount = CoArgcount(code);
+            int kwonlyGiven = 0;
+            for (int i = coArgcount; i < coArgcount + code.KwonlyArgCount; i++)
+                if (!IsNull(LocalsPlus[i]))
+                    kwonlyGiven++;
+            int defcount = defaults?.Items.Length ?? 0;
+            bool plural;
+            string sig;
+            if (defcount != 0)
+            {
+                plural = true;
+                sig = $"from {coArgcount - defcount} to {coArgcount}";
             }
             else
             {
-#if DEBUG_LOG
-                Console.WriteLine($"🔗 매개변수 바인딩: {args.Length}개 인수, {code.ArgCount}개 매개변수");
-#if DEBUG_LOG
-                Console.WriteLine($"  Code flags: {code.Flags} (CO_VARARGS={((code.Flags & PyCodeObject.CO_VARARGS) != 0)}, CO_VARKEYWORDS={((code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0)})");
-#endif
-#endif
+                plural = coArgcount != 1;
+                sig = coArgcount.ToString();
             }
+            string kwonlySig = kwonlyGiven != 0
+                ? $" positional argument{(given != 1 ? "s" : "")} (and {kwonlyGiven} keyword-only argument{(kwonlyGiven != 1 ? "s" : "")})"
+                : "";
+            throw PyErrFormat.Format(PyType.TypeErrorType, "%s() takes %s positional argument%s but %d%s %s given",
+                CallName(code), sig, plural ? "s" : "", given, kwonlySig, given == 1 && kwonlyGiven == 0 ? "was" : "were");
+        }
 
-            bool hasVarArgs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
-            bool hasVarKeywords = (code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0;
-
-            // Phase 1: Bind positional arguments to regular parameters (NOT including keyword-only)
-            // CPython 3.12: co_argcount does NOT include keyword-only parameters
-            int regularArgCount = code.ArgCount - code.KwonlyArgCount;
-            int posArgIndex = 0;
-            var missingPositional = new List<string>();
-            // The defaults are the function's (func_defaults); a code object has none.
-            int defaultCountForError = runtimeDefaults?.Items.Length ?? 0;
-            for (int paramIndex = 0; paramIndex < regularArgCount; paramIndex++)
+        // missing_arguments and format_missing: the reprs of the names of the empty slots.
+        private void MissingArguments(PyCodeObject code, int missing, int defcount)
+        {
+            bool positional = defcount != -1;
+            int coArgcount = CoArgcount(code);
+            int start = positional ? 0 : coArgcount;
+            int end = positional ? coArgcount - defcount : coArgcount + code.KwonlyArgCount;
+            var missingNames = new System.Collections.Generic.List<PyObject>(missing);
+            for (int i = start; i < end; i++)
+                if (IsNull(LocalsPlus[i]))
+                    missingNames.Add(code.LocalsPlusKeys[i].ToRepr());
+            int len = missingNames.Count;
+            PyString nameStr = len switch
             {
-                var paramName = code.VarNames[paramIndex];
-
-                if (posArgIndex < positionalArgs.Length)
-                {
-                    // CPython: a parameter bound positionally may not also be a keyword
-                    // (ceval.c duplicate positional check; co_name prefix, measured).
-                    if (paramIndex >= code.PosonlyArgCount && keywordArgs != null && keywordArgs.ContainsKey(paramName))
-                        throw PyTypeError.Create($"{CallName(code)}() got multiple values for argument '{paramName}'");
-                    // Bind positional argument
-                    LocalsPlus[paramIndex] = positionalArgs[posArgIndex];
-                    posArgIndex++;
-
-#if DEBUG_LOG
-                    Console.WriteLine($"  → {paramName} = {positionalArgs[posArgIndex - 1]} (위치 인수)");
-#endif
-                }
-                else if (keywordArgs != null && (paramIndex >= code.PosonlyArgCount || !hasVarKeywords) && keywordArgs.ContainsKey(paramName))
-                {
-                    // CPython 3.12: Check if this is a positional-only parameter
-                    // Positional-only parameters cannot be passed as keyword arguments
-                    if (paramIndex < code.PosonlyArgCount)
-                    {
-                        // Collect all positional-only parameters passed as keywords
-                        var posonlyNames = new List<string>();
-                        for (int k = 0; k < code.PosonlyArgCount; k++)
-                        {
-                            var posonlyName = code.VarNames[k];
-                            if (keywordArgs.ContainsKey(posonlyName))
-                            {
-                                posonlyNames.Add(posonlyName);
-                            }
-                        }
-
-                        if (posonlyNames.Count > 0)
-                        {
-                            var errorNames = string.Join(", ", posonlyNames);
-                            throw PyTypeError.Create($"{code.Name}() got some positional-only arguments passed as keyword arguments: '{errorNames}'");
-                        }
-                    }
-
-                    // Bind keyword argument to parameter
-                    var keywordValue = keywordArgs[paramName];
-                    LocalsPlus[paramIndex] = keywordValue;
-                    keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
-
-#if DEBUG_LOG
-                    Console.WriteLine($"  → {paramName} = {keywordValue} (키워드 인수)");
-#endif
-                }
-                else
-                {
-                    // func_defaults (__defaults__), as MAKE_FUNCTION set it.
-                    PyTuple effectiveDefaults = runtimeDefaults;
-                    int numRequiredParams = regularArgCount - (effectiveDefaults?.Items.Length ?? 0);
-
-                    if (effectiveDefaults != null && paramIndex >= numRequiredParams && paramIndex - numRequiredParams < effectiveDefaults.Items.Length)
-                    {
-                        var defaultValue = effectiveDefaults.Items[paramIndex - numRequiredParams];
-                        LocalsPlus[paramIndex] = defaultValue;
-
-#if DEBUG_LOG
-                        Console.WriteLine($"  → {paramName} = {defaultValue} (기본값, index {paramIndex - numRequiredParams})");
-#endif
-                    }
-                    else
-                    {
-                        // Missing required argument (message built after the loop with
-                        // CPython's full grammar; collect every missing parameter).
-                        missingPositional.Add(paramName);
-                    }
-                }
-            }
-
-            // CPython finalize_frame error order: too many positional args first,
-            // then missing required positional (with the full name list).
-            if (!hasVarArgs && posArgIndex < positionalArgs.Length)
-            {
-                int given = positionalArgs.Length;
-                int slots = regularArgCount;
-                int required = slots - Math.Min(defaultCountForError, slots);
-                // too_many_positional
-                int kwonlyGiven = 0;
-                if (keywordArgs != null)
-                    for (int i = slots; i < slots + code.KwonlyArgCount; i++)
-                        if (keywordArgs.ContainsKey(code.VarNames[i]))
-                            kwonlyGiven++;
-                string signature = required < slots ? $"from {required} to {slots}" : slots.ToString();
-                bool plural = required < slots || slots != 1;
-                string kwonlyText = kwonlyGiven == 0 ? "" :
-                    $" positional argument{(given != 1 ? "s" : "")} (and {kwonlyGiven} keyword-only argument{(kwonlyGiven != 1 ? "s" : "")})";
-                throw PyTypeError.Create($"{CallName(code)}() takes {signature} positional argument{(plural ? "s" : "")} but {given}{kwonlyText} {(given == 1 && kwonlyGiven == 0 ? "was" : "were")} given");
-            }
-            if (missingPositional.Count > 0)
-            {
-                // CPython processes keyword names before reporting missing positional
-                // arguments: an unknown keyword wins over the missing-argument error.
-                if (keywordArgs != null && keywordArgs.Count > 0 && !hasVarKeywords)
-                {
-                    foreach (var kwName in keywordArgs.Keys)
-                    {
-                        bool matchesParam = false;
-                        for (int pi = 0; pi < code.ArgCount; pi++)
-                        {
-                            if (code.VarNames[pi] == kwName)
-                            {
-                                matchesParam = true;
-                                break;
-                            }
-                        }
-                        // positional_only_passed_as_keyword, before the unknown name.
-                        PyVM.RefusePositionalOnly(code, keywordArgs);
-                        if (!matchesParam)
-                            throw PyTypeError.Create($"{CallName(code)}() got an unexpected keyword argument '{kwName}'");
-                    }
-                }
-                throw PyTypeError.Create($"{CallName(code)}() missing {missingPositional.Count} required positional {PyVM.MissingText(missingPositional)}");
-            }
-
-            var missingKeywordOnly = new List<string>();
-            // Phase 1.5: Bind keyword-only arguments (CPython 3.12)
-            // These come AFTER regular parameters but BEFORE *args/**kwargs
-            for (int kwOnlyIndex = 0; kwOnlyIndex < code.KwonlyArgCount; kwOnlyIndex++)
-            {
-                int paramIndex = regularArgCount + kwOnlyIndex;
-                var paramName = code.VarNames[paramIndex];
-
-                // Keyword-only parameters can ONLY be passed by keyword, never positionally
-                if (keywordArgs != null && keywordArgs.ContainsKey(paramName))
-                {
-                    var keywordValue = keywordArgs[paramName];
-                    LocalsPlus[paramIndex] = keywordValue;
-                    keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
-
-#if DEBUG_LOG
-                    Console.WriteLine($"  → {paramName} = {keywordValue} (keyword-only 인수)");
-#endif
-                }
-                else
-                {
-                    // initialize_locals: PyDict_GetItemWithError(func->func_kwdefaults, varname).
-                    PyObject defaultValue = null;
-                    bool hasDefault = kwdefaults != null &&
-                        kwdefaults.TryGetStoredValue(PyString.From(paramName), out defaultValue);
-
-                    if (hasDefault)
-                    {
-                        LocalsPlus[paramIndex] = defaultValue;
-                    }
-                    else
-                    {
-                        missingKeywordOnly.Add(paramName);
-                    }
-                }
-            }
-
-            if (missingKeywordOnly.Count > 0)
-                throw PyTypeError.Create($"{CallName(code)}() missing {missingKeywordOnly.Count} required keyword-only {PyVM.MissingText(missingKeywordOnly)}");
-
-            // Phase 2: Handle *args (if function has varargs) - CPython 3.12 compatible
-            if (hasVarArgs)
-            {
-                int varargsIndex = code.ArgCount; // *args parameter index
-                var varargsName = code.VarNames[varargsIndex];
-
-                // Collect remaining positional arguments into *args tuple
-                var extraArgs = new PyObject[Math.Max(0, positionalArgs.Length - posArgIndex)];
-                if (posArgIndex < positionalArgs.Length)
-                {
-                    Array.Copy(positionalArgs, posArgIndex, extraArgs, 0, extraArgs.Length);
-                }
-                var argsTuple = PyTuple.From(extraArgs);
-
-                LocalsPlus[varargsIndex] = argsTuple;
-
-#if DEBUG_LOG
-                Console.WriteLine($"  → {varargsName} = {argsTuple} (*args with {extraArgs.Length} items)");
-#endif
-            }
-
-            // Phase 3: Handle **kwargs (if function has varkeywords)
-            if (hasVarKeywords)
-            {
-                int varkwargsIndex = code.ArgCount + (hasVarArgs ? 1 : 0); // **kwargs parameter index
-                var varkwargsName = code.VarNames[varkwargsIndex];
-                var kwargsDict = new PyDict();
-
-                // Add keyword arguments to **kwargs dict if they exist
-                if (keywordArgs != null && keywordArgs.Count > 0)
-                {
-                    foreach (var kvp in keywordArgs)
-                    {
-                        kwargsDict.SetItem(PyString.From(kvp.Key), kvp.Value);
-                    }
-                }
-
-                LocalsPlus[varkwargsIndex] = kwargsDict;
-
-#if DEBUG_LOG
-                var itemCount = keywordArgs?.Count ?? 0;
-#if DEBUG_LOG
-                Console.WriteLine($"  → {varkwargsName} = {kwargsDict} (**kwargs with {itemCount} items)");
-#endif
-#endif
-            }
-            else if (keywordArgs != null && keywordArgs.Count > 0)
-            {
-                // Unexpected keyword arguments
-                // Performance: Eliminated LINQ - get first key manually
-                string unexpectedKey = null;
-                foreach (var key in keywordArgs.Keys)
-                {
-                    unexpectedKey = key;
-                    break;
-                }
-                PyVM.RefusePositionalOnly(code, keywordArgs);
-                throw PyTypeError.Create($"{CallName(code)}() got an unexpected keyword argument '{unexpectedKey}'");
-            }
+                1 => (PyString)missingNames[0],
+                2 => PyErrFormat.FromFormat("%U and %U", missingNames[0], missingNames[1]),
+                _ => PyString.Concat(
+                    PyString.JoinArray(PyString.From(", "), missingNames.GetRange(0, len - 2).ToArray()),
+                    PyErrFormat.FromFormat(", %U, and %U", missingNames[len - 2], missingNames[len - 1])),
+            };
+            throw PyErrFormat.Format(PyType.TypeErrorType, "%s() missing %i required %s argument%s: %U",
+                CallName(code), len, positional ? "positional" : "keyword-only", len == 1 ? "" : "s", nameStr);
         }
 
 
@@ -655,7 +542,7 @@ namespace SharpPy
                 "f_trace_lines" => PyBool.FromBool(TraceLines),
                 "f_trace_opcodes" => PyBool.False,  // Default to False
 
-                _ => GenericGetAttribute(name)
+                _ => GenericGetAttribute(PyString.From(name))
             };
         }
 
@@ -1532,13 +1419,12 @@ namespace SharpPy
             throw new PythonException(error);
         }
 
-        // _PyModuleSpec_IsInitializing: spec._initializing is true; any error answers false.
+        // _PyModuleSpec_IsInitializing of the module's __spec__; any error answers false.
         private static bool SpecIsInitializing(PyObject module)
         {
             try
             {
-                var spec = module.LookupAttribute("__spec__");
-                return spec != null && spec is not PyNone && spec.LookupAttribute("_initializing") is { } flag && flag.IsTrue();
+                return PyModule.SpecIsInitializing(module.LookupAttribute("__spec__"));
             }
             catch (PythonException) { return false; }
         }
@@ -4337,28 +4223,6 @@ namespace SharpPy
         // A class has slot_nb_* when __op__ or __rop__ was written in Python somewhere in its MRO.
         // update_one_slot, Objects/typeobject.c.
         // format_missing: "argument: 'a'", "arguments: 'a' and 'b'", "arguments: 'a', 'b', and 'c'"
-        internal static string MissingText(List<string> names)
-        {
-            var quoted = names.ConvertAll(name => "'" + name + "'");
-            return quoted.Count switch
-            {
-                1 => "argument: " + quoted[0],
-                2 => $"arguments: {quoted[0]} and {quoted[1]}",
-                _ => "arguments: " + string.Join(", ", quoted.GetRange(0, quoted.Count - 1)) + ", and " + quoted[^1],
-            };
-        }
-
-        // positional_only_passed_as_keyword
-        internal static void RefusePositionalOnly(PyCodeObject code, IDictionary<string, PyObject> keywords)
-        {
-            var names = new List<string>();
-            for (int index = 0; index < code.PosonlyArgCount; index++)
-                if (keywords.ContainsKey(code.VarNames[index]))
-                    names.Add(code.VarNames[index]);
-            if (names.Count > 0)
-                throw PyTypeError.Create($"{code.Name}() got some positional-only arguments passed as keyword arguments: '{string.Join(", ", names)}'");
-        }
-
         private static bool HasNumberSlot(PyType type, string name, string reflected)
         {
             if (type is not PyClass)

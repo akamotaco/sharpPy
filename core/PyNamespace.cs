@@ -70,9 +70,13 @@ public sealed class PyNamespace : IDictionary<string, PyObject>
     internal void StoreFromMapping(string key, PyObject value) => lookup[key] = value;
     internal bool RemoveFromMapping(string key) => lookup.Remove(key);
     internal void ClearFromMapping() => lookup.Clear();
+    // The string table holds exact str keys whose wchar_t text is the key itself; any other key
+    // (a str subclass, a str with a high surrogate before a low one, a non-str) leaves the dict alone.
+    internal static bool IsTableKey(PyObject key) => key.IsExactly(PyType.StrType) && ((PyString)key).WideCharRoundTrips;
+
     internal void PrepareKey(PyObject key)
     {
-        if (!GenericKeys && (!key.IsExactly(PyType.StrType))) InvalidateLookup();
+        if (!GenericKeys && !IsTableKey(key)) InvalidateLookup();
     }
     internal void InvalidateLookup() { GenericKeys = true; lookup.Clear(); }
     internal void BeginBulkMutation() { bulkMutations++; InvalidateLookup(); }
@@ -83,7 +87,7 @@ public sealed class PyNamespace : IDictionary<string, PyObject>
         if (bulkMutations != 0) { GenericKeys = true; return; }
         foreach (var pair in Mapping.InternalDict)
         {
-            if (!pair.Key.IsExactly(PyType.StrType))
+            if (!IsTableKey(pair.Key))
             {
                 GenericKeys = true; lookup.Clear(); return;
             }
