@@ -1,57 +1,56 @@
-using System.Globalization;
-using System.Text;
-
 namespace SharpPy;
 
-// CPython Objects/stringlib/unicode_format.h: parse_field, get_field_object,
-// output_markup. Numbering state is shared with recursively expanded specs.
+// CPython Objects/stringlib/unicode_format.h: MarkupIterator_next, parse_field, get_field_object,
+// render_field. The format string is read a character at a time and the result written by one
+// _PyUnicodeWriter; field names, keys and specs are substrings of it. Numbering state is shared
+// with recursively expanded specs.
 internal static class PyStringFormatter
 {
-    internal static PyString Format(string format, PyObject[]? args, PyObject? mapping)
+    internal static PyString Format(PyString format, PyObject[]? args, PyObject? mapping)
     {
         int numbering = 0, next = 0;
-        return PyString.From(Expand(format, args, mapping, 2, ref numbering, ref next));
+        return Expand(format, args, mapping, 2, ref numbering, ref next);
     }
 
-    private static string Expand(string text, PyObject[]? args, PyObject? mapping,
+    private static PyString Expand(PyString text, PyObject[]? args, PyObject? mapping,
         int depth, ref int numbering, ref int next)
     {
         if (depth <= 0) throw PyValueError.Create("Max string recursion exceeded");
-        var output = new StringBuilder(text.Length);
-        for (int p = 0; p < text.Length;)
+        var output = new PyUnicodeWriter();
+        int n = text.CodePointLength();
+        for (int p = 0; p < n;)
         {
-            char c = text[p++];
-            if (c != '{' && c != '}') { output.Append(c); continue; }
-            if (p < text.Length && text[p] == c) { output.Append(c); p++; continue; }
-            if (c == '}' || p == text.Length)
-                throw PyValueError.Create($"Single '{c}' encountered in format string");
+            int c = text.ReadChar(p++);
+            if (c != '{' && c != '}') { output.WriteChar(c); continue; }
+            if (p < n && text.ReadChar(p) == c) { output.WriteChar(c); p++; continue; }
+            if (c == '}' || p == n)
+                throw PyValueError.Create($"Single '{(char)c}' encountered in format string");
             int start = p;
-            while (p < text.Length)
+            while (p < n)
             {
-                c = text[p++];
+                c = text.ReadChar(p++);
                 if (c == '{') throw PyValueError.Create("unexpected '{' in field name");
                 if (c == '[')
                 {
-                    while (p < text.Length && text[p] != ']') p++;
+                    while (p < n && text.ReadChar(p) != ']') p++;
                     continue;
                 }
                 if (c == '}' || c == ':' || c == '!') break;
             }
-            string field = text.Substring(start, p - start - 1);
-            string spec = "";
+            PyString field = text.Substring(start, p - 1);
+            PyString spec = PyString.Empty;
             int conversion = 0;
             bool expand = false;
             if (c == ':' || c == '!')
             {
                 if (c == '!')
                 {
-                    if (p == text.Length)
+                    if (p == n)
                         throw PyValueError.Create("end of string while looking for conversion specifier");
-                    conversion = char.IsSurrogatePair(text, p) ? char.ConvertToUtf32(text, p) : text[p];
-                    p += conversion > 0xffff ? 2 : 1;
-                    if (p < text.Length)
+                    conversion = text.ReadChar(p++);
+                    if (p < n)
                     {
-                        c = text[p++];
+                        c = text.ReadChar(p++);
                         if (c != '}' && c != ':')
                             throw PyValueError.Create("expected ':' after conversion specifier");
                     }
@@ -60,14 +59,14 @@ internal static class PyStringFormatter
                 {
                     start = p;
                     int braces = 1;
-                    while (p < text.Length)
+                    while (p < n)
                     {
-                        c = text[p++];
+                        c = text.ReadChar(p++);
                         if (c == '{') { braces++; expand = true; }
                         else if (c == '}' && --braces == 0) break;
                     }
                     if (braces != 0) throw PyValueError.Create("unmatched '{' in format spec");
-                    spec = text.Substring(start, p - start - 1);
+                    spec = text.Substring(start, p - 1);
                 }
             }
             else if (c != '}') throw PyValueError.Create("expected '}' before end of string");
@@ -78,24 +77,30 @@ internal static class PyStringFormatter
                 0 => value,
                 's' => value.ToStr(),
                 'r' => value.ToRepr(),
-                'a' => Ascii(value.ToRepr()),
+                'a' => PyString.AsciiOf(value),
                 _ => throw PyValueError.Create("Unknown conversion specifier " +
                     (conversion <= 32 || conversion > 126 ? "\\x" + conversion.ToString("x") : ((char)conversion).ToString()))
             };
             if (expand) spec = Expand(spec, args, mapping, depth - 1, ref numbering, ref next);
-            output.Append(value.Format(PyString.From(spec)).Value);
+            PyString rendered = value.Format(spec);
+            // do_markup: the last piece is written without overallocation, so a field that is the
+            // whole result is that str object itself.
+            if (p == n && output.Length == 0 && rendered.CodePointLength() > 0)
+                return rendered;
+            output.WriteStr(rendered);
         }
-        return output.ToString();
+        return output.Finish();
     }
 
-    private static PyObject Resolve(string field, PyObject[]? args, PyObject? mapping,
+    private static PyObject Resolve(PyString field, PyObject[]? args, PyObject? mapping,
         ref int numbering, ref int next)
     {
+        int n = field.CodePointLength();
         int p = 0;
-        while (p < field.Length && field[p] != '.' && field[p] != '[') p++;
-        string first = field.Substring(0, p);
+        while (p < n && field.ReadChar(p) != '.' && field.ReadChar(p) != '[') p++;
+        PyString first = field.Substring(0, p);
         long index = Index(first);
-        bool automatic = first.Length == 0;
+        bool automatic = first.CodePointLength() == 0;
         PyObject value;
         if (automatic || index >= 0)
         {
@@ -111,58 +116,45 @@ internal static class PyStringFormatter
                 throw PyIndexError.Create($"Replacement index {index} out of range for positional args tuple");
             value = args[(int)index];
         }
-        else value = mapping != null ? mapping.GetItem(PyString.From(first)) : throw PyKeyError.Create(first);
-        while (p < field.Length)
+        else value = mapping != null ? mapping.GetItem(first) : throw PyKeyError.Create(first);
+        while (p < n)
         {
-            char kind = field[p++];
+            int kind = field.ReadChar(p++);
             int start = p;
             if (kind == '.')
             {
-                while (p < field.Length && field[p] != '.' && field[p] != '[') p++;
+                while (p < n && field.ReadChar(p) != '.' && field.ReadChar(p) != '[') p++;
                 if (p == start) throw PyValueError.Create("Empty attribute in format string");
-                value = value.GetAttribute(field.Substring(start, p - start));
+                value = value.GetAttribute(field.Substring(start, p));
             }
             else if (kind == '[')
             {
-                while (p < field.Length && field[p] != ']') p++;
-                if (p == field.Length) throw PyValueError.Create("Missing ']' in format string");
+                while (p < n && field.ReadChar(p) != ']') p++;
+                if (p == n) throw PyValueError.Create("Missing ']' in format string");
                 if (p == start) throw PyValueError.Create("Empty attribute in format string");
-                string key = field.Substring(start, p++ - start);
+                PyString key = field.Substring(start, p++);
                 index = Index(key);
-                value = value.GetItem(index < 0 ? PyString.From(key) : PyInt.From(index));
+                value = value.GetItem(index < 0 ? key : PyInt.From(index));
             }
             else throw PyValueError.Create("Only '.' or '[' may follow ']' in format field specifier");
         }
         return value;
     }
 
-    private static long Index(string text)
+    // get_integer: Py_UNICODE_TODECIMAL of each character, -1 when one is not a digit.
+    private static long Index(PyString text)
     {
-        if (text.Length == 0) return -1;
+        int n = text.CodePointLength();
+        if (n == 0) return -1;
         long result = 0;
-        for (int p = 0; p < text.Length; p++)
+        for (int p = 0; p < n; p++)
         {
-            int digit = CharUnicodeInfo.GetDecimalDigitValue(text, p);
+            int digit = UnicodeType.ToDecimalDigit(text.ReadChar(p));
             if (digit < 0) return -1;
             if (result > (long.MaxValue - digit) / 10)
                 throw PyValueError.Create("Too many decimal digits in format string");
             result = result * 10 + digit;
-            if (char.IsSurrogatePair(text, p)) p++;
         }
         return result;
-    }
-
-    private static PyString Ascii(PyString repr)
-    {
-        var result = new StringBuilder(repr.Value.Length);
-        for (int p = 0; p < repr.Value.Length; p++)
-        {
-            int c = repr.Value[p];
-            if (char.IsSurrogatePair(repr.Value, p)) c = char.ConvertToUtf32(repr.Value, p++);
-            if (c < 128) result.Append((char)c);
-            else result.Append(c <= 255 ? "\\x" + c.ToString("x2") :
-                c <= 65535 ? "\\u" + c.ToString("x4") : "\\U" + c.ToString("x8"));
-        }
-        return PyString.From(result.ToString());
     }
 }

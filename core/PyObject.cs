@@ -12,8 +12,7 @@ namespace SharpPy
             // the type descriptor; instance __getattribute__ must not run here.
             if (IsExactly(PyType.FloatType)) return PyString.From(PyFloat.FormatFloat(((PyFloat)this).Value, spec.Value));
             if (IsExactly(PyType.IntType)) return PyString.From(PyInt.FormatInt(((PyInt)this).Value, spec.Value));
-            if (IsExactly(PyType.StrType)) return spec.Value.Length == 0 ? (PyString)this
-                : PyString.From(PyString.FormatString(((PyString)this).Value, spec.Value));
+            if (IsExactly(PyType.StrType)) return PyString.FormatString((PyString)this, spec);
             var method = LookupSpecialMethodUncached("__format__");
             if (method == null) throw PyTypeError.Create($"Type {GetTypeName()} doesn't define __format__");
             var result = BindSpecialMethod(method).Call(new PyObject[] { spec }, null);

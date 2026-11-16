@@ -901,7 +901,7 @@ namespace SharpPy
                 "format", strType,
                 (self, args, kwargs) => {
                     var str = (PyString)self;
-                    var formatted = PyStringFormatter.Format(str.Value, args, kwargs);
+                    var formatted = PyStringFormatter.Format(str, args, kwargs);
                     return SoleLiteral(str, str.Value.IndexOf('{') < 0 && str.Value.IndexOf('}') < 0) ?? formatted;
                 }
 , acceptsKwargs: true);
@@ -912,7 +912,7 @@ namespace SharpPy
                 "format_map", strType,
                 (self, args, kwargs) => {
                     var str = (PyString)self;
-                    var formatted = PyStringFormatter.Format(str.Value, null, args[0]);
+                    var formatted = PyStringFormatter.Format(str, null, args[0]);
                     return SoleLiteral(str, str.Value.IndexOf('{') < 0 && str.Value.IndexOf('}') < 0) ?? formatted;
                 },
                 minArgs: 1, maxArgs: 1
@@ -959,7 +959,7 @@ namespace SharpPy
                         throw PyArgs.BadArgument("__format__", "argument", "str", args[0]);
 
                     // unicode__format__: an empty spec is str(self).
-                    return specStr.Value.Length == 0 ? self.ToStr() : PyString.From(FormatString(strObj.Value, specStr.Value, self.GetPyType().FullName));
+                    return specStr.CodePointLength() == 0 ? self.ToStr() : FormatString(strObj, specStr, self.GetPyType().FullName);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -1526,8 +1526,8 @@ namespace SharpPy
         {
             // Full CPython 3.12 unicode_format rework: flags/width/precision/mapping
             // keys and the o/x/X/c/d/i/a conversions with CPython-exact error texts.
-            var formatted = FormatPercent(Value, other);
-            return SoleLiteral(this, Value.IndexOf('%') < 0) ?? PyString.From(formatted);
+            var formatted = FormatPercent(this, other);
+            return SoleLiteral(this, FindCodePoints(this, PercentSign, 0, CodePointLength()) < 0) ?? formatted;
         }
 
         /// <summary>
@@ -1536,9 +1536,13 @@ namespace SharpPy
         /// format string comes back as it is, a str subclass instance included. An empty one is "".
         /// </summary>
         private static PyString SoleLiteral(PyString format, bool noFields) =>
-            noFields && format.Value.Length > 0 ? format : null;
+            noFields && format.CodePointLength() > 0 ? format : null;
 
-        private static string FormatPercent(string fmt, PyObject arg)
+        private static PyString PercentSign => FromUnits("%");
+
+        // PyUnicode_Format: the format is read a character at a time and the result written by one
+        // _PyUnicodeWriter, so the precision and width of %s, %r and %a count characters.
+        private static PyString FormatPercent(PyString fmt, PyObject arg)
         {
             // CPython unicode_format: a non-tuple right operand is one argument
             // (or a mapping); a tuple is a positional argument list.
@@ -1546,8 +1550,10 @@ namespace SharpPy
             PyObject[] args = positional ? ((PyTuple)arg).Items : null;
             int ai = 0;
             bool singleUsed = false;
-            var sb = new StringBuilder();
+            var sb = new PyUnicodeWriter();
+            PyString whole = null;
             int i = 0;
+            int n = fmt.CodePointLength();
 
             PyObject NextPositional()
             {
@@ -1572,28 +1578,28 @@ namespace SharpPy
                 return v;
             }
 
-            while (i < fmt.Length)
+            while (i < n)
             {
-                char c = fmt[i];
+                int c = fmt.ReadChar(i);
                 if (c != '%')
                 {
-                    sb.Append(c);
+                    sb.WriteChar(c);
                     i++;
                     continue;
                 }
 
                 i++;
-                if (i >= fmt.Length)
+                if (i >= n)
                     throw PyValueError.Create("incomplete format");
-                if (fmt[i] == '%')
+                if (fmt.ReadChar(i) == '%')
                 {
-                    sb.Append('%');
+                    sb.WriteChar('%');
                     i++;
                     continue;
                 }
 
                 PyObject value = null;
-                if (fmt[i] == '(')
+                if (fmt.ReadChar(i) == '(')
                 {
                     if (!positional)
                     {
@@ -1604,11 +1610,11 @@ namespace SharpPy
                         i++;
                         int keyStart = i;
                         int depth = 1;
-                        while (i < fmt.Length)
+                        while (i < n)
                         {
-                            if (fmt[i] == '(')
+                            if (fmt.ReadChar(i) == '(')
                                 depth++;
-                            else if (fmt[i] == ')')
+                            else if (fmt.ReadChar(i) == ')')
                             {
                                 depth--;
                                 if (depth == 0)
@@ -1616,11 +1622,11 @@ namespace SharpPy
                             }
                             i++;
                         }
-                        if (i >= fmt.Length)
+                        if (i >= n)
                             throw PyValueError.Create("incomplete format; also it should contain a right parenthesis");
-                        string key = fmt.Substring(keyStart, i - keyStart);
+                        var key = fmt.Substring(keyStart, i);
                         i++; // ')'
-                        value = arg.GetItem(PyString.From(key));
+                        value = arg.GetItem(key);
                     }
                     else
                     {
@@ -1635,9 +1641,9 @@ namespace SharpPy
                 }
 
                 bool alt = false, leftAdjust = false, signPlus = false, signSpace = false, zeroPad = false;
-                while (i < fmt.Length)
+                while (i < n)
                 {
-                    char f = fmt[i];
+                    int f = fmt.ReadChar(i);
                     if (f == '#') { alt = true; i++; }
                     else if (f == '-') { leftAdjust = true; i++; }
                     else if (f == '0') { zeroPad = true; i++; }
@@ -1649,7 +1655,7 @@ namespace SharpPy
                 // unicode_format_arg_parse: the width is a Py_ssize_t (a negative "*" one left-adjusts),
                 // the precision a C int (a negative "*" one is 0); digits past those are "too big".
                 long widthValue = -1;
-                if (i < fmt.Length && fmt[i] == '*')
+                if (i < n && fmt.ReadChar(i) == '*')
                 {
                     i++;
                     widthValue = PyArgs.Ssize(NextStar());
@@ -1659,12 +1665,12 @@ namespace SharpPy
                         widthValue = widthValue == long.MinValue ? long.MaxValue : -widthValue;
                     }
                 }
-                else if (i < fmt.Length && char.IsAsciiDigit(fmt[i]))
+                else if (i < n && IsAsciiDigit(fmt.ReadChar(i)))
                 {
                     widthValue = 0;
-                    while (i < fmt.Length && char.IsAsciiDigit(fmt[i]))
+                    while (i < n && IsAsciiDigit(fmt.ReadChar(i)))
                     {
-                        int d = fmt[i] - '0';
+                        int d = fmt.ReadChar(i) - '0';
                         if (widthValue > (long.MaxValue - d) / 10)
                             throw PyValueError.Create("width too big");
                         widthValue = widthValue * 10 + d;
@@ -1676,11 +1682,11 @@ namespace SharpPy
 
                 int precision = 6;
                 bool hasPrecision = false;
-                if (i < fmt.Length && fmt[i] == '.')
+                if (i < n && fmt.ReadChar(i) == '.')
                 {
                     hasPrecision = true;
                     i++;
-                    if (i < fmt.Length && fmt[i] == '*')
+                    if (i < n && fmt.ReadChar(i) == '*')
                     {
                         i++;
                         precision = PyArgs.Int(NextStar());
@@ -1690,9 +1696,9 @@ namespace SharpPy
                     else
                     {
                         precision = 0;
-                        while (i < fmt.Length && char.IsAsciiDigit(fmt[i]))
+                        while (i < n && IsAsciiDigit(fmt.ReadChar(i)))
                         {
-                            int d = fmt[i] - '0';
+                            int d = fmt.ReadChar(i) - '0';
                             if (precision > (int.MaxValue - d) / 10)
                                 throw PyValueError.Create("precision too big");
                             precision = precision * 10 + d;
@@ -1702,41 +1708,37 @@ namespace SharpPy
                 }
 
                 // unicode_format_arg_parse: one "h", "l" or "L" length prefix is ignored ("%ld").
-                if (i < fmt.Length && fmt[i] is 'h' or 'l' or 'L')
+                if (i < n && fmt.ReadChar(i) is 'h' or 'l' or 'L')
                     i++;
-                if (i >= fmt.Length)
+                if (i >= n)
                     throw PyValueError.Create("incomplete format");
-                char conv = fmt[i];
+                int conv = fmt.ReadChar(i);
                 int convIndex = i;
                 i++;
                 value ??= NextPositional();
 
-                string body;
+                // the field's text: a str for %s, %r, %a and %c, ASCII digits for the numbers
+                PyString text = null;
+                string body = null;
                 string sign = "";
                 bool numeric = false;
                 switch (conv)
                 {
                     case 's':
-                        body = value.ToStr().Value;
-                        if (hasPrecision && body.Length > precision)
-                            body = body.Substring(0, precision);
-                        break;
                     case 'r':
-                        body = value.ToRepr().Value;
-                        if (hasPrecision && body.Length > precision)
-                            body = body.Substring(0, precision);
-                        break;
                     case 'a':
-                        body = AsciiOf(value).Value;
-                        if (hasPrecision && body.Length > precision)
-                            body = body.Substring(0, precision);
+                        // unicode_format_arg_format: PyObject_Str, PyObject_Repr or PyObject_ASCII,
+                        // then the precision cuts characters
+                        text = conv == 's' ? value.ToStr() : conv == 'r' ? value.ToRepr() : AsciiOf(value);
+                        if (hasPrecision && text.CodePointLength() > precision)
+                            text = text.Substring(0, precision);
                         break;
                     case 'd':
                     case 'i':
                     case 'u':
                     {
                         numeric = true;
-                        BigInteger ival = PyPercentFormat.Integer(value, conv);
+                        BigInteger ival = PyPercentFormat.Integer(value, (char)conv);
                         if (ival.Sign < 0) { sign = "-"; ival = -ival; }
                         else if (signPlus) sign = "+";
                         else if (signSpace) sign = " ";
@@ -1751,7 +1753,7 @@ namespace SharpPy
                     case 'X':
                     {
                         numeric = true;
-                        BigInteger ival = PyPercentFormat.Integer(value, conv);
+                        BigInteger ival = PyPercentFormat.Integer(value, (char)conv);
                         if (ival.Sign < 0) { sign = "-"; ival = -ival; }
                         else if (signPlus) sign = "+";
                         else if (signSpace) sign = " ";
@@ -1772,14 +1774,14 @@ namespace SharpPy
                         {
                             if (character.CodePointLength() != 1)
                                 throw PyTypeError.Create("%c requires int or char");
-                            body = character.Value;
+                            text = FromCodePoint(character.ReadChar(0));
                             break;
                         }
                         var code = PyPercentFormat.Character(value) ??
                             throw PyTypeError.Create("%c requires int or char");
                         if (code < 0 || code > 0x10FFFF)
                             throw PyOverflowError.Create("%c arg not in range(0x110000)");
-                        body = code < 0x10000 ? ((char)(int)code).ToString() : char.ConvertFromUtf32((int)code);
+                        text = FromCodePoint((int)code);
                         break;
                     }
                     case 'f':
@@ -1792,19 +1794,39 @@ namespace SharpPy
                         numeric = true;
                         double dv = Modules.PyMathFunction.RealNumber(value);
                         // formatfloat: PyOS_double_to_string, one writer with format().
-                        if (double.IsNaN(dv)) body = char.IsUpper(conv) ? "NAN" : "nan";
-                        else if (double.IsInfinity(dv)) body = char.IsUpper(conv) ? "INF" : "inf";
-                        else body = PyFloatFormatter.DoubleToString(Math.Abs(dv), conv, precision, alt);
+                        bool upper = conv is 'F' or 'E' or 'G';
+                        if (double.IsNaN(dv)) body = upper ? "NAN" : "nan";
+                        else if (double.IsInfinity(dv)) body = upper ? "INF" : "inf";
+                        else body = PyFloatFormatter.DoubleToString(Math.Abs(dv), (char)conv, precision, alt);
                         if (!double.IsNaN(dv) && double.IsNegative(dv)) sign = "-";
                         else if (signPlus) sign = "+";
                         else if (signSpace) sign = " ";
                         break;
                     }
                     default:
-                        throw PyValueError.Create($"unsupported format character '{conv}' (0x{(int)conv:x}) at index {convIndex}");
+                        // '%c' of the character when it is printable ASCII, else '?'
+                        throw PyValueError.Create($"unsupported format character '{(conv >= 31 && conv <= 126 ? (char)conv : '?')}' (0x{conv:x}) at index {convIndex}");
                 }
 
-                // Assemble sign + body into the field, CPython style.
+                if (text != null)
+                {
+                    // a text field: spaces to the width, on the left unless "-"
+                    int chars = text.CodePointLength();
+                    // unicode_format_arg: the last spec is written without overallocation, so a
+                    // field that needs no padding and is the whole result is that str itself.
+                    if (i == n && sb.Length == 0 && width <= chars && chars > 0)
+                    {
+                        whole = text;
+                        continue;
+                    }
+                    if (!leftAdjust && width > chars)
+                        for (int k = chars; k < width; k++) sb.WriteChar(' ');
+                    sb.WriteStr(text);
+                    if (leftAdjust && width > chars)
+                        for (int k = chars; k < width; k++) sb.WriteChar(' ');
+                    continue;
+                }
+                var field = new StringBuilder();
                 string core = numeric ? body : body;
                 string head = sign + core;
                 if (numeric && alt && (conv == 'o' || conv == 'x' || conv == 'X') && zeroPad && !leftAdjust && width > head.Length)
@@ -1812,56 +1834,59 @@ namespace SharpPy
                     int pad = width - head.Length;
                     // The zeros go between the sign and prefix and the digits.
                     int prefix = core.Length > 1 && core[0] == '0' && !char.IsDigit(core[1]) ? 2 : 0;
-                    sb.Append(sign).Append(core, 0, prefix).Append('0', Math.Max(0, pad)).Append(core, prefix, core.Length - prefix);
+                    field.Append(sign).Append(core, 0, prefix).Append('0', Math.Max(0, pad)).Append(core, prefix, core.Length - prefix);
                 }
                 else if (leftAdjust)
                 {
-                    sb.Append(head);
+                    field.Append(head);
                     if (width > head.Length)
-                        sb.Append(' ', width - head.Length);
+                        field.Append(' ', width - head.Length);
                 }
                 else if (zeroPad && numeric && !signPlus && !signSpace)
                 {
                     if (width > head.Length)
                     {
-                        sb.Append(sign);
+                        field.Append(sign);
                         string digitsPart = core;
                         if (alt && (conv == 'x' || conv == 'X' || conv == 'o') && digitsPart.Length > 0 && digitsPart[0] == '0')
                         {
-                            sb.Append(digitsPart.Substring(0, 1));
-                            sb.Append('0', width - head.Length);
-                            sb.Append(digitsPart.Substring(1));
+                            field.Append(digitsPart.Substring(0, 1));
+                            field.Append('0', width - head.Length);
+                            field.Append(digitsPart.Substring(1));
                         }
                         else
                         {
-                            sb.Append('0', width - head.Length).Append(digitsPart);
+                            field.Append('0', width - head.Length).Append(digitsPart);
                         }
                     }
                     else
-                        sb.Append(head);
+                        field.Append(head);
                 }
                 else if (zeroPad && numeric && (signPlus || signSpace))
                 {
                     // sign occupies the first char; zeros fill after the sign
-                    sb.Append(sign);
+                    field.Append(sign);
                     if (width > head.Length)
-                        sb.Append('0', width - head.Length);
-                    sb.Append(core);
+                        field.Append('0', width - head.Length);
+                    field.Append(core);
                 }
                 else
                 {
                     if (width > head.Length)
-                        sb.Append(' ', width - head.Length);
-                    sb.Append(head);
+                        field.Append(' ', width - head.Length);
+                    field.Append(head);
                 }
+                sb.WriteUnits(field.ToString());
             }
 
             // PyUnicode_Format: ctx.dict is a mapping that is no tuple or str.
             if ((positional && ai < args.Length) || (!positional && !singleUsed &&
                 (arg is PyString || !PyObject.MappingCheck(arg))))
                 throw PyTypeError.Create("not all arguments converted during string formatting");
-            return sb.ToString();
+            return whole ?? sb.Finish();
         }
+
+        private static bool IsAsciiDigit(int c) => c >= '0' && c <= '9';
 
 
         private static string ToBase(BigInteger v, int radix, bool upper)
@@ -2128,15 +2153,19 @@ namespace SharpPy
         // CPython 3.12: Objects/stringlib/unicode_format.h - format_spec parsing
         // PEP 3101: Format Specification Mini-Language
         // [[fill]align][sign][#][0][width][,][.precision][type]
-        public static string FormatString(string value, string formatSpec, string typeName = "str")
+        /// <summary>
+        /// format_string_internal (Python/formatter_unicode.c): the spec is read as characters, what
+        /// a string has no use for is refused by name, the precision cuts characters and the fill
+        /// pads to the width. A value that needs neither is written whole, which is the value.
+        /// </summary>
+        internal static PyString FormatString(PyString value, PyString formatSpec, string typeName = "str")
         {
-            if (string.IsNullOrEmpty(formatSpec))
+            if (formatSpec.CodePointLength() == 0)
                 return value;
 
             var format = FormatSpec.Parse(typeName, formatSpec, 's', '<');
             if (format.Type != 's')
                 throw FormatSpec.Unknown(format.Type, typeName);
-            // format_string_internal: what a string has no use for is refused by name.
             if (format.Sign == ' ')
                 throw PyValueError.Create("Space not allowed in string format specifier");
             if (format.Sign != '\0')
@@ -2148,41 +2177,23 @@ namespace SharpPy
             if (format.Align == '=')
                 throw PyValueError.Create("'=' alignment not allowed in string format specifier");
             PyAllocation.StringLength(format.Width);
-            string fill = format.Fill;
-            char align = format.Align;
-            int width = (int)format.Width;
-            long precision = format.Precision;
 
-            // Apply precision (truncation) and width, both in characters (Objects/stringlib/
-            // format.h reads a character at a time).
-            string result = value;
-            int resultChars = CodePointCount(result);
-            if (precision >= 0 && resultChars > precision)
-            {
-                result = SubstringCodePoints(result, 0, (int)precision);
-                resultChars = (int)precision;
-            }
-
-            if (width > resultChars)
-            {
-                int padLen = width - resultChars;
-                switch (align)
-                {
-                    case '<':  // left-aligned
-                        result = result + Repeat(fill, padLen);
-                        break;
-                    case '>':  // right-aligned
-                        result = Repeat(fill, padLen) + result;
-                        break;
-                    case '^':  // centered
-                        int leftPad = padLen / 2;
-                        int rightPad = padLen - leftPad;
-                        result = Repeat(fill, leftPad) + result + Repeat(fill, rightPad);
-                        break;
-                }
-            }
-
-            return result;
+            int len = value.CodePointLength();
+            if ((format.Width == -1 || format.Width <= len) && (format.Precision == -1 || format.Precision >= len))
+                return value;
+            if (format.Precision >= 0 && len >= format.Precision)
+                len = (int)format.Precision;
+            // calc_padding
+            int total = format.Width >= 0 && format.Width > len ? (int)format.Width : len;
+            int lpad = format.Align == '>' ? total - len : format.Align == '^' ? (total - len) / 2 : 0;
+            int rpad = total - len - lpad;
+            var writer = new PyUnicodeWriter();
+            for (int k = 0; k < lpad; k++)
+                writer.WriteChar(format.FillChar);
+            writer.WriteSubstring(value, 0, len);
+            for (int k = 0; k < rpad; k++)
+                writer.WriteChar(format.FillChar);
+            return writer.Finish();
         }
 
         #endregion

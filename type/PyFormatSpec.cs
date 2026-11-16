@@ -10,6 +10,8 @@ namespace SharpPy;
 internal sealed class FormatSpec
 {
     internal string Fill = " ";
+    // fill_char: the one character, which a str's field is padded with
+    internal int FillChar = ' ';
     internal char Align;
     internal char Sign;
     internal bool NoNegativeZero;
@@ -26,6 +28,7 @@ internal sealed class FormatSpec
 
     private static bool IsAlignment(int c) => c is '<' or '>' or '=' or '^';
 
+    // the wchar_t text of a spec given as a .NET string: a surrogate pair is one character
     private static List<int> CodePoints(string text)
     {
         var points = new List<int>(text.Length);
@@ -47,15 +50,15 @@ internal sealed class FormatSpec
     private static string Text(int point) =>
         point > char.MaxValue ? char.ConvertFromUtf32(point) : new string((char)point, 1);
 
-    // get_integer: any decimal digit counts.
-    private static long ReadInteger(List<int> spec, ref int position, out int consumed)
+    // get_integer: Py_UNICODE_TODECIMAL, any decimal digit counts.
+    private static long ReadInteger(IReadOnlyList<int> spec, ref int position, out int consumed)
     {
         long value = 0;
         consumed = 0;
         for (; position < spec.Count; position++, consumed++)
         {
             int point = spec[position];
-            int digit = CharUnicodeInfo.GetDecimalDigitValue(Text(point), 0);
+            int digit = UnicodeType.ToDecimalDigit(point);
             if (digit < 0)
                 break;
             if (value > (long.MaxValue - digit) / 10)
@@ -72,9 +75,16 @@ internal sealed class FormatSpec
     internal static System.Exception Unknown(int type, string typeName) =>
         PyValueError.Create($"Unknown format code '{Presentation(type)}' for object of type '{typeName}'");
 
-    internal static FormatSpec Parse(string typeName, string text, char defaultType, char defaultAlign)
+    internal static FormatSpec Parse(string typeName, string text, char defaultType, char defaultAlign) =>
+        Parse(typeName, CodePoints(text), null, text, defaultType, defaultAlign);
+
+    /// <summary>The spec of a str's __format__, read as the str's characters.</summary>
+    internal static FormatSpec Parse(string typeName, PyString text, char defaultType, char defaultAlign) =>
+        Parse(typeName, text.ToCodePoints(), text, text.Value, defaultType, defaultAlign);
+
+    private static FormatSpec Parse(string typeName, IReadOnlyList<int> spec, PyString source, string text,
+        char defaultType, char defaultAlign)
     {
-        var spec = CodePoints(text);
         var format = new FormatSpec { Align = defaultAlign, Type = defaultType };
         int position = 0, end = spec.Count;
         bool alignSpecified = false, fillSpecified = false;
@@ -83,6 +93,7 @@ internal sealed class FormatSpec
         {
             format.Align = (char)spec[position + 1];
             format.Fill = Text(spec[position]);
+            format.FillChar = spec[position];
             fillSpecified = alignSpecified = true;
             position += 2;
         }
@@ -108,6 +119,7 @@ internal sealed class FormatSpec
         if (!fillSpecified && position < end && spec[position] == '0')
         {
             format.Fill = "0";
+            format.FillChar = '0';
             if (!alignSpecified && defaultAlign == '>')
                 format.Align = '=';
             position++;
@@ -140,7 +152,16 @@ internal sealed class FormatSpec
         }
 
         if (end - position > 1)
-            throw PyValueError.Create($"Invalid format specifier '{text}' for object of type '{typeName}'");
+        {
+            // "Invalid format specifier '%U' ...": the spec's own characters
+            if (source == null)
+                throw PyValueError.Create($"Invalid format specifier '{text}' for object of type '{typeName}'");
+            var message = new PyUnicodeWriter();
+            message.WriteUnits("Invalid format specifier '");
+            message.WriteStr(source);
+            message.WriteWideChar($"' for object of type '{typeName}'");
+            throw new PythonException(new PyValueError(new PyObject[] { message.Finish() }, null));
+        }
         if (end - position == 1)
             format.Type = spec[position];
 
