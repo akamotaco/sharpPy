@@ -989,7 +989,7 @@ namespace SharpPy
             if (source is PyCodeObject pyCode)
             {
                 codeObject = pyCode;
-                if (pyCode.FreeVars.Count != 0)
+                if (pyCode.NFreeVars != 0)
                     throw PyTypeError.Create("code object passed to eval() may not contain free variables");
             }
             // If source is a string, parse and compile it
@@ -1225,13 +1225,13 @@ namespace SharpPy
             if (source is PyCodeObject pyCode)
             {
                 codeObject = pyCode;
-                if (pyCode.FreeVars.Count == 0)
+                if (pyCode.NFreeVars == 0)
                 {
                     if (closure != null)
                         throw PyTypeError.Create("cannot use a closure with this code object");
                 }
-                else if (closure is not PyTuple { } cells || cells.Items.Length != pyCode.FreeVars.Count)
-                    throw PyTypeError.Create($"code object requires a closure of exactly length {pyCode.FreeVars.Count}");
+                else if (closure is not PyTuple { } cells || cells.Items.Length != pyCode.NFreeVars)
+                    throw PyTypeError.Create($"code object requires a closure of exactly length {pyCode.NFreeVars}");
             }
             // If source is a string, compile it first
             else
@@ -1653,7 +1653,7 @@ namespace SharpPy
                 PyType type = null;
                 for (int i = code.FirstFree; i < code.NLocalsPlus; i++)
                 {
-                    if (code.LocalsPlusNames[i] != "__class__")
+                    if (code.LocalsPlusNames[i].Value != "__class__")
                         continue;
                     if (frame.LocalsPlus[i] is not PyCell classCell)
                         throw PyRuntimeError.Create("super(): bad __class__ cell");

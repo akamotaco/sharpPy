@@ -267,7 +267,7 @@ namespace SharpPy
         private void InitializeLocals(PyObject[] args, PyCodeObject code, PyTuple defaults, PyDict kwdefaults, PyTuple kwnames)
         {
             var localsplus = LocalsPlus;
-            var names = code.LocalsPlusKeys;
+            var names = code.LocalsPlusNames;
             int coArgcount = CoArgcount(code);
             int totalArgs = coArgcount + code.KwonlyArgCount;
             int kwcount = kwnames?.Items.Length ?? 0;
@@ -376,7 +376,7 @@ namespace SharpPy
             var conflicts = new System.Collections.Generic.List<PyObject>();
             for (int k = 0; k < code.PosonlyArgCount; k++)
             {
-                var posonly = code.LocalsPlusKeys[k];
+                var posonly = code.LocalsPlusNames[k];
                 foreach (var kwname in kwnames.Items)
                     if (ReferenceEquals(kwname, posonly) || PyObject.CompareBool(posonly, kwname, PyObject.CompareOp.EQ))
                         conflicts.Add(kwname);
@@ -425,7 +425,7 @@ namespace SharpPy
             var missingNames = new System.Collections.Generic.List<PyObject>(missing);
             for (int i = start; i < end; i++)
                 if (IsNull(LocalsPlus[i]))
-                    missingNames.Add(code.LocalsPlusKeys[i].ToRepr());
+                    missingNames.Add(code.LocalsPlusNames[i].ToRepr());
             int len = missingNames.Count;
             PyString nameStr = len switch
             {
@@ -567,7 +567,7 @@ namespace SharpPy
                 if ((Code.LocalsPlusKinds[i] & PyCodeObject.FastHidden) == 0 || !FrameGetVar(i, out var value) || value == null)
                     continue;
                 hidden ??= new PyDict();
-                hidden.SetItem(PyString.From(Code.LocalsPlusNames[i]), value);
+                hidden.SetItem(Code.LocalsPlusNames[i], value);
             }
             if (hidden == null)
                 return locals;
@@ -583,11 +583,15 @@ namespace SharpPy
         /// <summary>format_exc_unbound (Python/ceval.c): a cell is a local, a free variable is not.</summary>
         internal Exception UnboundDeref(int index)
         {
-            string name = Code.LocalsPlusNames[index];
+            var name = Code.LocalsPlusNames[index];
             return index < Code.FirstFree
-                ? PyUnboundLocalError.Create($"cannot access local variable '{name}' where it is not associated with a value")
-                : PyNameError.Create($"cannot access free variable '{name}' where it is not associated with a value in enclosing scope", name);
+                ? PyVM.FormatExcCheckArg(PyType.UnboundLocalErrorType, PyVM.UnboundLocalErrorMsg, name)
+                : PyVM.FormatExcCheckArg(PyType.NameErrorType, PyVM.UnboundFreeErrorMsg, name);
         }
+
+        /// <summary>LOAD_FAST_CHECK, DELETE_FAST: the local at the index is unbound.</summary>
+        internal Exception UnboundLocal(int index) =>
+            PyVM.FormatExcCheckArg(PyType.UnboundLocalErrorType, PyVM.UnboundLocalErrorMsg, Code.LocalsPlusNames[index]);
 
         /// <summary>
         /// _PyFrame_OpAlreadyRan (Objects/frameobject.c): whether an instruction before the current one
@@ -638,7 +642,7 @@ namespace SharpPy
         internal PyDict GetOptimizedLocals()
         {
             var result = _localsDict ??= new PyDict();
-            var keys = Code.LocalsPlusKeys;
+            var keys = Code.LocalsPlusNames;
             for (int i = 0; i < LocalsPlus.Length; i++)
             {
                 if (!FrameGetVar(i, out var value))
@@ -814,19 +818,24 @@ namespace SharpPy
             return ExecuteFrame(frame);
         }
 
+        // Python/ceval.c and ceval_macros.h
+        internal const string NameErrorMsg = "name '%.200s' is not defined";
+        internal const string UnboundLocalErrorMsg = "cannot access local variable '%s' where it is not associated with a value";
+        internal const string UnboundFreeErrorMsg = "cannot access free variable '%s' where it is not associated with a value in enclosing scope";
+
         /// <summary>
-        /// Create NameError: plain message plus .name; suggestions belong to display.
-        /// CPython 3.12: Python/suggestions.c offer_suggestions_for_name_error
+        /// format_exc_check_arg (Python/ceval.c): the message takes the name as UTF-8, and a
+        /// NameError keeps the name object for the suggestions the display offers.
         /// </summary>
-        private static Exception CreateNameErrorWithSuggestion(string name, PyFrame frame)
+        internal static Exception FormatExcCheckArg(PyType exc, string format, PyString name)
         {
-            // CPython 3.12: raise a plain message plus the .name attribute.
-            // "Did you mean" suggestions are produced by the traceback display layer
-            // (Python/suggestions.c offer_suggestions_for_name_error / Lib/traceback.py),
-            // never baked into the caught exception's args.
-            _ = frame;
-            return PyNameError.Create($"name '{name}' is not defined", name);
+            var error = PyErrFormat.Format(exc, format, PyArgs.AsUtf8(name));
+            if (exc == PyType.NameErrorType && error is PythonException { PyException: PyNameError nameError })
+                nameError.SetAttribute("name", name);
+            return error;
         }
+
+        private static Exception NameNotDefined(PyString name) => FormatExcCheckArg(PyType.NameErrorType, NameErrorMsg, name);
 
         /// <summary>
         /// A Python call made from CALL, waiting for the dispatch loop to switch to it. Set by
@@ -1445,7 +1454,7 @@ namespace SharpPy
             try { return PyAbstract.GetItem(builtins, name); }
             catch (PythonException error) when (error.PyException is PyKeyError)
             {
-                throw CreateNameErrorWithSuggestion(name.Value, frame);
+                throw NameNotDefined(name);
             }
         }
 
@@ -1456,7 +1465,7 @@ namespace SharpPy
             if (frame.Globals.Dict.InternalDict.TryGetValue(name, out var value))
                 return value;
             return LookupNamespaceMapping(PyFrame.BuiltinsDict(frame.OwnBuiltins), name)
-                ?? throw CreateNameErrorWithSuggestion(name.Value, frame);
+                ?? throw NameNotDefined(name);
         }
 
         // PyDict_DelItem of GLOBALS(): false when the name is not there.
@@ -1477,19 +1486,18 @@ namespace SharpPy
             catch (PythonException ex) when (ex.PyException is PyKeyError) { return null; }
         }
 
-        private static void DeleteNamespaceName(PyFrame frame, string name)
+        private static void DeleteNamespaceName(PyFrame frame, PyString name)
         {
             try
             {
-                var key = PyString.From(name);
                 // PyDict_CheckExact(ns) ? PyDict_DelItem : PyObject_DelItem
-                if (frame.ClassLocalsDict is PyDict { IsExact: true } dict) dict.DelItem(key);
-                else frame.ClassLocalsDict.DelItem(key);
+                if (frame.ClassLocalsDict is PyDict { IsExact: true } dict) dict.DelItem(name);
+                else frame.ClassLocalsDict.DelItem(name);
             }
             catch (PythonException)
             {
                 // CPython DELETE_NAME replaces all mapping deletion errors.
-                throw CreateNameErrorWithSuggestion(name, frame);
+                throw NameNotDefined(name);
             }
         }
 
@@ -1745,7 +1753,7 @@ namespace SharpPy
                     // CPython 3.12: Python/generated_cases.c.h lines 1708-1770
                     // LOAD_NAME checks LOCALS() first (which is ClassLocalsDict in class body),
                     // then GLOBALS(), then BUILTINS()
-                    var name = frame.Code.NameObjects[argument];
+                    var name = frame.Code.Names[argument];
                     PyObject? value = null;
 
                     #if DEBUG_LOG
@@ -1781,10 +1789,7 @@ namespace SharpPy
                         var fastValue = frame.LocalsPlus[argIndex];
                         // CPython 3.12: PyNull indicates uninitialized variable
                         if (PyNull.IsNull(fastValue))
-                        {
-                            var varName = frame.Code.VarNames[argIndex];
-                            throw PyUnboundLocalError.Create($"cannot access local variable '{varName}' where it is not associated with a value");
-                        }
+                            throw frame.UnboundLocal(argIndex);
                         frame.ValueStack.Push(fastValue);
                     }
                     else
@@ -1816,10 +1821,7 @@ namespace SharpPy
                     {
                         var checkValue = frame.LocalsPlus[checkIndex];
                         if (PyNull.IsNull(checkValue))
-                        {
-                            var checkVarName = frame.Code.VarNames[checkIndex];
-                            throw PyUnboundLocalError.Create($"cannot access local variable '{checkVarName}' where it is not associated with a value");
-                        }
+                            throw frame.UnboundLocal(checkIndex);
                         frame.ValueStack.Push(checkValue);
                     }
                     else
@@ -1857,7 +1859,7 @@ namespace SharpPy
                     if (deleteFastIndex < frame.LocalsPlus.Length)
                     {
                         if (PyNull.IsNull(frame.LocalsPlus[deleteFastIndex]))
-                            throw PyUnboundLocalError.Create($"cannot access local variable '{frame.Code.VarNames[deleteFastIndex]}' where it is not associated with a value");
+                            throw frame.UnboundLocal(deleteFastIndex);
                         frame.LocalsPlus[deleteFastIndex] = PyNull.Instance;
                     }
                     else
@@ -1867,7 +1869,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.STORE_NAME:
-                    var storeName = frame.Code.NameObjects[argument];
+                    var storeName = frame.Code.Names[argument];
                     var storeValue = frame.ValueStack.Pop();
 
                     // CPython 3.12: If executing class body with __prepare__ dict subclass,
@@ -1894,9 +1896,9 @@ namespace SharpPy
                         break;
                     }
                     // The frame's locals are its globals: PyDict_DelItem.
-                    if (RemoveGlobal(frame, frame.Code.NameObjects[argument]))
+                    if (RemoveGlobal(frame, deleteName))
                         break;
-                    throw CreateNameErrorWithSuggestion(deleteName, frame);
+                    throw NameNotDefined(deleteName);
 
                 case ByteCodeOp.LOAD_GLOBAL:
                     // CPython 3.12: oparg encoding: (nameIndex << 1) | pushNull
@@ -1904,7 +1906,7 @@ namespace SharpPy
                     bool pushNull = (globalOparg & 1) == 1;
                     int globalNameIndex = globalOparg >> 1;
 
-                    var globalName = frame.Code.NameObjects[globalNameIndex];
+                    var globalName = frame.Code.Names[globalNameIndex];
 
                     // CPython 3.12: Push NULL first if flag is set
                     if (pushNull)
@@ -1918,11 +1920,8 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_ASSERTION_ERROR:
-                    // CPython 3.12: Load AssertionError class for assert statements
-                    var assertionError = frame.ScopeChain.BuiltinModule.GetBuiltin("AssertionError");
-                    if (assertionError == null)
-                        throw CreateNameErrorWithSuggestion("AssertionError", frame);
-                    frame.ValueStack.Push(assertionError);
+                    // PyExc_AssertionError itself, whatever builtins holds.
+                    frame.ValueStack.Push(PyType.AssertionErrorType);
                     break;
 
                 case ByteCodeOp.IS_OP:
@@ -1942,7 +1941,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.STORE_GLOBAL:
-                    var storeGlobalName = frame.Code.NameObjects[argument];
+                    var storeGlobalName = frame.Code.Names[argument];
                     var storeGlobalValue = frame.ValueStack.Pop();
                     // PyDict_SetItem(GLOBALS(), name, v)
                     frame.Globals.Dict.DictAssSub(storeGlobalName, storeGlobalValue);
@@ -1954,7 +1953,7 @@ namespace SharpPy
                 case ByteCodeOp.DELETE_GLOBAL:
                     // CPython 3.12: Delete global variable
                     var deleteGlobalName = frame.Code.Names[argument];
-                    if (RemoveGlobal(frame, frame.Code.NameObjects[argument]))
+                    if (RemoveGlobal(frame, deleteGlobalName))
                     {
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 DELETE_GLOBAL: deleted global variable '{deleteGlobalName}'");
@@ -1963,7 +1962,7 @@ namespace SharpPy
                     else
                     {
                         // CPython behavior: NameError if variable doesn't exist
-                        throw CreateNameErrorWithSuggestion(deleteGlobalName, frame);
+                        throw NameNotDefined(deleteGlobalName);
                     }
                     break;
 
@@ -2170,7 +2169,7 @@ namespace SharpPy
                         bool pushNullForMethod = (attrOparg & 1) == 1;
                         int attrNameIndex = attrOparg >> 1;
 
-                        var attrName = frame.Code.NameObjects[attrNameIndex];
+                        var attrName = frame.Code.Names[attrNameIndex];
                         var obj = frame.ValueStack.Pop();
 
                         #if DEBUG_LOG
@@ -2213,7 +2212,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.STORE_ATTR:
-                    var setAttrName = frame.Code.NameObjects[argument];
+                    var setAttrName = frame.Code.Names[argument];
                     var setObj = frame.ValueStack.Pop();
                     var setAttrValue = frame.ValueStack.Pop();
                     // 기존 Attribute 시스템 사용!
@@ -2222,7 +2221,7 @@ namespace SharpPy
 
                 case ByteCodeOp.DELETE_ATTR:
                     // CPython 3.12: Delete attribute from object
-                    var delAttrName = frame.Code.NameObjects[argument];
+                    var delAttrName = frame.Code.Names[argument];
                     var delObj = frame.ValueStack.Pop();
                     // 기존 Attribute 시스템 사용!
                     delObj.DelAttribute(delAttrName);
@@ -2805,9 +2804,9 @@ namespace SharpPy
                     if (iterable is PyFunction funcObj)
                     {
                         Console.WriteLine($"   ❌ ERROR: Trying to iterate over function '{funcObj.Name}'");
-                        var frameLocalDescriptions = new string[frame.Code.VarNames.Count];
+                        var frameLocalDescriptions = new string[frame.Code.NLocals];
                         for (int i = 0; i < frameLocalDescriptions.Length; i++)
-                            frameLocalDescriptions[i] = $"{frame.Code.VarNames[i]}={frame.LocalsPlus[i]}";
+                            frameLocalDescriptions[i] = $"{frame.Code.LocalsPlusNames[i].Value}={frame.LocalsPlus[i]}";
                         Console.WriteLine($"   Frame locals: {string.Join(", ", frameLocalDescriptions)}");
                     }
                     #endif
@@ -3676,7 +3675,7 @@ namespace SharpPy
                     // replaced one is called with f_globals and f_locals (None in a function).
                     var fromlist = frame.ValueStack.Pop();
                     var level = frame.ValueStack.Pop();
-                    var moduleName = frame.Code.NameObjects[argument];
+                    var moduleName = frame.Code.Names[argument];
                     var importer = frame.Builtin("__import__") ?? throw PyImportError.Create("__import__ not found");
                     var globalsDict = frame.Globals.Dict;
                     if (!ReferenceEquals(importer, PyImportSystem.DefaultImportFunc))
@@ -3693,7 +3692,7 @@ namespace SharpPy
 
                 case ByteCodeOp.IMPORT_FROM:
                     // IMPORT_FROM (from -- from, res): import_from(tstate, from, name).
-                    frame.ValueStack.Push(ImportFrom(frame.ValueStack.Peek(), frame.Code.NameObjects[argument]));
+                    frame.ValueStack.Push(ImportFrom(frame.ValueStack.Peek(), frame.Code.Names[argument]));
                     break;
 
                 // PEP 709 Comprehension Optimization - VM 구현
@@ -3882,7 +3881,7 @@ namespace SharpPy
 
                 case ByteCodeOp.LOAD_FROM_DICT_OR_GLOBALS:
                     var globalsMapping = frame.ValueStack.Pop();
-                    var mappedName = frame.Code.NameObjects[argument];
+                    var mappedName = frame.Code.Names[argument];
                     // bytecodes.c: the mapping, then what LOAD_GLOBAL would answer.
                     frame.ValueStack.Push(LookupNamespaceMapping(globalsMapping, mappedName)
                         ?? LoadGlobal(frame, mappedName));
@@ -3892,7 +3891,7 @@ namespace SharpPy
                 case ByteCodeOp.LOAD_FROM_DICT_OR_DEREF:
                 {
                     var classDict = frame.ValueStack.Pop();
-                    var mappedClosureValue = LookupNamespaceMapping(classDict, frame.Code.LocalsPlusKeys[argument]);
+                    var mappedClosureValue = LookupNamespaceMapping(classDict, frame.Code.LocalsPlusNames[argument]);
                     if (mappedClosureValue == null)
                     {
                         var cell = frame.CellAt(argument);
@@ -3931,7 +3930,7 @@ namespace SharpPy
                 {
                     var cell = frame.LocalsPlus[argument];
                     if (PyNull.IsNull(cell))
-                        throw PyUnboundLocalError.Create($"cannot access local variable '{frame.Code.LocalsPlusNames[argument]}' where it is not associated with a value");
+                        throw frame.UnboundLocal(argument);
                     frame.ValueStack.Push(cell);
                     break;
                 }

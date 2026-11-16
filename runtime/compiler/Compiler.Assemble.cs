@@ -122,6 +122,41 @@ namespace SharpPy
             return order;
         }
 
+        // compute_localsplus_info (Python/assemble.c): the locals, CO_FAST_HIDDEN when the name is
+        // in u_fasthidden and CO_FAST_CELL when it is a cell too; then the cells that are not
+        // locals; then the free variables.
+        private static void ComputeLocalsplusInfo(Unit u, List<string> varnames, List<string> cellvars,
+            List<string> freevars, out PyString[] names, out byte[] kinds)
+        {
+            var nameList = new List<PyString>();
+            var kindList = new List<byte>();
+            foreach (var name in varnames)
+            {
+                byte kind = PyCodeObject.FastLocal;
+                if (u.Fasthidden.ContainsKey(name))
+                    kind |= PyCodeObject.FastHidden;
+                if (u.Cellvars.ContainsKey(name))
+                    kind |= PyCodeObject.FastCell;
+                nameList.Add(PyString.From(name));
+                kindList.Add(kind);
+            }
+            foreach (var name in cellvars)
+            {
+                // Skip cells that are already covered by locals.
+                if (u.Varnames.ContainsKey(name))
+                    continue;
+                nameList.Add(PyString.From(name));
+                kindList.Add(PyCodeObject.FastCell);
+            }
+            foreach (var name in freevars)
+            {
+                nameList.Add(PyString.From(name));
+                kindList.Add(PyCodeObject.FastFree);
+            }
+            names = nameList.ToArray();
+            kinds = kindList.ToArray();
+        }
+
         // optimize_and_assemble and optimize_and_assemble_code_unit
         private PyCodeObject OptimizeAndAssemble(bool addNone)
         {
@@ -145,11 +180,12 @@ namespace SharpPy
             optimizer.NormalizeJumps();
             var assembled = PyAssemble.Assemble(cfg, _filename);
 
-            var code = new PyCodeObject(u.Name, assembled.Instructions, u.Consts, InOrder(u.Names), varnames,
-                u.ArgCount + u.PosonlyArgCount + u.KwonlyArgCount, u.PosonlyArgCount, u.KwonlyArgCount, freevars, cellvars,
+            ComputeLocalsplusInfo(u, varnames, cellvars, freevars, out var localsPlusNames, out var localsPlusKinds);
+            var code = new PyCodeObject(u.Name, assembled.Instructions, u.Consts,
+                InOrder(u.Names).ConvertAll(PyString.From).ToArray(), localsPlusNames, localsPlusKinds,
+                u.ArgCount + u.PosonlyArgCount + u.KwonlyArgCount, u.PosonlyArgCount, u.KwonlyArgCount,
                 codeFlags, _filename, _sourceLines);
             code.QualName = u.QualName;
-            code.MarkHidden(u.Fasthidden.Keys);
             code.FirstLineNo = u.FirstLineNo;
             code.ExceptionTable.AddRange(assembled.ExceptionTable);
             code.StackSize = maxDepth;

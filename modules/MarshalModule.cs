@@ -18,8 +18,6 @@ namespace SharpPy.Modules
         private static readonly int MaxDepth =
             System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? 1000 : 2000;
         private const byte FlagRef = 0x80;
-        // Include/internal/pycore_code.h: _PyLocals_Kind
-        private const byte FastLocal = PyCodeObject.FastLocal, FastCell = PyCodeObject.FastCell, FastFree = PyCodeObject.FastFree;
         private const int FloatRepr = 17;
 
         internal static PyModule CreateMarshalModule()
@@ -241,18 +239,9 @@ namespace SharpPy.Modules
                     throw PyValueError.Create("unmarshallable object");
             }
 
-            private static PyTuple InternedNames(IEnumerable<string> names)
-            {
-                var items = new List<PyObject>();
-                foreach (var name in names)
-                    items.Add(PySysFunction.Intern(PyString.From(name)));
-                return PyTuple.From(items.ToArray());
-            }
-
             private void Code(PyCodeObject code, byte flag)
             {
                 // co_localsplusnames and co_localspluskinds, CO_FAST_HIDDEN included.
-                var names = code.LocalsPlusNames;
                 var kinds = code.LocalsPlusKinds;
                 Type('c', flag);
                 Long(code.ArgCount - code.KwonlyArgCount);
@@ -262,8 +251,8 @@ namespace SharpPy.Modules
                 Long(code.Flags);
                 Object(PyBytes.From(code.Tables.Code));
                 Object(PyTuple.From(code.Constants.ToArray()));
-                Object(InternedNames(code.Names));
-                Object(InternedNames(names));
+                Object(code.NamesTuple);
+                Object(PyTuple.From(Array.ConvertAll(code.LocalsPlusNames, name => (PyObject)name)));
                 Object(PyBytes.From((byte[])kinds.Clone()));
                 Object(PySysFunction.Intern((PyString)code.GetAttribute("co_filename")));
                 Object(PySysFunction.Intern((PyString)code.GetAttribute("co_name")));
@@ -624,13 +613,9 @@ namespace SharpPy.Modules
                 return value;
             }
 
-            private static List<string> Names(PyObject tuple)
-            {
-                var names = new List<string>();
-                foreach (var item in ((PyTuple)tuple).Items)
-                    names.Add(((PyString)item).Value);
-                return names;
-            }
+            // The items go to _PyCode_New, whose intern_strings refuses what is not exactly str.
+            private static PyString[] Names(PyObject tuple) =>
+                Array.ConvertAll(((PyTuple)tuple).Items, item => item as PyString ?? throw PySystemError.Create("non-string found in code slot"));
 
             private readonly Dictionary<string, List<string>> _sources = new();
 
@@ -670,24 +655,9 @@ namespace SharpPy.Modules
                 int firstLineNo = Long();
                 var lineTable = (PyBytes)Field(typeof(PyBytes));
                 var exceptionTable = (PyBytes)Field(typeof(PyBytes));
-                if (kinds.Length != localNames.Count)
-                    throw PyValueError.Create("bad marshal data (co_localspluskinds size)");
-                var varNames = new List<string>();
-                var cellVars = new List<string>();
-                var freeVars = new List<string>();
-                for (int i = 0; i < kinds.Length; i++)
-                {
-                    if ((kinds[i] & FastLocal) != 0) varNames.Add(localNames[i]);
-                    if ((kinds[i] & FastCell) != 0) cellVars.Add(localNames[i]);
-                    if ((kinds[i] & FastFree) != 0) freeVars.Add(localNames[i]);
-                }
                 var read = PyCodeObject.FromTables(argCount, posonly, kwonly, stackSize, flags, code.Value,
-                    new List<PyObject>(constants.Items), names, varNames, freeVars, cellVars, fileName, name, qualName,
-                    firstLineNo, lineTable.Value, exceptionTable.Value, SourceOf(fileName));
-                var hidden = new HashSet<string>();
-                for (int i = 0; i < kinds.Length; i++)
-                    if ((kinds[i] & PyCodeObject.FastHidden) != 0) hidden.Add(localNames[i]);
-                read.MarkHidden(hidden);
+                    new List<PyObject>(constants.Items), names, localNames, (byte[])kinds.Clone(), fileName, name,
+                    qualName, firstLineNo, lineTable.Value, exceptionTable.Value, SourceOf(fileName));
                 return Insert(read, index);
             }
 

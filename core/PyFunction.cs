@@ -109,14 +109,14 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
             throw PyTypeError.Create("arg 4 (defaults) must be None or tuple");
         if (closure is not PyTuple)
         {
-            if (code.FreeVars.Count != 0 && closure is PyNone)
+            if (code.NFreeVars != 0 && closure is PyNone)
                 throw PyTypeError.Create("arg 5 (closure) must be tuple");
             if (closure is not PyNone)
                 throw PyTypeError.Create("arg 5 (closure) must be None or tuple");
         }
         var cells = (closure as PyTuple)?.Items ?? Array.Empty<PyObject>();
-        if (code.FreeVars.Count != cells.Length)
-            throw PyValueError.Create($"{code.Name} requires closure of length {code.FreeVars.Count}, not {cells.Length}");
+        if (code.NFreeVars != cells.Length)
+            throw PyValueError.Create($"{code.Name} requires closure of length {code.NFreeVars}, not {cells.Length}");
         var closureCells = new PyCell[cells.Length];
         for (int i = 0; i < cells.Length; i++)
             closureCells[i] = cells[i] as PyCell ??
@@ -240,8 +240,8 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
                 // func_set_code: a code of the same closure size, and nothing else.
                 if (self is not PyFunction func || value is not PyCodeObject code)
                     throw PyTypeError.Create("__code__ must be set to a code object");
-                if (func.Closure.Length != code.FreeVars.Count)
-                    throw PyValueError.Create($"{func.Name}() requires a code object with {func.Closure.Length} free vars, not {code.FreeVars.Count}");
+                if (func.Closure.Length != code.NFreeVars)
+                    throw PyValueError.Create($"{func.Name}() requires a code object with {func.Closure.Length} free vars, not {code.NFreeVars}");
                 func.CodeObject = code;
             },
             deleter: self => throw PyTypeError.Create("__code__ must be set to a code object")
@@ -443,8 +443,7 @@ public partial class PyFunction : PyObject, IDescriptor, IObjectDict
         if (CodeObject != null)
         {
             #if DEBUG_LOG
-            Console.WriteLine($"   FreeVars: [{string.Join(", ", CodeObject.FreeVars ?? new List<string>())}]");
-            Console.WriteLine($"   Has __class__ in FreeVars: {CodeObject.FreeVars?.Contains("__class__") == true}");
+            Console.WriteLine($"   FreeVars: {CodeObject.FreeVars.ToRepr().Value}");
             #endif
         }
         #if DEBUG_LOG

@@ -378,14 +378,9 @@ namespace SharpPy
         public string DisplayQualName => string.IsNullOrEmpty(QualName) ? Name : QualName!;
         public List<ByteCodeInstruction> Instructions { get; }
         public List<PyObject> Constants { get; }      // co_consts
-        public List<string> Names { get; }            // co_names (변수명들)
 
-        // co_names as the str objects CPython's tuple holds: STORE_ATTR and DELETE_ATTR hand the
-        // name object to tp_setattro.
-        private PyString[] _nameObjects;
-        // intern_strings (Objects/codeobject.c): the names are interned.
-        internal PyString[] NameObjects => _nameObjects ??= Names.Select(PyString.InternFrom).ToArray();
-        public List<string> VarNames { get; }         // co_varnames (지역변수명들)
+        /// <summary>co_names: the names of globals, attributes and imports, interned str.</summary>
+        internal PyString[] Names { get; }
         public int ArgCount { get; }                  // 매개변수 개수
         public int PosonlyArgCount { get; }           // co_posonlyargcount (positional-only 매개변수 개수)
         public int KwonlyArgCount { get; }            // co_kwonlyargcount (keyword-only 매개변수 개수)
@@ -414,25 +409,6 @@ namespace SharpPy
         // CPython 스타일 에러 보고를 위한 소스 라인 정보
         public List<string>? SourceLines { get; }     // 원본 소스 코드 라인들 (에러 표시용)
         
-        // CPython 호환 클로저 지원 (Phase 2)
-        public List<string> FreeVars { get; set; } = new List<string>();   // co_freevars - 자유 변수
-        public List<string> CellVars { get; set; } = new List<string>();   // co_cellvars - 셀 변수
-
-        /// <summary>
-        /// CPython 3.12: Cached name→index mappings for O(1) lookup
-        /// Replaces O(n) CellVars.IndexOf(), FreeVars.IndexOf(), VarNames.IndexOf() calls
-        /// Built once at construction time
-        /// </summary>
-        public Dictionary<string, int> CellVarIndexMap { get; private set; } = null!;
-        public Dictionary<string, int> FreeVarIndexMap { get; private set; } = null!;
-        public Dictionary<string, int> VarNameIndexMap { get; private set; } = null!;
-
-        /// <summary>
-        /// CPython 3.12: Fast set membership test for VarNames
-        /// Replaces O(n) VarNames.Contains() calls
-        /// </summary>
-        public HashSet<string> VarNameSet { get; private set; } = null!;
-
         // CPython 3.12 추가 CO_* 플래그 상수들
         public const int CO_OPTIMIZED = 0x0001;         // 지역 변수 최적화
         public const int CO_NEWLOCALS = 0x0002;         // 새로운 지역 변수 네임스페이스
@@ -444,114 +420,103 @@ namespace SharpPy
         
         // Line Number Table: instruction offset → source line number mapping
         
-        public PyCodeObject(string name, List<ByteCodeInstruction> instructions,
-                        List<PyObject> constants, List<string> names,
-                        List<string> varNames, int argCount = 0, int posonlyArgCount = 0,
-                        int kwonlyArgCount = 0,
-                        List<string> freeVars = null, List<string> cellVars = null,
-                        int flags = 0, string fileName = null,
-                        List<string> sourceLines = null, bool isOptimized = false,
-                        Dictionary<int, int> lineNumberTable = null,
-                        List<ExceptionTableEntry> exceptionTable = null)
+        /// <summary>
+        /// _PyCode_New and init_code: the names are interned (intern_strings), and the counts of
+        /// locals, cells and free variables come from the kinds (get_localsplus_counts).
+        /// </summary>
+        internal PyCodeObject(string name, List<ByteCodeInstruction> instructions, List<PyObject> constants,
+            PyString[] names, PyString[] localsPlusNames, byte[] localsPlusKinds, int argCount, int posonlyArgCount,
+            int kwonlyArgCount, int flags, string fileName, List<string> sourceLines,
+            List<ExceptionTableEntry> exceptionTable = null)
         {
             Name = name;
             Instructions = instructions;
             Constants = constants != null ? new List<PyObject>(constants) : new List<PyObject>();
-            Names = names;
-            VarNames = varNames;
+            Names = InternStrings(names);
+            LocalsPlusNames = InternStrings(localsPlusNames);
+            LocalsPlusKinds = localsPlusKinds;
             ArgCount = argCount;
             PosonlyArgCount = posonlyArgCount;
             KwonlyArgCount = kwonlyArgCount;
             Flags = flags;
             FileName = fileName;
             SourceLines = sourceLines;
-            FreeVars = freeVars ?? new List<string>();
-            CellVars = cellVars ?? new List<string>();
-            ExceptionTable = exceptionTable ?? new List<ExceptionTableEntry>(); // 전달된 exception table 보존
-
-            // CPython 3.12: Build cached index maps for O(1) lookup at runtime
-            BuildIndexMaps();
+            ExceptionTable = exceptionTable ?? new List<ExceptionTableEntry>();
+            CountLocalsPlus(localsPlusKinds, out int nlocals, out int ncellvars, out int nfreevars);
+            NLocals = nlocals;
+            NCellVars = ncellvars;
+            NFreeVars = nfreevars;
         }
 
-        /// <summary>
-        /// CPython 3.12: Build all cached index maps at construction time
-        /// This eliminates O(n) IndexOf/Contains calls at runtime
-        /// </summary>
-        private void BuildIndexMaps()
+        // intern_strings (Objects/codeobject.c)
+        private static PyString[] InternStrings(PyString[] names)
         {
-            // Build CellVarIndexMap: name → index in CellVars
-            CellVarIndexMap = new Dictionary<string, int>(CellVars.Count);
-            for (int i = 0; i < CellVars.Count; i++)
+            for (int i = names.Length; --i >= 0;)
             {
-                CellVarIndexMap[CellVars[i]] = i;
+                if (names[i] == null || !names[i].IsExactly(PyType.StrType))
+                    throw PySystemError.Create("non-string found in code slot");
+                names[i] = PyString.Intern(names[i]);
             }
+            return names;
+        }
 
-            // Build FreeVarIndexMap: name → index in FreeVars
-            FreeVarIndexMap = new Dictionary<string, int>(FreeVars.Count);
-            for (int i = 0; i < FreeVars.Count; i++)
+        // get_localsplus_counts
+        private static void CountLocalsPlus(byte[] kinds, out int nlocals, out int ncellvars, out int nfreevars)
+        {
+            nlocals = ncellvars = nfreevars = 0;
+            foreach (var kind in kinds)
             {
-                FreeVarIndexMap[FreeVars[i]] = i;
-            }
-
-            // Build VarNameIndexMap: name → index in VarNames
-            VarNameIndexMap = new Dictionary<string, int>(VarNames.Count);
-            for (int i = 0; i < VarNames.Count; i++)
-            {
-                VarNameIndexMap[VarNames[i]] = i;
-            }
-
-            // Build VarNameSet for O(1) Contains() check
-            VarNameSet = new HashSet<string>(VarNames);
-
-            // _Py_set_localsplus_info (compile.c compute_localsplus_info): the locals, a cell that
-            // is an argument sharing its slot, then the other cells, then the free variables.
-            var localsPlusNames = new List<string>(VarNames);
-            var localsPlusKinds = new List<byte>();
-            foreach (var local in VarNames)
-                localsPlusKinds.Add((byte)(CellVarIndexMap.ContainsKey(local) ? FastLocal | FastCell : FastLocal));
-            foreach (var cell in CellVars)
-                if (!VarNameSet.Contains(cell))
+                if ((kind & FastLocal) != 0)
                 {
-                    localsPlusNames.Add(cell);
-                    localsPlusKinds.Add(FastCell);
+                    nlocals++;
+                    if ((kind & FastCell) != 0)
+                        ncellvars++;
                 }
-            FirstFree = localsPlusNames.Count;
-            foreach (var free in FreeVars)
-            {
-                localsPlusNames.Add(free);
-                localsPlusKinds.Add(FastFree);
+                else if ((kind & FastCell) != 0)
+                    ncellvars++;
+                else if ((kind & FastFree) != 0)
+                    nfreevars++;
             }
-            LocalsPlusNames = localsPlusNames.ToArray();
-            LocalsPlusKinds = localsPlusKinds.ToArray();
-            LocalsPlusKeys = new PyString[LocalsPlusNames.Length];
-            for (int i = 0; i < LocalsPlusNames.Length; i++)
-                LocalsPlusKeys[i] = PyString.InternFrom(LocalsPlusNames[i]);
         }
 
         // _PyLocals_Kind (Include/internal/pycore_code.h)
         internal const byte FastHidden = 0x10, FastLocal = 0x20, FastCell = 0x40, FastFree = 0x80;
 
-        /// <summary>co_localsplusnames, co_localspluskinds, and the names as keys for f_locals.</summary>
-        internal string[] LocalsPlusNames { get; private set; }
-        internal byte[] LocalsPlusKinds { get; private set; }
-
         /// <summary>
-        /// compute_localsplus_info (Python/assemble.c): a name in u_fasthidden, the fast locals of a
-        /// comprehension inlined in module or class code, is CO_FAST_HIDDEN too. marshal keeps it.
+        /// co_localsplusnames and co_localspluskinds: the fast locals, the cells that are not
+        /// arguments and the free variables in frame order, interned str, and what each one is.
         /// </summary>
-        internal void MarkHidden(ICollection<string> hidden)
-        {
-            for (int i = 0; i < LocalsPlusNames.Length; i++)
-                if (hidden.Contains(LocalsPlusNames[i]))
-                    LocalsPlusKinds[i] |= FastHidden;
-        }
-        internal PyString[] LocalsPlusKeys { get; private set; }
+        internal PyString[] LocalsPlusNames { get; }
+        internal byte[] LocalsPlusKinds { get; }
 
         /// <summary>co_nlocalsplus.</summary>
         internal int NLocalsPlus => LocalsPlusNames.Length;
 
+        /// <summary>co_nlocals, co_ncellvars, co_nfreevars.</summary>
+        internal int NLocals { get; }
+        internal int NCellVars { get; }
+        internal int NFreeVars { get; }
+
         /// <summary>PyCode_GetFirstFree: co_nlocalsplus - co_nfreevars.</summary>
-        internal int FirstFree { get; private set; }
+        internal int FirstFree => NLocalsPlus - NFreeVars;
+
+        // get_localsplus_names, kept as _co_cached's _co_varnames, _co_cellvars and _co_freevars;
+        // co_names is the code's own tuple.
+        private PyTuple _names, _varnames, _cellvars, _freevars;
+        internal PyTuple NamesTuple => _names ??= PyTuple.From(Array.ConvertAll(Names, name => (PyObject)name));
+        internal PyTuple VarNames => _varnames ??= LocalsPlusNamesOf(FastLocal, NLocals);
+        internal PyTuple CellVars => _cellvars ??= LocalsPlusNamesOf(FastCell, NCellVars);
+        internal PyTuple FreeVars => _freevars ??= LocalsPlusNamesOf(FastFree, NFreeVars);
+
+        private PyTuple LocalsPlusNamesOf(byte kind, int count)
+        {
+            var names = new PyObject[count];
+            int index = 0;
+            for (int offset = 0; offset < LocalsPlusNames.Length; offset++)
+                if ((LocalsPlusKinds[offset] & kind) != 0)
+                    names[index++] = LocalsPlusNames[offset];
+            return PyTuple.From(names);
+        }
 
 
         // CPython: type(code).__name__ == 'code'
@@ -567,19 +532,44 @@ namespace SharpPy
 
         // CPython 3.12 호환: co_* 속성들 지원
         /// <summary>
-        /// _PyCode_New: a code object from the tables, the one way in for marshal, code.replace and
-        /// types.CodeType. co_argcount here does not count keyword-only arguments, as in Python.
+        /// _PyCode_Validate and _PyCode_New: a code object from its tables and its localsplus names
+        /// and kinds, as marshal reads it. co_argcount here does not count keyword-only arguments,
+        /// as in Python.
         /// </summary>
         internal static PyCodeObject FromTables(int argCount, int posonlyArgCount, int kwonlyArgCount, int stackSize,
-            int flags, byte[] code, List<PyObject> constants, List<string> names, List<string> varNames,
-            List<string> freeVars, List<string> cellVars, string fileName, string name, string qualName,
-            int firstLineNo, byte[] lineTable, byte[] exceptionTable, List<string> sourceLines = null)
+            int flags, byte[] code, List<PyObject> constants, PyString[] names, PyString[] localsPlusNames,
+            byte[] localsPlusKinds, string fileName, string name, string qualName, int firstLineNo, byte[] lineTable,
+            byte[] exceptionTable, List<string> sourceLines = null)
         {
+            Validate(argCount, posonlyArgCount, kwonlyArgCount, stackSize, flags, code, localsPlusNames, localsPlusKinds);
+            return New(argCount, posonlyArgCount, kwonlyArgCount, stackSize, flags, code, constants, names,
+                localsPlusNames, localsPlusKinds, fileName, name, qualName, firstLineNo, lineTable, exceptionTable, sourceLines);
+        }
+
+        // _PyCode_Validate
+        private static void Validate(int argCount, int posonlyArgCount, int kwonlyArgCount, int stackSize, int flags,
+            byte[] code, PyString[] localsPlusNames, byte[] localsPlusKinds)
+        {
+            if (argCount < posonlyArgCount || posonlyArgCount < 0 || kwonlyArgCount < 0 || stackSize < 0 || flags < 0 ||
+                localsPlusNames.Length != localsPlusKinds.Length)
+                throw PySystemError.Create("bad argument to internal function");
             if (code.Length % 2 != 0)
                 throw PyValueError.Create("code: co_code is malformed");
-            var result = new PyCodeObject(name, LocationTable.ReadInstructions(code, lineTable, firstLineNo), constants, names,
-                varNames, argCount + kwonlyArgCount, posonlyArgCount, kwonlyArgCount, freeVars, cellVars, flags,
-                fileName, sourceLines, false, null, LocationTable.ReadExceptionTable(exceptionTable))
+            CountLocalsPlus(localsPlusKinds, out int nlocals, out _, out _);
+            int nplainlocals = nlocals - argCount - kwonlyArgCount - ((flags & CO_VARARGS) != 0 ? 1 : 0) -
+                ((flags & CO_VARKEYWORDS) != 0 ? 1 : 0);
+            if (nplainlocals < 0)
+                throw PyValueError.Create("code: co_varnames is too small");
+        }
+
+        private static PyCodeObject New(int argCount, int posonlyArgCount, int kwonlyArgCount, int stackSize,
+            int flags, byte[] code, List<PyObject> constants, PyString[] names, PyString[] localsPlusNames,
+            byte[] localsPlusKinds, string fileName, string name, string qualName, int firstLineNo, byte[] lineTable,
+            byte[] exceptionTable, List<string> sourceLines)
+        {
+            var result = new PyCodeObject(name, LocationTable.ReadInstructions(code, lineTable, firstLineNo), constants,
+                names, localsPlusNames, localsPlusKinds, argCount + kwonlyArgCount, posonlyArgCount, kwonlyArgCount,
+                flags, fileName, sourceLines, LocationTable.ReadExceptionTable(exceptionTable))
             {
                 QualName = qualName,
                 FirstLineNo = firstLineNo,
@@ -595,13 +585,91 @@ namespace SharpPy
             return result;
         }
 
-        private static List<string> NameList(PyObject value, string field)
+        /// <summary>
+        /// PyUnstable_Code_NewWithPosOnlyArgs: the localsplus names and kinds from co_varnames,
+        /// co_cellvars and co_freevars (a cell that is a local shares its slot), CO_FAST_HIDDEN for
+        /// what LOAD_FAST_AND_CLEAR clears in code that is not CO_OPTIMIZED (gh-110543), then
+        /// _PyCode_Validate, the co_nlocals check and _PyCode_New.
+        /// </summary>
+        internal static PyCodeObject NewWithPosOnlyArgs(int argCount, int posonlyArgCount, int kwonlyArgCount,
+            int nlocals, int stackSize, int flags, byte[] code, List<PyObject> constants, PyString[] names,
+            PyString[] varNames, PyString[] freeVars, PyString[] cellVars, string fileName, string name,
+            string qualName, int firstLineNo, byte[] lineTable, byte[] exceptionTable, List<string> sourceLines = null)
         {
-            if (value is not PyTuple tuple)
-                throw PyTypeError.Create($"{field} must be a tuple");
-            var names = new List<string>(tuple.Items.Length);
-            foreach (var item in tuple.Items)
-                names.Add(item is PyString text ? text.Value : throw PyTypeError.Create("name tuples must contain only strings, not '" + item.GetTypeName() + "'"));
+            var localsPlusNames = new List<PyString>(varNames.Length + cellVars.Length + freeVars.Length);
+            var localsPlusKinds = new List<byte>(localsPlusNames.Capacity);
+            foreach (var local in varNames)
+            {
+                localsPlusNames.Add(local);
+                localsPlusKinds.Add(FastLocal);
+            }
+            foreach (var cell in cellVars)
+            {
+                int argOffset = Array.FindIndex(varNames, local => local.ContentEquals(cell));
+                if (argOffset >= 0)
+                {
+                    // Merge the localsplus indices.
+                    localsPlusKinds[argOffset] |= FastCell;
+                    continue;
+                }
+                localsPlusNames.Add(cell);
+                localsPlusKinds.Add(FastCell);
+            }
+            foreach (var free in freeVars)
+            {
+                localsPlusNames.Add(free);
+                localsPlusKinds.Add(FastFree);
+            }
+            if ((flags & CO_OPTIMIZED) == 0)
+            {
+                int extendedArg = 0;
+                for (int unit = 0; unit + 1 < code.Length; unit += 2)
+                {
+                    var opcode = (ByteCodeOp)code[unit];
+                    if (opcode == ByteCodeOp.EXTENDED_ARG)
+                    {
+                        extendedArg = extendedArg << 8 | code[unit + 1];
+                        continue;
+                    }
+                    if (opcode == ByteCodeOp.LOAD_FAST_AND_CLEAR)
+                    {
+                        int oparg = extendedArg << 8 | code[unit + 1];
+                        if (oparg >= localsPlusNames.Count)
+                            throw PyValueError.Create($"code: LOAD_FAST_AND_CLEAR oparg {oparg} out of range");
+                        localsPlusKinds[oparg] |= FastHidden;
+                    }
+                    extendedArg = 0;
+                }
+            }
+            var plusNames = localsPlusNames.ToArray();
+            var plusKinds = localsPlusKinds.ToArray();
+            Validate(argCount, posonlyArgCount, kwonlyArgCount, stackSize, flags, code, plusNames, plusKinds);
+            if (nlocals != varNames.Length)
+                throw PyValueError.Create("code: co_nlocals != len(co_varnames)");
+            return New(argCount, posonlyArgCount, kwonlyArgCount, stackSize, flags, code, constants, names, plusNames,
+                plusKinds, fileName, name, qualName, firstLineNo, lineTable, exceptionTable, sourceLines);
+        }
+
+        // validate_and_copy_tuple: exact str, a str subclass copied to one (_PyUnicode_Copy).
+        private static PyString[] ValidateAndCopyTuple(PyTuple tuple)
+        {
+            var names = new PyString[tuple.Items.Length];
+            for (int i = 0; i < names.Length; i++)
+            {
+                var item = tuple.Items[i];
+                if (item is not PyString text)
+                    throw PyErrFormat.Format(PyType.TypeErrorType, "name tuples must contain only strings, not '%.500s'", item.GetTypeName());
+                names[i] = text.IsExactly(PyType.StrType) ? text : text.Copy();
+            }
+            return names;
+        }
+
+        // A name tuple handed to code.replace goes to _PyCode_New as it is.
+        private static PyString[] TupleNames(PyTuple tuple)
+        {
+            var names = new PyString[tuple.Items.Length];
+            for (int i = 0; i < names.Length; i++)
+                names[i] = tuple.Items[i] as PyString ?? throw PySystemError.Create("non-string found in code slot");
             return names;
         }
 
@@ -642,13 +710,23 @@ namespace SharpPy
             if (Name != other.Name || ArgCount != other.ArgCount || PosonlyArgCount != other.PosonlyArgCount ||
                 KwonlyArgCount != other.KwonlyArgCount || Flags != other.Flags || GetFirstLineNo() != other.GetFirstLineNo() ||
                 !Tables.Code.AsSpan().SequenceEqual(other.Tables.Code) || Constants.Count != other.Constants.Count ||
-                !Names.SequenceEqual(other.Names) || !VarNames.SequenceEqual(other.VarNames) ||
-                !CellVars.SequenceEqual(other.CellVars) || !FreeVars.SequenceEqual(other.FreeVars) ||
+                !SameNames(Names, other.Names) || !SameNames(LocalsPlusNames, other.LocalsPlusNames) ||
                 !Tables.LineTable.AsSpan().SequenceEqual(other.Tables.LineTable) ||
                 !Tables.ExceptionTable.AsSpan().SequenceEqual(other.Tables.ExceptionTable))
                 return false;
             for (int i = 0; i < Constants.Count; i++)
                 if (!SameConstant(Constants[i], other.Constants[i]))
+                    return false;
+            return true;
+        }
+
+        // PyObject_RichCompareBool of two tuples of exact str.
+        private static bool SameNames(PyString[] a, PyString[] b)
+        {
+            if (a.Length != b.Length)
+                return false;
+            for (int i = 0; i < a.Length; i++)
+                if (!ReferenceEquals(a[i], b[i]) && !a[i].ContentEquals(b[i]))
                     return false;
             return true;
         }
@@ -726,7 +804,7 @@ namespace SharpPy
             int index = PyArgs.Int(oparg);
             if (index < 0 || index >= NLocalsPlus)
                 throw PyIndexError.Create("tuple index out of range");
-            return LocalsPlusKeys[index];
+            return LocalsPlusNames[index];
         }
 
         internal PyObject Replace(PyObject[] args, PyDict kwargs)
@@ -738,12 +816,9 @@ namespace SharpPy
             var lineTable = Tables.LineTable;
             var exceptionTable = Tables.ExceptionTable;
             var constants = Constants;
-            var names = Names;
-            var varNames = VarNames;
-            var freeVars = FreeVars;
-            var cellVars = CellVars;
+            PyTuple names = NamesTuple, varNames = VarNames, freeVars = FreeVars, cellVars = CellVars;
             string fileName = FileName, name = Name, qualName = QualName;
-            int nlocals = -1;
+            int nlocals = NLocals;
             if (kwargs != null)
             {
                 foreach (var key in kwargs.Keys().Items)
@@ -765,10 +840,10 @@ namespace SharpPy
                         case "co_consts":
                             constants = new List<PyObject>(value is PyTuple values ? values.Items : throw PyTypeError.Create("co_consts must be a tuple"));
                             break;
-                        case "co_names": names = NameList(value, field); break;
-                        case "co_varnames": varNames = NameList(value, field); break;
-                        case "co_freevars": freeVars = NameList(value, field); break;
-                        case "co_cellvars": cellVars = NameList(value, field); break;
+                        case "co_names": names = TupleField(value, field); break;
+                        case "co_varnames": varNames = TupleField(value, field); break;
+                        case "co_freevars": freeVars = TupleField(value, field); break;
+                        case "co_cellvars": cellVars = TupleField(value, field); break;
                         case "co_filename": fileName = ((PyString)value).Value; break;
                         case "co_name": name = ((PyString)value).Value; break;
                         case "co_qualname": qualName = ((PyString)value).Value; break;
@@ -776,11 +851,18 @@ namespace SharpPy
                     }
                 }
             }
-            if (nlocals >= 0 && nlocals != varNames.Count)
-                throw PyValueError.Create("code: co_nlocals != len(co_varnames)");
-            return FromTables(argCount, posonly, kwonly, stackSize, flags, code, constants, names, varNames, freeVars,
-                cellVars, fileName, name, qualName, firstLineNo, lineTable, exceptionTable, SourceLines);
+            foreach (var (field, number) in new[] { ("co_argcount", argCount), ("co_posonlyargcount", posonly),
+                ("co_kwonlyargcount", kwonly), ("co_nlocals", nlocals), ("co_stacksize", stackSize), ("co_flags", flags),
+                ("co_firstlineno", firstLineNo) })
+                if (number < 0)
+                    throw PyValueError.Create($"{field} must be a positive integer");
+            return NewWithPosOnlyArgs(argCount, posonly, kwonly, nlocals, stackSize, flags, code, constants,
+                TupleNames(names), TupleNames(varNames), TupleNames(freeVars), TupleNames(cellVars), fileName, name,
+                qualName, firstLineNo, lineTable, exceptionTable, SourceLines);
         }
+
+        private static PyTuple TupleField(PyObject value, string field) =>
+            value as PyTuple ?? throw PyArgs.BadArgument("replace", $"argument '{field}'", "tuple", value);
 
         // code_new_impl
         private static PyObject CodeNew(PyObject cls, PyObject[] args, PyDict kwargs)
@@ -789,13 +871,20 @@ namespace SharpPy
                 throw PyTypeError.Create("code() takes no keyword arguments");
             if (args.Length < 16 || args.Length > 18)
                 throw PyTypeError.Create($"code expected at least 16 arguments, got {args.Length}");
-            var varNames = NameList(args[9], "varnames");
-            if (args[3].ToInt() != varNames.Count)
-                throw PyValueError.Create("code: co_nlocals != len(co_varnames)");
-            return FromTables(args[0].ToInt(), args[1].ToInt(), args[2].ToInt(), args[4].ToInt(), args[5].ToInt(),
-                BytesField(args[6], "code"), new List<PyObject>(((PyTuple)args[7]).Items), NameList(args[8], "names"), varNames,
-                args.Length > 16 ? NameList(args[16], "freevars") : new List<string>(),
-                args.Length > 17 ? NameList(args[17], "cellvars") : new List<string>(),
+            PyTuple NameTuple(int index) =>
+                args[index] as PyTuple ?? throw PyArgs.BadArgument("code", $"argument {index + 1}", "tuple", args[index]);
+            int argCount = args[0].ToInt(), posonly = args[1].ToInt(), kwonly = args[2].ToInt(), nlocals = args[3].ToInt();
+            var names = NameTuple(8);
+            var varNames = NameTuple(9);
+            var freeVars = args.Length > 16 ? NameTuple(16) : PyTuple.Empty;
+            var cellVars = args.Length > 17 ? NameTuple(17) : PyTuple.Empty;
+            if (argCount < 0) throw PyValueError.Create("code: argcount must not be negative");
+            if (posonly < 0) throw PyValueError.Create("code: posonlyargcount must not be negative");
+            if (kwonly < 0) throw PyValueError.Create("code: kwonlyargcount must not be negative");
+            if (nlocals < 0) throw PyValueError.Create("code: nlocals must not be negative");
+            return NewWithPosOnlyArgs(argCount, posonly, kwonly, nlocals, args[4].ToInt(), args[5].ToInt(),
+                BytesField(args[6], "code"), new List<PyObject>(((PyTuple)args[7]).Items), ValidateAndCopyTuple(names),
+                ValidateAndCopyTuple(varNames), ValidateAndCopyTuple(freeVars), ValidateAndCopyTuple(cellVars),
                 ((PyString)args[10]).Value, ((PyString)args[11]).Value, ((PyString)args[12]).Value, args[13].ToInt(),
                 BytesField(args[14], "linetable"), BytesField(args[15], "exceptiontable"));
         }
@@ -814,14 +903,14 @@ namespace SharpPy
                 "co_argcount" => PyInt.From(Math.Max(0, ArgCount - KwonlyArgCount)),
                 "co_posonlyargcount" => PyInt.From(PosonlyArgCount),
                 "co_kwonlyargcount" => PyInt.From(KwonlyArgCount),
-                "co_varnames" => PyTuple.From(VarNames.Select(n => PyString.From(n) as PyObject).ToArray()),
-                "co_names" => PyTuple.From(Names.Select(n => PyString.From(n) as PyObject).ToArray()),
+                "co_varnames" => VarNames,
+                "co_names" => NamesTuple,
                 "co_consts" => PyTuple.From(Constants.ToArray()),
-                "co_freevars" => PyTuple.From(FreeVars.Select(n => PyString.From(n) as PyObject).ToArray()),
-                "co_cellvars" => PyTuple.From(CellVars.Select(n => PyString.From(n) as PyObject).ToArray()),
+                "co_freevars" => FreeVars,
+                "co_cellvars" => CellVars,
                 "co_filename" => PyString.From(FileName ?? "<unknown>"),
                 "co_firstlineno" => PyInt.From(GetFirstLineNo()),
-                "co_nlocals" => PyInt.From(VarNames.Count),
+                "co_nlocals" => PyInt.From(NLocals),
                 "co_stacksize" => PyInt.From(StackSize),
                 "co_code" => PyBytes.From(Tables.Code),
                 "_co_code_adaptive" => PyBytes.From(Tables.Code),
@@ -908,9 +997,9 @@ namespace SharpPy
                     case ByteCodeOp.LOAD_NAME:
                     case ByteCodeOp.STORE_NAME:
                     case ByteCodeOp.STORE_GLOBAL:
-                        if (inst.Argument >= 0 && inst.Argument < Names.Count)
+                        if (inst.Argument >= 0 && inst.Argument < Names.Length)
                         {
-                            extra = $"({Names[inst.Argument]})";
+                            extra = $"({Names[inst.Argument].Value})";
                         }
                         else
                         {
@@ -922,13 +1011,13 @@ namespace SharpPy
                         int globalNameIndex = inst.Argument >> 1;
                         bool pushNull = (inst.Argument & 1) == 1;
                         string nullPrefix = pushNull ? "NULL + " : "";
-                        extra = $"({nullPrefix}{Names[globalNameIndex]})";
+                        extra = $"({nullPrefix}{Names[globalNameIndex].Value})";
                         break;
                     case ByteCodeOp.LOAD_ATTR:
                     case ByteCodeOp.STORE_ATTR:
                         // CPython 3.12: LOAD_ATTR oparg encodes name_index in high bits, push_null in low bit
                         int attrNameIndex = inst.Argument >> 1;
-                        extra = $"({Names[attrNameIndex]})";
+                        extra = $"({Names[attrNameIndex].Value})";
                         break;
                 }
 
@@ -1075,28 +1164,6 @@ namespace SharpPy
         }
     }
 
-    // 추가 바이트코드 도구들
-    
-    // 바이트코드 빌더 (헬퍼 클래스)
-    public class ByteCodeBuilder
-    {
-        private List<ByteCodeInstruction> instructions = new List<ByteCodeInstruction>();
-        private List<PyObject> constants = new List<PyObject>();
-        private List<string> names = new List<string>();
-        private List<string> varNames = new List<string>();
-        
-        public PyCodeObject Build(string name = "<module>", int argCount = 0)
-        {
-            return new PyCodeObject(name, instructions, constants, names, varNames, argCount, 0);
-        }
-        
-        // Evaluate 메서드 - 나중에 구현
-        public PyObject Evaluate(PyScope scope)
-        {
-            throw new NotImplementedException("ByteCodeBuilder.Evaluate() - 나중에 구현예정");
-        }
-    }
-    
     // CPython 3.12 정확한 내장 함수 열거형 (pycore_intrinsics.h 호환)
     public enum IntrinsicFunction : byte
     {
@@ -1150,8 +1217,8 @@ namespace SharpPy
             Console.WriteLine($"\n📄 Disassembly of {code.Name}:");
             Console.WriteLine($"  Instructions: {code.Instructions.Count}");
             Console.WriteLine($"  Constants: {code.Constants.Count}");
-            Console.WriteLine($"  Names: {code.Names.Count}");
-            Console.WriteLine($"  VarNames: {code.VarNames.Count}");
+            Console.WriteLine($"  Names: {code.Names.Length}");
+            Console.WriteLine($"  VarNames: {code.NLocals}");
             Console.WriteLine($"  ArgCount: {code.ArgCount}");
             Console.WriteLine();
             
@@ -1183,15 +1250,15 @@ namespace SharpPy
                 case ByteCodeOp.DELETE_ATTR:
                 case ByteCodeOp.IMPORT_NAME:
                 case ByteCodeOp.IMPORT_FROM:
-                    if (inst.Argument < code.Names.Count)
-                        return $"({code.Names[inst.Argument]})";
+                    if (inst.Argument < code.Names.Length)
+                        return $"({code.Names[inst.Argument].Value})";
                     break;
                     
                 case ByteCodeOp.LOAD_FAST:
                 case ByteCodeOp.STORE_FAST:
                 case ByteCodeOp.DELETE_FAST:
-                    if (inst.Argument < code.VarNames.Count)
-                        return $"({code.VarNames[inst.Argument]})";
+                    if (inst.Argument < code.NLocalsPlus)
+                        return $"({code.LocalsPlusNames[inst.Argument].Value})";
                     break;
                     
                 case ByteCodeOp.COMPARE_OP:

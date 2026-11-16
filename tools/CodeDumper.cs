@@ -51,17 +51,10 @@ namespace SharpPy
         }
 
         private static string Name(PyCodeObject code, int index) =>
-            index >= 0 && index < code.Names.Count ? code.Names[index] : "?" + index;
+            index >= 0 && index < code.Names.Length ? code.Names[index].Value : "?" + index;
 
-        private static string LocalPlus(PyCodeObject code, int index)
-        {
-            var names = new List<string>(code.VarNames);
-            foreach (var cell in code.CellVars)
-                if (!names.Contains(cell))
-                    names.Add(cell);
-            names.AddRange(code.FreeVars);
-            return index >= 0 && index < names.Count ? names[index] : "?" + index;
-        }
+        private static string LocalPlus(PyCodeObject code, int index) =>
+            index >= 0 && index < code.NLocalsPlus ? code.LocalsPlusNames[index].Value : "?" + index;
 
         private static string Detail(PyCodeObject code, ByteCodeOp op, int argument, int word)
         {

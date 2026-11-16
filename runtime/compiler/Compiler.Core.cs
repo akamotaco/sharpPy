@@ -639,10 +639,11 @@ namespace SharpPy
         // compiler_make_closure
         private void MakeClosure(Loc loc, PyCodeObject co, int flags)
         {
-            if (co.FreeVars.Count != 0)
+            if (co.NFreeVars != 0)
             {
-                foreach (var name in co.FreeVars)
+                for (int i = 0; i < co.NFreeVars; i++)
                 {
+                    var name = co.LocalsPlusNames[co.FirstFree + i].Value;
                     int reftype = GetRefType(name);
                     var dict = reftype == CELL ? _u.Cellvars : _u.Freevars;
                     if (!dict.TryGetValue(name, out int arg))
@@ -651,7 +652,7 @@ namespace SharpPy
                     ADDOP_I(loc, ByteCodeOp.LOAD_CLOSURE, arg);
                 }
                 flags |= 0x08;
-                ADDOP_I(loc, ByteCodeOp.BUILD_TUPLE, co.FreeVars.Count);
+                ADDOP_I(loc, ByteCodeOp.BUILD_TUPLE, co.NFreeVars);
             }
             ADDOP_LOAD_CONST(loc, co);
             ADDOP_I(loc, ByteCodeOp.MAKE_FUNCTION, flags);
