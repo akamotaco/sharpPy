@@ -495,13 +495,6 @@ namespace SharpPy
             }
         }
 
-        /// <summary>_PyObject_LookupAttr: the attribute, or null where getattr raises AttributeError.</summary>
-        internal static PyObject LookupAttr(PyObject o, string name)
-        {
-            try { return o.GetAttribute(name); }
-            catch (PythonException error) when (error.PyException is PyAttributeError) { return null; }
-        }
-
         // Py_TYPE(o) when it is a heap type, a class written in Python; type itself is static.
         private SharpPy.PyClass HeapType() => GetPyType() is SharpPy.PyClass heap && heap.IsHeapType ? heap : null;
 
@@ -687,7 +680,7 @@ namespace SharpPy
         /// </summary>
         public PyObject LookupAttribute(string name) => LookupAttribute(PyString.From(name));
 
-        public virtual PyObject LookupAttribute(PyString name)
+        public PyObject LookupAttribute(PyString name)
         {
             // CPython's _PyObject_LookupAttr runs the object's NORMAL tp_getattro and suppresses only
             // AttributeError. It must not be narrowed to GenericGetAttribute: in this runtime several
@@ -705,6 +698,10 @@ namespace SharpPy
             }
             // Anything a user __getattr__ raises still propagates.
         }
+
+        /// <summary>_PyObject_IsAbstract: the truth of __isabstractmethod__, false when there is none.</summary>
+        internal static bool IsAbstract(PyObject o) =>
+            o != null && o.LookupAttribute("__isabstractmethod__") is { } value && value.IsTrue();
 
         /// <summary>
         /// Type-only special method lookup without invoking instance attribute hooks.

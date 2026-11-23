@@ -218,7 +218,7 @@ namespace SharpPy
                 throw PyValueError.Create("type name must not contain null characters");
 
             foreach (var item in bases.Items)
-                if (item is not PyType && item.HasTypeSlot("__mro_entries__"))
+                if (item is not PyType && item.LookupAttribute("__mro_entries__") != null)
                     throw PyTypeError.Create("type() doesn't support MRO entry resolution; use types.new_class()");
             if (CalculateMetaclass(metatype, bases.Items) is not PyClass winner)
                 throw PyTypeError.Create("metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases");

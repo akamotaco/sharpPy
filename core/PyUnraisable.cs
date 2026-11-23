@@ -146,19 +146,10 @@ namespace SharpPy
                 Write("\n");
             }
             else if (message is not PyNone) Write(message.ToStr().Value + ":\n");
-            if (args.Items[2] is PyTraceback traceback)
+            // PyTraceBack_Print; continue even if writing the traceback failed.
+            if (args.Items[2] is PyTraceback traceback && !console)
             {
-                try
-                {
-                    Write("Traceback (most recent call last):\n");
-                    for (var tb = traceback; tb != null; tb = tb.Next)
-                    {
-                        Write($"  File \"{tb.Frame.Code.FileName}\", line {tb.LineNo}, in {tb.Frame.Code.Name}\n");
-                        var lines = tb.Frame.Code.SourceLines;
-                        if (lines != null && tb.LineNo > 0 && tb.LineNo <= lines.Count)
-                            Write("    " + lines[tb.LineNo - 1].Trim() + "\n");
-                    }
-                }
+                try { PyErrorDisplay.PrintTraceback(traceback, stream); }
                 catch (PythonException) { }
             }
             if (args.Items[0] is not PyType type) return;

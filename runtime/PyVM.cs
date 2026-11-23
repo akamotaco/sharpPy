@@ -1428,10 +1428,10 @@ namespace SharpPy
         /// </summary>
         internal static PyString FunctionStr(PyObject x)
         {
-            var qualname = PyObject.LookupAttr(x, "__qualname__");
+            var qualname = x.LookupAttribute("__qualname__");
             if (qualname == null)
                 return x.ToStr();
-            var module = PyObject.LookupAttr(x, "__module__");
+            var module = x.LookupAttribute("__module__");
             if (module != null && module is not PyNone && PyObject.CompareBool(module, PyString.From("builtins"), PyObject.CompareOp.NE))
                 return PyErrFormat.FromFormat("%S.%S()", module, qualname);
             return PyErrFormat.FromFormat("%S()", qualname);
@@ -4564,14 +4564,7 @@ namespace SharpPy
         {
             if (!seen.Add(name))
                 throw PyTypeError.Create($"{type.Name}() got multiple sub-patterns for attribute '{name}'");
-            try
-            {
-                return subject.GetAttribute(name);
-            }
-            catch (PythonException e) when (e.PyException is PyAttributeError)
-            {
-                return null;
-            }
+            return subject.LookupAttribute(name);
         }
 
         /// <summary>match_class (Python/ceval.c).</summary>
@@ -4586,12 +4579,7 @@ namespace SharpPy
             var attributes = new List<PyObject>(positional + keywords.Items.Length);
             if (positional > 0)
             {
-                PyObject matchArgs = null;
-                try
-                {
-                    matchArgs = cls.GetAttribute("__match_args__");
-                }
-                catch (PythonException e) when (e.PyException is PyAttributeError) { }
+                var matchArgs = cls.LookupAttribute("__match_args__");
 
                 if (matchArgs != null && matchArgs is not PyTuple)
                     throw PyTypeError.Create($"{type.Name}.__match_args__ must be a tuple (got {matchArgs.GetTypeName()})");
@@ -5281,16 +5269,7 @@ namespace SharpPy
             var method = manager.LookupSpecialMethodUncached(name);
             if (method != null)
                 return manager.BindSpecialMethod(method);
-            if (manager.GetPyType() is PyClass)
-                return null;
-            try
-            {
-                return manager.GetAttribute(name);
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-                return null;
-            }
+            return manager.GetPyType() is PyClass ? null : manager.LookupAttribute(name);
         }
 
         private static bool IsExceptionClass(PyObject value) =>

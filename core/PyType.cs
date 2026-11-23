@@ -357,9 +357,7 @@ namespace SharpPy
         {
             if (!(note is PyString))
                 throw PyTypeError.Create($"note must be a str, not '{note.GetTypeName()}'");
-            PyObject notes = null;
-            try { notes = self.GetAttribute("__notes__"); }
-            catch (PythonException error) when (error.PyException is PyAttributeError) { }
+            var notes = self.LookupAttribute("__notes__");
             if (notes == null)
             {
                 notes = new PyList();
@@ -1589,18 +1587,6 @@ namespace SharpPy
         internal static bool TypeInitIsObjectInit(PyType type) =>
             ReferenceEquals(type is PyClass cls ? cls.FindNameInMro("__init__") : type.LookupSpecial("__init__"), ObjectInitDescriptor());
 
-        private static PyObject AttributeOrNull(PyObject self, string name)
-        {
-            try
-            {
-                return self.GetAttribute(name);
-            }
-            catch (PythonException e) when (e.PyException is PyAttributeError)
-            {
-                return null;
-            }
-        }
-
         /// <summary>
         /// object_getstate_default (Objects/typeobject.c): __dict__, with the slots beside it. When the
         /// state is required (no new arguments, not a list or dict), an object whose struct holds more
@@ -1635,14 +1621,14 @@ namespace SharpPy
                 if (layout.BasicSize > basicSize)
                     throw PyTypeError.Create($"cannot pickle '{type.FullName}' object");
             }
-            var state = AttributeOrNull(self, "__dict__") ?? PyNone.Instance;
+            var state = self.LookupAttribute("__dict__") ?? PyNone.Instance;
             if (state is PyDict { } instanceDict && instanceDict.Length() == 0) state = PyNone.Instance;
             var names = (PyList)PyImportSystem.Import("copyreg").GetAttribute("_slotnames")
                 .Call(new PyObject[] { self.GetPyType() }, null);
             var slots = new PyDict();
             foreach (var name in names.Items)
             {
-                var value = AttributeOrNull(self, ((PyString)name).Value);
+                var value = self.LookupAttribute((PyString)name);
                 if (value != null) slots.SetItem(name, value);
             }
             return slots.Length() == 0 ? state : PyTuple.From(new[] { state, slots });
@@ -1998,24 +1984,11 @@ namespace SharpPy
             else
             {
                 // object___dir___impl: _PyObject_LookupAttr(__dict__), only AttributeError is "none".
-                try
-                {
-                    var d = obj.GetAttribute("__dict__");
-                    if (d is PyDict pd)
-                        foreach (var k in pd.Keys().Items)
-                            if (k is PyString ks) names.Add(ks.Value);
-                }
-                catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                if (obj.LookupAttribute("__dict__") is PyDict pd)
+                    foreach (var k in pd.Keys().Items)
+                        if (k is PyString ks) names.Add(ks.Value);
                 // object___dir___impl: the class the object names, and it may name none.
-                PyObject itsClass = null;
-                try
-                {
-                    itsClass = obj.GetAttribute("__class__");
-                }
-                catch (PythonException error) when (error.PyException is PyAttributeError)
-                {
-                }
-                if (itsClass is PyType t2)
+                if (obj.LookupAttribute("__class__") is PyType t2)
                 {
                     var imro = t2.MRO != null && t2.MRO.Count > 0 ? t2.MRO : new List<PyType> { t2 };
                     foreach (var t in imro) AddClassDictKeys(names, t);

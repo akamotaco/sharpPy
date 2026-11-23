@@ -86,29 +86,9 @@ namespace SharpPy.Modules
         }
 
         // _PyObject_IsAbstract
-        private static bool IsAbstract(PyObject value)
-        {
-            try
-            {
-                return value.GetAttribute("__isabstractmethod__").IsTrue();
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-                return false;
-            }
-        }
+        private static bool IsAbstract(PyObject value) => PyObject.IsAbstract(value);
 
-        private static PyObject AttributeOrNull(PyObject target, PyObject name)
-        {
-            try
-            {
-                return target.GetAttribute(((PyString)name).Value);
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-                return null;
-            }
-        }
+        private static PyObject AttributeOrNull(PyObject target, PyObject name) => target.LookupAttribute((PyString)name);
 
 
         // compute_abstract_methods

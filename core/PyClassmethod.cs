@@ -30,15 +30,8 @@ namespace SharpPy
         {
             Callable = callable;
             foreach (var name in WrappedAttributes)
-            {
-                try
-                {
-                    ObjectDict(true).SetItem(PyString.From(name), callable.GetAttribute(name));
-                }
-                catch (PythonException error) when (error.PyException is PyAttributeError)
-                {
-                }
-            }
+                if (callable.LookupAttribute(name) is { } value)
+                    ObjectDict(true).SetItem(PyString.From(name), value);
         }
 
         public override PyType GetPyType() => _customType ?? _builtin;
@@ -53,18 +46,7 @@ namespace SharpPy
 
         public bool IsDataDescriptor() => false;
 
-        // _PyObject_IsAbstract
-        internal bool IsAbstract()
-        {
-            try
-            {
-                return Callable.GetAttribute("__isabstractmethod__").IsTrue();
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-                return false;
-            }
-        }
+        internal bool IsAbstract() => PyObject.IsAbstract(Callable);
 
         internal static void Install(PyType type, string name)
         {

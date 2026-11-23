@@ -360,27 +360,21 @@ namespace SharpPy
             lineno = AsSsize(err.GetAttribute("lineno"));
             v = err.GetAttribute("offset");
             offset = v is PyNone ? -1 : AsSsize(v);
-            endLineno = lineno;
-            endOffset = -1;
-            try
-            {
-                v = err.GetAttribute("end_lineno");
-                endLineno = v is PyNone ? lineno : AsSsize(v);
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-            }
-            try
-            {
-                v = err.GetAttribute("end_offset");
-                endOffset = v is PyNone ? -1 : AsSsize(v);
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-            }
+            // end_lineno and end_offset: any error getting them is cleared, as if they were missing.
+            v = GetAttrCleared(err, "end_lineno");
+            endLineno = v == null || v is PyNone ? lineno : AsSsize(v);
+            v = GetAttrCleared(err, "end_offset");
+            endOffset = v == null || v is PyNone ? -1 : AsSsize(v);
             v = err.GetAttribute("text");
             text = v is PyNone ? null : v;
             return true;
+        }
+
+        // PyObject_GetAttr, then PyErr_Clear on failure.
+        private static PyObject GetAttrCleared(PyObject o, string name)
+        {
+            try { return o.GetAttribute(name); }
+            catch (PythonException) { return null; }
         }
 
         // PyLong_AsSsize_t
@@ -545,6 +539,10 @@ namespace SharpPy
                 Write(file, "\n");
             }
         }
+
+        /// <summary>PyTraceBack_Print: the traceback under its header, sys.tracebacklimit applied.</summary>
+        internal static void PrintTraceback(PyTraceback tb, PyObject file) =>
+            PrintTracebackIndented(tb, 0, null, null, "Traceback (most recent call last):\n", file);
 
         // _PyTraceBack_Print_Indented
         private static void PrintTracebackIndented(PyTraceback tb, int indent, string margin, string headerMargin, string header, PyObject file)

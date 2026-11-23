@@ -222,9 +222,7 @@ public static class PyIOBaseSlots
             "readline", IOBaseType, (self, args, kwargs) =>
             {
                 long limit = PyArgs.OptionalSsize(args.Length > 0 ? args[0] : null);
-                PyObject peek = null;
-                try { peek = self.GetAttribute("peek"); }
-                catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                var peek = self.LookupAttribute("peek");
                 var buffer = new List<byte>();
                 while (limit < 0 || buffer.Count < limit)
                 {

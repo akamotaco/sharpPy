@@ -1463,8 +1463,7 @@ namespace SharpPy
                 PyObject method = null;
                 if (!(entry is PyType))
                 {
-                    try { method = entry.GetAttribute("__mro_entries__"); }
-                    catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                    method = entry.LookupAttribute("__mro_entries__");
                 }
                 if (method == null)
                 {
@@ -1515,9 +1514,7 @@ namespace SharpPy
             if (metaclass is PyType declared)
                 metaclass = PyTypeMetaclass.CalculateMetaclass(declared, bases.Items);
 
-            PyObject prepare = null;
-            try { prepare = metaclass.GetAttribute("__prepare__"); }
-            catch (PythonException error) when (error.PyException is PyAttributeError) { }
+            var prepare = metaclass.LookupAttribute("__prepare__");
             var ns = prepare == null ? new PyDict() : prepare.Call(new[] { name, bases }, classKeywords);
             if (ns is not PyDict && !ns.HasTypeSlot("__getitem__"))
                 throw PyTypeError.Create(
@@ -2020,21 +2017,8 @@ namespace SharpPy
 
             // Case 3: Try the slow way - check obj.__class__
             // CPython: _PyObject_LookupAttr(obj, &_Py_ID(__class__), &class_attr)
-            try
-            {
-                PyObject classAttr = obj.GetAttribute("__class__");
-                if (classAttr is PyType classType && classType != objType)
-                {
-                    if (classType.IsSubclassOf(type))
-                    {
-                        return classType;
-                    }
-                }
-            }
-            // PyObject_GetOptionalAttr: only an AttributeError means "no __class__".
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-            }
+            if (obj.LookupAttribute("__class__") is PyType classType && classType != objType && classType.IsSubclassOf(type))
+                return classType;
 
             throw PyTypeError.Create("super(type, obj): obj must be an instance or subtype of type");
         }

@@ -379,8 +379,7 @@ namespace SharpPy
                     PyObject method = null;
                     if (native == null)
                     {
-                        try { method = receiver.GetAttribute("throw"); }
-                        catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                        method = receiver.LookupAttribute("throw");
                     }
                     if (native != null || method != null)
                     {
@@ -474,8 +473,7 @@ namespace SharpPy
                     else
                     {
                         PyObject close = null;
-                        try { close = receiver.GetAttribute("close"); }
-                        catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                        try { close = receiver.LookupAttribute("close"); }
                         catch (PythonException error) { PyUnraisable.Report(error, receiver); }
                         close?.Call(Array.Empty<PyObject>(), null);
                     }

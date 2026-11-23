@@ -51,13 +51,7 @@ public interface IDescriptor
             PyObject? doc = OrNull(given[3]);
             if (doc == null && _get != null)
             {
-                try
-                {
-                    doc = OrNull(_get.GetAttribute("__doc__"));
-                }
-                catch (PythonException error) when (error.PyException is PyAttributeError)
-                {
-                }
+                doc = OrNull(_get.LookupAttribute("__doc__"));
                 _getterDoc = doc != null;
             }
             if (ReferenceEquals(GetPyType(), PyType.PropertyType))
@@ -136,12 +130,7 @@ public interface IDescriptor
                 foreach (var part in new[] { "fget", "fset", "fdel" })
                 {
                     var function = self.GetAttribute(part);
-                    if (function is PyNone) continue;
-                    try
-                    {
-                        if (function.GetAttribute("__isabstractmethod__").IsTrue()) return PyBool.True;
-                    }
-                    catch (PythonException e) when (e.PyException is PyAttributeError) { }
+                    if (function is not PyNone && IsAbstract(function)) return PyBool.True;
                 }
                 return PyBool.False;
             });
@@ -222,8 +211,6 @@ public interface IDescriptor
         // tp_descr_set exists whether or not a setter was given.
         public bool IsDataDescriptor() => true;
 
-        public override PyObject LookupAttribute(PyString name) =>
-            name.Value == "__set_name__" ? GetAttribute(name) : base.LookupAttribute(name);
 
 
         public override PyType GetPyType() => _customType ?? PyType.PropertyType;

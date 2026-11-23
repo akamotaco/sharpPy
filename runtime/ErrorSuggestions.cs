@@ -276,14 +276,8 @@ namespace SharpPy
                 var locals = frame.GetAttribute("f_locals");
                 if (locals is PyDict dict && dict.TryGetStoredValue(PyString.From("self"), out var self))
                 {
-                    try
-                    {
-                        self.GetAttribute(name);
+                    if (self.LookupAttribute(name) != null)
                         return "self." + name;
-                    }
-                    catch (PythonException error) when (error.PyException is PyAttributeError)
-                    {
-                    }
                 }
             }
             return CalculateSuggestions(varnames, name)

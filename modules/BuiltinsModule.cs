@@ -538,14 +538,8 @@ namespace SharpPy.Modules
                 return PyBuiltinFunction.CallLocals(new PyObject[0]);
 
             // builtin_vars: an attribute like any other, a property included.
-            try
-            {
-                return args[0].GetAttribute("__dict__");
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-                throw PyTypeError.Create("vars() argument must have __dict__ attribute");
-            }
+            return args[0].LookupAttribute("__dict__")
+                ?? throw PyTypeError.Create("vars() argument must have __dict__ attribute");
         }
 
         // CPython 3.12: Python/bltinmodule.c:689 - builtin_format

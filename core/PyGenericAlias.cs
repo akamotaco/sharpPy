@@ -25,7 +25,6 @@ namespace SharpPy
         public override PyType GetPyType() => _customType ?? PyType.GenericAliasType;
 
 
-        private static PyObject LookupAttr(PyObject value, string name) => PyObject.LookupAttr(value, name);
 
         internal static void Install()
         {
@@ -103,9 +102,9 @@ namespace SharpPy
                 // We don't want __parameters__ descriptor of a bare Python class.
                 if (t is PyType)
                     continue;
-                if (LookupAttr(t, "__typing_subst__") != null)
+                if (t.LookupAttribute("__typing_subst__") != null)
                     Add(t);
-                else if (LookupAttr(t, "__parameters__") is PyTuple subparams)
+                else if (t.LookupAttribute("__parameters__") is PyTuple subparams)
                     foreach (var t2 in subparams.Items)
                         Add(t2);
             }
@@ -117,7 +116,7 @@ namespace SharpPy
         {
             if (arg is PyType)
                 return false;
-            return LookupAttr(arg, "__typing_is_unpacked_typevartuple__") is PyObject value && value.IsTrue();
+            return arg.LookupAttribute("__typing_is_unpacked_typevartuple__") is PyObject value && value.IsTrue();
         }
 
         // _unpacked_tuple_args
@@ -125,7 +124,7 @@ namespace SharpPy
         {
             if (arg is PyGenericAlias { _starred: true } alias && ReferenceEquals(alias.Origin, PyType.TupleType))
                 return alias.Args;
-            if (LookupAttr(arg, "__typing_unpacked_tuple_args__") is PyTuple result)
+            if (arg.LookupAttribute("__typing_unpacked_tuple_args__") is PyTuple result)
                 return result;
             return null;
         }
@@ -162,7 +161,7 @@ namespace SharpPy
         // subs_tvars
         private static PyObject SubsTvars(PyObject obj, PyTuple parameters, PyObject[] argitems)
         {
-            if (LookupAttr(obj, "__parameters__") is PyTuple subparams && subparams.Items.Length != 0)
+            if (obj.LookupAttribute("__parameters__") is PyTuple subparams && subparams.Items.Length != 0)
             {
                 var subargs = new List<PyObject>();
                 foreach (var original in subparams.Items)
@@ -195,7 +194,7 @@ namespace SharpPy
             item = UnpackArgs(item);
             foreach (var param in parameters.Items)
             {
-                var prepare = LookupAttr(param, "__typing_prepare_subst__");
+                var prepare = param.LookupAttribute("__typing_prepare_subst__");
                 if (prepare != null && prepare is not PyNone)
                     item = prepare.Call(new[] { self, item is PyTuple ? item : PyTuple.From(new[] { item }) }, null);
             }
@@ -214,7 +213,7 @@ namespace SharpPy
                     continue;
                 }
                 bool unpack = IsUnpackedTypeVarTuple(arg);
-                var subst = LookupAttr(arg, "__typing_subst__");
+                var subst = arg.LookupAttribute("__typing_subst__");
                 arg = subst != null
                     ? subst.Call(new[] { argitems[TupleIndex(parameters.Items, arg)] }, null)
                     : SubsTvars(arg, parameters, argitems);
@@ -263,12 +262,12 @@ namespace SharpPy
         {
             if (p is PyEllipsis)
                 return "...";
-            if (LookupAttr(p, "__origin__") != null && LookupAttr(p, "__args__") != null)
+            if (p.LookupAttribute("__origin__") != null && p.LookupAttribute("__args__") != null)
                 return p.ToRepr().Value;
-            var qualname = LookupAttr(p, "__qualname__");
+            var qualname = p.LookupAttribute("__qualname__");
             if (qualname == null)
                 return p.ToRepr().Value;
-            var module = LookupAttr(p, "__module__");
+            var module = p.LookupAttribute("__module__");
             if (module == null || module is PyNone)
                 return p.ToRepr().Value;
             if (module is PyString { Value: "builtins" })

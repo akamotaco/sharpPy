@@ -632,7 +632,7 @@ namespace SharpPy
         /// </summary>
         internal static void UpdateArg(PyDict self, PyObject arg)
         {
-            if (arg is PyDict { IsExact: true } || PyObject.LookupAttr(arg, "keys") != null)
+            if (arg is PyDict { IsExact: true } || arg.LookupAttribute("keys") != null)
                 Merge(self, arg, 1);
             else
                 MergeFromSeq2(self, arg, true);

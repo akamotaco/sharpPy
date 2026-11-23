@@ -101,19 +101,16 @@ namespace SharpPy
 
         private static PyObject? Field(PyObject o, string name, bool optional, string owner)
         {
-            try
-            {
-                var value = o.GetAttribute(name);
-                if (value is PyNone && !optional && owner != "Constant") // obj2ast_constant takes None
-                    throw PyValueError.Create($"field '{name}' is required for {owner}");
-                return value;
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
+            var value = o.LookupAttribute(name);
+            if (value == null)
             {
                 if (optional)
                     return PyNone.Instance;
                 throw PyTypeError.Create($"required field \"{name}\" missing from {owner}");
             }
+            if (value is PyNone && !optional && owner != "Constant") // obj2ast_constant takes None
+                throw PyValueError.Create($"field '{name}' is required for {owner}");
+            return value;
         }
 
         // obj2ast_identifier
@@ -128,20 +125,7 @@ namespace SharpPy
         private static int ToOptionalInt(PyObject? value) => value is null or PyNone ? 0 : ToInt(value, "");
 
         // A sequence field: its list, or an empty one when the node has no such attribute.
-        private static PyObject SeqField(PyObject o, string name) => Attribute(o, name) ?? new PyList();
-
-        // _PyObject_LookupAttr: the value, or null when there is none.
-        private static PyObject? Attribute(PyObject o, string name)
-        {
-            try
-            {
-                return o.GetAttribute(name);
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-                return null;
-            }
-        }
+        private static PyObject SeqField(PyObject o, string name) => o.LookupAttribute(name) ?? new PyList();
 
         private static int ToInt(PyObject? value, string name) =>
             value is PyInt number ? number.ToInt() : value is PyBool truth ? (truth.Value ? 1 : 0)
@@ -178,10 +162,10 @@ namespace SharpPy
         // end_col_offset default to them when missing or None.
         private static void Locate(GeneratedAstNode node, PyObject o, string kind)
         {
-            node.LineNo = ToInt(Attribute(o, "lineno") ?? throw Missing("lineno", kind), "lineno");
-            node.ColOffset = ToInt(Attribute(o, "col_offset") ?? throw Missing("col_offset", kind), "col_offset");
-            node.EndLineNo = Attribute(o, "end_lineno") is { } end and not PyNone ? ToInt(end, "end_lineno") : node.LineNo;
-            node.EndColOffset = Attribute(o, "end_col_offset") is { } endColumn and not PyNone ? ToInt(endColumn, "end_col_offset") : node.ColOffset;
+            node.LineNo = ToInt(o.LookupAttribute("lineno") ?? throw Missing("lineno", kind), "lineno");
+            node.ColOffset = ToInt(o.LookupAttribute("col_offset") ?? throw Missing("col_offset", kind), "col_offset");
+            node.EndLineNo = o.LookupAttribute("end_lineno") is { } end and not PyNone ? ToInt(end, "end_lineno") : node.LineNo;
+            node.EndColOffset = o.LookupAttribute("end_col_offset") is { } endColumn and not PyNone ? ToInt(endColumn, "end_col_offset") : node.ColOffset;
         }
 
         private static System.Exception Missing(string field, string kind) =>

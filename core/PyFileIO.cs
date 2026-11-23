@@ -328,14 +328,7 @@ public sealed class PyFileIO : PyIOBaseInstance
         string typeName = GetPyType() is PyClass ? $"{GetPyType().Module}.{GetPyType().Name}" : "_io.FileIO";
         if (Fd < 0)
             return PyString.From($"<{typeName} [closed]>");
-        PyObject name = null;
-        try
-        {
-            name = GetAttribute("name");
-        }
-        catch (PythonException error) when (error.PyException is PyAttributeError)
-        {
-        }
+        var name = LookupAttribute("name");
         string closefd = _closefd ? "True" : "False";
         if (name == null)
             return PyString.From($"<{typeName} fd={Fd} mode='{ModeString()}' closefd={closefd}>");

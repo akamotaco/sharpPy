@@ -121,17 +121,7 @@ namespace SharpPy
             return derived;
         }
 
-        private static PyObject NotesOf(PyObject exception)
-        {
-            try
-            {
-                return exception.GetAttribute("__notes__");
-            }
-            catch (PythonException error) when (error.PyException is PyAttributeError)
-            {
-                return null;
-            }
-        }
+        private static PyObject NotesOf(PyObject exception) => exception.LookupAttribute("__notes__");
 
         /// <summary>
         /// exceptiongroup_split_recursive. Full match -> the exception itself. Leaf with no match
