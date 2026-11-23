@@ -3855,12 +3855,12 @@ namespace SharpPy
                     // Objects/genobject.c:217 - Resume will push sent value, then execute from (IP + 1)
                     // Next resume will execute RESUME instruction (IP+1)
 
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔄 YIELD_VALUE: Yielding {yieldValue}, stack size after pop: {frame.ValueStack.Count}, IP: {frame.InstructionPointer}");
-                    #endif
-
-                    // DO NOT increment IP here - PyGenerator.Next() will handle resume from correct position
-                    throw new PyYieldException(yieldValue);
+                    // gen->gi_frame_state = FRAME_SUSPENDED, then the value leaves the frame as a
+                    // return does (_PyEvalFrameClearAndPop is not called: the frame stays alive).
+                    // A generator's frame is never inlined (CanInline), so it is the entry frame
+                    // of the ExecuteFrame its gen_send_ex2 called.
+                    frame.State = PyFrame.FrameState.Suspended;
+                    return yieldValue;
 
                 case ByteCodeOp.SEND:
                     // CPython 3.12: SEND opcode for yield from
@@ -5087,7 +5087,7 @@ namespace SharpPy
         /// </summary>
         // Control flow of the host and syntax errors have their own routes.
         private static bool IsHostFailure(Exception exception) => exception is not (
-            PyYieldException or PySyntaxErrorException or
+            PySyntaxErrorException or
             SyntaxErrorException or SharpPy.Generated.SyntaxErrorException);
 
         internal static PyBaseException ConvertToPythonException(Exception exception) => exception switch

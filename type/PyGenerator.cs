@@ -247,26 +247,17 @@ namespace SharpPy
                 _resumedBy = null;
                 var result = _vm.ExecuteFrame(_frame);
 
-                // 정상 완료된 경우 (return 또는 end of function)
-                // CPython: Generator의 return 값은 StopIteration.value로 전달됨
+                // YIELD_VALUE left the frame suspended: the value is what was yielded.
+                if (_frame.State == PyFrame.FrameState.Suspended)
+                {
+                    _frame.ParentFrame = null;
+                    _sentValue = PyNone.Instance;
+                    return result;
+                }
+
+                // The frame returned: its value is StopIteration.value.
                 _finished = true;
-                #if DEBUG_GENERATOR_LOG
-                Console.WriteLine($"🔄 Native Generator: Completed normally, return value: {result}");
-                #endif
                 throw PyStopIteration.Create(result);
-            }
-            catch (PyYieldException yieldEx)
-            {
-                // yield 지점에서 중단 - 이것이 정상적인 제너레이터 동작
-                #if DEBUG_GENERATOR_LOG
-                Console.WriteLine($"🔄 Native Generator: Yielded {yieldEx.Value} at instruction {_frame.InstructionPointer}");
-                #endif
-                
-                _frame.ParentFrame = null;
-                // sent value 초기화 (다음 호출까지 기본값)
-                _sentValue = PyNone.Instance;
-                
-                return yieldEx.Value ?? PyNone.Instance;
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration)
             {

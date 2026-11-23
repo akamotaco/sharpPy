@@ -29,7 +29,7 @@ test_exception_group test_patma test_string_literals test_fstring test_format te
 test_bool test_int test_float test_complex test_list test_tuple test_dict test_dictviews test_set test_range
 test_ast.test_ast test_compile test_type_comments test_syntax test_print test_dataclasses test_fractions test_textwrap test_typing test_statistics test_bytes test_io test_builtin test_descr test_coroutines test_asyncgen test_marshal test_code test_thread test_threading test_threading_local test_queue
 test_structseq test_types test_genericalias test_genericclass test_memoryview test_sys test_itertools test_operator test_deque test_defaultdict test_ordered_dict test_collections test_weakref test_weakset test_time test_re test_struct test_array test_functools test_copy test_string test_long test_math test_cmath test_hash test_index test_iterlen test_isinstance test_raise test_baseexception test_exception_hierarchy test_exception_variations test_call test_frame test_subclassinit test_type_aliases test_type_annotations test_typechecks test_unary test_pow test_dictcomps test_listcomps test_setcomps test_genexps test_global test_dynamic test_tuple test_userdict test_userlist test_userstring test_contextlib test_enum test_numeric_tower test_abstract_numbers test_bisect test_heapq test_reprlib test_utf8source test_eof test_strtod test_ucn test_fileio test_pathlib test_hashlib test_warnings test_zlib test_gzip test_multibytecodec test_codecencodings_kr test_codecencodings_jp test_codecencodings_cn test_codecencodings_tw test_codecencodings_hk test_codecencodings_iso2022 test_binascii test_base64 test_quopri test_charmapcodec test_codecs test_codeccallbacks test_unicodedata test_ucn test_unicode_identifiers test_stringprep test_traceback test_module test_pprint test_memoryio
-test_tokenize test_opcache test_cmd_line_script test_difflib test_keyword test_shlex test_colorsys test_calendar test_random test_fnmatch test_secrets test_html test_errno test_runpy test_zipimport test_fileinput""".split()
+test_tokenize test_opcache test_cmd_line_script test_difflib test_keyword test_shlex test_colorsys test_calendar test_random test_fnmatch test_secrets test_html test_errno test_runpy test_zipimport test_fileinput test_json""".split()
 
 
 class MemStatus(ctypes.Structure):
@@ -107,11 +107,32 @@ def read(path):
     return results, last
 
 
+TESTFN = "@test_sharppy_tmp"  # tools/cpython_test_shim/support_stub.py
+
+
+def remove_leaked_testfn():
+    """A test that leaves os_helper.TESTFN behind (regrtest's "leaked file") must not fail the
+    modules after it: remove it before each module and say which module found it."""
+    import glob
+    import shutil
+    leaked = glob.glob(os.path.join(ROOT, TESTFN + "*"))
+    for path in leaked:
+        if os.path.isdir(path):
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+    return [os.path.basename(path) for path in leaked]
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     env = dict(os.environ, CPYTHON_LIB=CPYTHON_LIB, PYTHONIOENCODING="utf-8", DOTNET_DbgEnableMiniDump="0")
     summary = []
     for module in sys.argv[1:] or MODULES:
+        leaked = remove_leaked_testfn()
         reference = os.path.join(OUT, module + ".cpython.txt")
         mine = os.path.join(OUT, module + ".sharppy.txt")
         if not os.path.exists(reference) or not read(reference)[0]:
@@ -126,6 +147,8 @@ def main():
         entry = dict(module=module, state=state, seconds=seconds, peak_mb=peak, cpython=len(passed), sharppy=same,
                      failing=len(failing), not_reached=missing, stuck_in=running,
                      import_error=next((r[1] for t, r in got.items() if r[0] == "IMPORT"), None))
+        if leaked:
+            entry["leaked_before"] = leaked
         summary.append(entry)
         print(json.dumps(entry, ensure_ascii=False)[:300], flush=True)
         with open(os.path.join(OUT, module + ".diff.txt"), "w", encoding="utf-8") as report:

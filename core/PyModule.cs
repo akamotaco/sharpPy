@@ -371,6 +371,7 @@ public class PyModule : PyObject
             ["_contextvars"] = () => SharpPy.Modules._ContextvarsModule.CreateContextvarsModule(),
             ["zlib"] = () => SharpPy.Modules.ZlibModule.CreateZlibModule(),
             ["_csv"] = () => SharpPy.Modules._CsvModule.CreateCsvModule(),
+            ["_json"] = () => SharpPy.Modules._JsonModule.Create(),
             ["array"] = () => SharpPy.Modules.ArrayModule.CreateArrayModule(),
             ["_md5"] = () => SharpPy.Modules.HashModules.CreateMd5(),
             ["_sha1"] = () => SharpPy.Modules.HashModules.CreateSha1(),

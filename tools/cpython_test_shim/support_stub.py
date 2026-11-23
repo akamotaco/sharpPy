@@ -184,22 +184,35 @@ def print_warning(msg):
         print(f"Warning -- {line}", file=sys.__stderr__, flush=True)
 
 
+def _save_and_remove_modules(names):
+    # test.support.import_helper._save_and_remove_modules: the names and their submodules. Not
+    # importlib's: SharpPy has no source importlib._bootstrap_external (its FileFinder is C#), so
+    # the "source" importlib test_importlib.util makes keeps the running _bootstrap modules.
+    orig_modules = {}
+    prefixes = tuple(name + '.' for name in names if name != 'importlib')
+    for modname in list(sys.modules):
+        if modname in names or modname.startswith(prefixes):
+            orig_modules[modname] = sys.modules.pop(modname)
+    return orig_modules
+
+
 def _import_fresh_module(name, fresh=(), blocked=(), *, deprecated=False, usefrozen=False):
+    # test.support.import_helper.import_fresh_module
     fresh, blocked = list(fresh), list(blocked)
     names = {name, *fresh, *blocked}
-    saved = {n: sys.modules.pop(n) for n in names if n in sys.modules}
-    for n in blocked:
-        sys.modules[n] = None
+    orig_modules = _save_and_remove_modules(names)
+    for modname in blocked:
+        sys.modules[modname] = None
     try:
-        for n in fresh:
-            importlib.import_module(n)
+        try:
+            for modname in fresh:
+                __import__(modname)
+        except ImportError:
+            return None
         return importlib.import_module(name)
-    except ImportError:
-        return None
     finally:
-        for n in names:
-            sys.modules.pop(n, None)
-        sys.modules.update(saved)
+        _save_and_remove_modules(names)
+        sys.modules.update(orig_modules)
 
 
 class TestFailed(Exception):
@@ -525,6 +538,17 @@ def _take_from_support(*names):
 
 _take_from_support("busy_retry", "sleeping_retry", "catch_unraisable_exception", "catch_threading_exception",
                    "run_code", "adjust_int_max_str_digits", "maybe_get_event_loop_policy")
+
+
+def load_package_tests(pkg_dir, loader, standard_tests, pattern):
+    """test.support.load_package_tests, discovering from the library directory that holds this test
+    package (STDLIB_DIR there): the test packages come from CPYTHON_LIB, not the running Lib."""
+    if pattern is None:
+        pattern = "test*"
+    top_dir = os.path.dirname(os.path.dirname(os.path.abspath(pkg_dir)))
+    package_tests = loader.discover(start_dir=pkg_dir, top_level_dir=top_dir, pattern=pattern)
+    standard_tests.addTests(package_tests)
+    return standard_tests
 
 
 def rmtree(path):

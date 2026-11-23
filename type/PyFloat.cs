@@ -383,9 +383,8 @@ namespace SharpPy
 
         #region String Representation
 
-        protected internal override PyString Str() => PyString.From(FormatFloat(Value, ""));
-
-        protected internal override PyString Repr() => AsString();
+        // float_repr; float has no tp_str, so str() is object_str, which is this.
+        protected internal override PyString Repr() => PyString.From(FormatFloat(Value, ""));
 
         #endregion
 

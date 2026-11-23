@@ -715,22 +715,41 @@ namespace SharpPy
         /// PyMapping_Keys (Objects/abstract.c): an exact dict's keys, else what keys() returns as
         /// a list (method_output_as_list).
         /// </summary>
-        internal static PyList MappingKeys(PyObject o)
+        internal static PyList MappingKeys(PyObject o) =>
+            o is PyDict { IsExact: true } dict ? dict.Keys() : MethodOutputAsList(o, "keys");
+
+        /// <summary>PyMapping_Items (Objects/abstract.c): an exact dict's items, else items() as a list.</summary>
+        internal static PyList MappingItems(PyObject o) =>
+            o is PyDict { IsExact: true } dict ? dict.Items() : MethodOutputAsList(o, "items");
+
+        // method_output_as_list (Objects/abstract.c)
+        private static PyList MethodOutputAsList(PyObject o, string meth)
         {
-            if (o is PyDict { IsExact: true } dict)
-                return dict.Keys();
-            var output = o.GetAttribute("keys").Call(Array.Empty<PyObject>(), null);
+            var output = o.GetAttribute(meth).Call(Array.Empty<PyObject>(), null);
             if (output is PyList { IsExact: true } list)
                 return list;
             PyObject iterator;
             try { iterator = output.GetIterator(); }
             catch (PythonException error) when (error.PyException is PyTypeError)
             {
-                throw PyTypeError.Create($"{o.GetTypeName()}.keys() returned a non-iterable (type {output.GetTypeName()})");
+                throw PyTypeError.Create($"{o.GetTypeName()}.{meth}() returned a non-iterable (type {output.GetTypeName()})");
             }
-            var keys = new PyList();
-            keys.InplaceAdd(iterator);
-            return keys;
+            var result = new PyList();
+            result.InplaceAdd(iterator);
+            return result;
+        }
+
+        /// <summary>PyDict_Next: the entry at or after position, which then moves past it.</summary>
+        internal bool Next(ref int position, out PyObject key, out PyObject value)
+        {
+            if (_dict.NextEntry(ref position, out var entry))
+            {
+                key = entry.Key;
+                value = entry.Value;
+                return true;
+            }
+            key = value = null;
+            return false;
         }
 
         /// <summary>
