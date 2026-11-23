@@ -79,6 +79,23 @@ namespace SharpPy.Modules
         }
 
         /// <summary>
+        /// flush_io (Python/pythonrun.c): sys.stderr, then sys.stdout, flushed with any error
+        /// cleared - after a run and before its exception is printed.
+        /// </summary>
+        internal static void FlushIo()
+        {
+            if (Current == null)
+                return;
+            foreach (var name in new[] { "stderr", "stdout" })
+            {
+                if (!Current.ModuleDict.TryGetValue(name, out var stream))
+                    continue;
+                try { stream.GetAttribute("flush").Call(Array.Empty<PyObject>(), null); }
+                catch (PythonException) { }
+            }
+        }
+
+        /// <summary>
         /// flush_std_files: sys.stdout and sys.stderr, if they are still open. A failing stdout
         /// flush is reported; CPython also turns it into exit status 120.
         /// </summary>

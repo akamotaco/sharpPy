@@ -29,6 +29,14 @@ namespace SharpPy
             !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("PYTHONDEVMODE"));
 
         /// <summary>
+        /// PyConfig.code_debug_ranges: off with -X no_debug_ranges or a non-empty PYTHONNODEBUGRANGES,
+        /// when code objects keep lines but no columns.
+        /// </summary>
+        public static bool CodeDebugRanges =>
+            !(XOptions.Exists(option => option.Key == "no_debug_ranges") ||
+              !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("PYTHONNODEBUGRANGES")));
+
+        /// <summary>
         /// PyConfig.warn_default_encoding (PEP 597): -X warn_default_encoding, or a non-empty
         /// PYTHONWARNDEFAULTENCODING.
         /// </summary>

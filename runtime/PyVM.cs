@@ -1158,19 +1158,11 @@ namespace SharpPy
             while (frame.ValueStack.Count > exceptionEntry.Depth)
                 frame.ValueStack.Pop();
 
-            // CPython 3.12 _PyErr_SetObject: implicit __context__ is the
-            // topmost *being-handled* exception captured at RAISE time, i.e.
-            // BEFORE the unwind drops the handler scope we are escaping.
-            // Done once per raise: an error a builtin raised is chained here, by the first handler.
-            if (pyEx.PyException is PyBaseException { ImplicitContextDone: false } newExcBase &&
-                frame.CurrentException is PyBaseException ctxBase &&
-                !ReferenceEquals(newExcBase, ctxBase) &&
-                newExcBase.__context__ == null &&
-                !newExcBase.__suppress_context__)
-            {
-                newExcBase.__context__ = ctxBase;
-                newExcBase.ImplicitContextDone = true;
-            }
+            // _PyErr_SetObject for an error a builtin raised: chained, once, to the topmost
+            // exception being handled in any frame (_PyErr_GetTopmostException), before this
+            // unwind leaves the handler that was running. RAISE_VARARGS chained already (DoRaise).
+            if (pyEx.PyException is PyBaseException { ImplicitContextDone: false } raised && raised.__context__ == null)
+                ChainContext(raised, GetTopmostException());
 
             // CPython 3.12: Push lasti if required (for WITH_EXCEPT_START)
             // CPython ceval.c:972-978
@@ -3207,7 +3199,7 @@ namespace SharpPy
                     Console.WriteLine($"🔧 CHECK_EG_MATCH: exception={egException?.GetType().Name}, type={egType?.GetType().Name}");
                     #endif
 
-                    ExceptionGroupMatch(egException, egType,
+                    ExceptionGroupMatch(frame, egException, egType,
                         out PyObject egMatch, out PyObject egRest);
 
                     // CPython 3.12: CHECK_EG_MATCH pushes remainder first, then matched
@@ -4812,8 +4804,8 @@ namespace SharpPy
                 // Create RuntimeError with the message
                 var runtimeError = new PyRuntimeError(msg);
 
-                // CPython: PyException_SetCause(error, Py_NewRef(exc))
-                runtimeError.__cause__ = exception;
+                // PyException_SetCause(error, exc), which also sets __suppress_context__.
+                runtimeError.CauseSet(exception);
 
                 // CPython: PyException_SetContext(error, Py_NewRef(exc))
                 runtimeError.__context__ = exception;
@@ -4920,6 +4912,16 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// _PyTraceBack_FromFrame: an entry for the frame at its last instruction (tb_lasti in
+        /// bytes, tb_lineno PyFrame_GetLineNumber's), in front of next.
+        /// </summary>
+        internal static PyTraceback TracebackFromFrame(PyTraceback next, PyFrame frame)
+        {
+            var lasti = frame.LastInstruction;
+            return new PyTraceback(frame, lasti * 2, PyFrame.LineAt(frame.Code, lasti), next);
+        }
+
+        /// <summary>
         /// CHECK_EG_MATCH - Python/ceval.c exception_group_match. Three cases, in this order:
         /// the exception itself matches (a group is taken as is, a naked exception is wrapped in
         /// ExceptionGroup("", [exc])); or it is a group that partially matches, and CPython calls
@@ -4927,7 +4929,7 @@ namespace SharpPy
         /// or nothing matches and the exception lands in the rest part.
         /// The VM has no copy of the splitting logic any more.
         /// </summary>
-        private static void ExceptionGroupMatch(PyObject excValue, PyObject matchType,
+        private static void ExceptionGroupMatch(PyFrame frame, PyObject excValue, PyObject matchType,
                                                 out PyObject match, out PyObject rest)
         {
 
@@ -4951,13 +4953,12 @@ namespace SharpPy
                 }
                 else
                 {
-                    // naked exception - wrap it, and give the wrapper the traceback of what is
-                    // being handled, as CPython builds one from the current frame
+                    // naked exception - wrap it; the wrapper's traceback is a new one of the
+                    // current frame, at this CHECK_EG_MATCH (_PyTraceBack_FromFrame(NULL, f)).
                     PyObject wrapped = PyBaseExceptionGroup.Create(
                         "", PyTuple.From(new PyObject[] { excValue }));
-                    if (excValue is PyBaseException naked &&
-                        wrapped is PyBaseException wrapper)
-                        wrapper.__traceback__ = naked.__traceback__;
+                    if (wrapped is PyBaseException wrapper)
+                        wrapper.__traceback__ = TracebackFromFrame(null, frame);
                     match = wrapped;
                 }
                 rest = PyNone.Instance;
@@ -5117,22 +5118,8 @@ namespace SharpPy
                 return;
             }
 
-            var existingTraceback = pyEx.PyException.__traceback__;
-            // CPython: next_instr-1 (ceval.c), one entry for each error in a frame.
-            var lasti = frame.LastInstruction;
-
-            // 3. _PyTraceBack_FromFrame: tb_lineno is PyFrame_GetLineNumber(frame), the line of lasti.
-            int lineNo = PyFrame.LineAt(frame.Code, lasti);
-
-            // 4. Create new traceback entry for current frame
-            // CPython: newtb = _PyTraceBack_FromFrame(tb, frame)
-            var newTraceback = new PyTraceback(
-                frame: frame,
-                // tb_lasti is a byte offset: _PyInterpreterFrame_LASTI(frame) * sizeof(_Py_CODEUNIT).
-                lasti: lasti * 2,
-                lineno: lineNo,
-                next: existingTraceback  // Link to existing chain (prepend)
-            );
+            // CPython: newtb = _PyTraceBack_FromFrame(tb, frame), prepended to the chain.
+            var newTraceback = TracebackFromFrame(pyEx.PyException.__traceback__, frame);
 
             // 5. Attach new traceback to exception
             // CPython: PyException_SetTraceback(exc, newtb)

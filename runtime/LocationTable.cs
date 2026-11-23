@@ -201,6 +201,48 @@ namespace SharpPy
             return (value & 1) != 0 ? -(value >> 1) : value >> 1;
         }
 
+        // get_line_delta (Objects/codeobject.c)
+        private static int LineDelta(byte[] table, int index)
+        {
+            int code = (table[index] >> 3) & 15;
+            switch (code)
+            {
+                case 15: return 0;                    // PY_CODE_LOCATION_INFO_NONE
+                case 13: case 14:                     // NO_COLUMNS, LONG
+                    index++;
+                    return ReadSignedVarint(table, ref index);
+                case 10: return 0;                    // ONE_LINE0
+                case 11: return 1;                    // ONE_LINE1
+                case 12: return 2;                    // ONE_LINE2
+                default: return 0;                    // same line
+            }
+        }
+
+        /// <summary>
+        /// remove_column_info (Objects/codeobject.c): every entry that has a location becomes a
+        /// NO_COLUMNS entry of the same length and line delta.
+        /// </summary>
+        internal static byte[] RemoveColumnInfo(byte[] locations)
+        {
+            var output = new List<byte>(locations.Length);
+            int offset = 0;
+            while (offset < locations.Length)
+            {
+                int code = (locations[offset] >> 3) & 15;
+                if (code == 15)
+                    output.Add(locations[offset]);
+                else
+                {
+                    FirstByte(output, 13, (locations[offset] & 7) + 1);
+                    WriteSignedVarint(output, LineDelta(locations, offset));
+                }
+                offset++;
+                while (offset < locations.Length && (locations[offset] & 128) == 0)
+                    offset++;
+            }
+            return output.ToArray();
+        }
+
         /// <summary>The instructions of co_code: one per code unit, as the assembler leaves them.</summary>
         internal static List<ByteCodeInstruction> ReadInstructions(byte[] code, byte[] lineTable, int firstLineNo)
         {

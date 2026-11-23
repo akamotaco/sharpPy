@@ -267,9 +267,9 @@ namespace SharpPy
             }
             catch (Exception e)
             {
-                // Always print traceback in both debug and release modes
+                // _PyRun_SimpleFileObject: flush_io, then PyErr_Print.
+                Modules.SysModule.FlushIo();
                 PrintPythonStyleTraceback(e);
-                // Re-throw to let Program.cs handle exit code
                 throw;
             }
         }
@@ -366,9 +366,9 @@ namespace SharpPy
             }
             catch (Exception e)
             {
-                // Always print traceback in both debug and release modes
+                // _PyRun_SimpleFileObject: flush_io, then PyErr_Print.
+                Modules.SysModule.FlushIo();
                 PrintPythonStyleTraceback(e);
-                // Re-throw to let Program.cs handle exit code
                 throw;
             }
         }

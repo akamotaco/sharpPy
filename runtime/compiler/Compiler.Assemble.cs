@@ -194,7 +194,7 @@ namespace SharpPy
             code.Tables = new AssembledTables
             {
                 Code = LocationTable.CodeBytes(assembled.Instructions),
-                LineTable = LocationTable.LineBytes(assembled.Instructions, u.FirstLineNo),
+                LineTable = PyCodeObject.ConfiguredLineTable(LocationTable.LineBytes(assembled.Instructions, u.FirstLineNo)),
                 ExceptionTable = LocationTable.ExceptionBytes(assembled.ExceptionTable),
             };
             return code;

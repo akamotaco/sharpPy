@@ -572,6 +572,7 @@ namespace SharpPy
             byte[] localsPlusKinds, PyString fileName, PyString name, PyString qualName, int firstLineNo, byte[] lineTable,
             byte[] exceptionTable, List<string> sourceLines)
         {
+            lineTable = ConfiguredLineTable(lineTable);
             var result = new PyCodeObject(name, qualName, LocationTable.ReadInstructions(code, lineTable, firstLineNo), constants,
                 names, localsPlusNames, localsPlusKinds, argCount + kwonlyArgCount, posonlyArgCount, kwonlyArgCount,
                 flags, fileName, sourceLines, LocationTable.ReadExceptionTable(exceptionTable))
@@ -949,6 +950,11 @@ namespace SharpPy
                 positions.Add(PyTuple.From(new[] { Value(position.Line), Value(position.EndLine), Value(position.Column), Value(position.EndColumn) }));
             return new PyList(positions.ToArray()).GetIterator();
         }
+
+        /// <summary>_PyCode_New's step for the location table: compacted to lines alone when
+        /// code_debug_ranges is off (-X no_debug_ranges).</summary>
+        internal static byte[] ConfiguredLineTable(byte[] lineTable) =>
+            SharpPyConfig.CodeDebugRanges ? lineTable : LocationTable.RemoveColumnInfo(lineTable);
 
         // The tables as Python sees them.
         public AssembledTables Tables { get; set; } = new AssembledTables();
