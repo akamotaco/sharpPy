@@ -312,6 +312,26 @@ namespace SharpPy
             return FromUnits(_text.Substring(start, end - start));
         }
 
+        /// <summary>PyUnicode_FindChar: the character index of ch in [start, end), searching backward
+        /// when direction is negative; -1 when absent.</summary>
+        internal int FindChar(int ch, int start, int end, int direction)
+        {
+            int length = CodePointLength();
+            if (start < 0) start = 0;
+            if (end > length) end = length;
+            if (direction > 0)
+            {
+                for (int i = start; i < end; i++)
+                    if (ReadChar(i) == ch) return i;
+            }
+            else
+            {
+                for (int i = end - 1; i >= start; i--)
+                    if (ReadChar(i) == ch) return i;
+            }
+            return -1;
+        }
+
         /// <summary>PyUnicode_Concat of two non-empty texts: the wider kind of the two.</summary>
         internal static PyString Concat(PyString left, PyString right)
         {

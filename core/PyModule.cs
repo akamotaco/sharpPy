@@ -469,7 +469,7 @@ public class PyModule : PyObject
                 throw PyValueError.Create("level must be >= 0");
             PyString absName;
             if (level > 0)
-                absName = PyString.From(ResolveName(name.Value, globals, level));
+                absName = ResolveName(name, globals, level);
             else
             {
                 if (name.CodePointLength() == 0)
@@ -490,11 +490,7 @@ public class PyModule : PyObject
                 int length = name.CodePointLength();
                 if (level == 0 || length > 0)
                 {
-                    // PyUnicode_FindChar(name, '.'): a character index.
-                    int dot = -1;
-                    for (int i = 0; i < length && dot < 0; i++)
-                        if (name.ReadChar(i) == '.')
-                            dot = i;
+                    int dot = name.FindChar('.', 0, length, 1);
                     if (dot == -1)
                         return mod;
                     if (level == 0)
@@ -540,32 +536,30 @@ public class PyModule : PyObject
         /// __name__ (less its last part unless __path__ says it is a package) with an ImportWarning
         /// - then level - 1 parts up, and the name after it.
         /// </summary>
-        private static string ResolveName(string name, PyObject globals, int level)
+        private static PyString ResolveName(PyString name, PyObject globals, int level)
         {
             if (globals == null)
                 throw PyKeyError.Create(PyString.From("'__name__' not in globals"));
             if (globals is not PyDict dict)
                 throw PyTypeError.Create("globals must be a dict");
-            dict.TryGetStoredValue(PyString.From("__package__"), out var package);
-            if (package is PyNone)
-                package = null;
+            dict.TryGetStoredValue(PyString.From("__package__"), out var packageObject);
+            if (packageObject is PyNone)
+                packageObject = null;
             dict.TryGetStoredValue(PyString.From("__spec__"), out var spec);
-            string packageName;
-            if (package != null)
+            PyString package;
+            if (packageObject != null)
             {
-                if (package is not PyString packageText)
-                    throw PyTypeError.Create("package must be a string");
-                packageName = packageText.Value;
+                package = packageObject as PyString ?? throw PyTypeError.Create("package must be a string");
                 if (spec != null && spec is not PyNone)
                 {
                     var parent = spec.GetAttribute("parent");
                     if (!PyObject.CompareBool(package, parent, PyObject.CompareOp.EQ))
-                        PyWarnings.Warn(PyType.ImportWarningType, "__package__ != __spec__.parent", 1);
+                        PyWarnings.Warn(PyType.DeprecationWarningType, "__package__ != __spec__.parent", 1);
                 }
             }
             else if (spec != null && spec is not PyNone)
             {
-                packageName = (spec.GetAttribute("parent") as PyString)?.Value
+                package = spec.GetAttribute("parent") as PyString
                     ?? throw PyTypeError.Create("__spec__.parent must be a string");
             }
             else
@@ -574,26 +568,26 @@ public class PyModule : PyObject
                     "can't resolve package from __spec__ or __package__, falling back on __name__ and __path__", 1);
                 if (!dict.TryGetStoredValue(PyString.From("__name__"), out var nameObject))
                     throw PyKeyError.Create(PyString.From("'__name__' not in globals"));
-                packageName = (nameObject as PyString)?.Value ?? throw PyTypeError.Create("__name__ must be a string");
+                package = nameObject as PyString ?? throw PyTypeError.Create("__name__ must be a string");
                 if (!dict.ContainsKey(PyString.From("__path__")))
                 {
-                    int dot = packageName.LastIndexOf('.');
+                    int dot = package.FindChar('.', 0, package.CodePointLength(), -1);
                     if (dot == -1)
                         throw PyImportError.Create("attempted relative import with no known parent package");
-                    packageName = packageName.Substring(0, dot);
+                    package = package.Substring(0, dot);
                 }
             }
-            int lastDot = packageName.Length;
+            int lastDot = package.CodePointLength();
             if (lastDot == 0)
                 throw PyImportError.Create("attempted relative import with no known parent package");
             for (int levelUp = 1; levelUp < level; levelUp++)
             {
-                lastDot = packageName.LastIndexOf('.', lastDot - 1);
+                lastDot = package.FindChar('.', 0, lastDot, -1);
                 if (lastDot == -1)
                     throw PyImportError.Create("attempted relative import beyond top-level package");
             }
-            string bas = packageName.Substring(0, lastDot);
-            return name.Length == 0 ? bas : bas + "." + name;
+            var bas = package.Substring(0, lastDot);
+            return name.CodePointLength() == 0 ? bas : PyErrFormat.FromFormat("%U.%U", bas, name);
         }
 
         // _ERR_MSG of Lib/importlib/_bootstrap.py: the name by its repr.
