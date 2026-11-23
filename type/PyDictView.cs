@@ -85,56 +85,135 @@ namespace SharpPy
             PyBool.FromBool(CompareBool(left, right, CompareOp.EQ));
 
         private bool IsSetView => _kind != DictViewKind.Values;
-        private static bool SetLike(PyObject value) => value is PySet || value is PyFrozenSet ||
-            value is PyDictView view && view.IsSetView;
-        private static bool AllContained(PyObject source, PyObject target)
+
+        // PyDictViewSet_Check: a keys or items view.
+        internal static bool IsViewSet(PyObject value) => value is PyDictView view && view.IsSetView;
+
+        // all_contained_in: every item self's iterator gives is in other (PySequence_Contains).
+        private static bool AllContainedIn(PyObject self, PyObject other)
         {
-            foreach (var item in PySet.IterableItems(source))
-                if (!target.Contains(item).Value) return false;
+            foreach (var item in IterateItems(self))
+                if (!other.Contains(item).Value) return false;
             return true;
         }
+
+        // dictview_richcompare
         protected internal override PyObject TpRichCompare(PyObject other, CompareOp op)
         {
-            if (!IsSetView || !SetLike(other)) return PyNotImplemented.Instance;
-            int left = Length(), right = other.Length();
-            bool equal = op switch
+            if (!IsSetView || !(other is PySet or PyFrozenSet || IsViewSet(other))) return PyNotImplemented.Instance;
+            long lenSelf = Length(), lenOther = other.Length();
+            bool ok = op switch
             {
-                CompareOp.EQ => left == right && AllContained(this, other),
-                CompareOp.NE => left != right || !AllContained(this, other),
-                CompareOp.LE => left <= right && AllContained(this, other),
-                CompareOp.LT => left < right && AllContained(this, other),
-                CompareOp.GE => left >= right && AllContained(other, this),
-                CompareOp.GT => left > right && AllContained(other, this),
+                CompareOp.EQ => lenSelf == lenOther && AllContainedIn(this, other),
+                CompareOp.NE => !(lenSelf == lenOther && AllContainedIn(this, other)),
+                CompareOp.LT => lenSelf < lenOther && AllContainedIn(this, other),
+                CompareOp.LE => lenSelf <= lenOther && AllContainedIn(this, other),
+                CompareOp.GT => lenSelf > lenOther && AllContainedIn(other, this),
+                CompareOp.GE => lenSelf >= lenOther && AllContainedIn(other, this),
                 _ => false
             };
-            return PyBool.FromBool(equal);
+            return PyBool.FromBool(ok);
         }
-        public override PyObject BitwiseAnd(PyObject other)
+
+        // nb_and and the rest are the functions below for either operand order, as the slots are.
+        public override PyObject BitwiseAnd(PyObject other) => IsSetView ? Intersect(this, other) : base.BitwiseAnd(other);
+        public override PyObject BitwiseOr(PyObject other) => IsSetView ? Or(this, other) : base.BitwiseOr(other);
+        public override PyObject Subtract(PyObject other) => IsSetView ? Sub(this, other) : base.Subtract(other);
+        public override PyObject BitwiseXor(PyObject other) => IsSetView ? Xor(this, other) : base.BitwiseXor(other);
+
+        /// <summary>
+        /// _PyDictView_Intersect: an exact set at least as large as the view does the work
+        /// (set.intersection); otherwise the other operand, or the smaller of two views, is
+        /// iterated and its items kept when the view contains them.
+        /// </summary>
+        internal static PyObject Intersect(PyObject self, PyObject other)
         {
-            if (!IsSetView) return base.BitwiseAnd(other);
+            if (!IsViewSet(self))
+                (self, other) = (other, self);
+            long lenSelf = ((PyDictView)self).Length();
+            if (other is PySet { IsExact: true } && lenSelf <= other.Length())
+                return other.GetAttribute("intersection").Call(new[] { self }, null);
+            if (IsViewSet(other) && ((PyDictView)other).Length() > lenSelf)
+                (self, other) = (other, self);
+            var view = (PyDictView)self;
             var result = new PySet();
-            foreach (var item in PySet.IterableItems(other))
-                if (Contains(item).Value) result.Add(item);
+            foreach (var key in IterateItems(other))
+                if (view.ContainsItem(key).Value)
+                    result.Add(key);
             return result;
         }
-        public override PyObject BitwiseOr(PyObject other)
+
+        /// <summary>dictviews_isdisjoint: the smaller of two set-likes is iterated.</summary>
+        internal static PyObject IsDisjoint(PyObject self, PyObject other)
         {
-            if (!IsSetView) return base.BitwiseOr(other);
-            var result = new PySet(PySet.IterableItems(this));
-            foreach (var item in PySet.IterableItems(other)) result.Add(item);
+            if (ReferenceEquals(self, other))
+                return PyBool.FromBool(((PyDictView)self).Length() == 0);
+            if (other is PySet or PyFrozenSet || IsViewSet(other))
+            {
+                long lenSelf = ((PyDictView)self).Length(), lenOther = other.Length();
+                if (lenOther > lenSelf)
+                    (self, other) = (other, self);
+            }
+            foreach (var item in IterateItems(other))
+                if (self.Contains(item).Value)
+                    return PyBool.False;
+            return PyBool.True;
+        }
+
+        // dictviews_to_set: PySet_New of the operand, the dict itself for a keys view of an exact dict.
+        private static PySet ToSet(PyObject self)
+        {
+            PyObject left = self;
+            if (self is PyDictView { _kind: DictViewKind.Keys } keys && PySet.IsExactDict(keys._dictionary))
+                left = keys._dictionary;
+            return new PySet(PySet.SourceItems(left));
+        }
+
+        // dictviews_sub
+        internal static PyObject Sub(PyObject self, PyObject other)
+        {
+            var result = ToSet(self);
+            result.GetAttribute("difference_update").Call(new[] { other }, null);
             return result;
         }
-        public override PyObject Subtract(PyObject other)
+
+        // dictviews_or: _PySet_Update.
+        internal static PyObject Or(PyObject self, PyObject other)
         {
-            if (!IsSetView) return base.Subtract(other);
-            var result = new PySet(PySet.IterableItems(this));
-            foreach (var item in PySet.IterableItems(other)) result.Discard(item);
+            var result = ToSet(self);
+            result.Update(other);
             return result;
         }
-        public override PyObject BitwiseXor(PyObject other)
+
+        // dictviews_xor
+        internal static PyObject Xor(PyObject self, PyObject other)
         {
-            if (!IsSetView) return base.BitwiseXor(other);
-            return new PySet(PySet.IterableItems(this)).SymmetricDifference(new PySet(PySet.IterableItems(other)));
+            if (self is PyDictView { _kind: DictViewKind.Items } left && other is PyDictView { _kind: DictViewKind.Items } right)
+                return ItemsXor(left._dictionary, right._dictionary);
+            var result = ToSet(self);
+            result.GetAttribute("symmetric_difference_update").Call(new[] { other }, null);
+            return result;
+        }
+
+        // dictitems_xor: the pairs of d2 whose key d1 lacks or holds with an unequal value, then
+        // what is left of a copy of d1.
+        private static PyObject ItemsXor(PyDict d1, PyDict d2)
+        {
+            var temp = PyDict.DictCopy(d1);
+            var result = new PySet();
+            int position = 0;
+            while (d2.InternalDict.NextEntry(ref position, out var entry))
+            {
+                var key = entry.Key;
+                var val2 = entry.Value;
+                bool delete = temp.TryGetStoredValue(key, out var val1) && CompareBool(val1, val2, CompareOp.EQ);
+                if (delete)
+                    temp.DelItem(key);
+                else
+                    result.Add(PyTuple.From(new[] { key, val2 }));
+            }
+            result.Update(temp.GetAttribute("items").Call(Array.Empty<PyObject>(), null));
+            return result;
         }
     }
 }

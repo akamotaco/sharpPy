@@ -212,7 +212,7 @@ namespace SharpPy
                 case PyFrozenSet set:
                 {
                     var keys = new List<string>();
-                    foreach (var item in PySet.IterableItems(set))
+                    foreach (var item in PySet.SourceItems(set))
                         keys.Add(ConstantKey(item));
                     keys.Sort(StringComparer.Ordinal);
                     return "z(" + string.Join(",", keys) + ")";

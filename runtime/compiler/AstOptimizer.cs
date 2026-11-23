@@ -152,7 +152,7 @@ namespace SharpPy
             if (obj is PyFrozenSet set)
             {
                 limit -= set.Length();
-                foreach (var item in PySet.IterableItems(set))
+                foreach (var item in PySet.SourceItems(set))
                 {
                     if (limit < 0)
                         break;

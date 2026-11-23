@@ -84,15 +84,10 @@ namespace SharpPy
         internal IEnumerable<PySetStorage.Entry> Entries() => _items.Entries();
 
         internal static IEnumerable<PyObject> SourceItems(PyObject value) =>
-            IsExactDict(value) ? StorageOf((PyDict)value) : IterableItems(value);
-
-        internal static IEnumerable<PyObject> IterableItems(PyObject value)
-        {
-            // set_update_internal: any set is merged from its table, __iter__ of a subclass or not.
-            if (value is PySet set) return set.Items;
-            if (value is PyFrozenSet frozen) return frozen.Items;
-            return PyObject.IterateItems(value);
-        }
+            value is PySet set ? set.Items
+            : value is PyFrozenSet frozen ? frozen.Items
+            : IsExactDict(value) ? StorageOf((PyDict)value)
+            : PyObject.IterateItems(value);
 
         public override PyType GetPyType() => _customType ?? PyType.SetType;
 
@@ -228,7 +223,7 @@ namespace SharpPy
             if (other is PySet set) { _items.Merge(set._items); return PyNone.Instance; }
             if (other is PyFrozenSet frozen) { _items.Merge((PySetStorage)frozen.Items); return PyNone.Instance; }
             if (IsExactDict(other)) { _items.Merge(StorageOf((PyDict)other)); return PyNone.Instance; }
-            var items = IterableItems(other);
+            var items = SourceItems(other);
             foreach (var item in items)
             {
                 _items.Add(item);
@@ -259,7 +254,7 @@ namespace SharpPy
             var result = new PySet();
             if (other is not PySet && other is not PyFrozenSet)
             {
-                foreach (var item in IterableItems(other))
+                foreach (var item in SourceItems(other))
                 {
                     long hash = item.GetPythonHash();
                     if (_items.ContainsKnown(item, hash))
@@ -422,7 +417,7 @@ namespace SharpPy
         {
             if (other is not PySet && other is not PyFrozenSet)
             {
-                foreach (var item in IterableItems(other)) if (!_items.Contains(item)) return PyBool.False;
+                foreach (var item in SourceItems(other)) if (!_items.Contains(item)) return PyBool.False;
                 return PyBool.True;
             }
             var otherItems = GetSetItems(other);
@@ -446,7 +441,7 @@ namespace SharpPy
             if (ReferenceEquals(this, other)) return PyBool.FromBool(Length() == 0);
             if (other is not PySet && other is not PyFrozenSet)
             {
-                foreach (var item in IterableItems(other)) if (_items.Contains(item)) return PyBool.False;
+                foreach (var item in SourceItems(other)) if (_items.Contains(item)) return PyBool.False;
                 return PyBool.True;
             }
             var otherItems = GetSetItems(other);
@@ -499,7 +494,7 @@ namespace SharpPy
         {
             if (other is not PySet && other is not PyFrozenSet)
             {
-                foreach (var item in IterableItems(other)) _items.Remove(item);
+                foreach (var item in SourceItems(other)) _items.Remove(item);
                 _items.ShrinkDummies();
                 return PyNone.Instance;
             }
@@ -536,7 +531,7 @@ namespace SharpPy
                 PySet set => set._items,
                 PyFrozenSet frozenSet => (PySetStorage)frozenSet.Items,
                 PyDict dict when IsExactDict(dict) => StorageOf(dict),
-                _ => new PySetStorage(IterableItems(obj))
+                _ => new PySetStorage(SourceItems(obj))
             };
         }
 

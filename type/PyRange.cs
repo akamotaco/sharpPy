@@ -29,7 +29,7 @@ namespace SharpPy
                 bool inside = Step > 0 ? value >= Start && value < Stop : value <= Start && value > Stop;
                 return PyBool.FromBool(inside && (value - Start) % Step == 0);
             }
-            foreach (var candidate in PySet.IterableItems(this))
+            foreach (var candidate in IterateItems(this))
                 if (PyList.AreEqual(candidate, item))
                     return PyBool.True;
             return PyBool.False;

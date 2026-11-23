@@ -853,39 +853,9 @@ namespace SharpPy
             _dict.SetKnownHash(key, value, hash);
         }
 
-        public static PyDict FromKeys(PyObject keys, PyObject value = null)
-        {
-            var dict = new PyDict();
-            var defaultValue = value ?? PyNone.Instance;
-            
-            if (keys is PyList { IsExact: true } list)
-            {
-                foreach (var key in list.Items)
-                {
-                    dict.SetItem(key, defaultValue);
-                }
-            }
-            else if (keys is PyTuple { IsExact: true } tuple)
-            {
-                foreach (var key in tuple.Items)
-                {
-                    dict.SetItem(key, defaultValue);
-                }
-            }
-            else if (keys is PyString str)
-            {
-                foreach (char c in str.Value)
-                {
-                    dict.SetItem(PyString.From(c.ToString()), defaultValue);
-                }
-            }
-            else
-            {
-                foreach (var key in PySet.IterableItems(keys)) dict.SetItem(key, defaultValue);
-            }
-            
-            return dict;
-        }
+        /// <summary>dict.fromkeys(keys, value) for the host: _PyDict_FromKeys on dict.</summary>
+        public static PyDict FromKeys(PyObject keys, PyObject value = null) =>
+            (PyDict)FromKeys(PyType.DictType, keys, value ?? PyNone.Instance);
 
         #endregion
 

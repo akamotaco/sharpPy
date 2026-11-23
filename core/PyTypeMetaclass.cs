@@ -246,7 +246,7 @@ namespace SharpPy
             }
             else
             {
-                foreach (var key in PySet.IterableItems(args[3].GetAttribute("keys").Call(Array.Empty<PyObject>(), null)))
+                foreach (var key in PyDict.MappingKeys(args[3]).Items)
                     dict.SetItem(key, PyAbstract.GetItem(args[3], key));
             }
             // type_new_set_names and type_new_set_doc: both must encode.

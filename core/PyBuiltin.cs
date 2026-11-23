@@ -1424,13 +1424,8 @@ namespace SharpPy
 
             if (args.Length == 0)
             {
-                // _dir_locals: the sorted names of the caller's locals
-                var names = new List<PyObject>();
-                // PyMapping_Keys: a mapping as locals is asked for its keys.
-                var locals = PyVM.CurrentFrame.GetAttribute("f_locals");
-                var keys = locals is PyDict { IsExact: true } ? locals : locals.GetAttribute("keys").Call(new PyObject[0], null);
-                foreach (var name in PySet.IterableItems(keys)) names.Add(name);
-                var sortedLocals = new PyList(names);
+                // _dir_locals: PyMapping_Keys of the caller's locals, sorted.
+                var sortedLocals = PyDict.MappingKeys(PyVM.CurrentFrame.GetAttribute("f_locals"));
                 sortedLocals.GetAttribute("sort").Call(new PyObject[0], null);
                 return sortedLocals;
             }

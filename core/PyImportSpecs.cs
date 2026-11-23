@@ -332,10 +332,10 @@ namespace SharpPy
             _loaders.Clear();
             foreach (var detail in loaderDetails)
             {
-                var pair = new List<PyObject>(PySet.IterableItems(detail));
+                var pair = new List<PyObject>(PyObject.IterateItems(detail));
                 if (pair.Count != 2)
                     throw PyValueError.Create(pair.Count < 2 ? $"not enough values to unpack (expected 2, got {pair.Count})" : "too many values to unpack (expected 2)");
-                foreach (var suffix in PySet.IterableItems(pair[1]))
+                foreach (var suffix in PyObject.IterateItems(pair[1]))
                     _loaders.Add((((PyString)suffix).Value, pair[0]));
             }
             if (string.IsNullOrEmpty(path) || path == ".")

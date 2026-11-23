@@ -2678,14 +2678,14 @@ namespace SharpPy
                 "__reduce__", PyType.SetType,
                 (self, args, kwargs) => {
                     RefuseExtra(PyType.SetType, "__reduce__", args);
-                    return BuildSetReduce(self, PySet.IterableItems((PySet)self));
+                    return BuildSetReduce(self, PyObject.IterateItems(self));
                 },
                 minArgs: 0, maxArgs: 0);
             PyType.SetType.TypeDict["__sizeof__"] = new PyMethodDescriptor(
                 "__sizeof__", PyType.SetType,
                 (self, args, kwargs) => {
                     RefuseExtra(PyType.SetType, "__sizeof__", args);
-                    return PyInt.From(SetSizeInBytes(CountItems(PySet.IterableItems(
+                    return PyInt.From(SetSizeInBytes(CountItems(PySet.SourceItems(
                         (PySet)self))));
                 },
                 minArgs: 0, maxArgs: 0);
@@ -2693,15 +2693,14 @@ namespace SharpPy
                 "__reduce__", frozensetType,
                 (self, args, kwargs) => {
                     RefuseExtra(PyType.FrozenSetType, "__reduce__", args);
-                    return BuildSetReduce(self, PySet.IterableItems(
-                        (PyFrozenSet)self));
+                    return BuildSetReduce(self, PyObject.IterateItems(self));
                 },
                 minArgs: 0, maxArgs: 0);
             frozensetType.TypeDict["__sizeof__"] = new PyMethodDescriptor(
                 "__sizeof__", frozensetType,
                 (self, args, kwargs) => {
                     RefuseExtra(PyType.FrozenSetType, "__sizeof__", args);
-                    return PyInt.From(SetSizeInBytes(CountItems(PySet.IterableItems(
+                    return PyInt.From(SetSizeInBytes(CountItems(PySet.SourceItems(
                         (PyFrozenSet)self))));
                 },
                 minArgs: 0, maxArgs: 0);

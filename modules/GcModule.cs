@@ -323,7 +323,7 @@ namespace SharpPy.Modules
                     for (int i = tuple.Items.Length - 1; i >= 0; i--) into.Add(tuple.Items[i]);
                     break;
                 case PySet set:
-                    foreach (var item in PySet.IterableItems(set)) into.Add(item);
+                    foreach (var item in PySet.SourceItems(set)) into.Add(item);
                     break;
                 case PyClass cls:
                     // A class traverses its bases, its mro and its dict; the bases are the part a

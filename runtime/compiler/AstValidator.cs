@@ -123,7 +123,7 @@ namespace SharpPy
                 Enter();
                 try
                 {
-                    foreach (var item in PySet.IterableItems(value))
+                    foreach (var item in PyObject.IterateItems(value))
                         ConstantObject(item);
                 }
                 finally

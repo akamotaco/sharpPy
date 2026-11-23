@@ -3972,7 +3972,7 @@ namespace SharpPy
                     // bytecodes.c: _PySet_Update(PEEK(oparg), iterable)
                     var setSource = frame.ValueStack.Pop();
                     var setTarget = (PySet)frame.ValueStack.PeekAt(argument - 1);
-                    foreach (var updateItem in PySet.IterableItems(setSource))
+                    foreach (var updateItem in PySet.SourceItems(setSource))
                         setTarget.Add(updateItem);
                     break;
                 }
@@ -4731,23 +4731,27 @@ namespace SharpPy
             {
                 var dict = module.LookupAttribute("__dict__")
                     ?? throw PyImportError.Create("from-import-* object has no __dict__ and no __all__");
-                all = dict.GetAttribute("keys").Call(Array.Empty<PyObject>(), null);
+                all = PyDict.MappingKeys(dict);
                 skipLeadingUnderscores = true;
             }
-            foreach (var name in PySet.IterableItems(all))
+            // PySequence_GetItem by position until IndexError.
+            for (long pos = 0; ; pos++)
             {
+                PyObject name;
+                try { name = PyAbstract.SequenceGetItem(all, pos); }
+                catch (PythonException error) when (error.PyException is PyIndexError) { break; }
                 if (name is not PyString text)
                 {
                     var moduleName = module.GetAttribute("__name__");
                     if (moduleName is not PyString modName)
-                        throw PyTypeError.Create($"module __name__ must be a string, not {moduleName.GetTypeName()}");
-                    throw PyTypeError.Create(skipLeadingUnderscores
-                        ? $"Key in {modName.Value}.__dict__ must be str, not {name.GetTypeName()}"
-                        : $"Item in {modName.Value}.__all__ must be str, not {name.GetTypeName()}");
+                        throw PyErrFormat.Format(PyType.TypeErrorType, "module __name__ must be a string, not %.100s", moduleName.GetTypeName());
+                    throw PyErrFormat.Format(PyType.TypeErrorType, "%s in %U.%s must be str, not %.100s",
+                        skipLeadingUnderscores ? "Key" : "Item", modName, skipLeadingUnderscores ? "__dict__" : "__all__", name.GetTypeName());
                 }
-                if (skipLeadingUnderscores && text.Value.StartsWith("_", StringComparison.Ordinal))
+                // PyUnicode_READ_CHAR(name, 0)
+                if (skipLeadingUnderscores && text.CodePointLength() > 0 && text.ReadChar(0) == '_')
                     continue;
-                var value = module.GetAttribute(text.Value);
+                var value = module.GetAttribute(text);
                 if (frame.ClassLocalsDict != null)
                     frame.ClassLocalsDict.SetItem(text, value);
                 else

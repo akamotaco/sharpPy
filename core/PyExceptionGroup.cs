@@ -117,7 +117,7 @@ namespace SharpPy
             // Each part gets its own list of notes, and only a sequence is copied.
             var notes = NotesOf(original);
             if (notes != null && (notes is PyList or PyTuple || notes.HasTypeSlot("__getitem__")) && notes is not PyDict)
-                derived.SetAttribute("__notes__", new PyList(PySet.IterableItems(notes)));
+                derived.SetAttribute("__notes__", new PyList(PyObject.IterateItems(notes)));
             return derived;
         }
 

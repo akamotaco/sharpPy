@@ -289,7 +289,7 @@ namespace SharpPy
                 Slot(type, "__bool__", truth);
             Slot(PyType.RangeType, "__bool__", (self, args) =>
             {
-                foreach (var first in PySet.IterableItems(self)) return PyBool.True;
+                foreach (var first in PyObject.IterateItems(self)) return PyBool.True;
                 return PyBool.False;
             });
             Slot(PyType.NoneType, "__bool__", (self, args) => PyBool.False);
@@ -392,7 +392,7 @@ namespace SharpPy
                 if (args[0] is PyInt or PyBool && args[0] is not PyIntSubclass)
                     return PyInt.From(self.Contains(args[0]).Value ? 1 : 0);
                 long count = 0;
-                foreach (var item in PySet.IterableItems(self))
+                foreach (var item in PyObject.IterateItems(self))
                     if (PyList.AreEqual(item, args[0])) count++;
                 return PyInt.From(count);
             });
@@ -406,7 +406,7 @@ namespace SharpPy
                     return PyInt.From((value - range.Start) / range.Step);
                 }
                 long index = 0;
-                foreach (var item in PySet.IterableItems(self))
+                foreach (var item in PyObject.IterateItems(self))
                 {
                     if (PyList.AreEqual(item, args[0])) return PyInt.From(index);
                     index++;
@@ -438,29 +438,25 @@ namespace SharpPy
             foreach (var name in new[] { "dict_keys", "dict_items" })
             {
                 var view = ViewType(name);
+                // dictviews_as_number: nb_and and the rest take the operands in either order, so
+                // __rand__(self, other) is the same function on (other, self).
                 foreach (var (slot, operation) in new (string, Func<PyObject, PyObject, PyObject>)[]
                 {
-                    ("and", (a, b) => a.BitwiseAnd(b)), ("or", (a, b) => a.BitwiseOr(b)),
-                    ("sub", (a, b) => a.Subtract(b)), ("xor", (a, b) => a.BitwiseXor(b)),
+                    ("and", PyDictView.Intersect), ("or", PyDictView.Or),
+                    ("sub", PyDictView.Sub), ("xor", PyDictView.Xor),
                 })
                 {
                     Slot(view, $"__{slot}__", (self, args) => operation(self, args[0]));
-                    Slot(view, $"__r{slot}__", (self, args) => operation(new PySet(new List<PyObject>(PySet.IterableItems(args[0]))), new PySet(new List<PyObject>(PySet.IterableItems(self)))));
+                    Slot(view, $"__r{slot}__", (self, args) => operation(args[0], self));
                 }
-                MethodO(view, "isdisjoint", (self, args) =>
-                {
-                    var mine = new PySet(new List<PyObject>(PySet.IterableItems(self)));
-                    foreach (var item in PySet.IterableItems(args[0]))
-                        if (mine.Contains(item).Value) return PyBool.False;
-                    return PyBool.True;
-                });
+                MethodO(view, "isdisjoint", (self, args) => PyDictView.IsDisjoint(self, args[0]));
             }
             foreach (var name in new[] { "dict_keys", "dict_values", "dict_items" })
             {
                 var view = ViewType(name);
                 Method(view, "__reversed__", (self, args) =>
                 {
-                    var items = new List<PyObject>(PySet.IterableItems(self));
+                    var items = new List<PyObject>(PyObject.IterateItems(self));
                     items.Reverse();
                     return new PyListIterator(new PyList(items), name.Replace("dict_", "dict_reverse").TrimEnd('s') + "iterator");
                 });

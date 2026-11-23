@@ -371,7 +371,7 @@ namespace SharpPy.Modules
             private void Set(PyObject value, byte flag)
             {
                 var pairs = new List<(byte[] Key, PyObject Item)>();
-                foreach (var item in PySet.IterableItems(value))
+                foreach (var item in PySet.SourceItems(value))
                     pairs.Add((Write(item, _version), item));
                 pairs.Sort((a, b) => a.Key.AsSpan().SequenceCompareTo(b.Key));
                 Type(value is PyFrozenSet ? '>' : '<', flag);
