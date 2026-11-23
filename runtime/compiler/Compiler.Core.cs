@@ -67,6 +67,8 @@ namespace SharpPy
         }
 
         private readonly string _filename;
+        // c_filename: the one str object every code object of this compilation names.
+        private readonly PyString _filenameObject;
         private readonly PySymtable _st;
         private readonly PyFuture _future;
         private readonly int _optimize;
@@ -80,9 +82,10 @@ namespace SharpPy
         private readonly ConditionalWeakTable<object, object> _ids = new();
         private long _nextId;
 
-        private Compiler(string filename, PySymtable st, PyFuture future, int optimize, List<string>? sourceLines)
+        private Compiler(string filename, PyString filenameObject, PySymtable st, PyFuture future, int optimize, List<string>? sourceLines)
         {
             _filename = filename;
+            _filenameObject = filenameObject ?? PyString.From(filename);
             _st = st;
             _future = future;
             _optimize = optimize;
@@ -91,7 +94,7 @@ namespace SharpPy
 
         // _PyAST_Compile
         public static PyCodeObject Compile(GeneratedMod mod, string filename, int optimize, List<string>? sourceLines,
-            int inheritedFlags = 0)
+            int inheritedFlags = 0, PyString filenameObject = null)
         {
             var future = PyFuture.FromAst(mod, filename, sourceLines);
             if ((inheritedFlags & CO_FUTURE_ANNOTATIONS) != 0)
@@ -100,7 +103,7 @@ namespace SharpPy
                 future.BarryAsBdfl = true;
             var folded = new AstOptimizer(optimize, future.Annotations).Optimize(mod);
             var st = PySymtable.Build(folded, filename, future.Annotations, System.IO.File.Exists(filename) ? sourceLines : null);
-            var compiler = new Compiler(filename, st, future, optimize, sourceLines);
+            var compiler = new Compiler(filename, filenameObject, st, future, optimize, sourceLines);
             compiler._allowTopLevelAwait = (inheritedFlags & PythonAst.PyCF_ALLOW_TOP_LEVEL_AWAIT) != 0;
             return compiler.CompilerMod(folded);
         }

@@ -336,7 +336,7 @@ namespace SharpPy
             else
             {
                 globals = frame.Globals.Dict;
-                filename = PyString.From(frame.Code.FileName);
+                filename = frame.Code.CoFileName;
                 lineno = frame.CurrentLineNumber;
             }
             // the globals' __warningregistry__, made when there is none; warn_explicit checks it

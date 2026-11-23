@@ -101,7 +101,7 @@ namespace SharpPy.Modules
                     throw PyArgs.BadArgument("_fix_co_filename", "argument 1", "code", args[0]);
                 if (args[1] is not PyString path)
                     throw PyArgs.BadArgument("_fix_co_filename", "argument 2", "str", args[1]);
-                code.FixFileName(path.Value);
+                code.FixFileName(path);
                 return PyNone.Instance;
             });
             d["_override_frozen_modules_for_tests"] = new PyBuiltinFunction("_override_frozen_modules_for_tests", args => PyNone.Instance);

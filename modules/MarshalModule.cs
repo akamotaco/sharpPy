@@ -254,7 +254,7 @@ namespace SharpPy.Modules
                 Object(code.NamesTuple);
                 Object(PyTuple.From(Array.ConvertAll(code.LocalsPlusNames, name => (PyObject)name)));
                 Object(PyBytes.From((byte[])kinds.Clone()));
-                Object(PySysFunction.Intern((PyString)code.GetAttribute("co_filename")));
+                Object(code.CoFileName);
                 Object(code.CoName);
                 Object(code.CoQualName);
                 Long(code.GetFirstLineNo());
@@ -649,7 +649,7 @@ namespace SharpPy.Modules
                 var names = Names(Field(typeof(PyTuple)));
                 var localNames = Names(Field(typeof(PyTuple)));
                 var kinds = ((PyBytes)Field(typeof(PyBytes))).Value;
-                string fileName = ((PyString)Field(typeof(PyString))).Value;
+                var fileName = (PyString)Field(typeof(PyString));
                 var name = (PyString)Field(typeof(PyString));
                 var qualName = (PyString)Field(typeof(PyString));
                 int firstLineNo = Long();
@@ -657,7 +657,7 @@ namespace SharpPy.Modules
                 var exceptionTable = (PyBytes)Field(typeof(PyBytes));
                 var read = PyCodeObject.FromTables(argCount, posonly, kwonly, stackSize, flags, code.Value,
                     new List<PyObject>(constants.Items), names, localNames, (byte[])kinds.Clone(), fileName, name,
-                    qualName, firstLineNo, lineTable.Value, exceptionTable.Value, SourceOf(fileName));
+                    qualName, firstLineNo, lineTable.Value, exceptionTable.Value, SourceOf(fileName.Value));
                 return Insert(read, index);
             }
 

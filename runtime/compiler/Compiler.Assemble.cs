@@ -39,11 +39,11 @@ namespace SharpPy
 
         // Py_CompileStringObject: the single route from text to a code object.
         public static PyCodeObject CompileSource(string source, string filename, CompileMode mode = CompileMode.File,
-            int optimize = 0, int inheritedFlags = 0, bool fileInput = false)
+            int optimize = 0, int inheritedFlags = 0, bool fileInput = false, PyString filenameObject = null)
         {
             var mod = Parse(source, filename, mode, inheritedFlags, fileInput);
             var lines = new List<string>(source.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None));
-            return Compile(mod, filename, optimize, lines, inheritedFlags);
+            return Compile(mod, filename, optimize, lines, inheritedFlags, filenameObject);
         }
 
         // PyErr_WarnExplicitObject
@@ -187,7 +187,7 @@ namespace SharpPy
             var code = new PyCodeObject(nameObject, qualNameObject, assembled.Instructions, u.Consts,
                 InOrder(u.Names).ConvertAll(PyString.From).ToArray(), localsPlusNames, localsPlusKinds,
                 u.ArgCount + u.PosonlyArgCount + u.KwonlyArgCount, u.PosonlyArgCount, u.KwonlyArgCount,
-                codeFlags, _filename, _sourceLines);
+                codeFlags, _filenameObject, _sourceLines);
             code.FirstLineNo = u.FirstLineNo;
             code.ExceptionTable.AddRange(assembled.ExceptionTable);
             code.StackSize = maxDepth;

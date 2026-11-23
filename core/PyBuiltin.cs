@@ -140,7 +140,6 @@ namespace SharpPy
             _builtinImplementations["__import__"] = (args, kwargs) => CallImport(args, kwargs);
             _builtinImplementations["id"] = (args, kwargs) => CallId(args, kwargs);
             _builtinImplementations["hash"] = (args, kwargs) => CallHash(args, kwargs);
-            _builtinImplementations["super"] = (args, kwargs) => CallSuper(args, kwargs);
             _builtinImplementations["type.__new__"] = (args, kwargs) => PyTypeMetaclass.TypeNew(args, kwargs);
             _builtinImplementations["repr"] = (args, kwargs) => CallRepr(args, kwargs);
             _builtinImplementations["eval"] = (args, kwargs) => CallEval(args, kwargs);
@@ -1038,7 +1037,9 @@ namespace SharpPy
             var source = args[0];
             // The clinic's conversions, in order: filename by PyUnicode_FSDecoder, mode by the str
             // converter, flags and optimize by the int converter, dont_inherit by PyObject_IsTrue.
-            string filename = PyArgs.FSDecoder(args[1]);
+            // builtin_compile_impl: filename is the str object PyUnicode_FSDecoder gives.
+            var filenameObject = PyArgs.FSDecoderObject(args[1]);
+            string filename = filenameObject.Value;
             string mode = PyArgs.ClinicStr("compile", "argument 'mode'", "str", args[2]);
             int compileFlags = args[3] == null ? 0 : PyArgs.Int(args[3]);
             bool dontInherit = args[4] != null && args[4].IsTrue();
@@ -1081,7 +1082,7 @@ namespace SharpPy
                 // builtin_compile_impl: PyAST_obj2mod, then _PyAST_Validate before compiling.
                 var mod = PythonAst.ObjectToMod(source, compileMode);
                 AstValidator.Validate(mod);
-                return Compiler.Compile(mod, filename, optimizeLevel, null, compileFlags);
+                return Compiler.Compile(mod, filename, optimizeLevel, null, compileFlags, filenameObject);
             }
 
             string sourceCode = SourceAsString(source, "compile", "string, bytes or AST", compileMode == CompileMode.File, filename);
@@ -1094,7 +1095,7 @@ namespace SharpPy
                 if ((compileFlags & PythonAst.PyCF_ONLY_AST) != 0)
                     return PythonAst.ModToObject(Compiler.Parse(sourceCode, filename, compileMode, compileFlags,
                         featureVersion: featureVersion >= 0 ? featureVersion : Compiler.PyMinorVersion));
-                codeObject = Compiler.CompileSource(sourceCode, filename, compileMode, optimizeLevel, compileFlags);
+                codeObject = Compiler.CompileSource(sourceCode, filename, compileMode, optimizeLevel, compileFlags, filenameObject: filenameObject);
             }
             catch (Exception ex)
             {

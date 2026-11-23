@@ -386,22 +386,25 @@ namespace SharpPy
         public int PosonlyArgCount { get; }           // co_posonlyargcount (positional-only 매개변수 개수)
         public int KwonlyArgCount { get; }            // co_kwonlyargcount (keyword-only 매개변수 개수)
         public int Flags { get; }                     // co_flags (CPython 호환)
-        public string? FileName { get; private set; }              // co_filename (CPython 호환)
+        /// <summary>co_filename, the str object (one per compilation, shared by its code objects);
+        /// FileName is its text for the host.</summary>
+        internal PyString CoFileName { get; private set; }
+        public string FileName => CoFileName.Value;
 
         // update_compiled_module: nothing when the name is already the file's; else
         // update_code_filenames, which renames this code and, among its constants, the code that
         // had its old name.
-        internal void FixFileName(string fileName)
+        internal void FixFileName(PyString fileName)
         {
-            if (FileName != fileName)
-                RenameFile(FileName, fileName);
+            if (!CoFileName.ContentEquals(fileName))
+                RenameFile(CoFileName, fileName);
         }
 
-        private void RenameFile(string oldName, string newName)
+        private void RenameFile(PyString oldName, PyString newName)
         {
-            if (FileName != oldName)
+            if (!CoFileName.ContentEquals(oldName))
                 return;
-            FileName = newName;
+            CoFileName = newName;
             foreach (var constant in Constants)
                 if (constant is PyCodeObject inner)
                     inner.RenameFile(oldName, newName);
@@ -427,7 +430,7 @@ namespace SharpPy
         /// </summary>
         internal PyCodeObject(PyString name, PyString qualName, List<ByteCodeInstruction> instructions, List<PyObject> constants,
             PyString[] names, PyString[] localsPlusNames, byte[] localsPlusKinds, int argCount, int posonlyArgCount,
-            int kwonlyArgCount, int flags, string fileName, List<string> sourceLines,
+            int kwonlyArgCount, int flags, PyString fileName, List<string> sourceLines,
             List<ExceptionTableEntry> exceptionTable = null)
         {
             CoName = name;
@@ -441,7 +444,7 @@ namespace SharpPy
             PosonlyArgCount = posonlyArgCount;
             KwonlyArgCount = kwonlyArgCount;
             Flags = flags;
-            FileName = fileName;
+            CoFileName = fileName;
             SourceLines = sourceLines;
             ExceptionTable = exceptionTable ?? new List<ExceptionTableEntry>();
             CountLocalsPlus(localsPlusKinds, out int nlocals, out int ncellvars, out int nfreevars);
@@ -540,7 +543,7 @@ namespace SharpPy
         /// </summary>
         internal static PyCodeObject FromTables(int argCount, int posonlyArgCount, int kwonlyArgCount, int stackSize,
             int flags, byte[] code, List<PyObject> constants, PyString[] names, PyString[] localsPlusNames,
-            byte[] localsPlusKinds, string fileName, PyString name, PyString qualName, int firstLineNo, byte[] lineTable,
+            byte[] localsPlusKinds, PyString fileName, PyString name, PyString qualName, int firstLineNo, byte[] lineTable,
             byte[] exceptionTable, List<string> sourceLines = null)
         {
             Validate(argCount, posonlyArgCount, kwonlyArgCount, stackSize, flags, code, localsPlusNames, localsPlusKinds);
@@ -566,7 +569,7 @@ namespace SharpPy
 
         private static PyCodeObject New(int argCount, int posonlyArgCount, int kwonlyArgCount, int stackSize,
             int flags, byte[] code, List<PyObject> constants, PyString[] names, PyString[] localsPlusNames,
-            byte[] localsPlusKinds, string fileName, PyString name, PyString qualName, int firstLineNo, byte[] lineTable,
+            byte[] localsPlusKinds, PyString fileName, PyString name, PyString qualName, int firstLineNo, byte[] lineTable,
             byte[] exceptionTable, List<string> sourceLines)
         {
             var result = new PyCodeObject(name, qualName, LocationTable.ReadInstructions(code, lineTable, firstLineNo), constants,
@@ -594,7 +597,7 @@ namespace SharpPy
         /// </summary>
         internal static PyCodeObject NewWithPosOnlyArgs(int argCount, int posonlyArgCount, int kwonlyArgCount,
             int nlocals, int stackSize, int flags, byte[] code, List<PyObject> constants, PyString[] names,
-            PyString[] varNames, PyString[] freeVars, PyString[] cellVars, string fileName, PyString name,
+            PyString[] varNames, PyString[] freeVars, PyString[] cellVars, PyString fileName, PyString name,
             PyString qualName, int firstLineNo, byte[] lineTable, byte[] exceptionTable, List<string> sourceLines = null)
         {
             var localsPlusNames = new List<PyString>(varNames.Length + cellVars.Length + freeVars.Length);
@@ -818,8 +821,7 @@ namespace SharpPy
             var exceptionTable = Tables.ExceptionTable;
             var constants = Constants;
             PyTuple names = NamesTuple, varNames = VarNames, freeVars = FreeVars, cellVars = CellVars;
-            string fileName = FileName;
-            PyString name = CoName, qualName = CoQualName;
+            PyString fileName = CoFileName, name = CoName, qualName = CoQualName;
             int nlocals = NLocals;
             if (kwargs != null)
             {
@@ -846,7 +848,7 @@ namespace SharpPy
                         case "co_varnames": varNames = TupleField(value, field); break;
                         case "co_freevars": freeVars = TupleField(value, field); break;
                         case "co_cellvars": cellVars = TupleField(value, field); break;
-                        case "co_filename": fileName = StrField(value, field).Value; break;
+                        case "co_filename": fileName = StrField(value, field); break;
                         case "co_name": name = StrField(value, field); break;
                         case "co_qualname": qualName = StrField(value, field); break;
                         default: throw PyArgs.InvalidKeyword("replace", PyString.From(field));
@@ -892,7 +894,7 @@ namespace SharpPy
             return NewWithPosOnlyArgs(argCount, posonly, kwonly, nlocals, args[4].ToInt(), args[5].ToInt(),
                 BytesField(args[6], "code"), new List<PyObject>(((PyTuple)args[7]).Items), ValidateAndCopyTuple(names),
                 ValidateAndCopyTuple(varNames), ValidateAndCopyTuple(freeVars), ValidateAndCopyTuple(cellVars),
-                Str(10).Value, Str(11), Str(12), args[13].ToInt(),
+                Str(10), Str(11), Str(12), args[13].ToInt(),
                 BytesField(args[14], "linetable"), BytesField(args[15], "exceptiontable"));
         }
 
@@ -913,7 +915,7 @@ namespace SharpPy
                 "co_consts" => PyTuple.From(Constants.ToArray()),
                 "co_freevars" => FreeVars,
                 "co_cellvars" => CellVars,
-                "co_filename" => PyString.From(FileName ?? "<unknown>"),
+                "co_filename" => CoFileName,
                 "co_firstlineno" => PyInt.From(GetFirstLineNo()),
                 "co_nlocals" => PyInt.From(NLocals),
                 "co_stacksize" => PyInt.From(StackSize),
@@ -1099,9 +1101,8 @@ namespace SharpPy
         public override string ToString() => $"<code object {Name}>";
 
         // code_repr
-        protected internal override PyString Repr() => FileName != null
-            ? PyErrFormat.FromFormat("<code object %U at %p, file \"%s\", line %d>", CoName, this, FileName, GetFirstLineNo())
-            : PyErrFormat.FromFormat("<code object %U at %p, file ???, line %d>", CoName, this, GetFirstLineNo());
+        protected internal override PyString Repr() =>
+            PyErrFormat.FromFormat("<code object %U at %p, file \"%U\", line %d>", CoName, this, CoFileName, GetFirstLineNo());
         
         /// <summary>
         /// Test the synchronous generator flag determined by scope analysis.

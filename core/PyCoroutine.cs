@@ -125,7 +125,7 @@ namespace SharpPy.Core
             {
                 entries.Add(PyTuple.From(new PyObject[]
                 {
-                    PyString.From(current.Code.FileName), current.GetAttribute("f_lineno"), PyString.From(current.Code.Name),
+                    current.Code.CoFileName, current.GetAttribute("f_lineno"), PyString.From(current.Code.Name),
                 }));
                 frame = current.GetAttribute("f_back");
             }

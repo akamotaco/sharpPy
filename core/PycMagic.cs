@@ -13,6 +13,6 @@ namespace SharpPy
     /// </summary>
     internal static class PycMagic
     {
-        internal const int Number = 5004;
+        internal const int Number = 5005;
     }
 }

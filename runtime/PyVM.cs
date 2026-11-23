@@ -450,7 +450,7 @@ namespace SharpPy
 
         // frame_repr
         protected internal override PyString Repr() => PyString.From(
-            $"<frame at {PyObjectId.Pointer(this)}, file {PyString.From(Code.FileName ?? "<unknown>").ToRepr().Value}, line {Read("f_lineno").ToRepr().Value}, code {Read("f_code").GetAttribute("co_name").AsString().Value}>");
+            $"<frame at {PyObjectId.Pointer(this)}, file {Code.CoFileName.ToRepr().Value}, line {Read("f_lineno").ToRepr().Value}, code {Read("f_code").GetAttribute("co_name").AsString().Value}>");
 
         // PyObject required overrides
         public override PyType GetPyType() => FramePyType;
@@ -2160,67 +2160,22 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_SUPER_ATTR:
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🚀 ENTERING LOAD_SUPER_ATTR");
-                    #endif
-                    // CPython 3.12: super() attribute access
-                    // Stack: [..., super_func, __class__, self] -> [..., attr_value] or [..., NULL, bound_method]
-                    // oparg: (name_index << 2) | (two_arguments << 1) | load_method
-                    int superOparg = argument;
-                    int superMethodFlag = superOparg & 1;
-                    int superAttrIndex = superOparg >> 2;
-                    var superAttrName = frame.Code.Names[superAttrIndex];
-                    var selfObj = frame.ValueStack.Pop();         // self
-                    var classObj = frame.ValueStack.Pop();        // __class__
-                    var superFunc = frame.ValueStack.Pop();       // super function
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, methodFlag={superMethodFlag}, super={superFunc.GetType().Name}, class={classObj.GetType().Name}, self={selfObj.GetType().Name}");
-                    #endif
-
-                    // Call super(__class__, self) to create super proxy, then get attribute
-                    try
-                    {
-                        // Create super proxy by calling super() with class and self
-                        // A name that shadows super is called as the source spelled it.
-                        bool builtinSuper = superFunc is PyBuiltinFunction { Name: "super" } || ReferenceEquals(superFunc, PyType.SuperType);
-                        var superArgs = builtinSuper || (superOparg & 2) != 0 ? new PyObject[] { classObj, selfObj } : Array.Empty<PyObject>();
-                        PyObject superProxy = superFunc.Call(superArgs, null);
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: calling GetAttribute({superAttrName}) on super proxy");
-                        #endif
-
-                        // LOAD_SUPER_ATTR (Python/bytecodes.c): res = PyObject_GetAttr(super, name), as it comes.
-                        PyObject finalAttr = superProxy.GetAttribute(superAttrName);
-
-                        // CPython 3.12: Push result based on method flag
-                        if (superMethodFlag == 1)
-                        {
-                            // Method call: push [NULL, bound_method] for CALL optimization
-                            frame.ValueStack.Push(PyNull.Instance);  // NULL marker
-                            frame.ValueStack.Push(finalAttr);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR success (method call): pushed [NULL, {finalAttr.GetType().Name}]");
-                            #endif
-                        }
-                        else
-                        {
-                            // Value access: push [attr_value]
-                            frame.ValueStack.Push(finalAttr);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR success (value access): pushed [{finalAttr.GetType().Name}]");
-                            #endif
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR failed: {ex.Message}");
-                        #endif
-                        throw;
-                    }
+                {
+                    // LOAD_SUPER_ATTR (Python/bytecodes.c): global_super called with (class, self)
+                    // only when oparg & 2 says the source gave them; super() with none reads the
+                    // frame itself (super_init_without_args). Then PyObject_GetAttr(super, name).
+                    var superName = frame.Code.Names[argument >> 2];
+                    var superSelf = frame.ValueStack.Pop();
+                    var superClass = frame.ValueStack.Pop();
+                    var globalSuper = frame.ValueStack.Pop();
+                    var superObject = globalSuper.Call(
+                        (argument & 2) != 0 ? new[] { superClass, superSelf } : Array.Empty<PyObject>(), null);
+                    var superAttribute = superObject.GetAttribute(superName);
+                    if ((argument & 1) != 0)
+                        frame.ValueStack.Push(PyNull.Instance);
+                    frame.ValueStack.Push(superAttribute);
                     break;
+                }
 
                 // CPython 3.12: Pattern matching opcodes
                 case ByteCodeOp.MATCH_MAPPING:
