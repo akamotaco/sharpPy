@@ -40,32 +40,54 @@ namespace SharpPy.Core
 
             try
             {
-                // 파일 존재 여부 먼저 확인
-                if (!IOHelper.FileExists(pythonFile))
-                {
-                    Console.WriteLine($"python: can't open file '{pythonFile}': [Errno 2] No such file or directory");
-                    Environment.Exit(2);
-                    return;
-                }
-
-                // config_run_filename_abspath: the script's name is made absolute, on Windows even
-                // when it is rooted already (GetFullPathNameW also turns forward slashes into
-                // backslashes). sys.argv
-                // keeps what was typed.
-                if (OperatingSystem.IsWindows() || !System.IO.Path.IsPathRooted(pythonFile))
-                {
-                    try
-                    {
-                        pythonFile = System.IO.Path.GetFullPath(pythonFile);
-                    }
-                    catch (Exception)
-                    {
-                        // failed to get the absolute path: keep the name as given
-                    }
-                }
-
                 // pymain_run_file runs after init_interp_main: the streams exist before the source is read.
                 var interpreter = new IntegratedPythonInterpreter();
+
+                // config_run_filename_abspath: the script's name is made absolute, on Windows even
+                // when it is rooted already; sys.argv keeps what was typed. On Windows that is
+                // GetFullPathNameW, which keeps 8.3 short names (.NET's GetFullPath expands them),
+                // so it is ntpath.abspath, the same function os.path.abspath is.
+                try
+                {
+                    if (OperatingSystem.IsWindows())
+                        pythonFile = PyImportSystem.Import("ntpath").GetAttribute("abspath")
+                            .Call(new PyObject[] { PyString.From(pythonFile) }, null).ToStr().Value;
+                    else if (!System.IO.Path.IsPathRooted(pythonFile))
+                        pythonFile = System.IO.Path.GetFullPath(pythonFile);
+                }
+                catch (Exception)
+                {
+                    // failed to get the absolute path: keep the name as given
+                }
+                if (!compileOnly)
+                {
+                    // pymain_get_importer: a path entry some sys.path_hooks entry takes (a directory or
+                    // a zip file) goes first on sys.path and its __main__ runs (pymain_run_module).
+                    var pathEntry = PyString.From(pythonFile);
+                    PyObject importer;
+                    try
+                    {
+                        importer = PyImportSystem.GetImporter(pathEntry);
+                    }
+                    catch (PythonException error)
+                    {
+                        PySysWriteStderr("Failed checking if argv[0] is an import path entry\n");
+                        interpreter.PrintPythonStyleTraceback(error);
+                        PyFinalizer.Shutdown();
+                        Environment.Exit(1);
+                        return;
+                    }
+                    if (importer is not PyNone)
+                    {
+                        RunModule(interpreter, "__main__", false, pathEntry);
+                        return;
+                    }
+                }
+                if (!IOHelper.FileExists(pythonFile))
+                {
+                    CantOpenFile(pythonFile, 2, "No such file or directory");
+                    return;
+                }
                 string code;
                 try
                 {
@@ -111,18 +133,15 @@ namespace SharpPy.Core
             }
             catch (FileNotFoundException)
             {
-                Console.WriteLine($"python: can't open file '{pythonFile}': [Errno 2] No such file or directory");
-                Environment.Exit(2);
+                CantOpenFile(pythonFile, 2, "No such file or directory");
             }
             catch (DirectoryNotFoundException)
             {
-                Console.WriteLine($"python: can't open file '{pythonFile}': [Errno 2] No such file or directory");
-                Environment.Exit(2);
+                CantOpenFile(pythonFile, 2, "No such file or directory");
             }
             catch (UnauthorizedAccessException)
             {
-                Console.WriteLine($"python: can't open file '{pythonFile}': [Errno 13] Permission denied");
-                Environment.Exit(13);
+                CantOpenFile(pythonFile, 13, "Permission denied");
             }
             catch (Exception ex)
             {
@@ -188,18 +207,41 @@ namespace SharpPy.Core
         public void ExecuteModule(string moduleName)
         {
             // pymain_init: __main__ (add_main_module) and the streams exist before runpy runs.
-            var interpreter = new IntegratedPythonInterpreter();
+            RunModule(new IntegratedPythonInterpreter(), moduleName, true, PyString.From(IOHelper.GetFullPath(".")));
+        }
+
+        // PySys_WriteStderr: sys.stderr, else the process's stderr.
+        private static void PySysWriteStderr(string text)
+        {
+            if (!WriteOnStderr(text, out _))
+                Console.Error.Write(text);
+        }
+
+        /// <summary>
+        /// pymain_run_file_obj: "%S: can't open file %R: [Errno %d] %s" (program name, the absolute
+        /// file name) on stderr, and the status is 2.
+        /// </summary>
+        private static void CantOpenFile(string pythonFile, int errno, string message)
+        {
+            var program = PyImportSystem.Import("sys").GetAttribute("executable");
+            PySysWriteStderr($"{program.ToStr().Value}: can't open file {PyString.From(pythonFile).ToRepr().Value}: [Errno {errno}] {message}\n");
+            PyFinalizer.Shutdown();
+            Environment.Exit(2);
+        }
+
+        /// <summary>
+        /// pymain_sys_path_add_path0 then pymain_run_module (Modules/main.c): path0 goes first on
+        /// sys.path, then runpy._run_module_as_main(name, set_argv0).
+        /// </summary>
+        private static void RunModule(IntegratedPythonInterpreter interpreter, string moduleName, bool setArgv0, PyString path0)
+        {
             try
             {
                 var sys = PyImportSystem.Import("sys");
                 if (sys.ModuleDict["path"] is PyList searchPath)
-                {
-                    var directory = PyString.From(IOHelper.GetFullPath("."));
-                    if (searchPath.Length() == 0) searchPath.Append(directory);
-                    else searchPath.Insert(0, directory);
-                }
+                    searchPath.Insert(0, path0);
                 var runpy = PyImportSystem.Import("runpy");
-                runpy.GetAttribute("_run_module_as_main").Call(new PyObject[] { PyString.From(moduleName), PyBool.True }, null);
+                runpy.GetAttribute("_run_module_as_main").Call(new PyObject[] { PyString.From(moduleName), PyBool.FromBool(setArgv0) }, null);
                 PyFinalizer.Shutdown();
             }
             catch (Exception ex)

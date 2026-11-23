@@ -50,11 +50,14 @@ namespace SharpPy
                 throw PyTypeError.Create($"__class__ must be set to a class, not '{value.GetPyType().FullName}' object");
             var oldTo = self.GetPyType();
             bool modules = newTo.IsSubclassOf(PyType.ModuleType) && oldTo.IsSubclassOf(PyType.ModuleType);
-            // A type's own type stays: SharpPy keeps no metatype per type object.
-            if (!modules && (!newTo.IsHeapType || !oldTo.IsHeapType || self is PyType))
+            if (!modules && (!newTo.IsHeapType || !oldTo.IsHeapType))
                 throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses");
             PyTypeMetaclass.CheckAssignment(oldTo, newTo, "__class__");
-            self.SetCustomType(newTo as PyClass);
+            // Py_SET_TYPE: a class statement's class keeps its ob_type in Metaclass.
+            if (self is PyClass cls)
+                cls.Metaclass = (PyClass)newTo;
+            else
+                self.SetCustomType(newTo as PyClass);
         }
 
         /// <summary>

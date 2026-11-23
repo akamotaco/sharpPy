@@ -43,9 +43,20 @@ namespace SharpPy.Modules
                     {
                         break;
                     }
-                    string text = line is PyBytes bytes
-                        ? ((PyString)bytes.GetAttribute("decode").Call(new PyObject[] { PyString.From(encoding ?? "utf-8") }, null)).Value
-                        : ((PyString)line).Value;
+                    // tok_readline_string: bytes decoded with "replace" when there is an encoding,
+                    // otherwise str.
+                    string text;
+                    if (encoding != null)
+                    {
+                        if (line is not PyBytes bytes)
+                            throw new PythonException(new PyTypeError("readline() returned a non-bytes object"));
+                        text = ((PyString)bytes.GetAttribute("decode").Call(
+                            new PyObject[] { PyString.From(encoding), PyString.From("replace") }, null)).Value;
+                    }
+                    else if (line is PyString str)
+                        text = str.Value;
+                    else
+                        throw new PythonException(new PyTypeError("readline() returned a non-string object"));
                     if (text.Length == 0)
                         break;
                     source.Append(text);
@@ -55,26 +66,27 @@ namespace SharpPy.Modules
                 _extra = extraTokens;
             }
 
+            // _tokenizer_error
             private PythonException TokenizerError()
             {
                 string message;
-                PySyntaxError error = null;
+                PyType errtype = PyType.SyntaxErrorType;
                 switch (_tok.Done)
                 {
                     case Tokenizer.State.E_EOF:
                         message = "unexpected EOF in multi-line statement";
-                        break;
+                        return PySyntaxError.Located(new PySyntaxError(message), message, "<string>", _tok.Lineno, 0, _tok.Lineno, 0, PyNone.Instance);
                     case Tokenizer.State.E_DEDENT:
                         message = "unindent does not match any outer indentation level";
-                        error = new PyIndentationError(message);
+                        errtype = PyType.IndentationErrorType;
                         break;
                     case Tokenizer.State.E_TABSPACE:
                         message = "inconsistent use of tabs and spaces in indentation";
-                        error = new PyTabError(message);
+                        errtype = PyType.TabErrorType;
                         break;
                     case Tokenizer.State.E_TOODEEP:
                         message = "too many levels of indentation";
-                        error = new PyIndentationError(message);
+                        errtype = PyType.IndentationErrorType;
                         break;
                     case Tokenizer.State.E_LINECONT:
                         message = "unexpected character after line continuation character";
@@ -83,7 +95,17 @@ namespace SharpPy.Modules
                         message = "unknown tokenization error";
                         break;
                 }
-                return PySyntaxError.Located(error ?? new PySyntaxError(message), message, "<string>", _tok.Lineno, 0, _tok.Lineno, 0, PyNone.Instance);
+                // The line read so far without its newline; the offset is one past its end
+                // (_PyPegen_byte_offset_to_character_offset of tok->inp - tok->buf).
+                string buffer = _tok.Buffer;
+                int size = _tok.Inp - _tok.Buf;
+                if (size > 0 && buffer[_tok.Buf + size - 1] == '\n')
+                    size--;
+                var errorLine = PyString.From(buffer.Substring(_tok.Buf, size));
+                var location = PyTuple.From(PyString.From("<string>"), PyInt.From(_tok.Lineno), PyInt.From(Characters(_tok.Buf, _tok.Buf + size) + 1),
+                    errorLine, PyNone.Instance, PyNone.Instance);
+                // PyErr_SetObject(errtype, (msg, location))
+                return new PythonException((PyBaseException)errtype.Call(new PyObject[] { PyString.From(message), location }, null));
             }
 
             // tok->implicit_newline holds for the last line read.

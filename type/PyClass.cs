@@ -510,33 +510,9 @@ namespace SharpPy
         // 클래스는 항상 호출 가능 (인스턴스 생성)
         public override bool IsCallable() => true;
 
-        // CPython 3.12: Override GetPyType to return metaclass if set
-        public override PyType GetPyType()
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 PyClass.GetPyType() called for {Name}");
-            Console.WriteLine($"   Metaclass: {Metaclass}");
-            Console.WriteLine($"   Metaclass != null: {Metaclass != null}");
-            #endif
+        // Py_TYPE of a class: its metaclass, type when there is none.
+        public override PyType GetPyType() => Metaclass ?? base.GetPyType();
 
-            // If this class was created with a metaclass, return the metaclass
-            if (Metaclass != null)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   → Returning Metaclass: {Metaclass}");
-                #endif
-                return Metaclass;
-            }
-            // Otherwise, return the default type (which is 'type')
-            #if DEBUG_LOG
-            Console.WriteLine($"   → Returning base.GetPyType()");
-            #endif
-            var baseType = base.GetPyType();
-            #if DEBUG_LOG
-            Console.WriteLine($"   → base.GetPyType() returned: {baseType}");
-            #endif
-            return baseType;
-        }
 
         // Class objects use the iteration slots of their metaclass.
         protected internal override PyObject Iter()

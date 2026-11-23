@@ -27,6 +27,42 @@ namespace SharpPy
         internal static PyModule External { get; private set; }
 
         /// <summary>
+        /// PyImport_GetImporter and get_path_importer (Python/import.c): the path entry finder of
+        /// sys.path_importer_cache, else the first of sys.path_hooks that does not raise ImportError
+        /// (None when none takes it), cached under the path.
+        /// </summary>
+        internal static PyObject GetImporter(PyObject path)
+        {
+            var sys = Import("sys");
+            var cacheObject = sys.GetAttribute("path_importer_cache");
+            var hooksObject = sys.GetAttribute("path_hooks");
+            if (hooksObject is not PyList hooks)
+                throw PyRuntimeError.Create("sys.path_hooks is not a list");
+            if (cacheObject is not PyDict cache)
+                throw PyRuntimeError.Create("sys.path_importer_cache is not a dict");
+            if (cache.TryGetStoredValue(path, out var importer))
+                return importer;
+            // set path_importer_cache[p] to None to avoid recursion
+            cache.SetItemStorage(path, PyNone.Instance);
+            importer = null;
+            for (int j = 0; j < hooks.Length(); j++)
+            {
+                try
+                {
+                    importer = hooks.GetItem(PyInt.From(j)).Call(new[] { path }, null);
+                    break;
+                }
+                catch (PythonException error) when (error.PyException.GetPyType().IsSubclassOf(PyType.ImportErrorType))
+                {
+                }
+            }
+            if (importer == null)
+                return PyNone.Instance;
+            cache.SetItemStorage(path, importer);
+            return importer;
+        }
+
+        /// <summary>
         /// remove_importlib_frames (Python/import.c): the chunks of a failed import's traceback that
         /// are importlib's own frames go - all of them for an ImportError, else the chunks that end in
         /// _bootstrap._call_with_frames_removed.
