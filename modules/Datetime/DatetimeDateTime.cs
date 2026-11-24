@@ -817,7 +817,7 @@ namespace SharpPy.Modules.Datetime
             var basestate = DatetimeData(self);
             if (proto > 3 && self.Fold != 0)
                 basestate[2] |= 1 << 7;
-            var bytes = new PyBytes(basestate);
+            var bytes = PyBytes.From(basestate);
             if (!self.HasTzinfo || self.Tzinfo is PyNone)
                 return PyTuple.From(bytes);
             return PyTuple.From(bytes, self.Tzinfo);

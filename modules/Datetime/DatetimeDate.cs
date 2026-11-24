@@ -374,7 +374,7 @@ namespace SharpPy.Modules.Datetime
         private static PyObject DateWeekday(PyDateTimeDate self) => PyInt.From(Weekday(self.Year, self.Month, self.Day));
 
         // date_getstate
-        private static PyObject DateGetstate(PyDateTimeDate self) => PyTuple.From(new PyBytes(DateData(self)));
+        private static PyObject DateGetstate(PyDateTimeDate self) => PyTuple.From(PyBytes.From(DateData(self)));
 
         // date_reduce
         private static PyObject DateReduce(PyDateTimeDate self) => PyTuple.From(self.GetPyType(), DateGetstate(self));
