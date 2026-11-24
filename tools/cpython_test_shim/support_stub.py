@@ -593,6 +593,22 @@ hashlib_helper = _helper_module("hashlib_helper")
 bytecode_helper = _helper_module("bytecode_helper")
 
 
+def _hashlib_helper_getattr(attr):
+    """test.support.hashlib_helper is pure Python (requires_hashdigest over hashlib and _hashlib):
+    the real file runs in the module on first use, so nothing imports hashlib before a test does."""
+    names = hashlib_helper.__dict__
+    if "requires_hashdigest" not in names:
+        path = os.path.join(os.path.dirname(os.path.dirname(unittest.__file__)), "test", "support", "hashlib_helper.py")
+        with open(path, encoding="utf-8") as stream:
+            exec(compile(stream.read(), path, "exec"), names)
+        if attr in names:
+            return names[attr]
+    return _Stand_in("hashlib_helper." + attr)
+
+
+hashlib_helper.__getattr__ = _hashlib_helper_getattr
+
+
 def _take_from(file, *names):
     """Pure Python helpers come from the real file, so nothing of Lib/test is copied."""
     path = os.path.join(os.path.dirname(os.path.dirname(unittest.__file__)), "test", "support", file)

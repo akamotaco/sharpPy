@@ -491,7 +491,10 @@ namespace SharpPy
                 WeakOffset = addWeak ? -32 : parent.WeakOffset,
                 Gc = true,
                 Slots = slots,
-                NoInstances = false,
+                // type_ready_set_new: a class inherits tp_base's tp_new, NULL under a
+                // DISALLOW_INSTANTIATION base (class X(_hashlib.HASH): X() "cannot create 'X'
+                // instances"), until fixup_slot_dispatchers finds a __new__ of its own.
+                NoInstances = parent.NoInstances && !type.ClassDict.ContainsKey("__new__"),
             };
         }
 

@@ -98,6 +98,55 @@ namespace SharpPy.Modules
             0xdb,0x0c,0x2e,0x0d,0x64,0xf9,0x8f,0xa7,0x47,0xb5,0x48,0x1d,0xbe,0xfa,0x4f,0xa4
         };
 
+        // FIPS 180-4 5.3.6: the SHA-512/t initial values (libcrypto's sha512_224_init, sha512_256_init).
+        internal static readonly byte[] SHA512_224_IV = {
+            0x8c,0x3d,0x37,0xc8,0x19,0x54,0x4d,0xa2,0x73,0xe1,0x99,0x66,0x89,0xdc,0xd4,0xd6,
+            0x1d,0xfa,0xb7,0xae,0x32,0xff,0x9c,0x82,0x67,0x9d,0xd5,0x14,0x58,0x2f,0x9f,0xcf,
+            0x0f,0x6d,0x2b,0x69,0x7b,0xd4,0x4d,0xa8,0x77,0xe3,0x6f,0x73,0x04,0xc4,0x89,0x42,
+            0x3f,0x9d,0x85,0xa8,0x6a,0x1d,0x36,0xc8,0x11,0x12,0xe6,0xad,0x91,0xd6,0x92,0xa1
+        };
+
+        internal static readonly byte[] SHA512_256_IV = {
+            0x22,0x31,0x21,0x94,0xfc,0x2b,0xf7,0x2c,0x9f,0x55,0x5f,0xa3,0xc8,0x4c,0x64,0xc2,
+            0x23,0x93,0xb8,0x6b,0x6f,0x53,0xb1,0x51,0x96,0x38,0x77,0x19,0x59,0x40,0xea,0xbd,
+            0x96,0x28,0x3e,0xe2,0xa8,0x8e,0xff,0xe3,0xbe,0x5e,0x1e,0x25,0x53,0x86,0x39,0x92,
+            0x2b,0x01,0x99,0xfc,0x2c,0x85,0xb8,0xaa,0x0e,0xb7,0x2d,0xdc,0x81,0xc5,0x2c,0xa2
+        };
+
+        // RIPEMD-160 (libcrypto's crypto/ripemd): h0..h4, little-endian like MD5's.
+        internal static readonly byte[] RIPEMD160_IV = {
+            0x01,0x23,0x45,0x67,0x89,0xab,0xcd,0xef,0xfe,0xdc,0xba,0x98,0x76,0x54,0x32,0x10,0xf0,0xe1,0xd2,0xc3
+        };
+
+        // SM3 (GB/T 32905-2016, libcrypto's crypto/sm3): eight big-endian words.
+        internal static readonly byte[] SM3_IV = {
+            0x73,0x80,0x16,0x6f,0x49,0x14,0xb2,0xb9,0x17,0x24,0x42,0xd7,0xda,0x8a,0x06,0x00,
+            0xa9,0x6f,0x30,0xbc,0x16,0x31,0x38,0xaa,0xe3,0x8d,0xee,0x4d,0xb0,0xfb,0x0e,0x4e
+        };
+
+        private static readonly int[] RMD_RL = {
+            0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15, 7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,
+            3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12, 1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,
+            4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13
+        };
+        private static readonly int[] RMD_RR = {
+            5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12, 6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,
+            15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13, 8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,
+            12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11
+        };
+        private static readonly int[] RMD_SL = {
+            11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8, 7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,
+            11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5, 11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,
+            9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6
+        };
+        private static readonly int[] RMD_SR = {
+            8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6, 9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,
+            9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5, 15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,
+            8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11
+        };
+        private static readonly uint[] RMD_KL = { 0x00000000, 0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xA953FD4E };
+        private static readonly uint[] RMD_KR = { 0x50A28BE6, 0x5C4DD124, 0x6D703EF3, 0x7A6D76E9, 0x00000000 };
+
         #endregion
 
         #region Compression Functions
@@ -217,6 +266,70 @@ namespace SharpPy.Modules
             WriteU64BE(state, 16, c + h[2]); WriteU64BE(state, 24, d + h[3]);
             WriteU64BE(state, 32, e + h[4]); WriteU64BE(state, 40, f + h[5]);
             WriteU64BE(state, 48, g + h[6]); WriteU64BE(state, 56, hh + h[7]);
+        }
+
+        // RIPEMD-160's five boolean functions, by round (f1..f5 of the left line; the right uses them reversed).
+        private static uint RmdF(int round, uint x, uint y, uint z) => round switch
+        {
+            0 => x ^ y ^ z,
+            1 => (x & y) | (~x & z),
+            2 => (x | ~y) ^ z,
+            3 => (x & z) | (y & ~z),
+            _ => x ^ (y | ~z),
+        };
+
+        /// <summary>ripemd160_block_data_order: two parallel lines of 80 steps over a little-endian block.</summary>
+        internal static void RIPEMD160Compress(byte[] state, byte[] block) {
+            uint[] x = new uint[16];
+            for (int i = 0; i < 16; i++) x[i] = ReadU32LE(block, i * 4);
+            uint h0 = ReadU32LE(state, 0), h1 = ReadU32LE(state, 4), h2 = ReadU32LE(state, 8),
+                 h3 = ReadU32LE(state, 12), h4 = ReadU32LE(state, 16);
+            uint al = h0, bl = h1, cl = h2, dl = h3, el = h4;
+            uint ar = h0, br = h1, cr = h2, dr = h3, er = h4;
+            for (int j = 0; j < 80; j++) {
+                int round = j / 16;
+                uint t = RotateLeft(al + RmdF(round, bl, cl, dl) + x[RMD_RL[j]] + RMD_KL[round], RMD_SL[j]) + el;
+                al = el; el = dl; dl = RotateLeft(cl, 10); cl = bl; bl = t;
+                t = RotateLeft(ar + RmdF(4 - round, br, cr, dr) + x[RMD_RR[j]] + RMD_KR[round], RMD_SR[j]) + er;
+                ar = er; er = dr; dr = RotateLeft(cr, 10); cr = br; br = t;
+            }
+            uint tmp = h1 + cl + dr;
+            WriteU32LE(state, 4, h2 + dl + er);
+            WriteU32LE(state, 8, h3 + el + ar);
+            WriteU32LE(state, 12, h4 + al + br);
+            WriteU32LE(state, 16, h0 + bl + cr);
+            WriteU32LE(state, 0, tmp);
+        }
+
+        /// <summary>ossl_sm3_block_data_order: the SM3 message expansion and 64 rounds over big-endian words.</summary>
+        internal static void SM3Compress(byte[] state, byte[] block) {
+            uint[] w = new uint[68];
+            for (int i = 0; i < 16; i++) w[i] = ReadU32BE(block, i * 4);
+            for (int i = 16; i < 68; i++) {
+                uint v = w[i-16] ^ w[i-9] ^ RotateLeft(w[i-3], 15);
+                // P1(x) = x ^ (x <<< 15) ^ (x <<< 23)
+                w[i] = (v ^ RotateLeft(v, 15) ^ RotateLeft(v, 23)) ^ RotateLeft(w[i-13], 7) ^ w[i-6];
+            }
+            uint[] h = new uint[8];
+            for (int i = 0; i < 8; i++) h[i] = ReadU32BE(state, i * 4);
+            uint a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+            for (int j = 0; j < 64; j++) {
+                uint tj = j < 16 ? 0x79cc4519u : 0x7a879d8au;
+                uint ss1 = RotateLeft(RotateLeft(a, 12) + e + RotateLeft(tj, j % 32), 7);
+                uint ss2 = ss1 ^ RotateLeft(a, 12);
+                uint ff = j < 16 ? a ^ b ^ c : (a & b) | (a & c) | (b & c);
+                uint gg = j < 16 ? e ^ f ^ g : (e & f) | (~e & g);
+                uint tt1 = ff + d + ss2 + (w[j] ^ w[j + 4]);
+                uint tt2 = gg + hh + ss1 + w[j];
+                d = c; c = RotateLeft(b, 9); b = a; a = tt1;
+                hh = g; g = RotateLeft(f, 19); f = e;
+                // P0(x) = x ^ (x <<< 9) ^ (x <<< 17)
+                e = tt2 ^ RotateLeft(tt2, 9) ^ RotateLeft(tt2, 17);
+            }
+            WriteU32BE(state, 0, a ^ h[0]); WriteU32BE(state, 4, b ^ h[1]);
+            WriteU32BE(state, 8, c ^ h[2]); WriteU32BE(state, 12, d ^ h[3]);
+            WriteU32BE(state, 16, e ^ h[4]); WriteU32BE(state, 20, f ^ h[5]);
+            WriteU32BE(state, 24, g ^ h[6]); WriteU32BE(state, 28, hh ^ h[7]);
         }
 
         #endregion

@@ -534,6 +534,12 @@ namespace SharpPy
                     }
                     continue;
                 }
+                // Py_TPFLAGS_DISALLOW_INSTANTIATION: type_ready_set_new leaves tp_new NULL.
+                if (level.Layout.NoInstances)
+                {
+                    slot = false;
+                    return null;
+                }
                 if (level.TypeDict != null && level.TypeDict.TryGetValue("__new__", out var builtin))
                 {
                     slot = false;

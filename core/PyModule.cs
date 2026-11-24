@@ -393,6 +393,7 @@ public class PyModule : PyObject
             ["_sha2"] = () => SharpPy.Modules.HashModules.CreateSha2(),
             ["_sha3"] = () => SharpPy.Modules.HashModules.CreateSha3(),
             ["_blake2"] = () => SharpPy.Modules.HashModules.CreateBlake2(),
+            ["_hashlib"] = SharpPy.Modules.HashlibModule.Create,
             ["_struct"] = () => SharpPy.Modules._StructModule.CreateStructModule(),
             ["errno"] = () => SharpPy.Modules.ErrnoModule.CreateErrnoModule(),
             ["marshal"] = () => SharpPy.Modules.MarshalModule.CreateMarshalModule(),
