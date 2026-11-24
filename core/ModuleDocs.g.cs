@@ -36,6 +36,7 @@ namespace SharpPy
             ["_typing"] = "Accelerators for the typing module.\n",
             ["_warnings"] = "_warnings provides basic warning filtering support.\nIt is a helper module to speed up interpreter start-up.",
             ["_weakref"] = "Weak-reference support module.",
+            ["_zoneinfo"] = "C implementation of the zoneinfo module",
             ["array"] = "This module defines an object type which can efficiently represent\nan array of basic values: characters, integers, floating-point\nnumbers.  Arrays are sequence types and behave very much like lists,\nexcept that the type of objects stored in them is constrained.\n",
             ["atexit"] = "allow programmer to define multiple exit functions to be executed\nupon normal program termination.\n\nTwo public functions, register and unregister, are defined.\n",
             ["binascii"] = "Conversion between binary data and ASCII",

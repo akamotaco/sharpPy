@@ -152,6 +152,7 @@ namespace SharpPy
             ["ValueError"] = new TypeLayout(72, 0, 16, 0, true),
             ["Warning"] = new TypeLayout(72, 0, 16, 0, true),
             ["ZeroDivisionError"] = new TypeLayout(72, 0, 16, 0, true),
+            ["ZoneInfo"] = new TypeLayout(208, 0, 0, 32, true, Spec: true),
             ["_BufferedIOBase"] = new TypeLayout(32, 0, 16, 24, true, Spec: true),
             ["_BytesIOBuffer"] = new TypeLayout(24, 0, 0, 0, true, NoInstances: true, Final: true, Spec: true),
             ["_ExceptHookArgs"] = new TypeLayout(24, 8, 0, 0, true, Final: true, Spec: true),

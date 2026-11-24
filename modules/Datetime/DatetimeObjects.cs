@@ -132,6 +132,12 @@ namespace SharpPy.Modules.Datetime
                 SetCustomType(type);
         }
 
+        // A struct that starts with PyDateTime_TZInfo in another module (_zoneinfo's
+        // PyZoneInfo_ZoneInfo), whose type is that module's: it records its class itself.
+        protected PyDateTimeTZInfo()
+        {
+        }
+
         protected virtual PyType DefaultType => DatetimeModule.TZInfoType;
 
         public override PyType GetPyType() => _customType ?? DefaultType;

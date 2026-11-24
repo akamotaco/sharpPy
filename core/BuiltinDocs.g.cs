@@ -2551,6 +2551,20 @@ namespace SharpPy
             ["zip.__next__"] = "__next__($self, /)\n--\n\nImplement next(self).",
             ["zip.__reduce__"] = "Return state information for pickling.",
             ["zip.__setstate__"] = "Set state information for unpickling.",
+            ["zoneinfo.ZoneInfo.__getattribute__"] = "__getattribute__($self, name, /)\n--\n\nReturn getattr(self, name).",
+            ["zoneinfo.ZoneInfo.__init_subclass__"] = "Function to initialize subclasses.",
+            ["zoneinfo.ZoneInfo.__new__"] = "__new__($type, *args, **kwargs)\n--\n\nCreate and return a new object.  See help(type) for accurate signature.",
+            ["zoneinfo.ZoneInfo.__reduce__"] = "Function for serialization with the pickle protocol.",
+            ["zoneinfo.ZoneInfo.__repr__"] = "__repr__($self, /)\n--\n\nReturn repr(self).",
+            ["zoneinfo.ZoneInfo.__str__"] = "__str__($self, /)\n--\n\nReturn str(self).",
+            ["zoneinfo.ZoneInfo._unpickle"] = "_unpickle($type, key, from_cache, /)\n--\n\nPrivate method used in unpickling.",
+            ["zoneinfo.ZoneInfo.clear_cache"] = "clear_cache($type, /, *, only_keys=None)\n--\n\nClear the ZoneInfo cache.",
+            ["zoneinfo.ZoneInfo.dst"] = "dst($self, dt, /)\n--\n\nRetrieve a timedelta representing the amount of DST applied in a zone at the given datetime.",
+            ["zoneinfo.ZoneInfo.from_file"] = "from_file($type, file_obj, /, key=None)\n--\n\nCreate a ZoneInfo file from a file object.",
+            ["zoneinfo.ZoneInfo.fromutc"] = "Given a datetime with local time in UTC, retrieve an adjusted datetime in local time.",
+            ["zoneinfo.ZoneInfo.no_cache"] = "no_cache($type, /, key)\n--\n\nGet a new instance of ZoneInfo, bypassing the cache.",
+            ["zoneinfo.ZoneInfo.tzname"] = "tzname($self, dt, /)\n--\n\nRetrieve a string containing the abbreviation for the time zone that applies in a zone at a given datetime.",
+            ["zoneinfo.ZoneInfo.utcoffset"] = "utcoffset($self, dt, /)\n--\n\nRetrieve a timedelta representing the UTC offset in a zone at the given datetime.",
         };
     }
 }
