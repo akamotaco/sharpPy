@@ -312,8 +312,10 @@ public class PyModule : PyObject
 
         public static void SetModule(string name, PyModule module)
         {
-            // CPython 3.12: Python/import.c:630 - PyDict_SetItemString
-            SysModules.SetItem(PyString.From(name), module);
+            // CPython 3.12: Python/import.c:630 - PyDict_SetItemString. The interpreter's own
+            // registrations (_PyImport_FixupBuiltin, __main__) key by the interned name, so
+            // sys.modules' 'builtins' is the str type.__module__ answers.
+            SysModules.SetItem(PyString.InternFrom(name), module);
         }
 
         public static void RemoveModule(string name)
@@ -376,6 +378,8 @@ public class PyModule : PyObject
             ["zlib"] = () => SharpPy.Modules.ZlibModule.CreateZlibModule(),
             ["_csv"] = () => SharpPy.Modules._CsvModule.CreateCsvModule(),
             ["_json"] = () => SharpPy.Modules._JsonModule.Create(),
+            // Modules/_pickle.c (modules/Pickle).
+            ["_pickle"] = SharpPy.Modules.PickleModule.Create,
             ["array"] = () => SharpPy.Modules.ArrayModule.CreateArrayModule(),
             ["_md5"] = () => SharpPy.Modules.HashModules.CreateMd5(),
             ["_sha1"] = () => SharpPy.Modules.HashModules.CreateSha1(),

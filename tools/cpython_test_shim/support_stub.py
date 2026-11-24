@@ -605,7 +605,16 @@ def _take_from_support(*names):
 
 
 _take_from_support("busy_retry", "sleeping_retry", "catch_unraisable_exception", "catch_threading_exception",
-                   "run_code", "adjust_int_max_str_digits", "maybe_get_event_loop_policy")
+                   "run_code", "adjust_int_max_str_digits", "maybe_get_event_loop_policy", "run_with_locales")
+
+# import_helper.unload and forget, as CPython 3.12.15 has them, over the shim's os_helper.unlink.
+try:
+    import importlib.util
+except ImportError:
+    pass
+unlink = _unlink
+_take_from("import_helper.py", "unload", "forget")
+import_helper.__dict__.update(unload=unload, forget=forget)
 
 
 def load_package_tests(pkg_dir, loader, standard_tests, pattern):

@@ -57,7 +57,7 @@ def main():
     import importlib
     modules = ("array", "_io", "_collections", "itertools", "_functools", "_struct", "_thread", "_sre", "_csv",
                "_weakref", "_contextvars", "_operator", "_queue", "weakref", "_random", "_bisect", "_heapq", "_typing",
-               "_datetime")
+               "_datetime", "_pickle")
     module_lines = []
     seen = set()
     for modname in modules:
@@ -65,7 +65,12 @@ def main():
             module = importlib.import_module(modname)
         except ImportError:
             continue
-        for value in vars(module).values():
+        # _pickle's memo proxies are reached through a Pickler and an Unpickler, not the module.
+        extra = ()
+        if modname == "_pickle":
+            import io
+            extra = (type(module.Pickler(io.BytesIO()).memo), type(module.Unpickler(io.BytesIO()).memo))
+        for value in (*vars(module).values(), *extra):
             if not isinstance(value, type) or value in seen or value.__module__ == 'builtins' or issubclass(value, BaseException):
                 continue
             # A class written in Python has functions in its dict; a C type made from a spec does not.

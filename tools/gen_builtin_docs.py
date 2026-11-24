@@ -94,7 +94,10 @@ def collect():
                 entries.setdefault(f"{key}.{member}", raw)
     # _sre's static types, which re names (Pattern, Match) or does not (the scanner).
     import re
-    for obj in (re.Pattern, re.Match, type(re.compile("").scanner(""))):
+    # and _pickle's memo proxies, which only Pickler.memo and Unpickler.memo answer.
+    import _pickle, io
+    memo_proxies = (type(_pickle.Pickler(io.BytesIO()).memo), type(_pickle.Unpickler(io.BytesIO()).memo))
+    for obj in (re.Pattern, re.Match, type(re.compile("").scanner("")), *memo_proxies):
         key = f"{obj.__module__}.{obj.__name__}"
         raw = internal(obj.__name__, obj)
         if raw is not None:
@@ -106,10 +109,10 @@ def collect():
             if raw is not None:
                 entries[f"{key}.{member}"] = raw
     # Native modules: "<module>.<name>" for what they hold; their m_doc is tools/gen_module_docs.py's.
-    import _bisect, _collections, _datetime, _functools, _heapq, _io, _operator, _random, _stat, _struct, _thread, _typing, array, itertools, math, nt, sys, time
+    import _bisect, _collections, _datetime, _functools, _heapq, _io, _operator, _pickle, _random, _stat, _struct, _thread, _typing, array, itertools, math, nt, sys, time
     # A static type a module readies without naming it: _datetime's IsoCalendarDate.
     unnamed = {"IsoCalendarDate": type(_datetime.date(2000, 1, 1).isocalendar())}
-    for module in (_bisect, _collections, _datetime, _functools, _heapq, _io, _operator, _random, _stat, _struct, _thread, _typing, array, itertools, math, nt, sys, time):
+    for module in (_bisect, _collections, _datetime, _functools, _heapq, _io, _operator, _pickle, _random, _stat, _struct, _thread, _typing, array, itertools, math, nt, sys, time):
         for name, obj in list(vars(module).items()) + (list(unnamed.items()) if module is _datetime else []):
             if isinstance(obj, type):
                 # A type of the module: "<__module__>.<name>" and its members under that.

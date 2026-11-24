@@ -234,10 +234,12 @@ def module_sample(t):
         itertools.chain: lambda: itertools.chain([1]), itertools.repeat: lambda: itertools.repeat(1),
         itertools.islice: lambda: itertools.islice([1], 1), itertools.cycle: lambda: itertools.cycle([1]),
     }
-    import _thread, functools, operator
+    import _thread, functools, operator, _pickle
     io_samples.update({
         _thread.LockType: _thread.allocate_lock, _thread.RLock: _thread.RLock,
         functools.partial: lambda: functools.partial(int),
+        _pickle.Pickler: lambda: _pickle.Pickler(_io.BytesIO()), _pickle.Unpickler: lambda: _pickle.Unpickler(_io.BytesIO()),
+        _pickle.PickleBuffer: lambda: _pickle.PickleBuffer(b"ab"),
         operator.itemgetter: lambda: operator.itemgetter(1), operator.attrgetter: lambda: operator.attrgetter("a"),
         operator.methodcaller: lambda: operator.methodcaller("a"),
         type((lambda: 0).__code__): lambda: (lambda: 0).__code__,
@@ -279,7 +281,7 @@ FUNCTION_MODULES = {
             "set_asyncgen_hooks"},
     "_codecs": set(), "_io": set(), "_sre": set(), "_string": set(), "_struct": set(), "_weakref": set(),
     "_csv": set(), "_contextvars": set(), "_opcode": set(), "array": set(), "binascii": set(), "_typing": set(),
-    "marshal": set(), "unicodedata": set(), "zlib": set(),
+    "marshal": set(), "unicodedata": set(), "zlib": set(), "_pickle": set(),
     "_signal": {"raise_signal", "default_int_handler", "signal", "set_wakeup_fd"},
     "_thread": {"interrupt_main", "start_new_thread", "start_new", "exit", "exit_thread", "_exit"},
     "atexit": {"_run_exitfuncs", "_clear", "register", "unregister"},
@@ -294,7 +296,7 @@ FUNCTION_MODULES = {
 
 # The C modules whose types SharpPy has, and the types module's types that builtins does not name.
 MODULES = ("_io", "re", "array", "_thread", "operator", "itertools", "collections", "functools", "_struct", "types", "_typing",
-           "_datetime")
+           "_datetime", "_pickle")
 
 
 def scanner_type():
