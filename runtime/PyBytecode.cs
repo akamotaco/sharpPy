@@ -441,6 +441,7 @@ namespace SharpPy
             CoQualName = qualName;
             Instructions = instructions;
             Constants = constants != null ? new List<PyObject>(constants) : new List<PyObject>();
+            InternStringConstants(Constants);
             Names = InternStrings(names);
             LocalsPlusNames = InternStrings(localsPlusNames);
             LocalsPlusKinds = localsPlusKinds;
@@ -455,6 +456,54 @@ namespace SharpPy
             NLocals = nlocals;
             NCellVars = ncellvars;
             NFreeVars = nfreevars;
+        }
+
+        // all_name_chars (Objects/codeobject.c): ASCII letters, digits and '_' only.
+        private static bool AllNameChars(PyString text)
+        {
+            foreach (char c in text.Value)
+            {
+                if (c >= 128 || !(char.IsAsciiLetterOrDigit(c) || c == '_'))
+                    return false;
+            }
+            return true;
+        }
+
+        // intern_string_constants (Objects/codeobject.c): every exact str of name characters in
+        // co_consts, in nested tuples and in frozensets, becomes the interned object.
+        private static bool InternStringConstants(IList<PyObject> tuple)
+        {
+            bool modified = false;
+            for (int i = tuple.Count; --i >= 0;)
+            {
+                var v = tuple[i];
+                if (v is PyString text && text.IsExactly(PyType.StrType))
+                {
+                    if (AllNameChars(text))
+                    {
+                        var interned = PyString.Intern(text);
+                        if (!ReferenceEquals(interned, text))
+                        {
+                            tuple[i] = interned;
+                            modified = true;
+                        }
+                    }
+                }
+                else if (v is PyTuple nested && nested.IsExactly(PyType.TupleType))
+                {
+                    InternStringConstants(nested.Items);
+                }
+                else if (v is PyFrozenSet frozen && frozen.IsExactly(PyType.FrozenSetType))
+                {
+                    var items = new List<PyObject>(frozen.Items);
+                    if (InternStringConstants(items))
+                    {
+                        tuple[i] = new PyFrozenSet(items);
+                        modified = true;
+                    }
+                }
+            }
+            return modified;
         }
 
         // intern_strings (Objects/codeobject.c)
