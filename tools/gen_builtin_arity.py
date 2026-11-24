@@ -249,6 +249,13 @@ def module_sample(t):
         BaseExceptionGroup: lambda: BaseExceptionGroup("m", [ValueError()]),
         ExceptionGroup: lambda: ExceptionGroup("m", [ValueError()]),
     })
+    import _datetime
+    io_samples.update({
+        _datetime.date: lambda: _datetime.date(2000, 1, 2), _datetime.datetime: lambda: _datetime.datetime(2000, 1, 2),
+        _datetime.time: lambda: _datetime.time(1, 2), _datetime.timedelta: lambda: _datetime.timedelta(1),
+        _datetime.timezone: lambda: _datetime.timezone.utc,
+        type(_datetime.date(2000, 1, 2).isocalendar()): lambda: _datetime.date(2000, 1, 2).isocalendar(),
+    })
     io_samples.update(unnamed_samples())
     make = io_samples.get(t)
     try:
@@ -286,7 +293,8 @@ FUNCTION_MODULES = {
 }
 
 # The C modules whose types SharpPy has, and the types module's types that builtins does not name.
-MODULES = ("_io", "re", "array", "_thread", "operator", "itertools", "collections", "functools", "_struct", "types", "_typing")
+MODULES = ("_io", "re", "array", "_thread", "operator", "itertools", "collections", "functools", "_struct", "types", "_typing",
+           "_datetime")
 
 
 def scanner_type():

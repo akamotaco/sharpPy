@@ -2199,20 +2199,21 @@ namespace SharpPy
 
                     // For built-in/native types SharpPy stores the module in the
                     // Module field (CPython encodes it in tp_name as "module.Name").
+                    // _PyUnicode_InternMortal: the same str object each time.
                     if (!string.IsNullOrEmpty(type.Module))
-                        return PyString.From(type.Module);
+                        return PyString.InternFrom(type.Module);
 
                     // For built-in types: check if tp_name contains '.'
                     // CPython: const char *s = strrchr(type->tp_name, '.');
                     var dotIndex = type.Name.LastIndexOf('.');
                     if (dotIndex >= 0)
                     {
-                        return PyString.From(type.Name.Substring(0, dotIndex));
+                        return PyString.InternFrom(type.Name.Substring(0, dotIndex));
                     }
 
                     // Default: "builtins" for built-in types
                     // CPython: mod = Py_NewRef(&_Py_ID(builtins));
-                    return PyString.From("builtins");
+                    return PyString.InternFrom("builtins");
                 },
                 setter: (self, value) => {
                     var type = (PyType)self;

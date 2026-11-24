@@ -343,6 +343,7 @@ public class PyModule : PyObject
             ["_testcapi"] = () => SharpPy.Modules._TestCapiModule.Create(),
             ["_heapq"] = () => SharpPy.Modules._HeapqModule.Create(),
             ["_stat"] = SharpPy.Modules.StatModule.Create,
+            ["_datetime"] = SharpPy.Modules.Datetime.DatetimeModule.Create,
             ["_symtable"] = SharpPy.Modules.SymtableModule.Create,
             ["_uuid"] = SharpPy.Modules.UuidModule.Create,
             ["_bisect"] = () => SharpPy.Modules._BisectModule.Create(),

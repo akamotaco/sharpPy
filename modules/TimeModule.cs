@@ -108,7 +108,7 @@ namespace SharpPy
         }
 
         // _PyTime_gmtime
-        private static CTm GmTimeOf(long when)
+        internal static CTm GmTimeOf(long when)
         {
             int error = CTimeRuntime.GmTime(when, out var tm);
             if (error != 0)
@@ -117,7 +117,7 @@ namespace SharpPy
         }
 
         // _PyTime_localtime
-        private static CTm LocalTimeOf(long when)
+        internal static CTm LocalTimeOf(long when)
         {
             int error = CTimeRuntime.LocalTime(when, out var tm);
             if (error != 0)

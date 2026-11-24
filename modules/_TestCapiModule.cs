@@ -9,7 +9,7 @@ namespace SharpPy.Modules
     /// conversions (Modules/_testcapi/pytime.c) and PySequence_GetItem and friends
     /// (Modules/_testcapi/abstract.c). A test that needs anything else finds it missing.
     /// </summary>
-    internal static class _TestCapiModule
+    internal static partial class _TestCapiModule
     {
         private static readonly bool Windows = OperatingSystem.IsWindows();
 
@@ -194,6 +194,8 @@ namespace SharpPy.Modules
                     kwargs.SetItem(kwnames.Items[i], stack[nargs + i]);
                 return args[0].Call(stack[..nargs], kwargs);
             });
+            // Modules/_testcapi/datetime.c
+            InitDateTime(d);
             return module;
         }
 
