@@ -31,7 +31,7 @@ namespace SharpPy.Modules
             module.ModuleDict["CODESIZE"] = PyInt.From(4);
             // Modules/_sre/sre.c:38 copyright and _sre_getcodesize_impl
             module.ModuleDict["copyright"] = PyString.From(" SRE 2.2.2 Copyright (c) 1997-2002 by Secret Labs AB ");
-            module.ModuleDict["getcodesize"] = PyArgs.FastCall("_sre", "getcodesize", 0, 0, args => PyInt.From(4));
+            module.ModuleDict["getcodesize"] = PyArgs.NoArgsFunction("_sre", "getcodesize", () => PyInt.From(4));
             module.ModuleDict["MAXREPEAT"] = PyInt.From(4294967295);
             module.ModuleDict["MAXGROUPS"] = PyInt.From(1073741823);
             module.ModuleDict["compile"] = new PyBuiltinFunction("compile", Compile);

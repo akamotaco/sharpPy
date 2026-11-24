@@ -344,6 +344,7 @@ public class PyModule : PyObject
             ["_heapq"] = () => SharpPy.Modules._HeapqModule.Create(),
             ["_stat"] = SharpPy.Modules.StatModule.Create,
             ["_symtable"] = SharpPy.Modules.SymtableModule.Create,
+            ["_uuid"] = SharpPy.Modules.UuidModule.Create,
             ["_bisect"] = () => SharpPy.Modules._BisectModule.Create(),
             ["_statistics"] = () => SharpPy.Modules.StatisticsModule.Create(),
             ["_multibytecodec"] = SharpPy.Modules.Cjk.MultibyteCodecModule.Create,

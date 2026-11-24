@@ -144,6 +144,14 @@ internal static class PyArgs
             DeclaredConvention = new PyArity.Convention(PyCall.One, 1, 1),
         };
 
+    /// <summary>A METH_NOARGS function of a module: cfunction_vectorcall_NOARGS's check.</summary>
+    internal static PyBuiltinFunction NoArgsFunction(string module, string name, Func<PyObject> body) =>
+        new(name, (args, kwargs) => body())
+        {
+            OwnerModule = module,
+            DeclaredConvention = new PyArity.Convention(PyCall.NoArgs, 0, 0),
+        };
+
     /// <summary>
     /// A positional METH_FASTCALL function of a module: cfunction_vectorcall_FASTCALL refuses
     /// keywords, then the clinic's _PyArg_CheckPositional(name, nargs, min, max) - declared, and
