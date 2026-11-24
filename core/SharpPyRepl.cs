@@ -57,12 +57,6 @@ namespace SharpPy.Core
                         continue;
                     }
 
-                    if (IsHelpCommand(input))
-                    {
-                        ShowHelp();
-                        continue;
-                    }
-
                     ProcessInput(input);
                 }
                 // CPython 3.12: Catch OperationCanceledException from Console.ReadLine() during Ctrl+C
@@ -186,40 +180,6 @@ namespace SharpPy.Core
             }
 
             return input ?? "";
-        }
-
-        private bool IsHelpCommand(string input)
-        {
-            string trimmed = input.Trim().TrimEnd('(', ')');
-            return trimmed == "help" || trimmed == "copyright" || 
-                   trimmed == "credits" || trimmed == "license";
-        }
-
-        private void ShowHelp()
-        {
-            Console.WriteLine();
-            Console.WriteLine("🐍 SharpPy Help");
-            Console.WriteLine("===============");
-            Console.WriteLine("SharpPy는 C#으로 구현된 Python 3.12 호환 인터프리터입니다.");
-            Console.WriteLine();
-            Console.WriteLine("지원하는 기능:");
-            Console.WriteLine("• 기본 Python 문법 (변수, 함수, 클래스, 제어문)");
-            Console.WriteLine("• Python 3.12 PEP 기능 (Enhanced F-strings, Type Parameters 등)");
-            Console.WriteLine("• 표준 라이브러리 (math, json, datetime, re 등)");
-            Console.WriteLine("• 고급 기능 (클로저, 제너레이터, 데코레이터)");
-            Console.WriteLine();
-            Console.WriteLine("명령어:");
-            Console.WriteLine("• exit() 또는 quit() - REPL 종료");
-            Console.WriteLine("• help - 이 도움말 표시");
-            Console.WriteLine("• Ctrl+C - 현재 입력 중단");
-            Console.WriteLine();
-            Console.WriteLine("예제:");
-            Console.WriteLine(">>> 2 + 3");
-            Console.WriteLine("5");
-            Console.WriteLine(">>> name = \"World\"");
-            Console.WriteLine(">>> f\"Hello {name}!\"");
-            Console.WriteLine("'Hello World!'");
-            Console.WriteLine();
         }
 
         private void ProcessInput(string input)

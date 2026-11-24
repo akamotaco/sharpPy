@@ -4759,7 +4759,6 @@ namespace SharpPy
         private PyObject StopIterationError(PyObject exc)
         {
             // CPython: assert(PyExceptionInstance_Check(exc))
-            exc = exc;
             if (exc is not PyBaseException exception)
             {
                 throw new InvalidOperationException("INTRINSIC_STOPITERATION_ERROR requires an exception instance");
@@ -4771,8 +4770,8 @@ namespace SharpPy
                 throw new InvalidOperationException("No current frame during INTRINSIC_STOPITERATION_ERROR");
             }
 
-            // CPython: Check frame owner is FRAME_OWNED_BY_GENERATOR
-            // For now, we'll check if the code object has generator flags
+            // Python/ceval.c stopiteration_error: the frame is FRAME_OWNED_BY_GENERATOR and the
+            // message is chosen from frame->f_code->co_flags.
             var codeObject = currentFrame.Code;
             string? msg = null;
 

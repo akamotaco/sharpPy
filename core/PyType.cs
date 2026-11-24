@@ -2042,7 +2042,7 @@ namespace SharpPy
             );
 
             // type.__qualname__ - CPython type_qualname (Objects/typeobject.c:1002)
-            // For now, same as __name__ for built-in types
+            // A static type has no ht_qualname, so it answers _PyType_Name(type).
             TypeDict["__qualname__"] = new PyGetSetDescriptor(
                 "__qualname__",
                 typeType,

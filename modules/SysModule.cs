@@ -449,7 +449,9 @@ namespace SharpPy.Modules
                 values[i] = PyInt.From(fields[i] switch
                 {
                     "dont_write_bytecode" => string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PYTHONDONTWRITEBYTECODE")) ? 0 : 1,
-                    "no_site" or "hash_randomization" => 1,
+                    "no_site" => SharpPyConfig.SiteImport ? 0 : 1,
+                    "no_user_site" => SharpPyConfig.UserSiteDirectory ? 0 : 1,
+                    "hash_randomization" => 1,
                     "int_max_str_digits" => 4300,
                     _ => 0,
                 });

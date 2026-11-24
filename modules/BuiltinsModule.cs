@@ -65,9 +65,8 @@ namespace SharpPy.Modules
             module.ModuleDict["NotImplemented"] = PyNotImplemented.Instance;
             module.ModuleDict["Ellipsis"] = PyEllipsis.Instance;
 
-            // CPython 3.12: exit and quit objects (Lib/_sitebuiltins.py:21-42)
-            module.ModuleDict["exit"] = new PyQuitter("exit");
-            module.ModuleDict["quit"] = new PyQuitter("quit");
+            // exit, quit, help, copyright, credits and license are not builtins: site.main() adds
+            // them (setquit, setcopyright, sethelper) from Lib/_sitebuiltins.py.
 
             // Exception types (most important for enum module)
             module.ModuleDict["BaseException"] = PyType.BaseExceptionType;
@@ -226,7 +225,6 @@ namespace SharpPy.Modules
             module.ModuleDict["vars"] = new PyBuiltinFunction("vars", Vars);
             module.ModuleDict["format"] = new PyBuiltinFunction("format", Format);
             module.ModuleDict["memoryview"] = BuiltinCallableType(PyType.MemoryViewType, new PyBuiltinFunction("memoryview", MemoryView));
-            module.ModuleDict["help"] = new PyBuiltinFunction("help");
             module.ModuleDict["breakpoint"] = new PyBuiltinFunction("breakpoint");
 
             // CPython 3.12: __build_class__ is a builtin function for class creation

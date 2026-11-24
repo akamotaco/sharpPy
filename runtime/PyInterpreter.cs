@@ -77,11 +77,32 @@ namespace SharpPy
                         PyErrorDisplay.Display(error.PyException, error.PyException.__traceback__);
                     }
                 }
+                // init_interp_main: if (config->site_import) init_import_site().
+                if (SharpPyConfig.SiteImport)
+                    InitImportSite();
             }
 
             SetupBuiltinHelpers();
         }
         
+        // init_import_site: a failed import is a fatal init error; Py_ExitStatusException reports it
+        // after the exception (_PyErr_Print) and exits 1.
+        private static void InitImportSite()
+        {
+            try
+            {
+                PyImportSystem.Import("site");
+            }
+            catch (PythonException error)
+            {
+                PyErrorDisplay.Display(error.PyException, error.PyException.__traceback__);
+                Console.Error.WriteLine("Fatal Python error: init_import_site: Failed to import the site module");
+                Console.Error.WriteLine("Python runtime state: initialized");
+                Console.Error.Flush();
+                Environment.Exit(1);
+            }
+        }
+
         // 기존 시스템과 연동을 위한 도우미 함수들 추가
         private void SetupBuiltinHelpers()
         {

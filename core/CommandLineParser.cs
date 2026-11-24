@@ -120,6 +120,15 @@ namespace SharpPy.Core
                         }
                         break;
 
+                    // config_parse_cmdline: -S clears site_import, -s user_site_directory.
+                    case "-S":
+                        SharpPyConfig.SiteImport = false;
+                        break;
+
+                    case "-s":
+                        SharpPyConfig.NoUserSiteOption = true;
+                        break;
+
                     case "help":
                     case "--help":
                     case "-h":

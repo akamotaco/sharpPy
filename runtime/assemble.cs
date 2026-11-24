@@ -113,38 +113,11 @@ namespace SharpPy
         /// </summary>
         internal static int CountInstructionWords(ByteCodeInstruction instr)
         {
-            int baseWords;
-
-            // Instructions without arguments always take 1 word
-            if (!HasArgument(instr.OpCode))
-            {
-                baseWords = 1;
-            }
-            else
-            {
-                int arg = instr.Argument;
-
-                // Count how many words needed for EXTENDED_ARG + instruction
-                // CPython 3.12: Each instruction word can hold 8 bits of argument
-                // arg <= 255: 1 word
-                // arg <= 65535: 2 words (1 EXTENDED_ARG + 1 instruction)
-                // arg <= 16777215: 3 words (2 EXTENDED_ARG + 1 instruction)
-                // etc.
-                if (arg <= 0xFF)
-                    baseWords = 1;
-                else if (arg <= 0xFFFF)
-                    baseWords = 2;
-                else if (arg <= 0xFFFFFF)
-                    baseWords = 3;
-                else
-                    baseWords = 4;
-            }
-
-            // CPython 3.12: Add inline cache size
-            // Inline cache entries come AFTER the instruction
-            int cacheSize = GetInlineCacheSize(instr.OpCode);
-
-            return baseWords + cacheSize;
+            // Python/assemble.c instr_size: assert(HAS_ARG(opcode) || oparg == 0), so the
+            // EXTENDED_ARG count comes from oparg alone.
+            int oparg = instr.Argument;
+            int extendedArgs = (0xFFFFFF < oparg ? 1 : 0) + (0xFFFF < oparg ? 1 : 0) + (0xFF < oparg ? 1 : 0);
+            return extendedArgs + 1 + GetInlineCacheSize(instr.OpCode);
         }
 
         /// <summary>
@@ -376,7 +349,7 @@ namespace SharpPy
                 foreach (var instr in block.Instructions)
                 {
                     // Add EXTENDED_ARG if needed (arguments > 255)
-                    if (HasArgument(instr.OpCode) && instr.Argument > 0xFF)
+                    if (instr.Argument > 0xFF)
                     {
                         EmitWithExtendedArg(result, instr);
                         // Count EXTENDED_ARG size
@@ -700,29 +673,6 @@ namespace SharpPy
                    op == ByteCodeOp.POP_JUMP_IF_NOT_NONE ||
                    op == ByteCodeOp.FOR_ITER ||
                    op == ByteCodeOp.SEND;  // CPython 3.12: SEND is conditional jump
-        }
-
-        private static bool HasArgument(ByteCodeOp op)
-        {
-            // CPython 3.12: Instructions < HAVE_ARGUMENT (90) don't have arguments
-            // Most instructions with opcode >= 90 have arguments
-            // Exceptions: Some instructions < 90 have no arguments (POP_TOP, NOP, RETURN_VALUE, etc.)
-            int opcode = (int)op;
-
-            // Simple heuristic: opcodes >= 90 generally have arguments
-            // For exact behavior, we should use a HAS_ARG lookup table from opcode.h
-            // But for now, this works for most cases
-            if (opcode >= 90)
-                return true;
-
-            // Some low-numbered opcodes that DO have arguments
-            // (Based on CPython's opcode.py: dis.hasarg)
-            return op == ByteCodeOp.STORE_SUBSCR ||
-                   op == ByteCodeOp.DELETE_SUBSCR ||
-                   op == ByteCodeOp.BUILD_TUPLE ||
-                   op == ByteCodeOp.BUILD_LIST ||
-                   op == ByteCodeOp.BUILD_SET ||
-                   op == ByteCodeOp.BUILD_MAP;
         }
     }
 

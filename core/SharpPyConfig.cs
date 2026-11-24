@@ -55,6 +55,24 @@ namespace SharpPy
         public static bool? Utf8ModeSetting { get; set; }
 #endif
 
+        /// <summary>
+        /// PyConfig.site_import: off with -S. The Godot build is an embedder that leaves it off, as
+        /// site.main() runs os.path.abspath over sys.path and module paths, which res:// is not.
+        /// </summary>
+#if GODOT
+        public static bool SiteImport { get; set; } = false;
+#else
+        public static bool SiteImport { get; set; } = true;
+#endif
+
+        /// <summary>
+        /// PyConfig.user_site_directory: off with -s or a non-empty PYTHONNOUSERSITE.
+        /// </summary>
+        public static bool NoUserSiteOption { get; set; }
+
+        public static bool UserSiteDirectory =>
+            !NoUserSiteOption && string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("PYTHONNOUSERSITE"));
+
         private static bool? _utf8Mode;
 
         /// <summary>

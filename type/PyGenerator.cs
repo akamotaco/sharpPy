@@ -438,10 +438,11 @@ namespace SharpPy
 
         internal PyObject GetYieldFromReceiver() => YieldFromReceiver(_frame, _started, _finished);
 
-        // _PyGen_yf
+        // _PyGen_yf: any state before FRAME_CLEARED but FRAME_CREATED, so gen_close's nested close
+        // (the frame marked executing around gen_close_iter) still finds the delegate.
         internal static PyObject YieldFromReceiver(PyFrame frame, bool started, bool finished)
         {
-            if (!started || finished || frame.State != PyFrame.FrameState.Suspended) return null;
+            if (!started || finished) return null;
             int resumeIndex = frame.InstructionPointer + 1;
             return resumeIndex < frame.Code.Instructions.Count &&
                 frame.Code.Instructions[resumeIndex].OpCode == ByteCodeOp.RESUME &&
@@ -489,8 +490,8 @@ namespace SharpPy
         /// </summary>
         public PyNone Close()
         {
-            if (_frame.State == PyFrame.FrameState.Executing)
-                throw PyValueError.Create($"{KindWord} already executing");
+            // gen_close: FRAME_CREATED and FRAME_COMPLETED return at once; the delegate is closed
+            // next, and only then gen_send_ex refuses a frame that is executing.
             if (_finished || !_started)
             {
                 MarkFinished();
@@ -498,6 +499,8 @@ namespace SharpPy
             }
 
             var closeError = CloseReceiver(GetYieldFromReceiver());
+            if (_frame.State == PyFrame.FrameState.Executing)
+                throw PyValueError.Create($"{KindWord} already executing");
 
             // gen_close injects an argumentless GeneratorExit directly. It does
             // not use the public throw() argument normalization path.
