@@ -120,7 +120,7 @@ namespace SharpPy.Core
             return new Awaitable(this, null, null, true);
         }
 
-        private sealed class Awaitable : PyIterator
+        private sealed class Awaitable : PyIterator, ISetsStopIteration
         {
             private static readonly PyType SendType = MakeType("async_generator_asend");
             private static readonly PyType ThrowType = MakeType("async_generator_athrow");
@@ -400,7 +400,7 @@ namespace SharpPy.Core
     }
 
     /// <summary>anextawaitable (Objects/iterobject.c): what anext(it, default) gives.</summary>
-    internal sealed class PyAnextAwaitable : PyIterator
+    internal sealed class PyAnextAwaitable : PyIterator, ISetsStopIteration
     {
         private static readonly PyType Type = MakeType();
         private readonly PyObject _wrapped, _default;

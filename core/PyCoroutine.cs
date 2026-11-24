@@ -167,7 +167,7 @@ namespace SharpPy.Core
     /// <summary>
     /// Coroutine의 __await__ 메서드가 반환하는 Awaiter
     /// </summary>
-    public class PyCoroutineAwaiter : PyIterator
+    public class PyCoroutineAwaiter : PyIterator, ISetsStopIteration
     {
         private static readonly PyType WrapperType = new PyType("coroutine_wrapper", new[] { PyType.ObjectType });
 

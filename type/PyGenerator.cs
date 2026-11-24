@@ -176,6 +176,8 @@ namespace SharpPy
                 {
                     _frame.PendingException = new PythonException(new PyRuntimeError(exceptionToThrow.Message));
                 }
+                // gen_send_ex(gen, Py_None, exc=1): the frame runs with throwflag (PY_THROW).
+                _frame.ThrowFlag = true;
                 // Fall through to execute the frame - VM will pick up the pending exception
             }
 

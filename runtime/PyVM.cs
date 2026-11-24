@@ -17,11 +17,22 @@ namespace SharpPy
         // _PyInterpreterFrame.prev_instr: the instruction being run, in code units
         public int LastInstruction;
 
-        /// <summary>f_trace, and what the line event decides from.</summary>
+        /// <summary>f_trace, f_trace_lines and f_trace_opcodes (PyFrameObject).</summary>
         internal PyObject Trace;
         internal bool TraceLines = true;
-        internal int TraceLine = -1;
-        internal int TraceLastInstruction;
+        internal bool TraceOpcodes;
+
+        /// <summary>
+        /// PyFrameObject.f_lineno: the line a legacy 'line' event is about while the trace function
+        /// runs (trace_line); 0 is none, and PyFrame_GetLineNumber then reads the instruction's.
+        /// </summary>
+        internal int FLineno;
+
+        /// <summary>f_fast_as_locals: f_locals was read, so a trace function's changes to it go back to the fast locals.</summary>
+        internal bool FastAsLocals;
+
+        /// <summary>The PendingException is a gen_send_ex throw (throwflag): PY_THROW comes before it is raised.</summary>
+        internal bool ThrowFlag;
 
         public int InstructionPointer { get; set; }
 
@@ -110,7 +121,7 @@ namespace SharpPy
         internal bool HasRun;
         // An error an inlined callee left: the caller raises it with its lasti on the CALL's caches.
         internal bool UnwindingFromCall;
-        public int CurrentLineNumber => HasRun ? LineAt(Code, LastInstruction) : Code.GetFirstLineNo();
+        public int CurrentLineNumber => FLineno != 0 ? FLineno : HasRun ? LineAt(Code, LastInstruction) : Code.GetFirstLineNo();
 
         internal static int LineAt(PyCodeObject code, int instruction) =>
             instruction >= 0 && instruction < code.Instructions.Count ? code.Instructions[instruction].LineNumber : -1;
@@ -476,8 +487,8 @@ namespace SharpPy
                 // frame_getlineno: PyFrame_GetLineNumber, None when the instruction has no line
                 "f_lineno" => CurrentLineNumber is int line && line >= 0 ? PyInt.From(line) : PyNone.Instance,
 
-                // f_locals: local namespace dictionary
-                "f_locals" => BuildLocalsDict(),
+                // frame_getlocals: f_fast_as_locals is set once the locals were read.
+                "f_locals" => ReadLocals(),
 
                 // f_globals: global namespace dictionary
                 "f_globals" => Globals.Dict,
@@ -491,13 +502,81 @@ namespace SharpPy
                 // f_lasti: instruction index (for traceback)
                 "f_lasti" => PyInt.From(LastInstruction * 2),
 
-                // CPython 3.12: f_trace, f_trace_lines, f_trace_opcodes (not implemented yet)
+                // frame_gettrace, f_trace_lines (frame_memberlist), frame_gettrace_opcodes
                 "f_trace" => Trace ?? PyNone.Instance,
                 "f_trace_lines" => PyBool.FromBool(TraceLines),
-                "f_trace_opcodes" => PyBool.False,  // Default to False
+                "f_trace_opcodes" => PyBool.FromBool(TraceOpcodes),
 
                 _ => GenericGetAttribute(PyString.From(name))
             };
+        }
+
+        private PyObject ReadLocals()
+        {
+            var locals = BuildLocalsDict();
+            FastAsLocals = true;
+            return locals;
+        }
+
+        /// <summary>
+        /// PyFrame_LocalsToFast and _PyFrame_LocalsToFast (Objects/frameobject.c): after a trace
+        /// function, what it left in f_locals goes back to the fast locals and cells; with clear, a
+        /// name it removed unbinds nothing but becomes None, with a RuntimeWarning.
+        /// </summary>
+        internal void LocalsToFast(bool clear)
+        {
+            if (!FastAsLocals || State == FrameState.Completed && OwnerGenerator != null)
+                return;
+            FastAsLocals = false;
+            PyObject locals = (Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0 ? _localsDict : ClassLocalsDict ?? Globals.Dict;
+            if (locals == null)
+                return;
+            var kinds = Code.LocalsPlusKinds;
+            for (int i = 0; i < Code.NLocalsPlus; i++)
+            {
+                byte kind = kinds[i];
+                // Same test as in PyFrame_FastToLocals() above.
+                if ((kind & PyCodeObject.FastFree) != 0 && (Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0)
+                    continue;
+                if ((kind & PyCodeObject.FastHidden) != 0)
+                    continue;
+                var name = Code.LocalsPlusNames[i];
+                PyObject value;
+                if (locals is PyDict dict)
+                    value = dict.TryGetStoredValue(name, out var found) ? found : null;
+                else
+                {
+                    try { value = PyAbstract.GetItem(locals, name); }
+                    catch (PythonException) { value = null; }
+                }
+                // We only care about NULLs if clear is true.
+                if (value == null && !clear)
+                    continue;
+                var oldvalue = IsNull(LocalsPlus[i]) ? null : LocalsPlus[i];
+                PyCell cell = null;
+                if (kind == PyCodeObject.FastFree)
+                    cell = oldvalue as PyCell;
+                else if ((kind & PyCodeObject.FastCell) != 0 && oldvalue is PyCell maybe && OpAlreadyRan(ByteCodeOp.MAKE_CELL, i))
+                    cell = maybe;
+                if (cell != null)
+                {
+                    var current = cell.HasValue ? cell.Value : null;
+                    if (!ReferenceEquals(value, current))
+                        cell.Value = value;
+                }
+                else if (!ReferenceEquals(value, oldvalue))
+                {
+                    if (value == null)
+                    {
+                        // Probably can't delete this, since the compiler's flow analysis may have
+                        // already "proven" that it exists here.
+                        try { PyWarnings.Warn(PyType.RuntimeWarningType, $"assigning None to unbound local {name.ToRepr().Value}", 0); }
+                        catch (PythonException error) { PyUnraisable.Report(error, this); }
+                        value = PyNone.Instance;
+                    }
+                    LocalsPlus[i] = value;
+                }
+            }
         }
 
         /// <summary>
@@ -819,7 +898,8 @@ namespace SharpPy
             _frameStack = state.Frames;
             _inlineCall = state.InlineCall;
             _hostFrames = state.HostFrames;
-            _tracing = state.Tracing;
+            Tracing = state.Tracing;
+            WhatEvent = state.WhatEvent;
             TraceFunction = state.TraceFunction;
             ProfileFunction = state.ProfileFunction;
             // COMPUTE_EVAL_BREAKER: a tripped signal waits for the main thread.
@@ -831,7 +911,8 @@ namespace SharpPy
         {
             state.InlineCall = _inlineCall;
             state.HostFrames = _hostFrames;
-            state.Tracing = _tracing;
+            state.Tracing = Tracing;
+            state.WhatEvent = WhatEvent;
             state.TraceFunction = TraceFunction;
             state.ProfileFunction = ProfileFunction;
         }
@@ -982,6 +1063,31 @@ namespace SharpPy
                     lastInstructions.Enqueue(instructionLog);
 #endif
 
+                    // PEP 669: the one test the loop pays while nothing is monitored. A callback's
+                    // error is raised at this instruction, as INSTRUMENTED_LINE's goto error.
+                    if (PyInstrumentation.Active && frame.PendingException == null && instruction.OpCode != ByteCodeOp.CACHE)
+                    {
+                        int prev = frame.HasRun ? frame.LastInstruction : -1;
+                        frame.LastInstruction = frame.InstructionPointer;
+                        frame.HasRun = true;
+                        try
+                        {
+                            if (!BeforeInstruction(frame, frame.InstructionPointer, prev))
+                            {
+                                // INSTRUMENTED_LINE: the trace function set f_lineno.
+                                frame.InstructionPointer = frame.LastInstruction;
+                                extendedArg = 0;
+                                continue;
+                            }
+                        }
+                        catch (PythonException monitoringError)
+                        {
+                            _instrumented = false;
+                            frame.PendingException = monitoringError;
+                            continue;
+                        }
+                    }
+
                     // CPython 3.12: Handle EXTENDED_ARG by accumulating argument bits
                     // EXTENDED_ARG shifts left by 8 bits and ORs with next instruction's arg
                     // Pattern: oparg = (oparg << 8) | instruction.Argument
@@ -1023,8 +1129,6 @@ namespace SharpPy
                     frame.UnwindingFromCall = false;
 
                     frame.HasRun = true;
-                    if ((TraceFunction != null || ProfileFunction != null) && !_tracing)
-                        TraceInstruction(frame, instruction);
 
 #if DEBUG_LOG
                     if (frame.ValueStack.Count <= 10) // 스택이 너무 크지 않을 때만 출력
@@ -1052,6 +1156,17 @@ namespace SharpPy
                         {
                             var pendingExc = frame.PendingException;
                             frame.PendingException = null; // Clear before handling
+                            // _PyEval_EvalFrameDefault with throwflag: because this avoids the
+                            // RESUME, the instrumentation is updated, then monitor_throw at prev_instr.
+                            if (frame.ThrowFlag)
+                            {
+                                frame.ThrowFlag = false;
+                                if (PyInstrumentation.Active)
+                                {
+                                    PyInstrumentation.InstrumentCode(frame.Code);
+                                    pendingExc = PyInstrumentation.MonitorThrow(frame, frame.LastInstruction, pendingExc);
+                                }
+                            }
                             #if DEBUG_LOG
                             Console.WriteLine($"🔧 PendingException detected: {pendingExc.PyException?.GetTypeName() ?? "unknown"}");
                             #endif
@@ -1093,22 +1208,56 @@ namespace SharpPy
                         // re-raise (RERAISE, bare raise, CLEANUP_THROW) went to exception_unwind instead.
                         bool reraised = pyEx.FromReraise;
                         PyTraceBack_Here(frame, pyEx);
+                        _instrumented = false;
 
-                        if (frame.Trace != null && !_tracing && !reraised)
-                            TraceRaised(frame, pyEx);
+                        // monitor_raise at next_instr-1 after the error label; monitor_reraise at
+                        // the instruction that re-raised, which went to exception_unwind directly.
+                        // A callback's error replaces the exception.
+                        int raisedAt = reraised ? frame.InstructionPointer : frame.LastInstruction;
+                        if (PyInstrumentation.Active)
+                        {
+                            var monitored = reraised
+                                ? PyInstrumentation.MonitorReraise(frame, raisedAt, pyEx)
+                                : PyInstrumentation.MonitorRaise(frame, raisedAt, pyEx);
+                            if (!ReferenceEquals(monitored, pyEx))
+                            {
+                                pyEx = monitored;
+                                thrown = monitored;
+                            }
+                        }
 
                         // Handle Python exceptions with proper exception handler routing
-                        if (!TryEnterExceptionHandler(frame, pyEx))
+                        if (TryEnterExceptionHandler(frame, pyEx))
                         {
-                            if (ProfileFunction != null && !_tracing)
-                                ProfileEvent(frame, "return", PyNone.Instance);
-                            // PY_UNWIND: the frame ends with a return event of None.
-                            if (frame.Trace != null && !_tracing)
-                                TraceEvent(frame, "return", PyNone.Instance);
+                            // monitor_handled at the handler; an error there unwinds again from it.
+                            if (PyInstrumentation.Active)
+                            {
+                                try
+                                {
+                                    PyInstrumentation.MonitorHandled(frame, frame.InstructionPointer, pyEx.PyException);
+                                }
+                                catch (PythonException handledError)
+                                {
+                                    frame.PendingException = handledError;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // monitor_unwind: the frame is left with the exception.
+                            if (PyInstrumentation.Active)
+                            {
+                                var unwound = PyInstrumentation.MonitorUnwind(frame, raisedAt, pyEx);
+                                if (!ReferenceEquals(unwound, pyEx))
+                                {
+                                    pyEx = unwound;
+                                    thrown = unwound;
+                                }
+                            }
                             // No handler - re-throw with location information
                             if (ReferenceEquals(frame, entryFrame))
                             {
-                                if (thrown is PythonException)
+                                if (ReferenceEquals(thrown, pyEx) && thrown is PythonException)
                                     throw;
                                 throw pyEx;
                             }
@@ -1211,117 +1360,168 @@ namespace SharpPy
             return true;
         }
 
-        /// <summary>The inlined frame finished: its caller resumes after the CALL with the result.</summary>
-        /// <summary>sys.settrace: the global function, called with 'call' for each new frame.</summary>
+        /// <summary>c_traceobj of the bound thread state: sys.settrace's function (Python/legacy_tracing.c).</summary>
         internal PyObject TraceFunction;
 
-        /// <summary>sys.setprofile: called with 'call' and 'return' of Python frames.</summary>
+        /// <summary>c_profileobj of the bound thread state: sys.setprofile's function.</summary>
         internal PyObject ProfileFunction;
 
-        // tstate->tracing: a trace function is not traced.
-        private bool _tracing;
+        /// <summary>tstate->tracing: no event reaches a tool while one of its callbacks runs.</summary>
+        internal int Tracing;
 
-        // call_trampoline: a None answer leaves the local function as it was.
-        private void TraceEvent(PyFrame frame, string what, PyObject argument)
+        /// <summary>tstate->what_event: the event whose callback runs, -1 when none (frame_setlineno asks).</summary>
+        internal int WhatEvent = -1;
+
+        /// <summary>
+        /// The instruction about to run is an INSTRUMENTED_* one (Python/instrumentation.c): set by
+        /// BeforeInstruction, taken by the instruction itself.
+        /// </summary>
+        private bool _instrumented;
+
+        private bool TakeInstrumented()
         {
-            var callback = what == "call" ? TraceFunction : frame.Trace;
-            if (callback == null) return;
-            _tracing = true;
+            if (!_instrumented)
+                return false;
+            _instrumented = false;
+            return true;
+        }
+
+        /// <summary>
+        /// What CPython's instrumented bytecode does before the opcode runs: _Py_Instrument when the
+        /// code is behind the monitors (at RESUME in CPython, here at any instruction, since only
+        /// RESUME can be the first to run in a frame that was not running when they changed), then
+        /// INSTRUMENTED_LINE and INSTRUMENTED_INSTRUCTION, and whether the opcode is instrumented.
+        /// </summary>
+        /// <returns>False when a callback moved the frame (f_lineno): it goes on from frame.LastInstruction.</returns>
+        private bool BeforeInstruction(PyFrame frame, int ip, int prev)
+        {
+            _instrumented = false;
+            var code = frame.Code;
+            if (code.InstrumentationVersion != PyInstrumentation.MonitoringVersion)
+                PyInstrumentation.InstrumentCode(code);
+            var data = code.Monitoring;
+            if (data == null || ip >= data.State.Length)
+                return true;
+            if ((data.State[ip] & CoMonitoringData.InstrumentedLine) != 0)
+            {
+                PyInstrumentation.CallLine(this, frame, ip, prev);
+                if (frame.LastInstruction != ip)
+                    return false;
+            }
+            byte state = data.State[ip];
+            if ((state & CoMonitoringData.InstrumentedInstruction) != 0)
+                PyInstrumentation.CallInstruction(this, frame, ip);
+            _instrumented = (state & CoMonitoringData.InstrumentedEvent) != 0;
+            return true;
+        }
+
+        /// <summary>INSTRUMENTED_JUMP(here, target, PY_MONITORING_EVENT_BRANCH), then on from where it says.</summary>
+        private static void Branch(PyFrame frame, int target)
+        {
+            int here = frame.InstructionPointer;
+            target = PyInstrumentation.CallJump(PyInstrumentation.BRANCH, frame, here, target);
+            frame.InstructionPointer = target - 1;
+        }
+
+        /// <summary>
+        /// Whether CPython's tp_iternext of the iterator leaves StopIteration set when it ends, which
+        /// FOR_ITER and SEND report as RAISE: a __next__ in Python raised it (it came through a
+        /// frame, so it has a traceback), or the type is one whose C iternext sets it
+        /// (ISetsStopIteration). A builtin iterator just returns NULL.
+        /// </summary>
+        private static bool IternextSetsStopIteration(PyObject iterator, PyBaseException stop) =>
+            stop.__traceback__ != null || iterator is ISetsStopIteration;
+
+        // PyGen_Check(receiver) || PyCoro_CheckExact(receiver)
+        private static bool IsGenOrCoroutine(PyObject receiver)
+        {
+            var type = receiver.GetPyType();
+            return ReferenceEquals(type, PyType.GeneratorType) || ReferenceEquals(type, PyType.CoroutineType);
+        }
+
+        /// <summary>
+        /// INSTRUMENTED_CALL: the CALL event with the callable (the method of a method call) and the
+        /// first argument, self included, or MISSING; then CALL itself, and for anything CPython does
+        /// not inline - all but a function, a bound method's function included - C_RETURN or C_RAISE.
+        /// </summary>
+        private void ExecuteInstrumentedCall(PyFrame frame, int oparg)
+        {
+            var stack = frame.ValueStack;
+            var method = stack.Count > oparg + 1 ? stack.PeekAt(oparg + 1) : null;
+            bool isMeth = method != null && !PyNull.IsNull(method);
+            int totalArgs = oparg + (isMeth ? 1 : 0);
+            var function = stack.PeekAt(totalArgs);
+            var arg = totalArgs == 0 ? PyInstrumentation.MISSING : stack.PeekAt(totalArgs - 1);
+            int here = frame.InstructionPointer;
+            PyInstrumentation.Call2Args(PyInstrumentation.CALL, frame, here, function, arg);
+
+            var callable = function;
+            if (!isMeth && callable is PyMethod bound && ReferenceEquals(callable.GetPyType(), PyType.MethodType))
+            {
+                arg = bound.Instance;
+                callable = bound.Function;
+            }
+            if (ReferenceEquals(callable.GetPyType(), PyType.FunctionType))
+            {
+                ExecuteCall(frame, oparg);
+                return;
+            }
             try
             {
-                var answer = callback.Call(new PyObject[] { frame, PyString.From(what), argument }, null);
-                if (answer is not PyNone)
-                    frame.Trace = answer;
+                ExecuteCall(frame, oparg);
             }
-            catch
+            catch (PythonException)
             {
-                // A trace function that raises is removed.
-                TraceFunction = null;
-                frame.Trace = null;
+                PyInstrumentation.CallExc2(PyInstrumentation.C_RAISE, frame, here, callable, arg);
                 throw;
             }
-            finally
-            {
-                _tracing = false;
-            }
-        }
-
-        private void ProfileEvent(PyFrame frame, string what, PyObject argument)
-        {
-            _tracing = true;
             try
             {
-                ProfileFunction.Call(new PyObject[] { frame, PyString.From(what), argument }, null);
+                PyInstrumentation.Call2Args(PyInstrumentation.C_RETURN, frame, here, callable, arg);
             }
-            catch
+            catch (PythonException)
             {
-                ProfileFunction = null;
+                // Py_CLEAR(res)
+                stack.Pop();
                 throw;
             }
-            finally
-            {
-                _tracing = false;
-            }
         }
 
-        private void ProfileInstruction(PyFrame frame, ByteCodeInstruction instruction)
+        /// <summary>
+        /// FOR_ITER when the iterator is done: CPython's tp_iternext returns NULL with or without
+        /// StopIteration set, and only a set one is a RAISE event. Here every iterator raises, so
+        /// one that came through Python code (it has a traceback) is what C would have set. A
+        /// generator is inlined by FOR_ITER_GEN and returns into END_FOR (INSTRUMENTED_END_FOR's
+        /// STOP_ITERATION), unless FOR_ITER is instrumented, where gen_iternext sets StopIteration
+        /// for a value other than None. Then on past END_FOR, with the BRANCH event if instrumented.
+        /// </summary>
+        private static void ForIterExhausted(PyFrame frame, PyObject iter, PythonException stop, int oparg, bool instrumented)
         {
-            switch (instruction.OpCode)
+            frame.ValueStack.Pop();
+            int here = frame.InstructionPointer;
+            int endFor = here + 1 + PyAssemble.GetInlineCacheSize(ByteCodeOp.FOR_ITER) + oparg;
+            if (PyInstrumentation.Active)
             {
-                case ByteCodeOp.RESUME:
-                    ProfileEvent(frame, "call", PyNone.Instance);
-                    break;
-                case ByteCodeOp.RETURN_VALUE:
-                case ByteCodeOp.YIELD_VALUE:
-                    ProfileEvent(frame, "return", frame.ValueStack.Peek());
-                    break;
-                case ByteCodeOp.RETURN_CONST:
-                    ProfileEvent(frame, "return", frame.Code.Constants[instruction.Argument]);
-                    break;
+                var exception = (PyStopIteration)stop.PyException;
+                bool generator = ReferenceEquals(iter.GetPyType(), PyType.GeneratorType);
+                if (generator && !instrumented)
+                {
+                    var data = frame.Code.Monitoring;
+                    if (data != null && endFor < data.State.Length && (data.State[endFor] & CoMonitoringData.InstrumentedEvent) != 0)
+                    {
+                        frame.LastInstruction = frame.InstructionPointer = endFor;
+                        PyInstrumentation.MonitorStopIteration(frame, endFor, exception.Value ?? PyNone.Instance);
+                        frame.LastInstruction = frame.InstructionPointer = here;
+                    }
+                }
+                else if (generator ? exception.Value is not PyNone : IternextSetsStopIteration(iter, exception))
+                    // monitor_raise, then _PyErr_Clear: a callback's error goes with it.
+                    PyInstrumentation.MonitorRaise(frame, here, stop);
             }
-        }
-
-        private void TraceInstruction(PyFrame frame, ByteCodeInstruction instruction)
-        {
-            if (ProfileFunction != null)
-                ProfileInstruction(frame, instruction);
-            if (TraceFunction == null)
-                return;
-            if (instruction.OpCode == ByteCodeOp.RESUME)
-            {
-                // After a yield the frame goes on from the line it was on.
-                if (instruction.Argument == 0)
-                    frame.TraceLine = -1;
-                frame.TraceLastInstruction = frame.InstructionPointer;
-                TraceEvent(frame, "call", PyNone.Instance);
-                return;
-            }
-            if (frame.Trace == null) return;
-            int line = instruction.LineNumber;
-            bool backward = frame.InstructionPointer < frame.TraceLastInstruction;
-            frame.TraceLastInstruction = frame.InstructionPointer;
-            if (line > 0 && frame.TraceLines && (line != frame.TraceLine || backward))
-            {
-                frame.TraceLine = line;
-                TraceEvent(frame, "line", PyNone.Instance);
-            }
-            switch (instruction.OpCode)
-            {
-                case ByteCodeOp.RETURN_VALUE:
-                case ByteCodeOp.YIELD_VALUE:
-                    TraceEvent(frame, "return", frame.ValueStack.Peek());
-                    break;
-                case ByteCodeOp.RETURN_CONST:
-                    TraceEvent(frame, "return", frame.Code.Constants[instruction.Argument]);
-                    break;
-            }
-        }
-
-        // sys_trace_exception_func: 'exception' with (type, value, traceback).
-        private void TraceRaised(PyFrame frame, PythonException raised)
-        {
-            var value = raised.PyException;
-            TraceEvent(frame, "exception", PyTuple.From(new[] { value.GetPyType(), value, value.GetAttribute("__traceback__") }));
+            int target = endFor + 1;
+            if (instrumented)
+                target = PyInstrumentation.CallJump(PyInstrumentation.BRANCH, frame, here, target);
+            frame.InstructionPointer = target - 1;
         }
 
         private PyFrame ReturnToCaller(PyObject result)
@@ -1985,7 +2185,10 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.CALL:
-                    ExecuteCall(frame, argument);
+                    if (_instrumented && TakeInstrumented())
+                        ExecuteInstrumentedCall(frame, argument);
+                    else
+                        ExecuteCall(frame, argument);
                     // CHECK_EVAL_BREAKER: a callee in this loop has its own at RESUME.
                     if (PyPending.Flag && _inlineCall == null)
                         EvalBreaker();
@@ -1994,6 +2197,7 @@ namespace SharpPy
                 // Specialized Method Calls - CPython 3.12 Adaptive Specialization
                 case ByteCodeOp.CALL_FUNCTION_EX:
                     // CPython 3.12: Extended function call with *args and **kwargs
+                    var callExInstrumented = _instrumented && TakeInstrumented();
                     var hasKwargs = (argument & 1) != 0;
 
                     #if DEBUG_LOG
@@ -2045,7 +2249,33 @@ namespace SharpPy
                     // vectorcall refuses a name that is not a str first (_PyStack_UnpackDict); any
                     // other meets it in its own parser.
                     PyDict callKeywords = hasKwargs && kwargsDict is PyDict kwargsPyDict && kwargsPyDict.Length() != 0 ? kwargsPyDict : null;
-                    PyObject unpackedResult = PyArity.ObjectCall(functionToCall, argsList.ToArray(), callKeywords);
+                    PyObject unpackedResult;
+                    if (callExInstrumented)
+                    {
+                        // INSTRUMENTED_CALL_FUNCTION_EX: CALL with the first positional argument,
+                        // then C_RETURN or C_RAISE unless func is a function or a method.
+                        int callExAt = frame.InstructionPointer;
+                        var callExArg = argsList.Count > 0 ? argsList[0] : PyInstrumentation.MISSING;
+                        PyInstrumentation.Call2Args(PyInstrumentation.CALL, frame, callExAt, functionToCall, callExArg);
+                        var callExType = functionToCall.GetPyType();
+                        if (ReferenceEquals(callExType, PyType.FunctionType) || ReferenceEquals(callExType, PyType.MethodType))
+                            unpackedResult = PyArity.ObjectCall(functionToCall, argsList.ToArray(), callKeywords);
+                        else
+                        {
+                            try
+                            {
+                                unpackedResult = PyArity.ObjectCall(functionToCall, argsList.ToArray(), callKeywords);
+                            }
+                            catch (PythonException)
+                            {
+                                PyInstrumentation.CallExc2(PyInstrumentation.C_RAISE, frame, callExAt, functionToCall, callExArg);
+                                throw;
+                            }
+                            PyInstrumentation.Call2Args(PyInstrumentation.C_RETURN, frame, callExAt, functionToCall, callExArg);
+                        }
+                    }
+                    else
+                        unpackedResult = PyArity.ObjectCall(functionToCall, argsList.ToArray(), callKeywords);
 
                     frame.ValueStack.Push(unpackedResult);
                     break;
@@ -2067,6 +2297,18 @@ namespace SharpPy
                 }
 
                 case ByteCodeOp.RESUME:
+                    // INSTRUMENTED_RESUME: PY_START, or PY_RESUME for oparg > 0.
+                    if (_instrumented && TakeInstrumented())
+                    {
+                        int resumeAt = frame.InstructionPointer;
+                        PyInstrumentation.Call(argument > 0 ? PyInstrumentation.PY_RESUME : PyInstrumentation.PY_START, frame, resumeAt);
+                        if (frame.LastInstruction != resumeAt)
+                        {
+                            // Instrumentation has jumped
+                            frame.InstructionPointer = frame.LastInstruction - 1;
+                            break;
+                        }
+                    }
                     // Python 3.12: every code object starts here. It is also CPython's safe point:
                     // Python/bytecodes.c:145-146 tests the eval breaker here, and only for
                     // oparg < 2 (a frame resumed for a generator send is not interrupted).
@@ -2156,12 +2398,34 @@ namespace SharpPy
                     // LOAD_SUPER_ATTR (Python/bytecodes.c): global_super called with (class, self)
                     // only when oparg & 2 says the source gave them; super() with none reads the
                     // frame itself (super_init_without_args). Then PyObject_GetAttr(super, name).
+                    bool superInstrumented = _instrumented && TakeInstrumented();
                     var superName = frame.Code.Names[argument >> 2];
                     var superSelf = frame.ValueStack.Pop();
                     var superClass = frame.ValueStack.Pop();
                     var globalSuper = frame.ValueStack.Pop();
-                    var superObject = globalSuper.Call(
-                        (argument & 2) != 0 ? new[] { superClass, superSelf } : Array.Empty<PyObject>(), null);
+                    PyObject superObject;
+                    if (superInstrumented)
+                    {
+                        // INSTRUMENTED_LOAD_SUPER_ATTR: CALL, then C_RETURN or C_RAISE, with the
+                        // class as the argument when there are arguments.
+                        int superAt = frame.InstructionPointer;
+                        var superArg = (argument & 2) != 0 ? superClass : PyInstrumentation.MISSING;
+                        PyInstrumentation.Call2Args(PyInstrumentation.CALL, frame, superAt, globalSuper, superArg);
+                        try
+                        {
+                            superObject = globalSuper.Call(
+                                (argument & 2) != 0 ? new[] { superClass, superSelf } : Array.Empty<PyObject>(), null);
+                        }
+                        catch (PythonException)
+                        {
+                            PyInstrumentation.CallExc2(PyInstrumentation.C_RAISE, frame, superAt, globalSuper, superArg);
+                            throw;
+                        }
+                        PyInstrumentation.Call2Args(PyInstrumentation.C_RETURN, frame, superAt, globalSuper, superArg);
+                    }
+                    else
+                        superObject = globalSuper.Call(
+                            (argument & 2) != 0 ? new[] { superClass, superSelf } : Array.Empty<PyObject>(), null);
                     var superAttribute = superObject.GetAttribute(superName);
                     if ((argument & 1) != 0)
                         frame.ValueStack.Push(PyNull.Instance);
@@ -2198,6 +2462,12 @@ namespace SharpPy
                 case ByteCodeOp.POP_JUMP_IF_NONE:
                     // CPython 3.12: Pop top value and jump if it's None
                     var valueToCheck = frame.ValueStack.Pop();
+                    if (_instrumented && TakeInstrumented())
+                    {
+                        bool noneTaken = valueToCheck == null || valueToCheck.Equals(PyNone.Instance);
+                        Branch(frame, noneTaken ? frame.InstructionPointer + 1 + argument : frame.InstructionPointer + 1);
+                        break;
+                    }
                     if (valueToCheck == null || valueToCheck.Equals(PyNone.Instance))
                     {
                         // CPython 3.12: POP_JUMP_IF_NONE uses relative offset from next instruction
@@ -2212,6 +2482,12 @@ namespace SharpPy
                 case ByteCodeOp.POP_JUMP_IF_NOT_NONE:
                     // CPython 3.12: Pop top value and jump if it's NOT None
                     var valueToCheckNotNone = frame.ValueStack.Pop();
+                    if (_instrumented && TakeInstrumented())
+                    {
+                        bool notNoneTaken = valueToCheckNotNone != null && !valueToCheckNotNone.Equals(PyNone.Instance);
+                        Branch(frame, notNoneTaken ? frame.InstructionPointer + 1 + argument : frame.InstructionPointer + 1);
+                        break;
+                    }
                     if (valueToCheckNotNone != null && !valueToCheckNotNone.Equals(PyNone.Instance))
                     {
                         // CPython 3.12: POP_JUMP_IF_NOT_NONE uses relative offset from next instruction
@@ -2234,12 +2510,18 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.RETURN_VALUE:
+                    // INSTRUMENTED_RETURN_VALUE: PY_RETURN with the value still on the stack.
+                    if (_instrumented && TakeInstrumented())
+                        PyInstrumentation.CallArg(PyInstrumentation.PY_RETURN, frame, frame.InstructionPointer,
+                            frame.ValueStack.Count > 0 ? frame.ValueStack.Peek() : PyNone.Instance);
                     var returnValue = frame.ValueStack.Count > 0 ? frame.ValueStack.Pop() : PyNone.Instance;
                     return returnValue;
 
                 case ByteCodeOp.RETURN_CONST:
                     // CPython 3.12: Return constant value directly
                     var constValue = frame.Code.Constants[argument];
+                    if (_instrumented && TakeInstrumented())
+                        PyInstrumentation.CallArg(PyInstrumentation.PY_RETURN, frame, frame.InstructionPointer, constValue);
                     return constValue;
 
                 case ByteCodeOp.GET_AWAITABLE:
@@ -2284,7 +2566,7 @@ namespace SharpPy
                     else if (asyncForExc is PyBaseException asyncForException)
                     {
                         // Re-raise other exceptions
-                        throw new PythonException(asyncForException);
+                        throw new PythonException(asyncForException, fromReraise: true);
                     }
                     else
                     {
@@ -2294,8 +2576,15 @@ namespace SharpPy
 
                 // CPython-style Control Flow Opcodes (Phase 1 - High Priority)
                 case ByteCodeOp.POP_JUMP_IF_TRUE:
+                {
+                    bool trueInstrumented = _instrumented && TakeInstrumented();
                     var truthValue = frame.ValueStack.Pop();
                     bool isTruthy = truthValue.IsTrue();
+                    if (trueInstrumented)
+                    {
+                        Branch(frame, isTruthy ? frame.InstructionPointer + 1 + argument : frame.InstructionPointer + 1);
+                        break;
+                    }
                     #if DEBUG_LOG
                     // Debug: Console.WriteLine($"🔄 POP_JUMP_IF_TRUE: popped value = {truthValue}, isTruthy = {isTruthy}");
                     #endif
@@ -2319,10 +2608,18 @@ namespace SharpPy
                         #endif
                     }
                     break;
+                }
 
                 case ByteCodeOp.POP_JUMP_IF_FALSE:
+                {
+                    bool falseInstrumented = _instrumented && TakeInstrumented();
                     var falseValue = frame.ValueStack.Pop();
                     bool isFalsy = !falseValue.IsTrue();
+                    if (falseInstrumented)
+                    {
+                        Branch(frame, isFalsy ? frame.InstructionPointer + 1 + argument : frame.InstructionPointer + 1);
+                        break;
+                    }
                     #if DEBUG_LOG
                     // Debug: Console.WriteLine($"🔄 POP_JUMP_IF_FALSE: popped value = {falseValue}, isFalsy = {isFalsy}");
                     #endif
@@ -2346,6 +2643,7 @@ namespace SharpPy
                         #endif
                     }
                     break;
+                }
 
                 case ByteCodeOp.JUMP_FORWARD:
                     // CPython 3.12: JUMP_FORWARD uses relative offset from next instruction
@@ -2358,6 +2656,10 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"🔄 JUMP_FORWARD: from instr {currentPos} forward {jumpOffset} to instr {targetPos}");
                     #endif
+
+                    // INSTRUMENTED_JUMP_FORWARD
+                    if (_instrumented && TakeInstrumented())
+                        targetPos = PyInstrumentation.CallJump(PyInstrumentation.JUMP, frame, currentPos, targetPos);
 
                     // Subtract 1 because main loop will increment
                     frame.InstructionPointer = targetPos - 1;
@@ -2413,6 +2715,15 @@ namespace SharpPy
                     return null;
 
                 case ByteCodeOp.JUMP_BACKWARD:
+                    // INSTRUMENTED_JUMP_BACKWARD: the JUMP event, then CHECK_EVAL_BREAKER.
+                    if (_instrumented && TakeInstrumented())
+                    {
+                        int backFrom = frame.InstructionPointer;
+                        int backTo = PyInstrumentation.CallJump(PyInstrumentation.JUMP, frame, backFrom, backFrom + 1 - argument);
+                        if (PyPending.Flag) EvalBreaker();
+                        frame.InstructionPointer = backTo - 1;
+                        return null;
+                    }
                     // The back edge of a loop is the other safe point. JUMP_BACKWARD_NO_INTERRUPT
                     // deliberately has no such test, in CPython and here.
                     if (PyPending.Flag) EvalBreaker();
@@ -2755,6 +3066,7 @@ namespace SharpPy
                     Console.WriteLine($"🔧 FOR_ITER: iterator type = {iter.GetType().Name}, calling Next()...");
                     Console.WriteLine($"    InstructionPointer = {frame.InstructionPointer}");
                     #endif
+                    bool forIterInstrumented = _instrumented && TakeInstrumented();
                     try
                     {
                         var nextItem = iter.Next();
@@ -2769,40 +3081,10 @@ namespace SharpPy
                     }
                     catch (PythonException ex) when (ex.PyException is PyStopIteration)
                     {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"🔚 FOR_ITER: StopIteration - loop finished, Stack.Count before pop = {frame.ValueStack.Count}");
-                        #endif
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔚 FOR_ITER: StopIteration - loop finished");
-                        Console.WriteLine($"    스택 상태 (pop 전): count={frame.ValueStack.Count}");
-                        var stackContents = frame.ValueStack.ToArray();
-                        for (int i = 0; i < stackContents.Length; i++)
-                        {
-                            Console.WriteLine($"      스택[{i}] = {stackContents[i]} ({stackContents[i].GetType().Name})");
-                        }
-                        #endif
-                        // FOR_ITER 스택 구조: [..., value, iterator] (CPython 호환)
-                        // StopIteration 시: iterator를 제거하고 value를 유지
-                        var removedIterator = frame.ValueStack.Pop(); // iterator 제거 (TOS)
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"    ✅ FOR_ITER: Popped iterator, Stack.Count after pop = {frame.ValueStack.Count}");
-                        #endif
-                        #if DEBUG_LOG
-                        Console.WriteLine($"    제거된 객체: {removedIterator} ({removedIterator.GetType().Name})");
-                        Console.WriteLine($"    스택 상태 (pop 후): count={frame.ValueStack.Count}");
-                        var stackContentsAfter = frame.ValueStack.ToArray();
-                        for (int i = 0; i < stackContentsAfter.Length; i++)
-                        {
-                            Console.WriteLine($"      스택[{i}] = {stackContentsAfter[i]} ({stackContentsAfter[i].GetType().Name})");
-                        }
-                        #endif
-
-                        // CPython 3.12: QuickenedCodeObject 방식으로 점프 계산
-                        // bytecodes.c FOR_ITER: JUMPBY(INLINE_CACHE_ENTRIES_FOR_ITER + oparg + 1); the main
-                        // loop adds the one.
-                        frame.InstructionPointer += argument + 1;
-
-                        // DON'T return null - continue execution
+                        // FOR_ITER 스택 구조: [..., value, iterator] (CPython 호환): the iterator goes,
+                        // and JUMPBY(INLINE_CACHE_ENTRIES_FOR_ITER + oparg + 1) past END_FOR.
+                        ForIterExhausted(frame, iter, ex, argument, forIterInstrumented);
+                        break;
                     }
                     catch (Exception ex)
                     {
@@ -2811,10 +3093,14 @@ namespace SharpPy
                         #endif
                         throw;
                     }
+                    // INSTRUMENTED_FOR_ITER: the branch not taken, past the cache.
+                    if (forIterInstrumented)
+                        Branch(frame, frame.InstructionPointer + 1 + PyAssemble.GetInlineCacheSize(ByteCodeOp.FOR_ITER));
                     break;
 
                 // Specialized Loop Operations - CPython 3.12 Adaptive Specialization
                 case ByteCodeOp.END_FOR:
+                    _instrumented = false;
                     // CPython 3.12: END_FOR는 단순한 루프 종료 마커
                     // FOR_ITER의 StopIteration에서 이미 모든 정리 작업 완료됨
                     #if DEBUG_LOG
@@ -3842,6 +4128,7 @@ namespace SharpPy
                     // CPython 3.12: Python/bytecodes.c:911-927
                     // YIELD_VALUE pops the yield value and saves stack pointer at (stack - 1)
                     // _PyFrame_SetStackPointer(frame, stack_pointer - 1)
+                    bool yieldInstrumented = _instrumented && TakeInstrumented();
                     var yieldValue = frame.ValueStack.Pop();
 
                     // yield는 제너레이터에서만 사용 가능
@@ -3860,6 +4147,19 @@ namespace SharpPy
                     // A generator's frame is never inlined (CanInline), so it is the entry frame
                     // of the ExecuteFrame its gen_send_ex2 called.
                     frame.State = PyFrame.FrameState.Suspended;
+                    // INSTRUMENTED_YIELD_VALUE: PY_YIELD once the frame is suspended.
+                    if (yieldInstrumented)
+                    {
+                        try
+                        {
+                            PyInstrumentation.CallArg(PyInstrumentation.PY_YIELD, frame, frame.InstructionPointer, yieldValue);
+                        }
+                        catch (PythonException)
+                        {
+                            frame.State = PyFrame.FrameState.Executing;
+                            throw;
+                        }
+                    }
                     return yieldValue;
 
                 case ByteCodeOp.SEND:
@@ -3871,6 +4171,7 @@ namespace SharpPy
                     #endif
                     var sendValue = frame.ValueStack.Pop();
                     var receiver = frame.ValueStack.Peek(); // Keep receiver on stack
+                    bool sendViaMethod = false;
 
                     try
                     {
@@ -3884,7 +4185,10 @@ namespace SharpPy
                         else if (sendValue is PyNone && receiver.IsIterator)
                             sendResult = receiver.Next();
                         else
+                        {
+                            sendViaMethod = true;
                             sendResult = receiver.GetAttribute("send").Call(new PyObject[] { sendValue }, null);
+                        }
 
                         // CPython: Push result to stack (receiver stays on stack)
                         frame.ValueStack.Push(sendResult);
@@ -3919,6 +4223,12 @@ namespace SharpPy
                         Console.WriteLine($"    🛑 SEND: Jumping from IP={frame.InstructionPointer} by oparg={argument}");
                         #endif
 
+                        // SEND: a generator or coroutine is inlined and returns into END_SEND; for
+                        // anything else a StopIteration that was set is monitor_raise first.
+                        if (PyInstrumentation.Active && !IsGenOrCoroutine(receiver)
+                            && (sendViaMethod || IternextSetsStopIteration(receiver, stopIter)))
+                            PyInstrumentation.MonitorRaise(frame, frame.InstructionPointer, pyEx);
+
                         // Push StopIteration value to stack (receiver stays on stack for END_SEND)
                         frame.ValueStack.Push(stopIter.Value ?? PyNone.Instance);
 
@@ -3942,6 +4252,10 @@ namespace SharpPy
                     #if DEBUG_VM_LOG
                     Console.WriteLine($"🔍 END_SEND: Stack.Count = {frame.ValueStack.Count}");
                     #endif
+                    // INSTRUMENTED_END_SEND: a generator or coroutine that returned reports the
+                    // StopIteration it would have raised (PEP 380), the stack as it was.
+                    if (_instrumented && TakeInstrumented() && IsGenOrCoroutine(frame.ValueStack.PeekAt(1)))
+                        PyInstrumentation.MonitorStopIteration(frame, frame.InstructionPointer, frame.ValueStack.Peek());
                     var endSendValue = frame.ValueStack.Pop();
                     var endSendReceiver = frame.ValueStack.Pop();
                     frame.ValueStack.Push(endSendValue);

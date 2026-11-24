@@ -15,7 +15,9 @@ namespace SharpPy
         internal readonly List<Modules.PyLock> Sentinels = new();
         internal PyFrame InlineCall;
         internal int HostFrames;
-        internal bool Tracing;
+        // tstate->tracing, c_traceobj and c_profileobj (Python/legacy_tracing.c)
+        internal int Tracing;
+        internal int WhatEvent = -1;
         internal PyObject TraceFunction;
         internal PyObject ProfileFunction;
         internal bool IsMain;
@@ -103,6 +105,22 @@ namespace SharpPy
                         action(state);
             }
             PyVM.Instance.Bind(bound);
+        }
+
+        /// <summary>
+        /// Each thread state as it is, the VM's bound one included, without moving the VM's fields:
+        /// for what is shared by reference, such as a thread's frame stack.
+        /// </summary>
+        internal static void ForEachState(Action<PyThreadState> action)
+        {
+            var bound = PyVM.Instance.BoundState;
+            lock (States)
+            {
+                action(bound);
+                foreach (var state in States)
+                    if (!ReferenceEquals(state, bound))
+                        action(state);
+            }
         }
 
         internal static PyThreadState Current => _current;

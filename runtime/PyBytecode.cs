@@ -421,6 +421,10 @@ namespace SharpPy
                 
         // CPython 3.12 Exception Table 지원
         public List<ExceptionTableEntry> ExceptionTable { get; set; } = new List<ExceptionTableEntry>();
+
+        /// <summary>_co_monitoring and _co_instrumentation_version (Python/instrumentation.c).</summary>
+        internal CoMonitoringData Monitoring;
+        internal ulong InstrumentationVersion;
         
         // Line Number Table: instruction offset → source line number mapping
         

@@ -214,7 +214,7 @@ namespace SharpPy.Modules
             {
                 if (args[1] is not PyTuple arguments)
                     throw PyArgs.BadArgument("call_tracing", "argument 2", "tuple", args[1]);
-                return args[0].Call(arguments.Items, null);
+                return PyLegacyTracing.CallTracing(args[0], arguments);
             });
             module.ModuleDict["_clear_type_cache"] = new PyBuiltinFunction("_clear_type_cache", args => PyNone.Instance);
             module.ModuleDict["_current_frames"] = new PyBuiltinFunction("_current_frames", args => CurrentFrames());
@@ -265,32 +265,18 @@ namespace SharpPy.Modules
             module.ModuleDict["set_int_max_str_digits"] = new PySysFunction("set_int_max_str_digits");
             module.ModuleDict["exc_info"] = new PySysFunction("exc_info");
             module.ModuleDict["getrecursionlimit"] = new PySysFunction("getrecursionlimit");
-            module.ModuleDict["gettrace"] = new PyBuiltinFunction("gettrace", args => PyVM.Instance.TraceFunction ?? PyNone.Instance);
+            module.ModuleDict["gettrace"] = new PyBuiltinFunction("gettrace", args => PyLegacyTracing.SysGettrace());
             module.ModuleDict["audit"] = new PyBuiltinFunction("audit", args => PyNone.Instance);
             module.ModuleDict["addaudithook"] = new PyBuiltinFunction("addaudithook", args => PyNone.Instance);
-            module.ModuleDict["settrace"] = new PyBuiltinFunction("settrace", args =>
-            {
-                PyVM.Instance.TraceFunction = args[0] is PyNone ? null : args[0];
-                return PyNone.Instance;
-            });
-            module.ModuleDict["setprofile"] = new PyBuiltinFunction("setprofile", args =>
-            {
-                PyVM.Instance.ProfileFunction = args[0] is PyNone ? null : args[0];
-                return PyNone.Instance;
-            });
-            module.ModuleDict["getprofile"] = new PyBuiltinFunction("getprofile", args => PyVM.Instance.ProfileFunction ?? PyNone.Instance);
-            module.ModuleDict["_settraceallthreads"] = new PyBuiltinFunction("_settraceallthreads", args =>
-            {
-                var function = args[0] is PyNone ? null : args[0];
-                PyGil.ForAllThreads(state => state.TraceFunction = function);
-                return PyNone.Instance;
-            });
-            module.ModuleDict["_setprofileallthreads"] = new PyBuiltinFunction("_setprofileallthreads", args =>
-            {
-                var function = args[0] is PyNone ? null : args[0];
-                PyGil.ForAllThreads(state => state.ProfileFunction = function);
-                return PyNone.Instance;
-            });
+            // sys_settrace, sys_setprofile (METH_O), sys_gettrace, sys_getprofile, and the clinic's
+            // sys__settraceallthreads and sys__setprofileallthreads: Python/legacy_tracing.c.
+            module.ModuleDict["settrace"] = PyArgs.MethO("sys", "settrace", args => PyLegacyTracing.SysSettrace(args[0]));
+            module.ModuleDict["setprofile"] = PyArgs.MethO("sys", "setprofile", args => PyLegacyTracing.SysSetprofile(args[0]));
+            module.ModuleDict["getprofile"] = new PyBuiltinFunction("getprofile", args => PyLegacyTracing.SysGetprofile());
+            module.ModuleDict["_settraceallthreads"] = PyArgs.MethO("sys", "_settraceallthreads", args => PyLegacyTracing.SysSettraceAllThreads(args[0]));
+            module.ModuleDict["_setprofileallthreads"] = PyArgs.MethO("sys", "_setprofileallthreads", args => PyLegacyTracing.SysSetprofileAllThreads(args[0]));
+            // _PySys_Create: sys.monitoring, the namespace of Python/instrumentation.c.
+            module.ModuleDict["monitoring"] = PyInstrumentation.CreateMonitoringObject();
             module.ModuleDict["setrecursionlimit"] = new PySysFunction("setrecursionlimit");
             module.ModuleDict["getfilesystemencodeerrors"] = new PyBuiltinFunction("getfilesystemencodeerrors", args =>
                 PyString.From(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "surrogatepass" : "surrogateescape"));

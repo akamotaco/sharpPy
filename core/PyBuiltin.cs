@@ -1411,7 +1411,10 @@ namespace SharpPy
 
         // PyCFunctionObject of a module's function: m_self is the module, m_module its name.
         string ICFunction.MethodName => Name;
-        PyObject ICFunction.MethodSelf => PyImportSystem.Import(OwnerModule);
+        PyObject ICFunction.MethodSelf => OwnerModuleObject ?? PyImportSystem.Import(OwnerModule);
+
+        /// <summary>m_self when the module is not importable by its name (sys.monitoring).</summary>
+        internal PyModule OwnerModuleObject;
         PyObject ICFunction.MethodModule => PyString.From(OwnerModule);
 
         private static PyObject CallDir(PyObject[] args, PyDict kwargs = null)

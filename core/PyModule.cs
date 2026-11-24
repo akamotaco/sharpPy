@@ -366,6 +366,7 @@ public class PyModule : PyObject
             ["itertools"] = SharpPy.Modules.ItertoolsModule.Create,
             ["_collections"] = () => SharpPy.Modules._CollectionsModule.CreateCollectionsModule(),
             ["_functools"] = () => SharpPy.Modules._FunctoolsModule.CreateFunctoolsModule(),
+            ["_lsprof"] = SharpPy.Modules._LsprofModule.Create,
 
             // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
             ["_random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),  // random.py가 사용

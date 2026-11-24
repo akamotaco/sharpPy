@@ -113,14 +113,25 @@ namespace SharpPy
             Compared(code);
 
             var frame = PyFrame.FramePyType;
-            GetSets<PyFrame>(frame, (self, name) => self.Read(name), "f_back", "f_locals", "f_lineno", "f_lasti",
+            GetSets<PyFrame>(frame, (self, name) => self.Read(name), "f_back", "f_locals", "f_lasti",
                 "f_globals", "f_builtins", "f_code");
+            // frame_getlineno and frame_setlineno
+            frame.TypeDict["f_lineno"] = new PyGetSetDescriptor("f_lineno", frame, self => ((PyFrame)self).Read("f_lineno"),
+                (self, value) => PyFrameSetLineno.SetLineno((PyFrame)self, value),
+                deleter: self => PyFrameSetLineno.SetLineno((PyFrame)self, null));
             // frame_settrace: None or a deletion clears it.
             frame.TypeDict["f_trace"] = new PyGetSetDescriptor("f_trace", frame, self => ((PyFrame)self).Read("f_trace"),
                 (self, value) => ((PyFrame)self).Trace = value is PyNone ? null : value, deleter: self => ((PyFrame)self).Trace = null);
-            // frame_settrace_opcodes: a bool, which this interpreter does not act on.
+            // frame_settrace_opcodes: a bool; True also makes the next sys.settrace ask for INSTRUCTION events.
             frame.TypeDict["f_trace_opcodes"] = new PyGetSetDescriptor("f_trace_opcodes", frame, self => ((PyFrame)self).Read("f_trace_opcodes"),
-                (self, value) => { if (value is not PyBool) throw PyTypeError.Create("attribute value type must be bool"); });
+                (self, value) =>
+                {
+                    if (value is not PyBool flag)
+                        throw PyTypeError.Create("attribute value type must be bool");
+                    ((PyFrame)self).TraceOpcodes = flag.Value;
+                    if (flag.Value)
+                        PyLegacyTracing.FOpcodeTraceSet = true;
+                });
             // frame_memberlist: f_trace_lines is a T_BOOL member.
             frame.TypeDict["f_trace_lines"] = new PyMemberDescriptor("f_trace_lines", frame, self => ((PyFrame)self).Read("f_trace_lines"),
                 (self, value) => ((PyFrame)self).TraceLines = value is PyBool flag ? flag.Value : throw PyTypeError.Create("attribute value type must be bool"),

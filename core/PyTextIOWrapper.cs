@@ -408,12 +408,28 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             _decoder = PyNewlineDecoder.DecoderType.Call(new[] { _decoder, PyBool.FromBool(_readTranslate) }, null);
     }
 
+    // _textiowrapper_set_encoder: the incremental encoder, and the encodefunc of encodefuncs that
+    // the codec's normalized name picks, which write calls instead of the encoder.
     private void SetEncoder(PyObject codecInfo, string errors)
     {
+        _encodefunc = null;
         if (!Call(_buffer, "writable").IsTrue())
             return;
         _encoder = codecInfo.GetAttribute("incrementalencoder").Call(new PyObject[] { PyString.From(errors) }, null);
+        if (codecInfo.LookupAttribute("name") is PyString name)
+            _encodefunc = name.Value switch
+            {
+                // ascii_encode, latin1_encode, utf8_encode
+                "ascii" => text => UnicodeEncoders.EncodeUcs1(text, PyArgs.AsUtf8((PyString)_errors), 128),
+                "iso8859-1" => text => UnicodeEncoders.EncodeUcs1(text, PyArgs.AsUtf8((PyString)_errors), 256),
+                "utf-8" => text => UnicodeEncoders.EncodeUtf8(text, PyArgs.AsUtf8((PyString)_errors)),
+                _ => null,
+            };
     }
+
+    // self->encodefunc, where the encoding is one of encodefuncs (the UTF-16 and UTF-32 ones,
+    // which track the start of the stream, go through the encoder here).
+    private Func<PyString, byte[]> _encodefunc;
 
     // _textiowrapper_fix_encoder_state
     private void FixEncoderState()
@@ -624,7 +640,7 @@ public sealed class PyTextIOWrapper : PyIOBaseInstance
             textNeedFlush = true;
         if (_lineBuffering && (hasLF || PyString.FindCodePoints(text, CarriageReturn, 0, text.CodePointLength()) >= 0))
             needFlush = true;
-        var encoded = Call(_encoder, "encode", text);
+        var encoded = _encodefunc != null ? PyBytes.From(_encodefunc(text)) : Call(_encoder, "encode", text);
         _encodingStartOfStream = false;
         if (encoded is not PyBytes bytes)
             throw PyTypeError.Create($"encoder should return a bytes object, not '{encoded.GetTypeName()}'");
