@@ -351,6 +351,7 @@ public class PyModule : PyObject
             // Modules/_zoneinfo.c over the datetime C API (modules/ZoneinfoModule.cs).
             ["_zoneinfo"] = SharpPy.Modules.ZoneinfoModule.Create,
             ["_socket"] = SharpPy.Modules.SocketModule.Create,
+            ["_ssl"] = SharpPy.Modules.Ssl.SslModule.Create,
             ["select"] = SharpPy.Modules.SelectModule.Create,
             ["_symtable"] = SharpPy.Modules.SymtableModule.Create,
             ["_uuid"] = SharpPy.Modules.UuidModule.Create,

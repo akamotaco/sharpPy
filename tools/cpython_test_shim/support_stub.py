@@ -111,10 +111,11 @@ class _Stand_in:
 def __getattr__(name):
     if name.startswith("__"):
         raise AttributeError(name)
-    if name == "socket_helper":
-        # CPython's own Lib/test/support/socket_helper.py, imported (from this package's __path__,
-        # the real support directory) the first time a test asks for it: it imports socket.
-        return importlib.import_module("test.support.socket_helper")
+    if name in ("socket_helper", "asyncore", "asynchat", "smtpd"):
+        # CPython's own Lib/test/support/socket_helper.py (and the asyncore/asynchat/smtpd copies that
+        # test_ssl, test_ftplib, test_poplib and test_smtplib use), imported (from this package's
+        # __path__, the real support directory) the first time a test asks for it: they import socket.
+        return importlib.import_module("test.support." + name)
     return _Stand_in(name)
 
 

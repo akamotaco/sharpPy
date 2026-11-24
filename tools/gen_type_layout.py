@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 MODULES = """types collections functools itertools re io weakref array struct operator select
-decimal datetime contextvars json pickle csv threading random time zlib os _md5 _sha1 _sha2 _sha3 _blake2 _ast _bz2 _lzma zoneinfo _hashlib pyexpat _elementtree _lsprof""".split()
+decimal datetime contextvars json pickle csv threading random time zlib os _md5 _sha1 _sha2 _sha3 _blake2 _ast _bz2 _lzma zoneinfo _hashlib pyexpat _elementtree _lsprof _ssl""".split()
 
 HEAPTYPE = 1 << 9
 IMMUTABLETYPE = 1 << 8

@@ -57,7 +57,7 @@ def main():
     import importlib
     modules = ("array", "_io", "_collections", "itertools", "_functools", "_struct", "_thread", "_sre", "_csv",
                "_weakref", "_contextvars", "_operator", "_queue", "weakref", "_random", "_bisect", "_heapq", "_typing",
-               "_datetime", "_pickle", "_hashlib", "pyexpat", "_elementtree", "_lsprof")
+               "_datetime", "_pickle", "_hashlib", "pyexpat", "_elementtree", "_lsprof", "_ssl")
     module_lines = []
     seen = set()
     for modname in modules:
