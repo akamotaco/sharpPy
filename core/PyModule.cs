@@ -378,6 +378,9 @@ public class PyModule : PyObject
             ["_thread"] = () => SharpPy.Modules._ThreadModule.CreateThreadModule(),
             ["_contextvars"] = () => SharpPy.Modules._ContextvarsModule.CreateContextvarsModule(),
             ["zlib"] = () => SharpPy.Modules.ZlibModule.CreateZlibModule(),
+            // Modules/_bz2module.c and Modules/_lzmamodule.c over bzip2 and liblzma in C# (modules/Bz2, modules/Lzma).
+            ["_bz2"] = SharpPy.Modules.Bz2Module.Create,
+            ["_lzma"] = SharpPy.Modules.LzmaModule.Create,
             ["_csv"] = () => SharpPy.Modules._CsvModule.CreateCsvModule(),
             ["_json"] = () => SharpPy.Modules._JsonModule.Create(),
             // Modules/_pickle.c (modules/Pickle).

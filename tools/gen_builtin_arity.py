@@ -281,7 +281,7 @@ FUNCTION_MODULES = {
             "set_asyncgen_hooks"},
     "_codecs": set(), "_io": set(), "_sre": set(), "_string": set(), "_struct": set(), "_weakref": set(),
     "_csv": set(), "_contextvars": set(), "_opcode": set(), "array": set(), "binascii": set(), "_typing": set(),
-    "marshal": set(), "unicodedata": set(), "zlib": set(), "_pickle": set(),
+    "marshal": set(), "unicodedata": set(), "zlib": set(), "_pickle": set(), "_lzma": set(),
     "_signal": {"raise_signal", "default_int_handler", "signal", "set_wakeup_fd"},
     "_thread": {"interrupt_main", "start_new_thread", "start_new", "exit", "exit_thread", "_exit"},
     "atexit": {"_run_exitfuncs", "_clear", "register", "unregister"},
