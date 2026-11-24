@@ -385,6 +385,9 @@ public class PyModule : PyObject
             // Modules/_bz2module.c and Modules/_lzmamodule.c over bzip2 and liblzma in C# (modules/Bz2, modules/Lzma).
             ["_bz2"] = SharpPy.Modules.Bz2Module.Create,
             ["_lzma"] = SharpPy.Modules.LzmaModule.Create,
+            // Modules/pyexpat.c over expat 2.8.5 in C# (modules/Expat), and Modules/_elementtree.c.
+            ["pyexpat"] = SharpPy.Modules.PyexpatModule.Create,
+            ["_elementtree"] = SharpPy.Modules.ElementTreeModule.Create,
             ["_csv"] = () => SharpPy.Modules._CsvModule.CreateCsvModule(),
             ["_json"] = () => SharpPy.Modules._JsonModule.Create(),
             // Modules/_pickle.c (modules/Pickle).

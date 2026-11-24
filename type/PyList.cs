@@ -580,8 +580,10 @@ namespace SharpPy
         {
             if (index is PySlice slice)
             {
-                // 슬라이싱 처리
-                var (start, stop, step) = slice.StorageIndices(_items.Count);
+                // list_subscript: PySlice_Unpack (which may run __index__ and change the list),
+                // then PySlice_AdjustIndices to the size the list has after that.
+                var (start, stop, step) = slice.UnpackStorage();
+                (start, stop, step) = PySlice.AdjustStorageIndices(_items.Count, start, stop, step);
 
                 int count = PySlice.GetLength(start, stop, step);
                 var result = new List<PyObject>(count);
@@ -693,7 +695,9 @@ namespace SharpPy
             {
                 if (AreEqual(_items[i], item))
                 {
-                    _items.RemoveAt(i);
+                    // list_ass_slice(self, i, i+1, NULL): the comparison may have shrunk the list.
+                    if (i < _items.Count)
+                        _items.RemoveAt(i);
                     return;
                 }
             }

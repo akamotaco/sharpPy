@@ -71,6 +71,22 @@ def skip_if_sanitizer(reason=None, *, address=False, memory=False, ub=False, thr
     return lambda func: func
 
 
+def findfile(filename, subdir=None):
+    # Lib/test/support/__init__.py findfile: TEST_HOME_DIR is the CPython checkout's Lib/test
+    # (the test package's first path entry), then sys.path.
+    if os.path.isabs(filename):
+        return filename
+    if subdir is not None:
+        filename = os.path.join(subdir, filename)
+    test_package = sys.modules.get("test")
+    path = list(getattr(test_package, "__path__", [])) + sys.path
+    for dn in path:
+        fn = os.path.join(dn, filename)
+        if os.path.exists(fn):
+            return fn
+    return filename
+
+
 class _Stand_in:
     def __init__(self, name):
         self.name = name
