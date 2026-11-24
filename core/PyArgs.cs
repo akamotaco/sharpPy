@@ -286,6 +286,21 @@ internal static class PyArgs
 
     internal static Exception SsizeOverflow() => PyOverflowError.Create("Python int too large to convert to C ssize_t");
 
+    /// <summary>
+    /// PyLong_AsUnsignedLong (Objects/longobject.c): an int only, no __index__, in the range of a C
+    /// unsigned long, which is 32 bits on Windows and 64 elsewhere.
+    /// </summary>
+    internal static ulong AsUnsignedLong(PyObject value)
+    {
+        if (PyInt.LongValue(value) is not { } number)
+            throw PyTypeError.Create("an integer is required");
+        if (number.Value.Sign < 0)
+            throw PyOverflowError.Create("can't convert negative value to unsigned int");
+        if (number.Value > (OperatingSystem.IsWindows() ? uint.MaxValue : ulong.MaxValue))
+            throw PyOverflowError.Create("Python int too large to convert to C unsigned long");
+        return (ulong)number.Value;
+    }
+
     /// <summary>The err of PyNumber_AsSsize_t; Clip is NULL, the value clipped to Py_ssize_t.</summary>
     internal enum SsizeError { Clip, Overflow, Index, Value }
 

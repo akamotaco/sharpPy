@@ -114,8 +114,8 @@ namespace SharpPy
                 "BaseException" => PyTypeFlags.BaseExceptionSubclass,
                 // Objects/typeobject.c:5342
                 "type" => PyTypeFlags.TypeSubclass | PyTypeFlags.ItemsAtEnd,
-                // Objects/funcobject.c:920, Objects/descrobject.c:732 and :882
-                "function" or "method_descriptor" or "wrapper_descriptor" => PyTypeFlags.MethodDescriptor,
+                // Objects/funcobject.c:920, Objects/descrobject.c:732 and :882, Modules/_functoolsmodule.c:1416
+                "function" or "method_descriptor" or "wrapper_descriptor" or "_lru_cache_wrapper" => PyTypeFlags.MethodDescriptor,
                 _ => PyTypeFlags.None,
             };
             if (!TypeLayouts.Measured(name, out var layout))

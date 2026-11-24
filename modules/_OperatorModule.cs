@@ -60,6 +60,10 @@ namespace SharpPy.Modules
             module.ModuleDict["indexOf"] = PyArgs.FastCall("_operator", "indexOf", 2, 2, IndexOf);
             module.ModuleDict["setitem"] = PyArgs.FastCall("_operator", "setitem", 3, 3, SetItem);
             module.ModuleDict["length_hint"] = PyArgs.FastCall("_operator", "length_hint", 1, 2, LengthHint);
+            // itemgetter, attrgetter and methodcaller: the types _operator_exec adds.
+            module.ModuleDict["attrgetter"] = PyAttrGetter.AttrGetterType;
+            module.ModuleDict["itemgetter"] = PyItemGetter.ItemGetterType;
+            module.ModuleDict["methodcaller"] = PyMethodCaller.MethodCallerType;
             module.ModuleDict["_compare_digest"] = PyArgs.FastCall("_operator", "_compare_digest", 2, 2, CompareDigest);
 
             // In-place operators: PyNumber_InPlace*, and PySequence_InPlaceConcat for iconcat.

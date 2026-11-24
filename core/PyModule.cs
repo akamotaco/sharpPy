@@ -342,6 +342,8 @@ public class PyModule : PyObject
             ["time"] = () => new TimeModule(),
             ["_testcapi"] = () => SharpPy.Modules._TestCapiModule.Create(),
             ["_heapq"] = () => SharpPy.Modules._HeapqModule.Create(),
+            ["_stat"] = SharpPy.Modules.StatModule.Create,
+            ["_symtable"] = SharpPy.Modules.SymtableModule.Create,
             ["_bisect"] = () => SharpPy.Modules._BisectModule.Create(),
             ["_statistics"] = () => SharpPy.Modules.StatisticsModule.Create(),
             ["_multibytecodec"] = SharpPy.Modules.Cjk.MultibyteCodecModule.Create,

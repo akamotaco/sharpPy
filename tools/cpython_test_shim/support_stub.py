@@ -566,11 +566,21 @@ def _check_syntax_warning(testcase, statement, errtext="", *, lineno=1, offset=N
         testcase.assertRegex(str(caught[0].message), errtext)
 
 
+# warnings_helper.save_restore_warnings_filters, as Lib/test/support/warnings_helper.py:191.
+@contextlib.contextmanager
+def _save_restore_warnings_filters():
+    old_filters = warnings.filters[:]
+    try:
+        yield
+    finally:
+        warnings.filters[:] = old_filters
+
 import_helper = _helper_module("import_helper", import_fresh_module=_import_fresh_module, import_module=_import_module)
 os_helper = _helper_module("os_helper", TESTFN=TESTFN, unlink=_unlink)
 warnings_helper = _helper_module("warnings_helper", check_warnings=_check_warnings, check_no_warnings=_check_no_warnings,
                                  check_no_resource_warning=_check_no_resource_warning,
-                                 check_syntax_warning=_check_syntax_warning, ignore_warnings=lambda *, category: (lambda f: f))
+                                 check_syntax_warning=_check_syntax_warning,
+                                 save_restore_warnings_filters=_save_restore_warnings_filters, ignore_warnings=lambda *, category: (lambda f: f))
 script_helper = _helper_module("script_helper")
 socket_helper = _helper_module("socket_helper")
 logging_helper = _helper_module("logging_helper")

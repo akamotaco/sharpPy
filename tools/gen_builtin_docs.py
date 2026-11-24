@@ -106,8 +106,8 @@ def collect():
             if raw is not None:
                 entries[f"{key}.{member}"] = raw
     # Native modules: "<module>.<name>" for what they hold; their m_doc is tools/gen_module_docs.py's.
-    import _bisect, _collections, _functools, _heapq, _io, _operator, _random, _struct, _thread, _typing, array, itertools, math, nt, sys, time
-    for module in (_bisect, _collections, _functools, _heapq, _io, _operator, _random, _struct, _thread, _typing, array, itertools, math, nt, sys, time):
+    import _bisect, _collections, _functools, _heapq, _io, _operator, _random, _stat, _struct, _thread, _typing, array, itertools, math, nt, sys, time
+    for module in (_bisect, _collections, _functools, _heapq, _io, _operator, _random, _stat, _struct, _thread, _typing, array, itertools, math, nt, sys, time):
         for name, obj in vars(module).items():
             if isinstance(obj, type):
                 # A type of the module: "<__module__>.<name>" and its members under that.
@@ -123,7 +123,7 @@ def collect():
                     if raw is not None:
                         entries[f"{key}.{member}"] = raw
                 continue
-            if name.startswith("_") or not callable(obj):
+            if name.startswith("__") or not callable(obj):
                 continue
             raw = internal(name, obj)
             if raw is not None:

@@ -148,6 +148,9 @@ namespace SharpPy.Modules
             module.ModuleDict["OrderedDict"] = PyODict.ODictType;
             module.ModuleDict["_deque_iterator"] = PyDequeModule.DequeIterType;
             module.ModuleDict["_deque_reverse_iterator"] = PyDequeModule.DequeRevIterType;
+            module.ModuleDict["_tuplegetter"] = PyTupleGetter.TupleGetterType;
+            module.ModuleDict["_count_elements"] = PyArgs.FastCall("_collections", "_count_elements", 2, 2,
+                args => CountElements.Run(args[0], args[1]));
             return module;
         }
     }

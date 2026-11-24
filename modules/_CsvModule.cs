@@ -23,6 +23,9 @@ namespace SharpPy.Modules
             module.ModuleDict["Dialect"] = DialectType;
             module.ModuleDict["reader"] = new PyBuiltinFunction("reader", ReaderFunc);
             module.ModuleDict["writer"] = new PyBuiltinFunction("writer", WriterFunc);
+            // _csv_exec: PyModule_AddObjectRef of the reader and writer types as Reader and Writer.
+            module.ModuleDict["Reader"] = ReaderType;
+            module.ModuleDict["Writer"] = WriterType;
             module.ModuleDict["register_dialect"] = new PyBuiltinFunction("register_dialect", RegisterDialectFunc);
             module.ModuleDict["unregister_dialect"] = new PyBuiltinFunction("unregister_dialect", UnregisterDialectFunc);
             module.ModuleDict["get_dialect"] = new PyBuiltinFunction("get_dialect", GetDialectFunc);

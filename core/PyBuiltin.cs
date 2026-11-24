@@ -1106,7 +1106,7 @@ namespace SharpPy
         }
 
         // _Py_SourceAsString
-        private static string SourceAsString(PyObject cmd, string funcname, string what, bool execInput, string filename)
+        internal static string SourceAsString(PyObject cmd, string funcname, string what, bool execInput, string filename)
         {
             if (cmd is PyString text)
             {

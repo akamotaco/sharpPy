@@ -343,6 +343,8 @@ public class PyBytesIO : PyIOBaseInstance
     public static void Register() { }
 
     /// <summary>Modules/_io/bytesio.c _BytesIOBuffer: what getbuffer()'s view exports from.</summary>
+    internal static PyType BytesIOBufferType => ExportBuffer.BufferType;
+
     private sealed class ExportBuffer : PyObject, IBufferExporter
     {
         internal static readonly PyType BufferType = MakeBufferType();

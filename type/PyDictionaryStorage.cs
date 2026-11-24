@@ -264,6 +264,17 @@ namespace SharpPy
         public bool ContainsKey(PyObject key) => TryGetValue(key, out _);
         public bool Remove(PyObject key) => Remove(key, out _, out _);
         public bool Remove(PyObject key, out PyObject value) => Remove(key, out value, out _);
+        // _PyDict_Pop_KnownHash: the lookup by the hash the caller holds, no second __hash__.
+        internal bool RemoveKnownHash(PyObject key, long hash, out PyObject value)
+        {
+            int index = Find(key, hash, out int slot);
+            if (index < 0) { value = null; return false; }
+            value = entries[index].Value;
+            var storedKey = entries[index].Key;
+            indices[slot] = -1; entries[index] = default; Count--;
+            callbackHashes?.Remove(storedKey);
+            return true;
+        }
         internal bool Remove(PyObject key, out PyObject value, out PyObject storedKey, bool knownHash = false)
         {
             int slot;

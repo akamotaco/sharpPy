@@ -63,6 +63,8 @@ namespace SharpPy.Modules
             // registers the concrete classes, so every default implementation belongs here.
             module.ModuleDict["StringIO"] = PyStringIO.StringType;
             module.ModuleDict["BytesIO"] = PyBytesIO.BytesType;
+            // _io_exec: ADD_TYPE(m, state->PyBytesIOBuffer_Type, &bytesiobuf_spec, NULL)
+            module.ModuleDict["_BytesIOBuffer"] = PyBytesIO.BytesIOBufferType;
             module.ModuleDict["_IOBase"] = PyIOBaseSlots.IOBaseType;
             module.ModuleDict["_RawIOBase"] = PyIOBaseSlots.RawIOBaseType;
             module.ModuleDict["_BufferedIOBase"] = PyIOBaseSlots.BufferedIOBaseType;

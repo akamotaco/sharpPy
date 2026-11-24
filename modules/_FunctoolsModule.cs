@@ -17,6 +17,7 @@ namespace SharpPy.Modules
             module.ModuleDict["reduce"] = new PyBuiltinFunction("reduce", PyReduce);
             // the C partial, which functools.py takes in place of its own class
             module.ModuleDict["partial"] = PyPartial.PartialType;
+            module.ModuleDict["_lru_cache_wrapper"] = PyLruCacheWrapper.LruCacheType;
             module.ModuleDict["cmp_to_key"] = new PyBuiltinFunction("cmp_to_key", PyCmpToKey);
 
             return module;

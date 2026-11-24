@@ -160,7 +160,7 @@ namespace SharpPy.Modules
             // PyLong_AsUnsignedLong and PyLong_AsLong, all read before anything is stored.
             var words = new uint[N];
             for (int i = 0; i < N; i++)
-                words[i] = (uint)AsUnsignedLong(state.Items[i]);
+                words[i] = (uint)PyArgs.AsUnsignedLong(state.Items[i]);
             var index = AsLong(state.Items[N]);
             if (index < 0 || index > N)
                 throw PyValueError.Create("invalid state");
@@ -170,21 +170,8 @@ namespace SharpPy.Modules
             return PyNone.Instance;
         }
 
-        // C long and unsigned long: 32 bits on Windows, 64 elsewhere.
+        // C long: 32 bits on Windows, 64 elsewhere.
         private static BigInteger LongMax => OperatingSystem.IsWindows() ? int.MaxValue : long.MaxValue;
-        private static BigInteger UnsignedLongMax => OperatingSystem.IsWindows() ? uint.MaxValue : ulong.MaxValue;
-
-        // PyLong_AsUnsignedLong: an int only, no __index__.
-        private static BigInteger AsUnsignedLong(PyObject value)
-        {
-            if (value is not PyInt number)
-                throw PyTypeError.Create("an integer is required");
-            if (number.Value < 0)
-                throw PyOverflowError.Create("can't convert negative value to unsigned int");
-            if (number.Value > UnsignedLongMax)
-                throw PyOverflowError.Create("Python int too large to convert to C unsigned long");
-            return number.Value;
-        }
 
         // PyLong_AsLong: __index__, then the range of a C long.
         private static BigInteger AsLong(PyObject value)
