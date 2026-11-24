@@ -95,6 +95,10 @@ class _Stand_in:
 def __getattr__(name):
     if name.startswith("__"):
         raise AttributeError(name)
+    if name == "socket_helper":
+        # CPython's own Lib/test/support/socket_helper.py, imported (from this package's __path__,
+        # the real support directory) the first time a test asks for it: it imports socket.
+        return importlib.import_module("test.support.socket_helper")
     return _Stand_in(name)
 
 
@@ -127,6 +131,7 @@ LONG_TIMEOUT = 300.0
 LOOPBACK_TIMEOUT = 5.0
 INTERNET_TIMEOUT = 60.0
 PIPE_MAX_SIZE = 1024 * 1024
+SOCK_MAX_SIZE = 16 * 1024 * 1024 + 1
 
 
 # subprocess reads these at class level when it finds no msvcrt.
@@ -249,10 +254,11 @@ def requires_IEEE_754(test):
     return test
 
 
-def requires_working_socket(*, module=False):
-    if module:
-        raise unittest.SkipTest("no sockets")
-    return unittest.skip("no sockets")
+# Lib/test/support/__init__.py: has_socket_support; requires_working_socket is taken from the file below.
+has_socket_support = not (
+    is_emscripten
+    or is_wasi
+)
 
 
 requires_docstrings = unittest.skipUnless(HAVE_DOCSTRINGS,
@@ -582,7 +588,6 @@ warnings_helper = _helper_module("warnings_helper", check_warnings=_check_warnin
                                  check_syntax_warning=_check_syntax_warning,
                                  save_restore_warnings_filters=_save_restore_warnings_filters, ignore_warnings=lambda *, category: (lambda f: f))
 script_helper = _helper_module("script_helper")
-socket_helper = _helper_module("socket_helper")
 logging_helper = _helper_module("logging_helper")
 hashlib_helper = _helper_module("hashlib_helper")
 bytecode_helper = _helper_module("bytecode_helper")
@@ -605,7 +610,9 @@ def _take_from_support(*names):
 
 
 _take_from_support("busy_retry", "sleeping_retry", "catch_unraisable_exception", "catch_threading_exception",
-                   "run_code", "adjust_int_max_str_digits", "maybe_get_event_loop_policy", "run_with_locales")
+                   "run_code", "adjust_int_max_str_digits", "maybe_get_event_loop_policy", "run_with_locales",
+                   "requires_working_socket", "_get_kernel_version", "_requires_unix_version",
+                   "requires_freebsd_version", "requires_linux_version")
 
 # import_helper.unload and forget, as CPython 3.12.15 has them, over the shim's os_helper.unlink.
 try:

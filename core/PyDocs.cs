@@ -72,8 +72,9 @@ namespace SharpPy
 
         // A static type of builtins; type itself is one, though SharpPy builds it as a class.
         // A static type of another module is keyed by its module too.
+        // A heap type a C module made from its spec (PyType_FromSpec) has the spec's docs too.
         private static string TypeKey(PyType type) =>
-            type.IsHeapType ? null
+            type.IsHeapType && !type.IsSpecType ? null
             : type.Module != null && type.Module != "builtins" ? type.Module + "." + type.Name
             : type.Name;
 

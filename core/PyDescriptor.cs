@@ -140,10 +140,11 @@ namespace SharpPy
             if (Name == "__new__")
                 RejectUnwantedKeywords(kwargs);
 
-            // Unbound method call: 첫 번째 인자가 self여야 함
+            // method_check_args: "unbound method %U needs an argument", %U being _PyObject_FunctionStr,
+            // the descriptor's __qualname__ (the type's qualname, not its tp_name) and "()".
             if (args.Length < 1)
             {
-                throw PyTypeError.Create($"unbound method {OwnerType.FullName}.{Name}() needs an argument");
+                throw PyTypeError.Create($"unbound method {OwnerType.QualNameString.Value}.{Name}() needs an argument");
             }
 
             var self = args[0];

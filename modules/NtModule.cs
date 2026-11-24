@@ -109,6 +109,23 @@ namespace SharpPy.Modules
                 PyFileDescriptors.Get(Descriptor(args[0]));
                 return PyBool.False;
             });
+            // os_get_handle_inheritable_impl / os_set_handle_inheritable_impl: GetHandleInformation and
+            // SetHandleInformation(HANDLE_FLAG_INHERIT). The handles SharpPy hands out are its
+            // sockets' (SocketHandles, created not inheritable); any other is ERROR_INVALID_HANDLE.
+            module.ModuleDict["get_handle_inheritable"] = PyArgs.MethO("nt", "get_handle_inheritable", args =>
+            {
+                long handle = SocketModule.AsSocket(args[0]);
+                return SocketHandles.GetInheritable(handle) is bool inheritable
+                    ? PyBool.FromBool(inheritable) : throw PyOSError.CreateWindowsFileError(6, null);
+            });
+            module.ModuleDict["set_handle_inheritable"] = PyArgs.FastCall("nt", "set_handle_inheritable", 2, 2, args =>
+            {
+                long handle = SocketModule.AsSocket(args[0]);
+                bool inheritable = args[1].IsTrue();
+                if (!SocketHandles.SetInheritable(handle, inheritable))
+                    throw PyOSError.CreateWindowsFileError(6, null);
+                return PyNone.Instance;
+            });
             module.ModuleDict["get_blocking"] = new PyBuiltinFunction("get_blocking", args =>
             {
                 PyFileDescriptors.Get(Descriptor(args[0]));

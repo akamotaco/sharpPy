@@ -292,6 +292,9 @@ namespace SharpPy.Modules
                     return false;
                 case PyClass cls:
                     return !SlotDefs.IsBuiltinType(cls);
+                // A heap type made from a spec (PyType_FromSpec) is a GC object; a static one is not.
+                case PyType heap when heap.IsHeapType:
+                    return true;
                 case PyClassInstance _:
                 case PyFunction _:
                 case PyBuiltinFunction _:

@@ -603,11 +603,17 @@ namespace SharpPy
         // (ast.AST), unlike one type() or PyErr_NewException makes.
         private bool _specName;
 
+        internal bool IsSpecType => _specName;
+
         internal void MarkSpecHeapType()
         {
             MarkHeapType();
             _specName = true;
         }
+
+        // A spec whose flags have Py_TPFLAGS_IMMUTABLETYPE (_socket.socket): a heap type whose
+        // attributes cannot be set.
+        internal void MarkImmutableType() => _flags |= PyTypeFlags.ImmutableType;
 
         // type_new made it: a class statement or a type() call, whose tp_base is best_base.
         private bool MadeByTypeNew => this is PyClass && this is not PyTypeMetaclass;
