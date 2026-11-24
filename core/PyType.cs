@@ -635,6 +635,18 @@ namespace SharpPy
         // static types does not hold.
         internal void SetSpecLayout(TypeLayout layout) => _builtinLayout = layout;
 
+        // A static type whose name the layout table (keyed by name) gives to another module's type
+        // (decimal.Context and _contextvars.Context): the layout and the flags BuiltInSpecFlags
+        // takes from it, from its own PyTypeObject.
+        internal void SetStaticLayout(TypeLayout layout)
+        {
+            _builtinLayout = layout;
+            _flags &= ~(PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.ManagedWeakRef);
+            if (!layout.Final) _flags |= PyTypeFlags.BaseType;
+            if (layout.Gc) _flags |= PyTypeFlags.HaveGC;
+            if (layout.WeakOffset != 0) _flags |= PyTypeFlags.ManagedWeakRef;
+        }
+
         /// <summary>tp_name of a type that keeps its module in it, as a compiled one does.</summary>
         // tp_name: a heap type's is its name; a static type of a C module's is "module.name".
         internal virtual string FullName => this is PyClass || (IsHeapType && !_specName) || string.IsNullOrEmpty(Module) || Module == "builtins" ? Name : Module + "." + Name;

@@ -109,11 +109,18 @@ def collect():
             if raw is not None:
                 entries[f"{key}.{member}"] = raw
     # Native modules: "<module>.<name>" for what they hold; their m_doc is tools/gen_module_docs.py's.
-    import _bisect, _bz2, _collections, _datetime, _functools, _hashlib, _heapq, _io, _lzma, _operator, _pickle, _random, _socket, _stat, _struct, _thread, _typing, _zoneinfo, array, itertools, math, nt, select, sys, time
-    # A static type a module readies without naming it: _datetime's IsoCalendarDate.
-    unnamed = {"IsoCalendarDate": type(_datetime.date(2000, 1, 1).isocalendar())}
-    for module in (_bisect, _bz2, _collections, _datetime, _functools, _hashlib, _heapq, _io, _lzma, _operator, _pickle, _random, _socket, _stat, _struct, _thread, _typing, _zoneinfo, array, itertools, math, nt, select, sys, time):
-        for name, obj in list(vars(module).items()) + (list(unnamed.items()) if module is _datetime else []):
+    import _bisect, _bz2, _collections, _datetime, _decimal, _functools, _hashlib, _heapq, _io, _lzma, _operator, _pickle, _random, _socket, _stat, _struct, _thread, _typing, _zoneinfo, array, itertools, math, nt, select, sys, time
+    # A static type a module readies without naming it: _datetime's IsoCalendarDate, _decimal's
+    # SignalDictMixin and ContextManager.
+    unnamed = {_datetime: {"IsoCalendarDate": type(_datetime.date(2000, 1, 1).isocalendar())},
+               _decimal: {"SignalDictMixin": type(_decimal.getcontext().flags).__mro__[1],
+                          "ContextManager": type(_decimal.localcontext())}}
+    for module in (_bisect, _bz2, _collections, _datetime, _decimal, _functools, _hashlib, _heapq, _io, _lzma, _operator, _pickle, _random, _socket, _stat, _struct, _thread, _typing, _zoneinfo, array, itertools, math, nt, select, sys, time):
+        for name, obj in list(vars(module).items()) + list(unnamed.get(module, {}).items()):
+            # A class written in Python that a C module names (_decimal's DecimalTuple, the
+            # exceptions it makes with PyErr_NewException) has no C docs.
+            if isinstance(obj, type) and obj.__flags__ & (1 << 9) and module is _decimal:
+                continue
             if isinstance(obj, type):
                 # A type of the module: "<__module__>.<name>" and its members under that.
                 key = f"{obj.__module__}.{obj.__name__}"

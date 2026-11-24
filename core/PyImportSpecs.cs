@@ -129,7 +129,9 @@ namespace SharpPy
             PyDocs.SetTypeDocs();
             foreach (var value in module.ModuleDict.Values)
                 if (value is PyBuiltinFunction function)
-                    function.OwnerModule = name;
+                    // m_module: the module object, whose __name__ is the def's m_name ("decimal"
+                    // for _decimal), not necessarily the name it was imported by.
+                    function.OwnerModule = module.Name;
             return module;
         }
 

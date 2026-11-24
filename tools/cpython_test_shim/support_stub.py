@@ -724,3 +724,8 @@ _take_from("script_helper.py", "_PythonRunResult", "_assert_python", "assert_pyt
 script_helper.__dict__.update(run_python_until_end=run_python_until_end, assert_python_ok=assert_python_ok,
                               assert_python_failure=assert_python_failure, make_script=make_script,
                               make_pkg=make_pkg)
+
+# test_decimal: Lib/test/support/__init__.py requires_legacy_unicode_capi and darwin_malloc_err_warning
+# (both pure Python); skip_on_s390x is skipIf(is_s390x), never true here.
+_take_from_support("requires_legacy_unicode_capi", "darwin_malloc_err_warning")
+skip_on_s390x = unittest.skipIf(False, "skipped on s390x")

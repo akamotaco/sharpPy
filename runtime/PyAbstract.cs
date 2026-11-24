@@ -4,15 +4,27 @@ namespace SharpPy
     /// PyObject_GetItem, PyObject_SetItem and PyObject_DelItem (Objects/abstract.c): what the
     /// subscript opcodes do, whichever spelling of the subscript reached them.
     /// </summary>
+    /// <summary>
+    /// The nb_power slot of a native type that takes a modulus (ternary_op): the slot function of
+    /// the operand's type, called with the three operands in order.
+    /// </summary>
+    internal interface INbPower
+    {
+        PyObject NbPower(PyObject v, PyObject w, PyObject z);
+    }
+
     internal static class PyAbstract
     {
-        private enum PowerSlot { None, Python, Int, Float, Complex }
+        private enum PowerSlot { None, Python, Int, Float, Complex, Native }
 
         private static PowerSlot SlotOf(PyObject operand)
         {
             var type = operand.GetPyType();
             if (type is PyClass cls && SubclassInstanceSupport.FirstClassDictEntry(cls, "__pow__") != null)
                 return PowerSlot.Python;
+            // The nb_power of a C module's type (decimal.Decimal): one slot function per type.
+            if (operand is INbPower)
+                return PowerSlot.Native;
             if (IntValue(operand) != null) return PowerSlot.Int;
             if (type.IsSubclassOf(PyType.FloatType) || ReferenceEquals(type, PyType.FloatType)) return PowerSlot.Float;
             if (type.IsSubclassOf(PyType.ComplexType) || ReferenceEquals(type, PyType.ComplexType)) return PowerSlot.Complex;
@@ -21,10 +33,12 @@ namespace SharpPy
 
         private static PyInt IntValue(PyObject operand) => PyInt.LongValue(operand);
 
-        private static PyObject RunPowerSlot(PowerSlot slot, PyObject v, PyObject w, PyObject z)
+        private static PyObject RunPowerSlot(PowerSlot slot, PyObject v, PyObject w, PyObject z, PyObject owner = null)
         {
             switch (slot)
             {
+                case PowerSlot.Native:
+                    return ((INbPower)owner).NbPower(v, w, z);
                 // slot_nb_power: three-argument power has no __rpow__.
                 case PowerSlot.Python:
                     return SlotOf(v) == PowerSlot.Python
@@ -53,22 +67,22 @@ namespace SharpPy
             {
                 if (slotW != PowerSlot.None && w.GetPyType().IsSubclassOf(v.GetPyType()))
                 {
-                    result = RunPowerSlot(slotW, v, w, z);
+                    result = RunPowerSlot(slotW, v, w, z, w);
                     if (result is not PyNotImplemented) return result;
                     slotW = PowerSlot.None;
                 }
-                result = RunPowerSlot(slotV, v, w, z);
+                result = RunPowerSlot(slotV, v, w, z, v);
                 if (result is not PyNotImplemented) return result;
             }
             if (slotW != PowerSlot.None)
             {
-                result = RunPowerSlot(slotW, v, w, z);
+                result = RunPowerSlot(slotW, v, w, z, w);
                 if (result is not PyNotImplemented) return result;
             }
             var slotZ = SlotOf(z);
             if (slotZ != PowerSlot.None && slotZ != slotV && slotZ != slotW)
             {
-                result = RunPowerSlot(slotZ, v, w, z);
+                result = RunPowerSlot(slotZ, v, w, z, z);
                 if (result is not PyNotImplemented) return result;
             }
             throw PyTypeError.Create(

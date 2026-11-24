@@ -918,10 +918,13 @@ namespace SharpPy
         {
             if (PyFloat.TryFloatSelf(this, out var real)) return real.Value;
             if (this is PyInt { IsExact: true } integer) return integer.AsDouble();
-            var method = LookupSpecialMethodUncached("__float__");
-            if (method != null)
+            // nb_float of the type: a builtin's CLR slot (decimal.Decimal's PyDec_AsFloat), or the
+            // __float__ a class has; then a __float__ a builtin keeps as a method.
+            var result = TpNbFloat();
+            if (result == null && LookupSpecialMethodUncached("__float__") is { } method)
+                result = BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+            if (result != null)
             {
-                var result = BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
                 if (result is PyFloat converted) return converted.Value;
                 throw PyTypeError.Create($"{GetTypeName()}.__float__ returned non-float (type {result.GetTypeName()})");
             }

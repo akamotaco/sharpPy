@@ -346,6 +346,8 @@ public class PyModule : PyObject
             ["_heapq"] = () => SharpPy.Modules._HeapqModule.Create(),
             ["_stat"] = SharpPy.Modules.StatModule.Create,
             ["_datetime"] = SharpPy.Modules.Datetime.DatetimeModule.Create,
+            // Modules/_decimal/_decimal.c over a C# libmpdec (modules/Decimal/).
+            ["_decimal"] = SharpPy.Modules.CDecimal.DecimalModule.Create,
             // Modules/_zoneinfo.c over the datetime C API (modules/ZoneinfoModule.cs).
             ["_zoneinfo"] = SharpPy.Modules.ZoneinfoModule.Create,
             ["_socket"] = SharpPy.Modules.SocketModule.Create,

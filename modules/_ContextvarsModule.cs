@@ -84,6 +84,27 @@ namespace SharpPy.Modules
             type.TypeDict[name] = new PyMethodDescriptor(name, type, body, min, max, acceptsKwargs);
         }
 
+        // PyContextVar_New(name, NULL): a variable without a default.
+        internal static PyObject PyContextVar_New(string name) => new PyContextVar(PyString.From(name), null);
+
+        // PyContextVar_Get(var, NULL, &value): the value in the current context, else its default;
+        // false (value NULL) when there is neither.
+        internal static bool PyContextVar_Get(PyObject var, out PyObject value)
+        {
+            var variable = (PyContextVar)var;
+            if (Current.Vars.TryGetValue(variable, out value))
+                return true;
+            value = variable.Default;
+            return value != null;
+        }
+
+        // PyContextVar_Set(var, value): the token is not needed by the C callers.
+        internal static void PyContextVar_Set(PyObject var, PyObject value)
+        {
+            var context = Current;
+            context.Vars = context.Vars.SetItem(var, value);
+        }
+
         private static PyObject CheckVar(PyObject key) => key is PyContextVar
             ? key : throw PyTypeError.Create($"a ContextVar key was expected, got {key}");
 
