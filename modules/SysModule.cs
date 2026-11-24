@@ -743,12 +743,24 @@ namespace SharpPy.Modules
             PyObject function = null;
             if (dot != 0)
             {
+                // PyImport_Import; an ImportError, then an AttributeError from the lookup, warns.
+                PyObject module = null;
                 try
                 {
-                    function = ImportForHook(modulePath).GetAttribute(attribute);
+                    module = PyImportSystem.PyImportImport(PyString.From(modulePath));
                 }
-                catch (PythonException error) when (error.PyException is PyImportError or PyAttributeError)
+                catch (PythonException error) when (error.PyException.GetPyType().IsSubclassOf(PyType.ImportErrorType))
                 {
+                }
+                if (module != null)
+                {
+                    try
+                    {
+                        function = module.GetAttribute(attribute);
+                    }
+                    catch (PythonException error) when (error.PyException.GetPyType().IsSubclassOf(PyType.AttributeErrorType))
+                    {
+                    }
                 }
             }
             if (function != null)
@@ -757,9 +769,6 @@ namespace SharpPy.Modules
             PyWarnings.Warn(PyType.RuntimeWarningType, $"Ignoring unimportable $PYTHONBREAKPOINT: \"{setting}\"", 0);
             return PyNone.Instance;
         }
-
-        private static PyObject ImportForHook(string path) =>
-            PyImportSystem.Import("importlib").GetAttribute("import_module").Call(new PyObject[] { PyString.From(path) }, null);
 
         private PyObject CallExceptHook(PyObject[] args)
         {

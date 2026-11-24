@@ -438,6 +438,39 @@ public class PyModule : PyObject
                 : throw PyImportError.Create($"{Repr(moduleName)} is not a module in sys.modules");
         }
 
+        /// <summary>
+        /// PyImport_Import (Python/import.c): __import__ from the current globals' __builtins__
+        /// (the builtins module with no frame), called absolute with an empty fromlist for its side
+        /// effect; the answer is what sys.modules holds (import_get_module), KeyError when nothing.
+        /// </summary>
+        internal static PyObject PyImportImport(PyObject moduleName)
+        {
+            PyObject globals = PyVM.CurrentFrame?.Globals?.Dict;
+            PyObject builtins;
+            if (globals != null)
+                builtins = globals.GetItem(PyString.From("__builtins__"));
+            else
+            {
+                builtins = ImportModuleLevelObject(PyString.From("builtins"), null, null, 0);
+                var fake = new PyDict();
+                fake.SetItem(PyString.From("__builtins__"), builtins);
+                globals = fake;
+            }
+            PyObject import;
+            if (builtins is PyDict builtinsDict)
+            {
+                import = builtinsDict.InternalDict.TryGetValue(PyString.From("__import__"), out var found) ? found : null;
+                if (import == null)
+                    throw PyKeyError.Create(PyString.From("__import__"));
+            }
+            else
+                import = builtins.GetAttribute("__import__");
+            import.Call(new PyObject[] { moduleName, globals, globals, new PyList(), PyInt.From(0) }, null);
+            return SysModules.InternalDict.TryGetValue(moduleName, out var module)
+                ? module
+                : throw PyKeyError.Create(moduleName);
+        }
+
         // interp->import_func: the builtins.__import__ the interpreter started with, which
         // IMPORT_NAME bypasses for PyImport_ImportModuleLevelObject (_PyImport_IsDefaultImportFunc).
         private static PyObject _importFunc;

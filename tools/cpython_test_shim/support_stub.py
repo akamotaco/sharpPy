@@ -472,19 +472,77 @@ def _unlink(path):
         pass
 
 
-@contextlib.contextmanager
-def _check_warnings(*filters, quiet=True):
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        yield caught
+# test.support.warnings_helper's WarningsRecorder, check_warnings, _filterwarnings and
+# check_no_warnings, as CPython 3.12.15 has them.
+class _WarningsRecorder(object):
+    def __init__(self, warnings_list):
+        self._warnings = warnings_list
+        self._last = 0
+
+    def __getattr__(self, attr):
+        if len(self._warnings) > self._last:
+            return getattr(self._warnings[-1], attr)
+        elif attr in warnings.WarningMessage._WARNING_DETAILS:
+            return None
+        raise AttributeError("%r has no attribute %r" % (self, attr))
+
+    @property
+    def warnings(self):
+        return self._warnings[self._last:]
+
+    def reset(self):
+        self._last = len(self._warnings)
 
 
 @contextlib.contextmanager
-def _check_no_warnings(testcase, *args, **kwargs):
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        yield caught
-    testcase.assertEqual(len(caught), 0)
+def _check_warnings(*filters, **kwargs):
+    quiet = kwargs.get('quiet')
+    if not filters:
+        filters = (("", Warning),)
+        if quiet is None:
+            quiet = True
+    return _filterwarnings(filters, quiet)
+
+
+def _filterwarnings(filters, quiet=False):
+    import re
+    frame = sys._getframe(2)
+    registry = frame.f_globals.get('__warningregistry__')
+    if registry:
+        registry.clear()
+    with warnings.catch_warnings(record=True) as w:
+        sys.modules['warnings'].simplefilter("always")
+        yield _WarningsRecorder(w)
+    reraise = list(w)
+    missing = []
+    for msg, cat in filters:
+        seen = False
+        for w in reraise[:]:
+            warning = w.message
+            if (re.match(msg, str(warning), re.I) and
+                issubclass(warning.__class__, cat)):
+                seen = True
+                reraise.remove(w)
+        if not seen and not quiet:
+            missing.append((msg, cat.__name__))
+    if reraise:
+        raise AssertionError("unhandled warning %s" % reraise[0])
+    if missing:
+        raise AssertionError("filter (%r, %s) did not catch any warning" %
+                             missing[0])
+
+
+@contextlib.contextmanager
+def _check_no_warnings(testcase, message='', category=Warning, force_gc=False):
+    with warnings.catch_warnings(record=True) as warns:
+        warnings.filterwarnings('always',
+                                message=message,
+                                category=category)
+        yield
+        if force_gc:
+            import gc
+            gc.collect()
+    testcase.assertEqual(warns, [])
 
 
 @contextlib.contextmanager

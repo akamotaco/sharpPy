@@ -90,7 +90,8 @@ namespace SharpPy
                 return instanceValue;
             if (attribute == null)
                 return null;
-            if (method && (attribute.GetType() == typeof(PyFunction) || attribute is PyMethodDescriptor || attribute is PyWrapperDescriptor))
+            // meth_found: the descriptor's type has Py_TPFLAGS_METHOD_DESCRIPTOR.
+            if (method && attribute.GetPyType().HasFeature(PyTypeFlags.MethodDescriptor))
             {
                 unbound = true;
                 return attribute;

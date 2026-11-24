@@ -108,6 +108,14 @@ namespace SharpPy
                 "set" or "frozenset" => PyTypeFlags.MatchSelf,
                 // Objects/memoryobject.c:3390, Objects/rangeobject.c:785
                 "memoryview" or "range" => PyTypeFlags.Sequence,
+                // Objects/floatobject.c:1911, Objects/bytearrayobject.c:2312
+                "float" or "bytearray" => PyTypeFlags.MatchSelf,
+                // Objects/exceptions.c:469
+                "BaseException" => PyTypeFlags.BaseExceptionSubclass,
+                // Objects/typeobject.c:5342
+                "type" => PyTypeFlags.TypeSubclass | PyTypeFlags.ItemsAtEnd,
+                // Objects/funcobject.c:920, Objects/descrobject.c:732 and :882
+                "function" or "method_descriptor" or "wrapper_descriptor" => PyTypeFlags.MethodDescriptor,
                 _ => PyTypeFlags.None,
             };
             if (!TypeLayouts.Measured(name, out var layout))
@@ -132,7 +140,8 @@ namespace SharpPy
                 // type_new copies the base's flags into a heap type, which is measurable: a user
                 // class deriving from list carries LIST_SUBCLASS, and one deriving from bool
                 // carries nothing, which is what makes the base check fire.
-                flags = PyTypeFlags.HeapType |
+                // type_new_alloc: a heap type is always collected (Py_TPFLAGS_HAVE_GC).
+                flags = PyTypeFlags.HeapType | PyTypeFlags.HaveGC |
                         (baseType != null ? baseType._flags & InheritableFlags : PyTypeFlags.None);
             }
             else

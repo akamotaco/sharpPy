@@ -65,6 +65,11 @@ namespace SharpPy
         /// docs/lifetime_and_gc_policy.md), so this bit records the CPython fact and nothing more.</summary>
         HaveGC = 1UL << 14,
 
+        /// <summary>Include/object.h:528 - a descriptor whose tp_descr_get binds like a method, so
+        /// _PyObject_GetMethod and lookup_maybe_method may skip the bound object and pass self
+        /// as the first argument (function, method_descriptor, wrapper_descriptor).</summary>
+        MethodDescriptor = 1UL << 17,
+
         /// <summary>Include/object.h:540 - an undocumented flag that lets one positional
         /// subpattern match the subject itself instead of a mapped attribute.</summary>
         MatchSelf = 1UL << 22,

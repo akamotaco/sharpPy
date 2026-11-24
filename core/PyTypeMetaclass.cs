@@ -153,8 +153,9 @@ namespace SharpPy
             typeClass.ClassDict["__flags__"] = new PyMemberDescriptor("__flags__", typeClass, self =>
             {
                 var type = (PyType)self;
-                long flags = type.HasFeature(PyTypeFlags.BaseType) ? 1L << 10 : 0;
-                flags |= type.CollectionFlags;
+                // tp_flags as SharpPy models them. ManagedWeakRef stands for "has a weakref list"
+                // (CPython's tp_weaklistoffset too), so it is not CPython's bit 3 and stays out.
+                long flags = (long)type.Flags & ~(long)(PyTypeFlags.HeapType | PyTypeFlags.ImmutableType | PyTypeFlags.ManagedWeakRef);
                 if (type.IsHeapType)
                     flags |= 1L << 9;
                 if (type.HasFeature(PyTypeFlags.ImmutableType))
