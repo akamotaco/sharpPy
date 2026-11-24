@@ -17,6 +17,9 @@ __all__ = (
 
 import contextvars
 import os
+import signal
+import socket
+import subprocess
 import sys
 import threading
 
@@ -314,8 +317,8 @@ class AbstractEventLoop:
 
     async def create_server(
             self, protocol_factory, host=None, port=None,
-            *, family=0,
-            flags=1, sock=None, backlog=100,
+            *, family=socket.AF_UNSPEC,
+            flags=socket.AI_PASSIVE, sock=None, backlog=100,
             ssl=None, reuse_address=None, reuse_port=None,
             ssl_handshake_timeout=None,
             ssl_shutdown_timeout=None,
@@ -513,16 +516,16 @@ class AbstractEventLoop:
         raise NotImplementedError
 
     async def subprocess_shell(self, protocol_factory, cmd, *,
-                               stdin=-1,
-                               stdout=-1,
-                               stderr=-1,
+                               stdin=subprocess.PIPE,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
                                **kwargs):
         raise NotImplementedError
 
     async def subprocess_exec(self, protocol_factory, *args,
-                              stdin=-1,
-                              stdout=-1,
-                              stderr=-1,
+                              stdin=subprocess.PIPE,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE,
                               **kwargs):
         raise NotImplementedError
 
@@ -852,3 +855,14 @@ else:
     _c__set_running_loop = _set_running_loop
     _c_get_running_loop = get_running_loop
     _c_get_event_loop = get_event_loop
+
+
+if hasattr(os, 'fork'):
+    def on_fork():
+        # Reset the loop and wakeupfd in the forked child process.
+        if _event_loop_policy is not None:
+            _event_loop_policy._local = BaseDefaultEventLoopPolicy._Local()
+        _set_running_loop(None)
+        signal.set_wakeup_fd(-1)
+
+    os.register_at_fork(after_in_child=on_fork)

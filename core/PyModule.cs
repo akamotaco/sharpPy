@@ -420,6 +420,9 @@ public class PyModule : PyObject
             ["_warnings"] = PyWarnings.CreateModule,
             ["_ast"] = Modules.AstModule.CreateModule,
             ["_winapi"] = Modules.WinapiModule.Create,
+            ["_asyncio"] = Modules.AsyncioModule.Create,
+            ["_overlapped"] = Modules.OverlappedModule.Create,
+            ["_multiprocessing"] = Modules.MultiprocessingModule.Create,
             ["_locale"] = Modules.LocaleModule.Create,
             // Modules/_typingmodule.c and Objects/typevarobject.c.
             ["_typing"] = SharpPy.Modules.TypingModule.CreateTypingModule,

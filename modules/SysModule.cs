@@ -395,7 +395,12 @@ namespace SharpPy.Modules
 
         private static string GetPythonVersion()
         {
-            return "3.12.15 (SharpPy 0.9.1, " + DateTime.Now.ToString("MMM dd yyyy HH:mm:ss") + ")";
+            // Py_GetVersion: "%.80s (%.80s) %.80s" of the version, Py_GetBuildInfo ("buildno, date,
+            // time", the date as __DATE__ writes it, in English whatever the locale) and Py_GetCompiler
+            // ("[compiler]"), which platform._sys_version parses.
+            var culture = System.Globalization.CultureInfo.InvariantCulture;
+            return "3.12.15 (SharpPy 0.9.1, " + DateTime.Now.ToString("MMM dd yyyy, HH:mm:ss", culture) + ") ["
+                + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription + "]";
         }
 
         // 3.12.15 final

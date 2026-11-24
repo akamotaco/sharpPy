@@ -9,6 +9,7 @@ namespace SharpPy
         internal static readonly Dictionary<string, string> ModuleDocs = new()
         {
             ["_abc"] = "Module contains faster C implementation of abc.ABCMeta",
+            ["_asyncio"] = "Accelerator module for asyncio",
             ["_bisect"] = "Bisection algorithms.\n\nThis module provides support for maintaining a list in sorted order without\nhaving to sort the list after each insertion. For long lists of items with\nexpensive comparison operations, this can be an improvement over the more\ncommon approach.\n",
             ["_blake2"] = "_blake2b provides BLAKE2b for hashlib\n",
             ["_collections"] = "High performance data structures.\n- deque:        ordered collection accessible from endpoints only\n- defaultdict:  dict subclass with a default value factory\n",

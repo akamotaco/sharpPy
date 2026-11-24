@@ -105,6 +105,36 @@ namespace SharpPy.Modules
             context.Vars = context.Vars.SetItem(var, value);
         }
 
+        // PyContext_CopyCurrent
+        internal static PyObject PyContext_CopyCurrent() => new PyContext(Current.Vars);
+
+        // PyContext_Enter (_PyContext_Enter of Python/context.c): ctx becomes the thread's context,
+        // remembering the one it replaces.
+        internal static void PyContext_Enter(PyObject octx)
+        {
+            if (octx is not PyContext ctx)
+                throw PyTypeError.Create("an instance of Context was expected");
+            if (ctx.Entered)
+                throw PyRuntimeError.Create($"cannot enter context: {ctx} is already entered");
+            ctx.Prev = Current;
+            ctx.Entered = true;
+            _current = ctx;
+        }
+
+        // PyContext_Exit (_PyContext_Exit)
+        internal static void PyContext_Exit(PyObject octx)
+        {
+            if (octx is not PyContext ctx)
+                throw PyTypeError.Create("an instance of Context was expected");
+            if (!ctx.Entered)
+                throw PyRuntimeError.Create($"cannot exit context: {ctx} has not been entered");
+            if (!ReferenceEquals(_current, ctx))
+                throw PyRuntimeError.Create("cannot exit context: thread state references a different context object");
+            _current = ctx.Prev;
+            ctx.Prev = null;
+            ctx.Entered = false;
+        }
+
         private static PyObject CheckVar(PyObject key) => key is PyContextVar
             ? key : throw PyTypeError.Create($"a ContextVar key was expected, got {key}");
 
@@ -193,6 +223,7 @@ namespace SharpPy.Modules
         {
             internal ImmutableDictionary<PyObject, PyObject> Vars;
             internal bool Entered;
+            internal PyContext Prev;
 
             internal PyContext(ImmutableDictionary<PyObject, PyObject> vars) { Vars = vars; }
 

@@ -805,6 +805,15 @@ namespace SharpPy.Modules
             var sock = Sock;
             if (sock == null)
                 return SocketModule.WSAENOTSOCK;
+            // SO_UPDATE_ACCEPT_CONTEXT takes the listening SOCKET (asyncio's proactor packs
+            // listener.fileno()): the number of the handle table is translated to the OS socket.
+            if (level == 0xFFFF && optname == 0x700B && value.Length == IntPtr.Size)
+            {
+                var listener = SocketHandles.Get(BitConverter.ToInt64(value, 0));
+                if (listener == null)
+                    return SocketModule.WSAENOTSOCK;
+                value = BitConverter.GetBytes((long)listener.Handle);
+            }
             return Run(s =>
             {
                 if (OperatingSystem.IsWindows())

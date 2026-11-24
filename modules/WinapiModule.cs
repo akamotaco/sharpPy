@@ -48,7 +48,36 @@ namespace SharpPy.Modules
                 return PyBool.FromBool(need);
             });
             module.ModuleDict["LCMapStringEx"] = new PyBuiltinFunction("LCMapStringEx", LCMapStringEx);
+            // _winapi_CloseHandle_impl and _winapi_WaitForSingleObject_impl on the kernel objects
+            // _overlapped emulates (completion ports, events, registered waits; ManagedHandles); any
+            // other value is not a handle here: ERROR_INVALID_HANDLE, as Windows answers.
+            module.ModuleDict["CloseHandle"] = PyArgs.MethO("_winapi", "CloseHandle", args =>
+            {
+                long handle = (long)HandleArgument(args[0]);
+                if (!ManagedHandles.Close(handle))
+                    throw PyOSError.CreateWindowsFileError(6, null);
+                return PyNone.Instance;
+            });
+            module.ModuleDict["WaitForSingleObject"] = PyArgs.FastCall("_winapi", "WaitForSingleObject", 2, 2, args =>
+            {
+                long handle = (long)HandleArgument(args[0]);
+                uint milliseconds = (uint)PyArgs.AsUnsignedLong(args[1]);
+                long result = ManagedHandles.Wait(handle, milliseconds);
+                if (result < 0)
+                    throw PyOSError.CreateWindowsFileError(6, null);
+                return PyInt.From(result);
+            });
             return module;
+        }
+
+        // HANDLE_converter: PyLong_AsVoidPtr
+        private static ulong HandleArgument(PyObject value)
+        {
+            if (PyInt.LongValue(value) is not { } number)
+                throw new PythonException(new PySystemError("bad argument to internal function"));
+            if (number.Value.Sign < 0)
+                return number.Value < long.MinValue ? throw PyOverflowError.Create("int too big to convert") : unchecked((ulong)(long)number.Value);
+            return number.Value > ulong.MaxValue ? throw PyOverflowError.Create("int too big to convert") : (ulong)number.Value;
         }
 
         private const uint LCMAP_LOWERCASE = 0x100, LCMAP_UPPERCASE = 0x200, LCMAP_LINGUISTIC_CASING = 0x01000000;

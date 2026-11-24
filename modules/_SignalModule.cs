@@ -63,7 +63,7 @@ namespace SharpPy.Modules
                     numbers.Add(PyInt.From(number));
                 return new PySet(numbers);
             });
-            module.ModuleDict["set_wakeup_fd"] = new PyBuiltinFunction("set_wakeup_fd", args => PyInt.From(-1));
+            module.ModuleDict["set_wakeup_fd"] = new PyBuiltinFunction("set_wakeup_fd", SetWakeupFd);
             return module;
         }
 
@@ -114,7 +114,64 @@ namespace SharpPy.Modules
             return previous;
         }
 
-        // trip_signal: the handler runs in the main thread, at its next eval breaker.
+        // wakeup: the fd (on Windows a socket of the _socket table, or a C runtime descriptor), and
+        // whether trip_signal sends to it.
+        private static long _wakeupFd = -1;
+        private static bool _wakeupUseSend;
+        private static bool _wakeupWarnOnFullBuffer = true;
+
+        // signal_set_wakeup_fd: "O|$p:set_wakeup_fd" (Windows) or "i|$p:set_wakeup_fd".
+        private static PyObject SetWakeupFd(PyObject[] args, PyDict kwargs)
+        {
+            var a = PyArgs.Unpack("set_wakeup_fd", args, kwargs, new[] { "", "warn_on_full_buffer" }, 1, 1, 1);
+            bool warnOnFullBuffer = a[1] == null || a[1].IsTrue();
+            long fd = Windows ? SocketModule.AsSocket(a[0]) : PyArgs.Int(a[0]);
+            if (!PyVM.Instance.BoundState.IsMain)
+                throw PyValueError.Create("set_wakeup_fd only works in main thread of the main interpreter");
+            bool isSocket = false;
+            if (fd != -1)
+            {
+                if (Windows && SocketHandles.Get(fd) != null)
+                {
+                    isSocket = true;
+                }
+                else
+                {
+                    if (fd > int.MaxValue || fd < int.MinValue)
+                        throw PyValueError.Create("invalid fd");
+                    // _Py_fstat: OSError for a descriptor that is not open.
+                    PyFileDescriptors.Get((int)fd);
+                }
+            }
+            long old = _wakeupFd;
+            _wakeupFd = fd;
+            _wakeupWarnOnFullBuffer = warnOnFullBuffer;
+            _wakeupUseSend = isSocket;
+            return PyInt.From(old);
+        }
+
+        // trip_signal's write of the signal number to the wakeup fd. A failure is not reported
+        // (CPython reports it through a pending call, report_wakeup_send_error).
+        private static void WriteWakeup(int number)
+        {
+            long fd = _wakeupFd;
+            if (fd == -1)
+                return;
+            var data = new[] { (byte)number };
+            try
+            {
+                if (_wakeupUseSend)
+                    SocketHandles.Get(fd)?.Send(data, System.Net.Sockets.SocketFlags.None);
+                else
+                    PyFileDescriptors.Get((int)fd).Write(data, 0, 1);
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        // trip_signal: the handler runs in the main thread, at its next eval breaker; the wakeup fd is
+        // written after the flags are set (bpo-30038).
         internal static void Trip(int number)
         {
             if (number < 1 || number >= NSIG)
@@ -123,6 +180,7 @@ namespace SharpPy.Modules
                 Tripped.Enqueue(number);
             PyGil.InterruptPending = true;
             PyPending.Flag = true;
+            WriteWakeup(number);
             if (PyVM.Instance.BoundState.IsMain)
                 RunPending();
         }
