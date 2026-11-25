@@ -7,6 +7,8 @@ namespace SharpPy.Modules
         {
             var module = new PyModule("_opcode");
             module.ModuleDict["stack_effect"] = new PyBuiltinFunction("stack_effect", StackEffect);
+            // _opcode_get_specialization_stats_impl: None in a build without Py_STATS.
+            module.ModuleDict["get_specialization_stats"] = PyArgs.NoArgsFunction("_opcode", "get_specialization_stats", () => PyNone.Instance);
             return module;
         }
 
